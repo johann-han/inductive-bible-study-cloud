@@ -168,6 +168,14 @@
       #globalTranslationSelect { max-width: 120px; }
     }
 
+    /* Once a book is selected, let the navigation drawer close on both phone and desktop. */
+    #sidebar.sidebar-collapsed {
+      position: absolute !important;
+      left: 0;
+      top: 0;
+      transform: translateX(-100%) !important;
+    }
+
   </style>
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0f172a">
@@ -181,7 +189,7 @@
   <!-- TOP HEADER NAVBAR -->
   <header class="bg-slate-900 text-white border-b border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between shrink-0 shadow-md z-30 min-h-[52px]">
     <div class="flex items-center space-x-2 sm:space-x-3">
-      <button id="mobileMenuBtn" aria-label="Open navigation sidebar" class="md:hidden text-slate-300 hover:text-white p-1.5 rounded-lg active:bg-slate-800">
+      <button id="mobileMenuBtn" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation sidebar" class="text-slate-300 hover:text-white p-1.5 rounded-lg active:bg-slate-800">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
       </button>
       <div class="flex items-center space-x-2">
@@ -1122,8 +1130,12 @@
           renderScripture();
           renderBooksList();
           
-          document.getElementById('sidebar')?.classList.add('-translate-x-full');
+          const sidebar = document.getElementById('sidebar');
+          sidebar?.classList.add('sidebar-collapsed', '-translate-x-full');
           document.getElementById('mobileBackdrop')?.classList.add('hidden');
+          const menuButton = document.getElementById('mobileMenuBtn');
+          menuButton?.setAttribute('aria-expanded', 'false');
+          menuButton?.setAttribute('aria-label', 'Open navigation sidebar');
         };
         booksList.appendChild(btn);
       });
@@ -1253,16 +1265,23 @@
       const toggleSidebar = (show) => {
         if (sidebar && mobileBackdrop) {
           if (show) {
-            sidebar.classList.remove('-translate-x-full');
+            sidebar.classList.remove('sidebar-collapsed', '-translate-x-full');
             mobileBackdrop.classList.remove('hidden');
           } else {
-            sidebar.classList.add('-translate-x-full');
+            sidebar.classList.add('sidebar-collapsed', '-translate-x-full');
             mobileBackdrop.classList.add('hidden');
           }
+          mobileMenuBtn?.setAttribute('aria-expanded', String(show));
+          mobileMenuBtn?.setAttribute('aria-label', show ? 'Close navigation sidebar' : 'Open navigation sidebar');
         }
       };
 
-      if (mobileMenuBtn) mobileMenuBtn.onclick = () => toggleSidebar(true);
+      if (mobileMenuBtn) mobileMenuBtn.onclick = () => {
+        const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+        const isClosed = Boolean(sidebar?.classList.contains('sidebar-collapsed')) ||
+          (!isDesktop && Boolean(sidebar?.classList.contains('-translate-x-full')));
+        toggleSidebar(isClosed);
+      };
       if (closeSidebarMobile) closeSidebarMobile.onclick = () => toggleSidebar(false);
       if (mobileBackdrop) mobileBackdrop.onclick = () => {
         toggleSidebar(false);

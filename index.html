@@ -1700,6 +1700,10 @@
         deleteButton.className = 'text-xs font-semibold bg-slate-100 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded px-3 py-2';
         deleteButton.textContent = 'Delete';
         deleteButton.addEventListener('click', () => {
+          const confirmed = window.confirm(
+            `Delete the saved study for ${record.book} ${record.chapter}? Its notes will be removed from your library and the deletion will sync to your other devices. You can recover the study later from a backup.`
+          );
+          if (!confirmed) return;
           const updatedLibrary = readStudyLibrary();
           const key = studyRecordKey(record.book, Number(record.chapter));
           delete updatedLibrary[key];

@@ -1614,6 +1614,35 @@
       return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
     }
 
+    function formatStudyNotesForCopy(record) {
+      const book = String(record?.book || '');
+      const chapter = Number(record?.chapter);
+      const sections = record?.sections || {};
+      return `${book} ${chapter}\n\n` +
+        `OBSERVE\n${sections.observe || ''}\n\n` +
+        `INTERPRET\n${sections.interpret || ''}\n\n` +
+        `APPLY\n${sections.apply || ''}\n`;
+    }
+
+    async function copyStudyNotes(record, button) {
+      if (!record || !button) return;
+      const originalLabel = button.textContent;
+      try {
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+          throw new Error('Clipboard access is not available in this browser.');
+        }
+        await navigator.clipboard.writeText(formatStudyNotesForCopy(record));
+        button.textContent = 'Copied!';
+        button.classList.add('bg-emerald-100', 'text-emerald-900');
+        window.setTimeout(() => {
+          button.textContent = originalLabel;
+          button.classList.remove('bg-emerald-100', 'text-emerald-900');
+        }, 1800);
+      } catch (error) {
+        window.alert('Could not copy these notes to the clipboard. Please use Export MD instead.');
+      }
+    }
+
     function downloadStudyMarkdown(record) {
       if (!record || !record.book || !Number.isInteger(Number(record.chapter))) return;
       const book = String(record.book);
@@ -1762,6 +1791,13 @@
           loadActiveStudyNote();
           document.getElementById('studyLibraryModal')?.classList.add('hidden');
         });
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded px-3 py-2';
+        copyButton.textContent = 'Copy Notes';
+        copyButton.setAttribute('aria-label', `Copy ${record.book} ${record.chapter} notes to clipboard`);
+        copyButton.addEventListener('click', () => copyStudyNotes(record, copyButton));
+
         const exportButton = document.createElement('button');
         exportButton.type = 'button';
         exportButton.className = 'text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white rounded px-3 py-2';
@@ -1793,7 +1829,7 @@
             scheduleCloudStudySync();
           }
         });
-        actions.append(openButton, exportButton, deleteButton);
+        actions.append(openButton, copyButton, exportButton, deleteButton);
         card.append(details, actions);
         list.appendChild(card);
       });

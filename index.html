@@ -1,0 +1,2001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Inductive Bible Study Workspace</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase browser client for per-user cloud study sync. The public anon key is served by /api/config; secret keys stay server-side. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- sql.js (SQLite WebAssembly) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 4px; }
+    
+    .highlight-observation { background-color: rgba(253, 224, 71, 0.35); border-bottom: 2px solid #eab308; }
+    .highlight-interpretation { background-color: rgba(16, 185, 129, 0.25); border-bottom: 2px solid #059669; }
+    
+    .strongs-tag {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.72em;
+      line-height: 1;
+      margin: 0 3px;
+      padding: 1px 4px;
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+      border-radius: 4px;
+      font-weight: 800;
+      font-family: monospace;
+      cursor: pointer;
+      user-select: none;
+      vertical-align: baseline;
+      transition: all 0.15s ease;
+    }
+    .strongs-tag:hover {
+      background-color: #f59e0b;
+      color: #ffffff;
+    }
+    .strongs-word {
+      cursor: pointer;
+      text-decoration: underline dotted #d97706;
+      font-weight: 500;
+    }
+    .strongs-word:hover {
+      color: #b45309;
+    }
+
+    /* Clear visual feedback for the selected AI Mentor prompt mode. */
+    .aiPromptChip {
+      transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+    }
+    .aiPromptChip:not(.is-active) {
+      background-color: #1e293b !important;
+      color: #e2e8f0 !important;
+      border-color: #334155 !important;
+    }
+    .aiPromptChip.is-active {
+      background-color: #d97706 !important;
+      color: #0f172a !important;
+      border-color: #fbbf24 !important;
+      box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.22);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
+
+  <!-- TOP HEADER NAVBAR -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between shrink-0 shadow-md z-30 min-h-[52px]">
+    <div class="flex items-center space-x-2 sm:space-x-3">
+      <button id="mobileMenuBtn" aria-label="Open navigation sidebar" class="md:hidden text-slate-300 hover:text-white p-1.5 rounded-lg active:bg-slate-800">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+      <div class="flex items-center space-x-2">
+        <div class="bg-amber-600/20 text-amber-400 p-1.5 sm:p-2 rounded-lg border border-amber-500/30">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+        </div>
+        <div class="hidden xs:block">
+          <h1 class="text-sm sm:text-base font-bold text-white leading-tight">Inductive Study</h1>
+          <p class="text-[10px] text-slate-400 hidden lg:block">STEPBible Lexicon & KJV Word Annotations</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Passage Bar & Controls -->
+    <div class="flex items-center space-x-1.5 sm:space-x-2">
+      <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
+        <span id="currentPassageLabel" class="truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">Genesis 1</span>
+        <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+      </button>
+
+      <select id="globalTranslationSelect" aria-label="Bible translation selector" class="bg-slate-800 text-amber-400 text-xs font-semibold px-1.5 sm:px-2 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500 transition max-w-[90px] xs:max-w-[110px] sm:max-w-[140px] truncate">
+        <option value="KJV" data-abbr="KJV">KJV (King James)</option>
+        <option value="ASV" data-abbr="ASV">ASV (American Standard)</option>
+        <option value="WEB" data-abbr="WEB">WEB (World English)</option>
+        <option value="BBE" data-abbr="BBE">BBE (Basic English)</option>
+      </select>
+
+      <button id="toggleStrongsBtn" title="Toggle available Strong's tags" class="bg-amber-600 text-slate-950 font-extrabold text-xs px-2.5 py-1.5 rounded-lg border border-amber-500 transition flex items-center space-x-1 active:scale-95">
+        <span>🏷️ <span id="strongsStatusLabel" class="text-slate-950 font-extrabold">ON</span></span>
+      </button>
+
+      <button id="toggleWorkspaceMobile" class="md:hidden bg-slate-800 text-amber-400 p-1.5 rounded-lg border border-slate-700 text-xs font-bold flex items-center space-x-1">
+        <span>📝 Notes</span>
+      </button>
+
+      <button id="cloudAccountBtn" title="Sign in to sync studies across devices" class="bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1 shrink-0">
+        <span>☁</span><span id="cloudAccountLabel" class="hidden sm:inline">Cloud</span>
+      </button>
+
+      <button id="toggleAiBtn" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs px-2.5 sm:px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-1">
+        <span>🤖 <span class="hidden sm:inline">AI Guide</span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <div class="flex-1 flex overflow-hidden relative">
+    <div id="mobileBackdrop" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+
+    <!-- LEFT SIDEBAR: BIBLE CANON BROWSER -->
+    <aside id="sidebar" class="absolute md:relative z-30 w-72 md:w-64 h-full bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-xl md:shadow-none">
+      <div class="p-3 border-b border-slate-200 flex items-center justify-between">
+        <input type="text" id="bookSearchInput" placeholder="Search 66 books..." class="w-full bg-slate-50 text-slate-900 text-xs px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:border-amber-600">
+        <button id="closeSidebarMobile" class="md:hidden ml-2 text-slate-500 p-1 font-bold text-lg">&times;</button>
+      </div>
+      <div class="flex border-b border-slate-200 text-xs font-semibold text-slate-600 bg-slate-50">
+        <button id="tabOT" class="flex-1 py-2 text-center border-b-2 border-amber-600 text-amber-700 bg-white font-bold">Old Testament (39)</button>
+        <button id="tabNT" class="flex-1 py-2 text-center border-b-2 border-transparent text-slate-600 hover:text-slate-900">New Testament (27)</button>
+      </div>
+      <div id="booksList" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+    </aside>
+
+    <!-- MIDDLE COLUMN: SCRIPTURE READER & WORKSPACE -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden bg-slate-100 min-w-0">
+      <section class="flex-1 flex flex-col border-r border-slate-200 overflow-hidden bg-white relative min-w-0">
+        <div class="bg-slate-50 border-b border-slate-200 p-2.5 sm:p-3 flex flex-col gap-2 shrink-0">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-1.5 sm:space-x-2">
+              <button id="prevChapterBtn" aria-label="Previous chapter" class="p-1 rounded hover:bg-slate-200 text-slate-700 font-bold text-sm sm:text-base">&larr;</button>
+              <h2 id="activeBookTitle" class="text-sm sm:text-lg font-bold text-slate-900 cursor-pointer hover:text-amber-700 transition">Genesis 1</h2>
+              <span id="activeTranslationBadge" class="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded">KJV</span>
+              <button id="nextChapterBtn" aria-label="Next chapter" class="p-1 rounded hover:bg-slate-200 text-slate-700 font-bold text-sm sm:text-base">&rarr;</button>
+            </div>
+            <div class="flex items-center space-x-2 text-[11px] sm:text-xs text-slate-500">
+              <button id="selectAllVersesBtn" class="hover:text-amber-700 font-medium">Select All</button>
+              <span>•</span>
+              <button id="clearVerseSelectionBtn" class="hover:text-amber-700 font-medium">Clear</button>
+            </div>
+          </div>
+          <div id="chapterPillContainer" class="flex items-center space-x-1.5 overflow-x-auto py-1 text-xs"></div>
+        </div>
+
+        <div id="scriptureContainer" class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 leading-relaxed bg-white pb-28 md:pb-8"></div>
+
+        <div id="verseSelectionBar" class="hidden absolute bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 p-2.5 sm:p-3 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-100 shadow-2xl gap-2 z-10">
+          <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
+            <span class="font-bold bg-amber-500 text-slate-950 px-2 py-0.5 rounded shrink-0" id="selectedVersesCount">0 selected</span>
+            <span id="selectedVersesSummary" class="text-amber-200 truncate max-w-[200px] sm:max-w-xs"></span>
+          </div>
+          <div class="flex items-center space-x-1.5 flex-wrap justify-end w-full sm:w-auto">
+            <button id="btnHighlightObserve" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 px-2.5 py-1 rounded font-semibold text-[11px] shadow">Observe</button>
+            <button id="btnHighlightInterpret" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded font-semibold text-[11px] shadow">Interpret</button>
+            <button id="sendVersesToAiBtn" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-2.5 py-1 rounded shadow">Ask AI</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- STUDY WORKSPACE PANEL -->
+      <section id="workspacePanel" class="fixed inset-y-0 right-0 z-30 w-full sm:w-96 lg:w-80 xl:w-96 bg-slate-50 flex flex-col border-l border-slate-200 overflow-hidden transition-transform duration-300 translate-x-full lg:translate-x-0 lg:static shadow-2xl lg:shadow-none shrink-0">
+        <div class="flex border-b border-slate-200 bg-white text-xs font-semibold text-slate-600">
+          <button id="wsTabObserve" class="flex-1 py-3 text-center border-b-2 border-amber-600 text-amber-700 bg-slate-50 font-bold">Observe</button>
+          <button id="wsTabInterpret" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Interpret</button>
+          <button id="wsTabApply" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Apply</button>
+          <button id="closeWorkspaceMobile" class="lg:hidden px-3 text-slate-500 hover:text-slate-900 font-bold text-base">&times;</button>
+        </div>
+
+        <div class="p-3 bg-white border-b border-slate-200 flex items-center justify-between">
+          <span class="text-xs font-bold text-amber-800 truncate pr-2" id="workspaceNoteTitle">Genesis 1 - Observe Notes</span>
+          <div class="flex items-center space-x-2 shrink-0">
+            <button id="openStudyLibraryBtn" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-1 rounded font-semibold">My Studies</button>
+            <button id="exportMarkdownBtn" class="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded font-semibold">Export MD</button>
+            <span id="noteSaveStatus" class="text-[10px] text-slate-400 hidden sm:inline">Saved locally</span>
+          </div>
+        </div>
+
+        <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
+          <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
+          <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
+            <span>✨ Ask AI to Guide My Active Notes</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- LOCAL STUDY LIBRARY -->
+    <div id="studyLibraryModal" class="hidden fixed inset-0 z-[70] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyLibraryTitle">
+      <section class="w-full max-w-2xl max-h-[85vh] bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+        <header class="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+          <div>
+            <h2 id="studyLibraryTitle" class="text-base font-bold text-slate-900">My Saved Studies</h2>
+            <p class="text-xs text-slate-500 mt-1">Local backup, plus optional cloud sync across devices</p>
+          </div>
+          <button id="closeStudyLibraryBtn" class="text-slate-500 hover:text-slate-900 text-2xl leading-none px-2" aria-label="Close study library">&times;</button>
+        </header>
+        <div id="studyLibraryList" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2">
+          <p class="text-sm text-slate-500">Your saved studies will appear here.</p>
+        </div>
+        <footer class="p-3 border-t border-slate-200 bg-slate-50 text-xs text-slate-500">
+          This library is saved locally. Sign in through Cloud to sync it securely across your devices. Export Markdown for an extra backup.
+        </footer>
+      </section>
+    </div>
+
+    <!-- CLOUD ACCOUNT / SYNC DIALOG -->
+    <div id="cloudAccountModal" class="hidden fixed inset-0 z-[80] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="cloudAccountTitle">
+      <section class="w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+        <header class="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+          <div>
+            <h2 id="cloudAccountTitle" class="text-base font-bold text-slate-900">Cloud Study Sync</h2>
+            <p class="text-xs text-slate-500 mt-1">Use the same account on your computer and phone.</p>
+          </div>
+          <button id="closeCloudAccountBtn" class="text-slate-500 hover:text-slate-900 text-2xl leading-none px-2" aria-label="Close cloud sync">&times;</button>
+        </header>
+        <div class="p-4 space-y-3">
+          <div id="cloudSyncStatus" class="rounded-lg bg-slate-100 border border-slate-200 p-3 text-sm text-slate-700" role="status" aria-live="polite">Checking cloud configuration…</div>
+          <form id="cloudAuthForm" class="space-y-2">
+            <label for="cloudEmail" class="block text-xs font-semibold text-slate-700">Email address</label>
+            <input id="cloudEmail" type="email" autocomplete="email" required placeholder="you@example.com" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-amber-600">
+            <label for="cloudPassword" class="block text-xs font-semibold text-slate-700">Password</label>
+            <input id="cloudPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="At least 8 characters" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-amber-600">
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button id="cloudSignInBtn" type="button" class="bg-amber-600 hover:bg-amber-500 text-slate-950 rounded-lg px-3 py-2 text-sm font-bold">Sign in</button>
+              <button id="cloudSignUpBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-white rounded-lg px-3 py-2 text-sm font-semibold">Create account</button>
+              <button id="cloudSignOutBtn" type="button" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold">Sign out</button>
+              <button id="cloudSyncNowBtn" type="button" class="hidden bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg px-3 py-2 text-sm font-semibold">Sync studies now</button>
+            </div>
+          </form>
+          <p class="text-xs text-slate-500 leading-relaxed">First sync merges this browser's saved studies with cloud studies, choosing the most recently edited version of each chapter. Your local studies are not erased by signing in. Use a strong, unique password.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- RIGHT DRAWER: AI MENTOR -->
+    <aside id="aiDrawer" class="absolute right-0 top-0 z-40 w-full sm:w-96 h-full bg-slate-900 text-white border-l border-slate-800 flex flex-col transition-transform duration-300 translate-x-full shadow-2xl">
+      <div class="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="bg-amber-500/20 text-amber-400 p-1.5 rounded-lg border border-amber-500/30">🤖</div>
+          <div>
+            <h3 class="text-xs font-bold text-white">AI Hermeneutic Study Guide</h3>
+            <p id="aiContextStatus" class="text-[10px] text-amber-400 truncate max-w-[200px]">Context: Genesis 1 (KJV)</p>
+          </div>
+        </div>
+        <button id="closeAiDrawerBtn" aria-label="Close AI mentor drawer" class="text-slate-400 hover:text-white p-1 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="p-2 bg-slate-900 border-b border-slate-800 flex items-center space-x-1.5 overflow-x-auto text-[11px]">
+        <button class="aiPromptChip bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold px-2.5 py-1 rounded-full whitespace-nowrap border border-amber-500/30 shrink-0" data-prompt="Analyze my notes and tell me what inductive observations or questions I am missing.">🔍 Analyze My Notes</button>
+        <button class="aiPromptChip bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-700 shrink-0" data-prompt="Explain the core theological meaning and historical context of this passage.">📖 Passage Meaning</button>
+        <button class="aiPromptChip bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-700 shrink-0" data-prompt="Give me 3 personal application questions and action points based on this scripture.">🎯 Life Application</button>
+      </div>
+
+      <div id="aiChatStream" class="flex-1 overflow-y-auto p-3 space-y-3 text-xs">
+        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-slate-200 leading-relaxed">
+          <p class="font-bold text-amber-400 mb-1">✨ Strong's Lexicon Ready</p>
+          <p>Known Strong's mappings are available in the local demo lexicon. Unknown words are left untagged rather than assigned invented Strong's numbers.</p>
+        </div>
+      </div>
+
+      <div class="p-3 border-t border-slate-800 bg-slate-950">
+        <form id="aiChatForm" class="flex items-center space-x-2">
+          <input type="text" id="aiInput" placeholder="Ask for study steps, historical context..." class="flex-1 bg-slate-900 text-slate-100 text-xs px-3 py-2.5 rounded-lg border border-slate-800 focus:outline-none focus:border-amber-500">
+          <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-slate-950 px-3 py-2.5 rounded-lg font-bold shrink-0">Ask</button>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <!-- PASSAGE SELECTOR MODAL -->
+  <div id="passageModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white border border-slate-200 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-900">
+      <div class="p-4 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold">Select Book & Chapter</h3>
+        <button id="closePassageModalBtn" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+      <div class="p-4 overflow-y-auto space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Select Book:</label>
+          <select id="modalBookSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:border-amber-600"></select>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Select Chapter:</label>
+          <select id="modalChapterSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs font-semibold focus:outline-none focus:border-amber-600"></select>
+        </div>
+      </div>
+      <div class="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button id="confirmPassageJumpBtn" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs shadow">Go to Passage</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRONG’S LEXICON MODAL -->
+  <div id="strongsModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white border border-slate-200 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col text-slate-900 max-h-[90vh]">
+      <div class="p-4 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2 truncate">
+          <span class="bg-amber-500/20 text-amber-400 font-mono text-xs font-bold px-2 py-0.5 rounded border border-amber-500/30 shrink-0" id="strongsNumberBadge">H0430</span>
+          <h3 class="text-sm font-bold truncate" id="strongsOriginalWord">Strong’s Lexicon</h3>
+        </div>
+        <button id="closeStrongsModalBtn" class="text-slate-400 hover:text-white font-bold text-xl ml-2">&times;</button>
+      </div>
+      
+      <div class="p-4 space-y-3 text-xs text-slate-700 overflow-y-auto">
+        <div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded border border-slate-200 text-[11px]">
+          <div><strong class="text-slate-900">Transliteration:</strong> <span id="strongsTranslit" class="italic text-amber-800 font-semibold">Loading...</span></div>
+          <div><strong class="text-slate-900">Phonetic:</strong> <span id="strongsPhonetic">Loading...</span></div>
+          <div><strong class="text-slate-900">Morphology / POS:</strong> <span id="strongsPos">Loading...</span></div>
+          <div><strong class="text-slate-900">Gloss:</strong> <span id="strongsGloss" class="font-medium text-slate-900">Loading...</span></div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-amber-800 uppercase text-[10px] tracking-wider mb-1">Lexicon Definition</h4>
+          <p id="strongsDefinition" class="bg-amber-50/60 p-2.5 rounded border border-amber-200 text-slate-800 leading-relaxed font-serif text-sm">
+            Fetching definition...
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-700 uppercase text-[10px] tracking-wider mb-1">Biblical Usage & Source Record</h4>
+          <p id="strongsKjvUsage" class="text-slate-600">Loading usage...</p>
+          <a id="strongsSourceLink" class="hidden inline-block mt-2 text-amber-800 underline font-semibold" href="#" target="_blank" rel="noopener noreferrer">Open STEPBible source record (JSON)</a>
+        </div>
+
+        <div class="text-[10px] text-slate-400 border-t border-slate-200 pt-2 flex items-center justify-between">
+          <span>Engine: Online lexicon lookup</span>
+          <span>Source: STEPBible (CC BY 4.0)</span>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+        <button id="copyStrongsToNotesBtn" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg font-bold shadow w-full text-center">📋 Copy Lexicon Entry to Notes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 66 Books Canon Data Structure
+    const BIBLE_CANON = [
+      { name: "Genesis", testament: "OT", chapters: 50 },
+      { name: "Exodus", testament: "OT", chapters: 40 },
+      { name: "Leviticus", testament: "OT", chapters: 27 },
+      { name: "Numbers", testament: "OT", chapters: 36 },
+      { name: "Deuteronomy", testament: "OT", chapters: 34 },
+      { name: "Joshua", testament: "OT", chapters: 24 },
+      { name: "Judges", testament: "OT", chapters: 21 },
+      { name: "Ruth", testament: "OT", chapters: 4 },
+      { name: "1 Samuel", testament: "OT", chapters: 31 },
+      { name: "2 Samuel", testament: "OT", chapters: 24 },
+      { name: "1 Kings", testament: "OT", chapters: 22 },
+      { name: "2 Kings", testament: "OT", chapters: 25 },
+      { name: "1 Chronicles", testament: "OT", chapters: 29 },
+      { name: "2 Chronicles", testament: "OT", chapters: 36 },
+      { name: "Ezra", testament: "OT", chapters: 10 },
+      { name: "Nehemiah", testament: "OT", chapters: 13 },
+      { name: "Esther", testament: "OT", chapters: 10 },
+      { name: "Job", testament: "OT", chapters: 42 },
+      { name: "Psalms", testament: "OT", chapters: 150 },
+      { name: "Proverbs", testament: "OT", chapters: 31 },
+      { name: "Ecclesiastes", testament: "OT", chapters: 12 },
+      { name: "Song of Solomon", testament: "OT", chapters: 8 },
+      { name: "Isaiah", testament: "OT", chapters: 66 },
+      { name: "Jeremiah", testament: "OT", chapters: 52 },
+      { name: "Lamentations", testament: "OT", chapters: 5 },
+      { name: "Ezekiel", testament: "OT", chapters: 48 },
+      { name: "Daniel", testament: "OT", chapters: 12 },
+      { name: "Hosea", testament: "OT", chapters: 14 },
+      { name: "Joel", testament: "OT", chapters: 3 },
+      { name: "Amos", testament: "OT", chapters: 9 },
+      { name: "Obadiah", testament: "OT", chapters: 1 },
+      { name: "Jonah", testament: "OT", chapters: 4 },
+      { name: "Micah", testament: "OT", chapters: 7 },
+      { name: "Nahum", testament: "OT", chapters: 3 },
+      { name: "Habakkuk", testament: "OT", chapters: 3 },
+      { name: "Zephaniah", testament: "OT", chapters: 3 },
+      { name: "Haggai", testament: "OT", chapters: 2 },
+      { name: "Zechariah", testament: "OT", chapters: 14 },
+      { name: "Malachi", testament: "OT", chapters: 4 },
+      { name: "Matthew", testament: "NT", chapters: 28 },
+      { name: "Mark", testament: "NT", chapters: 16 },
+      { name: "Luke", testament: "NT", chapters: 24 },
+      { name: "John", testament: "NT", chapters: 21 },
+      { name: "Acts", testament: "NT", chapters: 28 },
+      { name: "Romans", testament: "NT", chapters: 16 },
+      { name: "1 Corinthians", testament: "NT", chapters: 16 },
+      { name: "2 Corinthians", testament: "NT", chapters: 13 },
+      { name: "Galatians", testament: "NT", chapters: 6 },
+      { name: "Ephesians", testament: "NT", chapters: 6 },
+      { name: "Philippians", testament: "NT", chapters: 4 },
+      { name: "Colossians", testament: "NT", chapters: 4 },
+      { name: "1 Thessalonians", testament: "NT", chapters: 5 },
+      { name: "2 Thessalonians", testament: "NT", chapters: 3 },
+      { name: "1 Timothy", testament: "NT", chapters: 6 },
+      { name: "2 Timothy", testament: "NT", chapters: 4 },
+      { name: "Titus", testament: "NT", chapters: 3 },
+      { name: "Philemon", testament: "NT", chapters: 1 },
+      { name: "Hebrews", testament: "NT", chapters: 13 },
+      { name: "James", testament: "NT", chapters: 5 },
+      { name: "1 Peter", testament: "NT", chapters: 5 },
+      { name: "2 Peter", testament: "NT", chapters: 3 },
+      { name: "1 John", testament: "NT", chapters: 5 },
+      { name: "2 John", testament: "NT", chapters: 1 },
+      { name: "3 John", testament: "NT", chapters: 1 },
+      { name: "Jude", testament: "NT", chapters: 1 },
+      { name: "Revelation", testament: "NT", chapters: 22 }
+    ];
+
+    // Free Use Bible API identifiers. The KJV text and its Strong's annotations
+    // are fetched from the same API so character offsets match the displayed words.
+    const HELLOAO_BOOK_IDS = {
+      "Genesis":"GEN", "Exodus":"EXO", "Leviticus":"LEV", "Numbers":"NUM", "Deuteronomy":"DEU",
+      "Joshua":"JOS", "Judges":"JDG", "Ruth":"RUT", "1 Samuel":"1SA", "2 Samuel":"2SA",
+      "1 Kings":"1KI", "2 Kings":"2KI", "1 Chronicles":"1CH", "2 Chronicles":"2CH", "Ezra":"EZR",
+      "Nehemiah":"NEH", "Esther":"EST", "Job":"JOB", "Psalms":"PSA", "Proverbs":"PRO",
+      "Ecclesiastes":"ECC", "Song of Solomon":"SNG", "Isaiah":"ISA", "Jeremiah":"JER", "Lamentations":"LAM",
+      "Ezekiel":"EZK", "Daniel":"DAN", "Hosea":"HOS", "Joel":"JOL", "Amos":"AMO", "Obadiah":"OBA",
+      "Jonah":"JON", "Micah":"MIC", "Nahum":"NAM", "Habakkuk":"HAB", "Zephaniah":"ZEP", "Haggai":"HAG",
+      "Zechariah":"ZEC", "Malachi":"MAL", "Matthew":"MAT", "Mark":"MRK", "Luke":"LUK", "John":"JHN",
+      "Acts":"ACT", "Romans":"ROM", "1 Corinthians":"1CO", "2 Corinthians":"2CO", "Galatians":"GAL",
+      "Ephesians":"EPH", "Philippians":"PHP", "Colossians":"COL", "1 Thessalonians":"1TH",
+      "2 Thessalonians":"2TH", "1 Timothy":"1TI", "2 Timothy":"2TI", "Titus":"TIT", "Philemon":"PHM",
+      "Hebrews":"HEB", "James":"JAS", "1 Peter":"1PE", "2 Peter":"2PE", "1 John":"1JN", "2 John":"2JN",
+      "3 John":"3JN", "Jude":"JUD", "Revelation":"REV"
+    };
+
+    const appState = {
+      currentBook: "Genesis",
+      currentChapter: 1,
+      currentTranslation: "KJV",
+      currentTranslationAbbr: "KJV",
+      activeTab: "OT",
+      activeNotesSection: "observe",
+      strongsActive: true,
+      selectedVerses: new Set(),
+      highlights: { observation: new Set(), interpretation: new Set() },
+      db: null,
+      currentModalLexicon: null,
+      currentWordAnnotations: Object.create(null),
+      annotationSource: null,
+      scriptureSource: null
+    };
+    const scriptureChapterCache = new Map();
+
+    // Words that should not receive Strong's tags (stop words)
+    const STOP_WORDS = new Set([
+      'a','an','and','are','as','at','be','by','for','from','has','he','in','is','it',
+      'its','of','on','that','the','to','was','were','will','with','you','your','this',
+      'there','their','they','them','shall','unto','not','or','but','if','so'
+    ]);
+
+    // Simple deterministic hash to map any English word to a consistent Strong's ID range
+    function getWordHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
+
+    function isCurrentBookOT() {
+      const bookObj = BIBLE_CANON.find(b => b.name === appState.currentBook);
+      return !bookObj || bookObj.testament === 'OT';
+    }
+
+    // Initialize embedded SQLite database
+    async function initSQLiteLexicon() {
+      try {
+        if (typeof initSqlJs === 'function') {
+          const SQL = await initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` });
+          appState.db = new SQL.Database();
+
+          appState.db.run(`
+            CREATE TABLE lexicon (
+              id TEXT PRIMARY KEY,
+              lemma TEXT,
+              translit TEXT,
+              phonetic TEXT,
+              pos TEXT,
+              gloss TEXT,
+              def TEXT,
+              usage TEXT,
+              source TEXT
+            );
+            CREATE TABLE word_map (
+              word TEXT PRIMARY KEY,
+              strong_id TEXT
+            );
+          `);
+
+          // Seed key explicit entries
+          const mappings = [
+            ['beginning', 'H7225'], ['god', 'H0430'], ['created', 'H1254'], ['heaven', 'H8064'],
+            ['heavens', 'H8064'], ['earth', 'H0776'], ['form', 'H8414'], ['void', 'H0922'],
+            ['darkness', 'H2822'], ['deep', 'H8415'], ['spirit', 'H7307'], ['moved', 'H7363'],
+            ['waters', 'H4325'], ['water', 'H4325'], ['said', 'H0559'], ['light', 'H0216'],
+            ['saw', 'H7200'], ['good', 'H2896'], ['divided', 'H0914'], ['called', 'H7121'],
+            ['day', 'H3117'], ['night', 'H3915'], ['evening', 'H6153'], ['morning', 'H1242'],
+            ['first', 'H0259'], ['firmament', 'H7549'], ['midst', 'H8432'], ['made', 'H6213'],
+            ['under', 'H8478'], ['above', 'H5921'], ['second', 'H8145'], ['gathered', 'H6960'],
+            ['place', 'H4725'], ['dry', 'H3004'], ['land', 'H3004'], ['appear', 'H7200'],
+            ['third', 'H7992'], ['seas', 'H3220'], ['word', 'G3056'], ['love', 'G0026'], ['grace', 'G5485']
+          ];
+
+          const mapStmt = appState.db.prepare("INSERT INTO word_map VALUES (?, ?)");
+          mappings.forEach(row => mapStmt.run(row));
+          mapStmt.free();
+
+          const lexEntries = [
+            ['H6153', 'עֶרֶב (ʿereb)', 'ʿereb', "EH-reb (eh'-reb)", 'Noun masculine', 'Evening / dusk / sunset', 'Evening or dusk; the period as daylight fades and night begins. Strong’s Hebrew H6153.', 'Listed in Genesis 1:5; also occurs throughout the Hebrew Bible. Source: BibleHub Strong’s Hebrew 6153 (https://biblehub.com/strongs/hebrew/6153.htm).', 'BibleHub Strong’s Hebrew 6153'],
+            ['H0430', 'אֱלֹהִים (Elohim)', 'elohim', 'el-o-heem\'', 'Noun Masculine Plural', 'God / Divine Being / Supreme Deity', 'Plural of H0436; gods in the ordinary sense; specifically used of the supreme God.', 'Occurs 2,602 times in OT.', 'TBESH'],
+            ['H7225', 'רֵאשִׁית (Reshiyth)', 'reshith', 'ray-sheeth\'', 'Noun Feminine', 'Beginning / First / Chief', 'The first in place, time, order, or rank.', 'Occurs 50 times in OT.', 'TBESH'],
+            ['H1254', 'בָּרָא (Bara)', 'bara', 'baw-raw\'', 'Verb (Qal)', 'Create / Shape / Form', 'To create; exclusively used in Scripture for divine creation.', 'Occurs 54 times in OT.', 'TBESH'],
+            ['H8064', 'שָׁמַיִם (Shamayim)', 'shamayim', 'shaw-mah\'-yim', 'Noun Masculine Plural', 'Heaven / Sky / Expanse', 'The sky or visible firmament, as well as the abode of God.', 'Occurs 420 times in OT.', 'TBESH'],
+            ['H0776', 'אֶרֶץ (Erets)', 'erets', 'eh\'-rets', 'Noun Feminine', 'Earth / Land / World', 'The earth at large or a specific land.', 'Occurs 2,504 times in OT.', 'TBESH'],
+            ['H0216', 'אוֹר (Or)', 'or', 'ore', 'Noun Masculine', 'Light / Illumination', 'Illumination or luminary (light, daybreak, divine order).', 'Occurs 120 times in OT.', 'TBESH'],
+            ['H7549', 'רָקִיעַ (Raqi\'a)', 'raqia', 'raw-kee\'-ah', 'Noun Masculine', 'Firmament / Expanse', 'An expanse, firmament, or canopy of the sky.', 'Occurs 17 times in OT.', 'TBESH'],
+            ['H2896', 'טוֹב (Towb)', 'tov', 'tobe', 'Adjective', 'Good / Pleasant', 'Good in the widest sense (moral, functional, aesthetic).', 'Occurs 559 times in OT.', 'TBESH'],
+            ['G3056', 'λόγος (Logos)', 'logos', 'log\'-os', 'Noun Masculine', 'Word / Statement / Divine Expression', 'A word uttered by a divine or human voice; divine reason or message.', 'Occurs 330 times in NT.', 'TBESG'],
+            ['G0026', 'ἀγάπη (Agape)', 'agape', 'ag-ah\'-pay', 'Noun Feminine', 'Love / Divine Benevolence', 'Love, goodwill, benevolence; brotherly affection, divine love.', 'Occurs 116 times in NT.', 'TBESG'],
+            ['G5485', 'χάρις (Charis)', 'charis', 'khar\'-ece', 'Noun Feminine', 'Grace / Favor / Gift', 'Grace, favor, divine influence upon the heart.', 'Occurs 156 times in NT.', 'TBESG']
+          ];
+
+          const lexStmt = appState.db.prepare("INSERT INTO lexicon VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+          lexEntries.forEach(row => lexStmt.run(row));
+          lexStmt.free();
+        }
+      } catch (err) {
+        console.error("SQLite initialization error:", err);
+      }
+    }
+
+    // Dynamic database search for words with fallback generation for all 66 books
+    function queryDatabaseForWord(word) {
+      const cleanWord = word.toLowerCase().replace(/[^a-z]/g, '');
+      if (!cleanWord || STOP_WORDS.has(cleanWord) || cleanWord.length <= 2) {
+        return null;
+      }
+
+      if (appState.db) {
+        try {
+          const res = appState.db.exec(`SELECT strong_id FROM word_map WHERE word = '${cleanWord}'`);
+          if (res.length > 0 && res[0].values.length > 0) {
+            return res[0].values[0][0];
+          }
+        } catch (e) {
+          console.error("DB Query error:", e);
+        }
+      } 
+      // Do not invent Strong's numbers. Unknown words remain untagged until
+      // a real lexicon or morphology source supplies a verified mapping.
+      return null;
+    }
+
+    // Cache real lexicon records for this session so repeated word studies are fast.
+    const strongsLexiconCache = new Map();
+
+    function normalizeStrongsId(strongsId) {
+      const match = String(strongsId || '').trim().toUpperCase().match(/^([HG])(\d{1,5})$/);
+      if (!match) return null;
+      return match[1] + match[2].padStart(4, '0');
+    }
+
+    function describePartOfSpeech(code) {
+      const labels = {
+        N: 'Noun', V: 'Verb', A: 'Adjective', ADV: 'Adverb', CONJ: 'Conjunction',
+        PREP: 'Preposition', PRON: 'Pronoun', P: 'Preposition', D: 'Adverb / particle',
+        I: 'Interjection', NUM: 'Numeral', INJ: 'Interjection', T: 'Particle'
+      };
+      if (!code) return 'Not supplied by source';
+      const normalized = String(code).trim().toUpperCase();
+      return labels[normalized] || normalized;
+    }
+
+    async function fetchStrongsDataFromDB(strongsId, rawWord) {
+      const id = normalizeStrongsId(strongsId);
+      if (!id) throw new Error('Invalid Strong’s number.');
+      if (strongsLexiconCache.has(id)) return strongsLexiconCache.get(id);
+
+      // STEPBible's published brief lexicon supplies Hebrew, Aramaic, and Greek senses.
+      // Network lookup is preferred over the small legacy sample embedded in this file.
+      try {
+        const response = await fetchWithTimeout(`https://bible.helloao.org/api/d/stepbible-lexicon/lexicon/${encodeURIComponent(id)}.json`, 7000);
+        if (response.ok) {
+          const payload = await response.json();
+          const entry = payload && payload.entry;
+          const senses = entry && Array.isArray(entry.senses) ? entry.senses : [];
+          if (senses.length) {
+            const first = senses[0];
+            const glosses = [...new Set(senses.map(x => x.gloss).filter(Boolean))];
+            const definitions = senses.map((sense, index) => {
+              const heading = sense.gloss ? `${sense.gloss}` : `Sense ${index + 1}`;
+              return `${heading}\n${sense.definition || 'No definition supplied for this sense.'}`;
+            });
+            const result = {
+              id,
+              lemma: first.lemma || entry.id,
+              translit: first.transliteration || 'Not supplied by source',
+              phonetic: 'Not supplied by this lexicon',
+              pos: describePartOfSpeech(first.partOfSpeech),
+              gloss: glosses.join('; ') || 'No gloss supplied by source',
+              def: definitions.join('\n\n'),
+              usage: 'This brief lexicon supplies lexical senses, not verse-occurrence counts. Interpret the word in its immediate passage and context. Data credit: STEPBible.org / Tyndale House, Cambridge (CC BY 4.0); adapted to the Free Use Bible API format.',
+              source: 'STEPBible Brief Lexicons / Tyndale House, Cambridge. CC BY 4.0; adapted for the Free Use Bible API format.',
+              sourceUrl: `https://bible.helloao.org/api/d/stepbible-lexicon/lexicon/${id}.json`
+            };
+            strongsLexiconCache.set(id, result);
+            return result;
+          }
+        }
+      } catch (error) {
+        console.warn('Online Strong’s lookup unavailable or timed out; checking local entries.', error);
+      }
+
+      // Preserve the existing local entries as an offline fallback, but never fabricate a record.
+      if (appState.db) {
+        try {
+          const stmt = appState.db.prepare('SELECT * FROM lexicon WHERE id = ?');
+          stmt.bind([id]);
+          if (stmt.step()) {
+            const row = stmt.get();
+            stmt.free();
+            const result = {
+              id: row[0], lemma: row[1], translit: row[2], phonetic: row[3],
+              pos: row[4], gloss: row[5], def: row[6], usage: row[7], source: row[8]
+            };
+            strongsLexiconCache.set(id, result);
+            return result;
+          }
+          stmt.free();
+        } catch (e) {
+          console.error('Local lexicon lookup error:', e);
+        }
+      }
+      return {
+        id,
+        lemma: 'Lexicon entry unavailable',
+        translit: 'Not available',
+        phonetic: 'Not supplied',
+        pos: 'Not verified',
+        gloss: 'No verified entry loaded',
+        def: 'The lexicon entry could not be retrieved. Check your internet connection and try again. No definition has been generated or guessed.',
+        usage: 'Usage data unavailable.',
+        source: 'No verified record available'
+      };
+    }
+
+    async function fetchWithTimeout(url, timeoutMs = 7000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    async function fetchVersesAsync(book, chapter, translation) {
+      const cacheKey = `${(translation || 'KJV').toUpperCase()}|${book}|${chapter}`;
+      if (scriptureChapterCache.has(cacheKey)) {
+        const cached = scriptureChapterCache.get(cacheKey);
+        appState.currentWordAnnotations = cached.annotations;
+        appState.annotationSource = cached.annotationSource;
+        appState.scriptureSource = cached.scriptureSource;
+        return cached.verses.slice();
+      }
+      appState.currentWordAnnotations = Object.create(null);
+      appState.annotationSource = null;
+      appState.scriptureSource = null;
+
+      // KJV Strong's tags are supplied by the same source as its verse text.
+      // Character offsets therefore remain aligned; no English-word guessing is used.
+      if ((translation || '').toUpperCase() === 'KJV') {
+        const bookId = HELLOAO_BOOK_IDS[book];
+        if (bookId) {
+          try {
+            const base = `https://bible.helloao.org/api/eng_kjv/${bookId}/${chapter}`;
+            const chapterResponse = await fetchWithTimeout(`${base}.simple.json`, 7000);
+            if (!chapterResponse.ok) throw new Error(`KJV chapter request failed (${chapterResponse.status})`);
+            const chapterData = await chapterResponse.json();
+            const items = chapterData?.chapter?.content || [];
+            const verses = items
+              .filter(item => item && item.type === 'verse' && Number.isFinite(Number(item.number)))
+              .map(item => ({ number: Number(item.number), text: String(item.text || '') }));
+
+            if (verses.length) {
+              appState.scriptureSource = 'helloao-kjv';
+              appState.annotationSource = 'KJV chapter loaded; checking word annotations';
+              try {
+                const wordsResponse = await fetchWithTimeout(`${base}.words.simple.json`, 7000);
+                if (wordsResponse.ok) {
+                  const wordsData = await wordsResponse.json();
+                  const byVerse = wordsData && wordsData.verses ? wordsData.verses : {};
+                  for (const [verseNumber, annotations] of Object.entries(byVerse)) {
+                    if (Array.isArray(annotations)) {
+                      appState.currentWordAnnotations[String(verseNumber)] = annotations
+                        .filter(a => Number.isInteger(a.start) && Number.isInteger(a.end) && a.start >= 0 && a.end > a.start)
+                        .map(a => ({ ...a, strongs: Array.isArray(a.strongs) ? a.strongs.filter(id => /^[HG]\d{1,5}[A-Za-z]?$/.test(String(id))) : [] }));
+                    }
+                  }
+                  appState.annotationSource = 'Free Use Bible API KJV word-level annotations';
+                }
+              } catch (annotationError) {
+                console.warn('KJV verse text loaded but Strong’s annotations could not be loaded; words will be left untagged rather than guessed.', annotationError);
+              }
+
+              const verseTexts = verses.map(v => v.text.trim());
+              scriptureChapterCache.set(cacheKey, {
+                verses: verseTexts,
+                annotations: appState.currentWordAnnotations,
+                annotationSource: appState.annotationSource,
+                scriptureSource: appState.scriptureSource
+              });
+              return verseTexts.slice();
+            }
+          } catch (error) {
+            console.warn('KJV annotated source unavailable; using the previous Bible text provider.', error);
+          }
+        }
+      }
+
+      // Existing secondary provider remains for other translations and offline/API fallback.
+      try {
+        const transCode = (translation || 'KJV').toLowerCase();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        let res;
+        try {
+          res = await fetch(`https://bible-api.com/${encodeURIComponent(book + ' ' + chapter)}?translation=${transCode}`, { signal: controller.signal });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.verses) && data.verses.length > 0) {
+            const verseTexts = data.verses.map(v => String(v.text || '').trim().replace(/^\d+\s*/, '').replace(/\s+/g, ' '));
+            appState.scriptureSource = 'bible-api';
+            scriptureChapterCache.set(cacheKey, {
+              verses: verseTexts,
+              annotations: appState.currentWordAnnotations,
+              annotationSource: appState.annotationSource,
+              scriptureSource: appState.scriptureSource
+            });
+            return verseTexts.slice();
+          }
+        }
+      } catch (err) {
+        console.warn('Bible API fetch warning/timeout:', err);
+      }
+
+      // Never pretend that a short sample is an entire chapter.
+      throw new Error(`Could not load ${book} ${chapter}. Check your internet connection and reopen the passage.`);
+    }
+
+    function escapeHTML(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[char]);
+    }
+
+    function formatAnnotatedScriptureText(text, annotations, showStrongs) {
+      const source = String(text || '');
+      if (!showStrongs || !Array.isArray(annotations) || annotations.length === 0) return escapeHTML(source);
+
+      // Annotations are source offsets into this exact KJV verse. Ignore malformed or
+      // overlapping records rather than attaching an incorrect Strong's number.
+      const valid = annotations
+        .filter(a => Array.isArray(a.strongs) && a.strongs.length && Number.isInteger(a.start) && Number.isInteger(a.end)
+          && a.start >= 0 && a.end > a.start && a.end <= source.length)
+        .sort((a, b) => a.start - b.start || a.end - b.end);
+      let html = '';
+      let cursor = 0;
+      for (const annotation of valid) {
+        if (annotation.start < cursor) continue;
+        html += escapeHTML(source.slice(cursor, annotation.start));
+        const word = source.slice(annotation.start, annotation.end);
+        const ids = [...new Set(annotation.strongs.map(normalizeStrongsId).filter(Boolean))];
+        if (!ids.length) {
+          html += escapeHTML(word);
+          cursor = annotation.end;
+          continue;
+        }
+        const firstId = ids[0];
+        const safeWord = escapeHTML(word);
+        const safeWordAttr = escapeHTML(word);
+        html += `<span class="strongs-word" role="button" tabindex="0" data-strongs="${firstId}" data-word="${safeWordAttr}" title="Open ${ids.join(', ')}">${safeWord}</span>`;
+        html += `<sup class="strongs-tag" role="button" tabindex="0" data-strongs="${firstId}" data-word="${safeWordAttr}" title="Open ${ids.join(', ')}">${ids.map(escapeHTML).join('/')}</sup>`;
+        cursor = annotation.end;
+      }
+      html += escapeHTML(source.slice(cursor));
+      return html;
+    }
+
+    function formatScriptureText(text, showStrongs) {
+      const cleanText = String(text).replace(/^\d+\s*/, '');
+      const safeText = escapeHTML(cleanText);
+      if (!showStrongs) return safeText;
+
+      return safeText.replace(/\b([a-zA-Z]{3,})\b/g, word => {
+        const sId = queryDatabaseForWord(word);
+        if (!sId) return word;
+        const safeId = escapeHTML(sId);
+        return `<span class="strongs-word" data-strongs="${safeId}" data-word="${word}">${word}</span><sup class="strongs-tag" data-strongs="${safeId}" data-word="${word}">${safeId}</sup>`;
+      });
+    }
+
+    async function openStrongsModal(strongsId, word) {
+      const modal = document.getElementById('strongsModal');
+      const badge = document.getElementById('strongsNumberBadge');
+      const orig = document.getElementById('strongsOriginalWord');
+      const def = document.getElementById('strongsDefinition');
+      const translit = document.getElementById('strongsTranslit');
+      const phonetic = document.getElementById('strongsPhonetic');
+      const pos = document.getElementById('strongsPos');
+      const gloss = document.getElementById('strongsGloss');
+      const usage = document.getElementById('strongsKjvUsage');
+      const sourceLink = document.getElementById('strongsSourceLink');
+
+      if (sourceLink) {
+        sourceLink.classList.add('hidden');
+        sourceLink.removeAttribute('href');
+      }
+      if (badge) badge.textContent = normalizeStrongsId(strongsId) || String(strongsId);
+      if (orig) orig.textContent = `Strong’s ${strongsId}`;
+      if (def) def.textContent = 'Looking up the verified lexicon entry…';
+      if (translit) translit.textContent = 'Loading…';
+      if (phonetic) phonetic.textContent = 'Not supplied by every source';
+      if (pos) pos.textContent = 'Loading…';
+      if (gloss) gloss.textContent = 'Loading…';
+      if (usage) usage.textContent = 'Retrieving source record…';
+      if (modal) modal.classList.remove('hidden');
+
+      const entry = await fetchStrongsDataFromDB(strongsId, word);
+      appState.currentModalLexicon = entry;
+
+      // The user may have closed the modal or opened another entry while the request ran.
+      if (!modal || modal.classList.contains('hidden') || (badge && badge.textContent !== entry.id)) return;
+      if (orig) orig.textContent = `${entry.lemma} (${entry.id})`;
+      if (translit) translit.textContent = entry.translit || 'Not supplied by source';
+      if (phonetic) phonetic.textContent = entry.phonetic || 'Not supplied by source';
+      if (pos) pos.textContent = entry.pos || 'Not supplied by source';
+      if (gloss) gloss.textContent = entry.gloss || 'No gloss supplied by source';
+      if (def) def.textContent = entry.def || 'No definition supplied by source.';
+      if (usage) usage.textContent = `${entry.usage || 'No usage note supplied.'} Source: ${entry.source || 'Unspecified'}`;
+      if (sourceLink && typeof entry.sourceUrl === 'string' && entry.sourceUrl.startsWith('https://')) {
+        try {
+          const parsedSourceUrl = new URL(entry.sourceUrl);
+          if (parsedSourceUrl.protocol === 'https:') {
+            sourceLink.href = parsedSourceUrl.href;
+            sourceLink.classList.remove('hidden');
+          }
+        } catch (error) {
+          console.warn('Lexicon source URL was invalid and has been hidden.', error);
+        }
+      }
+    }
+
+    async function renderScripture() {
+      const scriptureContainer = document.getElementById('scriptureContainer');
+      const activeBookTitle = document.getElementById('activeBookTitle');
+      const currentPassageLabel = document.getElementById('currentPassageLabel');
+      const activeTranslationBadge = document.getElementById('activeTranslationBadge');
+      const aiContextStatus = document.getElementById('aiContextStatus');
+
+      const bookName = appState.currentBook;
+      const chapterNum = appState.currentChapter;
+
+      if (activeBookTitle) activeBookTitle.textContent = `${bookName} ${chapterNum}`;
+      if (currentPassageLabel) currentPassageLabel.textContent = `${bookName} ${chapterNum}`;
+      if (activeTranslationBadge) activeTranslationBadge.textContent = appState.currentTranslationAbbr;
+      if (aiContextStatus) aiContextStatus.textContent = `Context: ${bookName} ${chapterNum} (${appState.currentTranslationAbbr})`;
+
+      if (scriptureContainer) {
+        scriptureContainer.innerHTML = `
+          <div class="flex items-center justify-center p-8 text-slate-500 space-x-2">
+            <svg class="animate-spin h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-xs font-semibold">Loading passage...</span>
+          </div>
+        `;
+      }
+
+      let verses;
+      try {
+        verses = await fetchVersesAsync(bookName, chapterNum, appState.currentTranslation);
+      } catch (error) {
+        if (!scriptureContainer) return;
+        scriptureContainer.innerHTML = `
+          <div class="m-3 p-4 rounded-lg border border-amber-300 bg-amber-50 text-slate-800" role="alert">
+            <p class="font-bold text-sm mb-1">Passage could not be loaded</p>
+            <p class="text-xs leading-relaxed mb-3">${escapeHTML(error && error.message ? error.message : 'Check your internet connection and try again.')}</p>
+            <button id="retryChapterLoadBtn" class="bg-amber-600 hover:bg-amber-500 text-slate-950 rounded px-3 py-1.5 text-xs font-bold">Retry</button>
+          </div>`;
+        document.getElementById('retryChapterLoadBtn')?.addEventListener('click', () => renderScripture());
+        return;
+      }
+      if (!scriptureContainer) return;
+
+      scriptureContainer.innerHTML = '';
+
+      verses.forEach((verseText, idx) => {
+        const vNum = idx + 1;
+        const vKey = `${bookName} ${chapterNum}:${vNum}`;
+        const isSelected = appState.selectedVerses.has(vKey);
+        const isObs = appState.highlights.observation.has(vKey);
+        const isInt = appState.highlights.interpretation.has(vKey);
+
+        let highlightClass = '';
+        if (isObs) highlightClass = 'highlight-observation';
+        if (isInt) highlightClass = 'highlight-interpretation';
+
+        const verseDiv = document.createElement('div');
+        verseDiv.className = `p-2.5 rounded-lg transition text-sm sm:text-base leading-relaxed flex items-start space-x-3 cursor-pointer ${isSelected ? 'bg-amber-100/90 border border-amber-300 shadow-sm' : 'hover:bg-slate-50'}`;
+        
+        const annotations = appState.currentWordAnnotations[String(vNum)] || [];
+        const renderedText = annotations.length
+          ? formatAnnotatedScriptureText(verseText, annotations, appState.strongsActive)
+          : (appState.scriptureSource === 'helloao-kjv'
+              ? escapeHTML(verseText)
+              : formatScriptureText(verseText, appState.strongsActive));
+
+        verseDiv.innerHTML = `
+          <span class="text-xs font-mono font-bold text-amber-700 pt-1 shrink-0 select-none min-w-[24px] text-right pr-1">${vNum}</span>
+          <p class="flex-1 text-slate-900 ${highlightClass} px-1 rounded">${renderedText}</p>
+        `;
+
+        verseDiv.onclick = (e) => {
+          const strongsElem = e.target.closest('.strongs-word, .strongs-tag');
+          if (strongsElem) {
+            e.stopPropagation();
+            const strongsId = strongsElem.dataset.strongs || 'H0430';
+            const word = strongsElem.dataset.word || strongsElem.innerText || 'Lexicon Word';
+            openStrongsModal(strongsId, word);
+            return;
+          }
+
+          if (appState.selectedVerses.has(vKey)) {
+            appState.selectedVerses.delete(vKey);
+          } else {
+            appState.selectedVerses.add(vKey);
+          }
+          updateVerseSelectionBar();
+          renderScripture();
+        };
+        verseDiv.onkeydown = (e) => {
+          const strongsElem = e.target.closest('.strongs-word, .strongs-tag');
+          if (strongsElem && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            e.stopPropagation();
+            openStrongsModal(strongsElem.dataset.strongs, strongsElem.dataset.word || strongsElem.textContent || '');
+          }
+        };
+
+        scriptureContainer.appendChild(verseDiv);
+      });
+
+      updateVerseSelectionBar();
+    }
+
+    function renderBooksList() {
+      const booksList = document.getElementById('booksList');
+      const searchInput = document.getElementById('bookSearchInput');
+      if (!booksList) return;
+
+      const filter = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      booksList.innerHTML = '';
+
+      const filtered = BIBLE_CANON.filter(b => b.testament === appState.activeTab && b.name.toLowerCase().includes(filter));
+
+      filtered.forEach(b => {
+        const btn = document.createElement('button');
+        const isActive = b.name === appState.currentBook;
+        btn.className = `w-full text-left px-3 py-2 text-xs font-semibold rounded-lg flex items-center justify-between transition ${isActive ? 'bg-amber-600 text-white shadow' : 'text-slate-700 hover:bg-slate-100'}`;
+        btn.innerHTML = `<span></span><span class="text-[10px] opacity-75"></span>`;
+        btn.firstElementChild.textContent = b.name;
+        btn.lastElementChild.textContent = `${b.chapters} ch`;
+        btn.onclick = () => {
+          saveActiveStudyNote();
+          appState.currentBook = b.name;
+          appState.currentChapter = 1;
+          appState.selectedVerses.clear();
+          if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();
+          renderChapterPills();
+          renderScripture();
+          renderBooksList();
+          
+          document.getElementById('sidebar')?.classList.add('-translate-x-full');
+          document.getElementById('mobileBackdrop')?.classList.add('hidden');
+        };
+        booksList.appendChild(btn);
+      });
+    }
+
+    function renderChapterPills() {
+      const pillContainer = document.getElementById('chapterPillContainer');
+      if (!pillContainer) return;
+
+      const bObj = BIBLE_CANON.find(b => b.name === appState.currentBook);
+      pillContainer.innerHTML = '';
+      if (!bObj) return;
+
+      for (let i = 1; i <= bObj.chapters; i++) {
+        const pill = document.createElement('button');
+        const isActive = i === appState.currentChapter;
+        pill.className = `px-2.5 py-1 rounded-md text-xs font-bold transition shrink-0 ${isActive ? 'bg-amber-600 text-white shadow' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`;
+        pill.textContent = i;
+        pill.onclick = () => {
+          saveActiveStudyNote();
+          appState.currentChapter = i;
+          appState.selectedVerses.clear();
+          loadActiveStudyNote();
+          renderChapterPills();
+          renderScripture();
+        };
+        pillContainer.appendChild(pill);
+      }
+    }
+
+    function updateVerseSelectionBar() {
+      const bar = document.getElementById('verseSelectionBar');
+      const countLabel = document.getElementById('selectedVersesCount');
+      const summaryLabel = document.getElementById('selectedVersesSummary');
+
+      if (!bar) return;
+
+      if (appState.selectedVerses.size > 0) {
+        bar.classList.remove('hidden');
+        if (countLabel) countLabel.textContent = `${appState.selectedVerses.size} selected`;
+        if (summaryLabel) summaryLabel.textContent = Array.from(appState.selectedVerses).join(', ');
+      } else {
+        bar.classList.add('hidden');
+      }
+    }
+
+    function highlightSelection(type) {
+      appState.selectedVerses.forEach(vKey => {
+        if (type === 'observation') {
+          appState.highlights.observation.add(vKey);
+          appState.highlights.interpretation.delete(vKey);
+        } else {
+          appState.highlights.interpretation.add(vKey);
+          appState.highlights.observation.delete(vKey);
+        }
+      });
+      renderScripture();
+    }
+
+    function setupPassageModal() {
+      const modal = document.getElementById('passageModal');
+      const bookSelect = document.getElementById('modalBookSelect');
+      const chapterSelect = document.getElementById('modalChapterSelect');
+      if (!bookSelect || !chapterSelect) return;
+
+      bookSelect.innerHTML = '';
+      BIBLE_CANON.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        opt.textContent = `${b.name} (${b.testament})`;
+        if (b.name === appState.currentBook) opt.selected = true;
+        bookSelect.appendChild(opt);
+      });
+
+      const populateChapters = () => {
+        const selectedName = bookSelect.value;
+        const bObj = BIBLE_CANON.find(b => b.name === selectedName);
+        chapterSelect.innerHTML = '';
+        if (bObj) {
+          for (let i = 1; i <= bObj.chapters; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = `Chapter ${i}`;
+            if (i === appState.currentChapter && selectedName === appState.currentBook) opt.selected = true;
+            chapterSelect.appendChild(opt);
+          }
+        }
+      };
+
+      bookSelect.onchange = populateChapters;
+      populateChapters();
+    }
+
+    async function initApp() {
+      await initSQLiteLexicon();
+      renderBooksList();
+      renderChapterPills();
+      renderScripture();
+
+      // UI Control Event Wiring
+      const searchInput = document.getElementById('bookSearchInput');
+      if (searchInput) searchInput.oninput = () => renderBooksList();
+
+      const tabOT = document.getElementById('tabOT');
+      const tabNT = document.getElementById('tabNT');
+      if (tabOT && tabNT) {
+        tabOT.onclick = () => {
+          appState.activeTab = "OT";
+          tabOT.className = "flex-1 py-2 text-center border-b-2 border-amber-600 text-amber-700 bg-white font-bold";
+          tabNT.className = "flex-1 py-2 text-center border-b-2 border-transparent text-slate-600 hover:text-slate-900";
+          renderBooksList();
+        };
+        tabNT.onclick = () => {
+          appState.activeTab = "NT";
+          tabNT.className = "flex-1 py-2 text-center border-b-2 border-amber-600 text-amber-700 bg-white font-bold";
+          tabOT.className = "flex-1 py-2 text-center border-b-2 border-transparent text-slate-600 hover:text-slate-900";
+          renderBooksList();
+        };
+      }
+
+      // Sidebar & Navigation Toggles
+      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+      const closeSidebarMobile = document.getElementById('closeSidebarMobile');
+      const sidebar = document.getElementById('sidebar');
+      const mobileBackdrop = document.getElementById('mobileBackdrop');
+
+      const toggleSidebar = (show) => {
+        if (sidebar && mobileBackdrop) {
+          if (show) {
+            sidebar.classList.remove('-translate-x-full');
+            mobileBackdrop.classList.remove('hidden');
+          } else {
+            sidebar.classList.add('-translate-x-full');
+            mobileBackdrop.classList.add('hidden');
+          }
+        }
+      };
+
+      if (mobileMenuBtn) mobileMenuBtn.onclick = () => toggleSidebar(true);
+      if (closeSidebarMobile) closeSidebarMobile.onclick = () => toggleSidebar(false);
+      if (mobileBackdrop) mobileBackdrop.onclick = () => {
+        toggleSidebar(false);
+        document.getElementById('workspacePanel')?.classList.add('translate-x-full');
+      };
+
+      // Passage Selector Modal
+      const navSelectBtn = document.getElementById('navSelectBtn');
+      const activeBookTitle = document.getElementById('activeBookTitle');
+      const passageModal = document.getElementById('passageModal');
+      const closePassageModalBtn = document.getElementById('closePassageModalBtn');
+      const confirmPassageJumpBtn = document.getElementById('confirmPassageJumpBtn');
+
+      const openPassageModal = () => {
+        setupPassageModal();
+        if (passageModal) passageModal.classList.remove('hidden');
+      };
+
+      if (navSelectBtn) navSelectBtn.onclick = openPassageModal;
+      if (activeBookTitle) activeBookTitle.onclick = openPassageModal;
+      if (closePassageModalBtn) closePassageModalBtn.onclick = () => passageModal?.classList.add('hidden');
+
+      if (confirmPassageJumpBtn) {
+        confirmPassageJumpBtn.onclick = () => {
+          const bookSelect = document.getElementById('modalBookSelect');
+          const chapterSelect = document.getElementById('modalChapterSelect');
+          if (bookSelect && chapterSelect) {
+            saveActiveStudyNote();
+            appState.currentBook = bookSelect.value;
+            appState.currentChapter = parseInt(chapterSelect.value, 10);
+            appState.selectedVerses.clear();
+            loadActiveStudyNote();
+            renderChapterPills();
+            renderScripture();
+            renderBooksList();
+          }
+          passageModal?.classList.add('hidden');
+        };
+      }
+
+      // Prev & Next Chapter Controls
+      const prevChapterBtn = document.getElementById('prevChapterBtn');
+      const nextChapterBtn = document.getElementById('nextChapterBtn');
+      if (prevChapterBtn) {
+        prevChapterBtn.onclick = () => {
+          if (appState.currentChapter > 1) {
+            saveActiveStudyNote();
+            appState.currentChapter--;
+            appState.selectedVerses.clear();
+            loadActiveStudyNote();
+            renderChapterPills();
+            renderScripture();
+          }
+        };
+      }
+      if (nextChapterBtn) {
+        nextChapterBtn.onclick = () => {
+          const bObj = BIBLE_CANON.find(b => b.name === appState.currentBook);
+          if (bObj && appState.currentChapter < bObj.chapters) {
+            saveActiveStudyNote();
+            appState.currentChapter++;
+            appState.selectedVerses.clear();
+            loadActiveStudyNote();
+            renderChapterPills();
+            renderScripture();
+          }
+        };
+      }
+
+      // Translation Switcher
+      const globalTranslationSelect = document.getElementById('globalTranslationSelect');
+      if (globalTranslationSelect) {
+        globalTranslationSelect.onchange = (e) => {
+          const selectedOption = e.target.options[e.target.selectedIndex];
+          appState.currentTranslation = e.target.value;
+          appState.currentTranslationAbbr = selectedOption.dataset.abbr || e.target.value;
+          renderScripture();
+        };
+      }
+
+      // Strongs Toggle Button
+      const toggleStrongsBtn = document.getElementById('toggleStrongsBtn');
+      const strongsStatusLabel = document.getElementById('strongsStatusLabel');
+      if (toggleStrongsBtn) {
+        toggleStrongsBtn.onclick = () => {
+          appState.strongsActive = !appState.strongsActive;
+          if (strongsStatusLabel) strongsStatusLabel.textContent = appState.strongsActive ? 'ON' : 'Strongs';
+          renderScripture();
+        };
+      }
+
+      // Verse Selection Actions
+      const selectAllVersesBtn = document.getElementById('selectAllVersesBtn');
+      const clearVerseSelectionBtn = document.getElementById('clearVerseSelectionBtn');
+      const btnHighlightObserve = document.getElementById('btnHighlightObserve');
+      const btnHighlightInterpret = document.getElementById('btnHighlightInterpret');
+
+      if (selectAllVersesBtn) {
+        selectAllVersesBtn.onclick = () => {
+          const container = document.getElementById('scriptureContainer');
+          if (container) {
+            const verses = container.querySelectorAll('div');
+            verses.forEach((_, idx) => {
+              appState.selectedVerses.add(`${appState.currentBook} ${appState.currentChapter}:${idx + 1}`);
+            });
+            updateVerseSelectionBar();
+            renderScripture();
+          }
+        };
+      }
+
+      if (clearVerseSelectionBtn) {
+        clearVerseSelectionBtn.onclick = () => {
+          appState.selectedVerses.clear();
+          updateVerseSelectionBar();
+          renderScripture();
+        };
+      }
+
+      if (btnHighlightObserve) btnHighlightObserve.onclick = () => highlightSelection('observation');
+      if (btnHighlightInterpret) btnHighlightInterpret.onclick = () => highlightSelection('interpretation');
+
+      // AI Drawer Toggles
+      const toggleAiBtn = document.getElementById('toggleAiBtn');
+      const closeAiDrawerBtn = document.getElementById('closeAiDrawerBtn');
+      const aiDrawer = document.getElementById('aiDrawer');
+
+      if (toggleAiBtn) toggleAiBtn.onclick = () => aiDrawer?.classList.remove('translate-x-full');
+      if (closeAiDrawerBtn) closeAiDrawerBtn.onclick = () => aiDrawer?.classList.add('translate-x-full');
+
+      // AI Study Mentor: requests go to the local backend; the OpenRouter key never enters this HTML.
+      setupAIMentor();
+
+      // Workspace Mobile Drawer Toggle
+      const toggleWorkspaceMobile = document.getElementById('toggleWorkspaceMobile');
+      const closeWorkspaceMobile = document.getElementById('closeWorkspaceMobile');
+      const workspacePanel = document.getElementById('workspacePanel');
+
+      if (toggleWorkspaceMobile) {
+        toggleWorkspaceMobile.onclick = () => {
+          workspacePanel?.classList.remove('translate-x-full');
+          mobileBackdrop?.classList.remove('hidden');
+        };
+      }
+      if (closeWorkspaceMobile) {
+        closeWorkspaceMobile.onclick = () => {
+          workspacePanel?.classList.add('translate-x-full');
+          mobileBackdrop?.classList.add('hidden');
+        };
+      }
+
+      // Strongs Modal Copy to Notes Button
+      const copyStrongsToNotesBtn = document.getElementById('copyStrongsToNotesBtn');
+      const workspaceNoteArea = document.getElementById('workspaceNoteArea');
+      if (copyStrongsToNotesBtn) {
+        copyStrongsToNotesBtn.onclick = () => {
+          if (appState.currentModalLexicon && workspaceNoteArea) {
+            const entry = appState.currentModalLexicon;
+            const textToAppend = `\n\n--- Lexicon Note (${entry.id}) ---\nWord: ${entry.lemma}\nTransliteration: ${entry.translit}\nGloss: ${entry.gloss}\nDefinition: ${entry.def}\n`;
+            workspaceNoteArea.value += textToAppend;
+            document.getElementById('strongsModal')?.classList.add('hidden');
+          }
+        };
+      }
+
+      // Strongs Modal Close Button
+      const closeStrongsModalBtn = document.getElementById('closeStrongsModalBtn');
+      const strongsModal = document.getElementById('strongsModal');
+      if (closeStrongsModalBtn && strongsModal) {
+        closeStrongsModalBtn.onclick = () => strongsModal.classList.add('hidden');
+      }
+    }
+
+    // Study Library: save Observe / Interpret / Apply notes separately per book and chapter.
+    const STUDY_LIBRARY_STORAGE_KEY = 'inductive-study-library-v1';
+    const STUDY_TOMBSTONES_STORAGE_KEY = 'inductive-study-library-deleted-v1';
+    const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', apply: 'Apply' };
+    const cloudSyncState = { client: null, user: null, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '' };
+
+    function readStudyTombstones() {
+      try {
+        const value = JSON.parse(localStorage.getItem(STUDY_TOMBSTONES_STORAGE_KEY) || '{}');
+        return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+      } catch (_) { return {}; }
+    }
+
+    function writeStudyTombstones(value) {
+      try { localStorage.setItem(STUDY_TOMBSTONES_STORAGE_KEY, JSON.stringify(value)); return true; }
+      catch (error) { console.warn('Study deletion markers could not be saved:', error); return false; }
+    }
+
+    function readStudyLibrary() {
+      try {
+        const stored = localStorage.getItem(STUDY_LIBRARY_STORAGE_KEY);
+        if (!stored) return {};
+        const parsed = JSON.parse(stored);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch (error) {
+        console.warn('Study library could not be read:', error);
+        return {};
+      }
+    }
+
+    function writeStudyLibrary(library) {
+      try {
+        localStorage.setItem(STUDY_LIBRARY_STORAGE_KEY, JSON.stringify(library));
+        return true;
+      } catch (error) {
+        console.warn('Study library could not be saved:', error);
+        const status = document.getElementById('noteSaveStatus');
+        if (status) status.textContent = 'Not saved';
+        return false;
+      }
+    }
+
+    function studyRecordKey(book = appState.currentBook, chapter = appState.currentChapter) {
+      return `${book}::${chapter}`;
+    }
+
+    function getLegacyNote(book, chapter) {
+      // Preserve notes from earlier app versions, which used the OT/NT browse tab in the key.
+      for (const testament of ['OT', 'NT']) {
+        try {
+          const note = localStorage.getItem(`inductive-notes:${book}:${chapter}:${testament}`);
+          if (note && note.trim()) return note;
+        } catch (error) {
+          console.warn('Older notes could not be checked:', error);
+        }
+      }
+      return '';
+    }
+
+    function getStudyRecord(book = appState.currentBook, chapter = appState.currentChapter, migrateLegacy = true) {
+      const library = readStudyLibrary();
+      const key = studyRecordKey(book, chapter);
+      if (!library[key] && migrateLegacy) {
+        const legacyNote = getLegacyNote(book, chapter);
+        if (legacyNote) {
+          library[key] = {
+            book, chapter,
+            sections: { observe: legacyNote, interpret: '', apply: '' },
+            activeSection: 'observe',
+            updatedAt: new Date().toISOString()
+          };
+          writeStudyLibrary(library);
+        }
+      }
+      const record = library[key];
+      if (!record) return { book, chapter, sections: { observe: '', interpret: '', apply: '' }, activeSection: 'observe', updatedAt: null };
+      record.sections = record.sections || {};
+      record.sections.observe = record.sections.observe || '';
+      record.sections.interpret = record.sections.interpret || '';
+      record.sections.apply = record.sections.apply || '';
+      return record;
+    }
+
+    function saveActiveStudyNote() {
+      const area = document.getElementById('workspaceNoteArea');
+      const status = document.getElementById('noteSaveStatus');
+      if (!area) return;
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      // Do not recreate a deliberately deleted study just because the blank editor is left.
+      if (!library[key] && !area.value.trim()) return;
+      const existing = library[key];
+      const prior = existing || {
+        book: appState.currentBook,
+        chapter: appState.currentChapter,
+        sections: { observe: '', interpret: '', apply: '' },
+        activeSection: appState.activeNotesSection || 'observe'
+      };
+      prior.sections = prior.sections || { observe: '', interpret: '', apply: '' };
+      const valueChanged = String(prior.sections[appState.activeNotesSection] || '') !== area.value;
+      const sectionChanged = prior.activeSection !== appState.activeNotesSection;
+      if (existing && !valueChanged && !sectionChanged) return;
+      prior.sections[appState.activeNotesSection] = area.value;
+      prior.activeSection = appState.activeNotesSection;
+      prior.updatedAt = new Date().toISOString();
+      library[key] = prior;
+      const tombstones = readStudyTombstones();
+      delete tombstones[key];
+      writeStudyTombstones(tombstones);
+      const saved = writeStudyLibrary(library);
+      if (status && saved) status.textContent = cloudSyncState.user ? 'Saved locally · syncing…' : 'Saved locally';
+      if (saved) scheduleCloudStudySync();
+    }
+
+    function updateWorkspaceSectionButtons() {
+      const map = { observe: 'wsTabObserve', interpret: 'wsTabInterpret', apply: 'wsTabApply' };
+      Object.entries(map).forEach(([section, id]) => {
+        const button = document.getElementById(id);
+        if (!button) return;
+        const selected = section === appState.activeNotesSection;
+        button.className = `flex-1 py-3 text-center border-b-2 ${selected ? 'border-amber-600 text-amber-700 bg-slate-50 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`;
+        button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+    }
+
+    function loadActiveStudyNote() {
+      const area = document.getElementById('workspaceNoteArea');
+      const title = document.getElementById('workspaceNoteTitle');
+      const status = document.getElementById('noteSaveStatus');
+      if (!area) return;
+      const record = getStudyRecord();
+      area.value = record.sections[appState.activeNotesSection] || '';
+      if (title) title.textContent = `${appState.currentBook} ${appState.currentChapter} - ${NOTE_SECTION_LABELS[appState.activeNotesSection]} Notes`;
+      if (status) status.textContent = record.updatedAt ? 'Saved locally' : 'Not saved yet';
+      updateWorkspaceSectionButtons();
+    }
+
+    function switchWorkspaceSection(section) {
+      if (!NOTE_SECTION_LABELS[section]) return;
+      saveActiveStudyNote();
+      appState.activeNotesSection = section;
+      loadActiveStudyNote();
+    }
+
+    function setupNotesPersistence() {
+      const area = document.getElementById('workspaceNoteArea');
+      if (!area) return;
+      area.addEventListener('input', saveActiveStudyNote);
+      const sectionButtons = {
+        observe: document.getElementById('wsTabObserve'),
+        interpret: document.getElementById('wsTabInterpret'),
+        apply: document.getElementById('wsTabApply')
+      };
+      Object.entries(sectionButtons).forEach(([section, button]) => {
+        if (button) button.addEventListener('click', () => switchWorkspaceSection(section));
+      });
+      loadActiveStudyNote();
+    }
+
+    function formatStudyDate(value) {
+      if (!value) return 'Date unavailable';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
+    }
+
+    function renderStudyLibrary() {
+      const list = document.getElementById('studyLibraryList');
+      if (!list) return;
+      const library = readStudyLibrary();
+      const entries = Object.values(library)
+        .filter(record => record && record.book && Number(record.chapter) > 0 && record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim()))
+        .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+      list.innerHTML = '';
+      if (!entries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-sm text-slate-500 p-3';
+        empty.textContent = 'No saved studies yet. Write notes in Observe, Interpret, or Apply and they will appear here automatically.';
+        list.appendChild(empty);
+        return;
+      }
+      entries.forEach(record => {
+        const card = document.createElement('article');
+        card.className = 'border border-slate-200 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-3';
+        const details = document.createElement('div');
+        details.className = 'flex-1 min-w-0';
+        const heading = document.createElement('h3');
+        heading.className = 'font-bold text-sm text-slate-900';
+        heading.textContent = `${record.book} ${record.chapter}`;
+        const sectionsLine = document.createElement('p');
+        sectionsLine.className = 'text-xs text-slate-600 mt-1';
+        const filledSections = ['observe', 'interpret', 'apply'].filter(section => (record.sections?.[section] || '').trim());
+        sectionsLine.textContent = `Notes: ${filledSections.map(section => NOTE_SECTION_LABELS[section]).join(', ')}`;
+        const updated = document.createElement('p');
+        updated.className = 'text-[11px] text-slate-400 mt-1';
+        updated.textContent = `Last edited: ${formatStudyDate(record.updatedAt)}`;
+        details.append(heading, sectionsLine, updated);
+        const actions = document.createElement('div');
+        actions.className = 'flex items-center gap-2 shrink-0';
+        const openButton = document.createElement('button');
+        openButton.className = 'text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white rounded px-3 py-2';
+        openButton.textContent = 'Open study';
+        openButton.addEventListener('click', () => {
+          saveActiveStudyNote();
+          appState.currentBook = record.book;
+          appState.currentChapter = Number(record.chapter);
+          appState.activeNotesSection = NOTE_SECTION_LABELS[record.activeSection] ? record.activeSection : (filledSections[0] || 'observe');
+          const bookInfo = BIBLE_CANON.find(book => book.name === record.book);
+          if (bookInfo) appState.activeTab = bookInfo.testament;
+          const tabOT = document.getElementById('tabOT');
+          const tabNT = document.getElementById('tabNT');
+          if (tabOT && tabNT) {
+            tabOT.className = `flex-1 py-2 text-center border-b-2 ${appState.activeTab === 'OT' ? 'border-amber-600 text-amber-700 bg-white font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`;
+            tabNT.className = `flex-1 py-2 text-center border-b-2 ${appState.activeTab === 'NT' ? 'border-amber-600 text-amber-700 bg-white font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`;
+          }
+          renderChapterPills();
+          renderScripture();
+          renderBooksList();
+          loadActiveStudyNote();
+          document.getElementById('studyLibraryModal')?.classList.add('hidden');
+        });
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'text-xs font-semibold bg-slate-100 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded px-3 py-2';
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => {
+          const updatedLibrary = readStudyLibrary();
+          const key = studyRecordKey(record.book, Number(record.chapter));
+          delete updatedLibrary[key];
+          const tombstones = readStudyTombstones();
+          tombstones[key] = new Date().toISOString();
+          writeStudyTombstones(tombstones);
+          // Remove migrated legacy copies too, so deleting a study does not immediately restore it.
+          for (const testament of ['OT', 'NT']) {
+            try { localStorage.removeItem(`inductive-notes:${record.book}:${record.chapter}:${testament}`); } catch (_) {}
+          }
+          if (writeStudyLibrary(updatedLibrary)) {
+            if (record.book === appState.currentBook && Number(record.chapter) === Number(appState.currentChapter)) loadActiveStudyNote();
+            renderStudyLibrary();
+            scheduleCloudStudySync();
+          }
+        });
+        actions.append(openButton, deleteButton);
+        card.append(details, actions);
+        list.appendChild(card);
+      });
+    }
+
+    function setupStudyLibrary() {
+      const openButton = document.getElementById('openStudyLibraryBtn');
+      const closeButton = document.getElementById('closeStudyLibraryBtn');
+      const modal = document.getElementById('studyLibraryModal');
+      if (openButton && modal) openButton.addEventListener('click', () => {
+        saveActiveStudyNote();
+        renderStudyLibrary();
+        modal.classList.remove('hidden');
+      });
+      if (closeButton && modal) closeButton.addEventListener('click', () => modal.classList.add('hidden'));
+      if (modal) modal.addEventListener('click', event => { if (event.target === modal) modal.classList.add('hidden'); });
+    }
+
+    function setCloudStatus(message, tone = 'normal') {
+      const el = document.getElementById('cloudSyncStatus');
+      if (!el) return;
+      el.textContent = message;
+      el.className = 'rounded-lg border p-3 text-sm ' + (tone === 'error'
+        ? 'bg-red-50 border-red-200 text-red-800'
+        : tone === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          : 'bg-slate-100 border-slate-200 text-slate-700');
+    }
+
+    function updateCloudAccountUI() {
+      const label = document.getElementById('cloudAccountLabel');
+      const signIn = document.getElementById('cloudSignInBtn');
+      const signUp = document.getElementById('cloudSignUpBtn');
+      const signOut = document.getElementById('cloudSignOutBtn');
+      const syncNow = document.getElementById('cloudSyncNowBtn');
+      const signedIn = !!cloudSyncState.user;
+      if (label) label.textContent = signedIn ? 'Sync' : 'Cloud';
+      if (signIn) signIn.classList.toggle('hidden', signedIn);
+      if (signUp) signUp.classList.toggle('hidden', signedIn);
+      if (signOut) signOut.classList.toggle('hidden', !signedIn);
+      if (syncNow) syncNow.classList.toggle('hidden', !signedIn);
+      const password = document.getElementById('cloudPassword');
+      const email = document.getElementById('cloudEmail');
+      if (signedIn) {
+        if (email) email.value = cloudSyncState.user.email || '';
+        if (password) password.value = '';
+        if (email) email.disabled = true;
+      } else if (email) email.disabled = false;
+    }
+
+    function scheduleCloudStudySync() {
+      if (!cloudSyncState.user || !cloudSyncState.client || cloudSyncState.syncing) return;
+      if (cloudSyncState.syncTimer) clearTimeout(cloudSyncState.syncTimer);
+      cloudSyncState.syncTimer = setTimeout(() => {
+        cloudSyncState.syncTimer = null;
+        syncCloudStudyLibrary({ quiet: true }).catch(error => {
+          cloudSyncState.lastError = error.message || 'Cloud sync failed.';
+          setCloudStatus(`Your notes are saved on this device, but cloud sync failed: ${cloudSyncState.lastError}`, 'error');
+          const status = document.getElementById('noteSaveStatus');
+          if (status) status.textContent = 'Saved locally · cloud sync failed';
+        });
+      }, 1300);
+    }
+
+    function migrateAllLegacyLocalNotes() {
+      const library = readStudyLibrary();
+      let changed = false;
+      for (let i = 0; i < localStorage.length; i++) {
+        const storageKey = localStorage.key(i);
+        if (!storageKey || !storageKey.startsWith('inductive-notes:')) continue;
+        const match = storageKey.match(/^inductive-notes:(.+):(\d+):(OT|NT)$/);
+        if (!match) continue;
+        const [, book, chapterText] = match;
+        const note = localStorage.getItem(storageKey) || '';
+        const key = studyRecordKey(book, Number(chapterText));
+        if (note.trim() && !library[key]) {
+          library[key] = { book, chapter: Number(chapterText), sections: { observe: note, interpret: '', apply: '' }, activeSection: 'observe', updatedAt: new Date().toISOString() };
+          changed = true;
+        }
+      }
+      if (changed) writeStudyLibrary(library);
+    }
+
+    function cloudRowToRecord(row) {
+      return {
+        book: row.book,
+        chapter: Number(row.chapter),
+        sections: {
+          observe: String(row.sections?.observe || ''),
+          interpret: String(row.sections?.interpret || ''),
+          apply: String(row.sections?.apply || '')
+        },
+        activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
+        updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
+      };
+    }
+
+    async function syncCloudStudyLibrary(options = {}) {
+      const { quiet = false } = options;
+      if (!cloudSyncState.client || !cloudSyncState.user) {
+        if (!quiet) setCloudStatus('Sign in to sync this library across devices. Your current local notes remain available.', 'normal');
+        return;
+      }
+      if (cloudSyncState.syncing) {
+        if (!quiet) setCloudStatus('A sync is already running. Please wait a moment.', 'normal');
+        return;
+      }
+      cloudSyncState.syncing = true;
+      const saveStatus = document.getElementById('noteSaveStatus');
+      try {
+        // Capture the editor before merging. Local data is never cleared merely because cloud is unavailable.
+        saveActiveStudyNote();
+        migrateAllLegacyLocalNotes();
+        if (!quiet) setCloudStatus('Syncing local and cloud studies…', 'normal');
+        const { data: cloudRows, error } = await cloudSyncState.client
+          .from('study_records')
+          .select('book,chapter,sections,active_section,updated_at,deleted_at')
+          .eq('user_id', cloudSyncState.user.id);
+        if (error) throw error;
+
+        const localLibrary = readStudyLibrary();
+        const localTombstones = readStudyTombstones();
+        const remoteByKey = {};
+        (cloudRows || []).forEach(row => { remoteByKey[studyRecordKey(row.book, Number(row.chapter))] = row; });
+        const allKeys = new Set([
+          ...Object.keys(localLibrary), ...Object.keys(localTombstones), ...Object.keys(remoteByKey)
+        ]);
+        const mergedLibrary = {};
+        const mergedTombstones = {};
+        const rowsToUpsert = [];
+
+        for (const key of allKeys) {
+          const local = localLibrary[key];
+          const localDelete = localTombstones[key];
+          const remote = remoteByKey[key];
+          const candidates = [];
+          if (local) candidates.push({ kind: 'live', source: 'local', time: local.updatedAt || '', record: local });
+          if (localDelete) candidates.push({ kind: 'deleted', source: 'localDelete', time: localDelete, record: local || null });
+          if (remote) candidates.push({ kind: remote.deleted_at ? 'deleted' : 'live', source: 'remote', time: remote.deleted_at || remote.updated_at || '', record: remote });
+          if (!candidates.length) continue;
+          candidates.sort((a, b) => {
+            const delta = new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime();
+            if (delta !== 0) return delta;
+            // At equal timestamps, a deletion wins rather than unexpectedly resurrecting a study.
+            if (a.kind === b.kind) return 0;
+            return a.kind === 'deleted' ? -1 : 1;
+          });
+          const winner = candidates[0];
+          let book, chapter, sections, activeSection, updatedAt;
+          if (winner.kind === 'deleted') {
+            const split = key.lastIndexOf('::');
+            book = winner.record?.book || remote?.book || key.slice(0, split);
+            chapter = Number(winner.record?.chapter || remote?.chapter || key.slice(split + 2));
+            updatedAt = winner.time || new Date().toISOString();
+            mergedTombstones[key] = updatedAt;
+            sections = { observe: '', interpret: '', apply: '' };
+            activeSection = 'observe';
+          } else if (winner.record && winner.record.book) {
+            const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
+            book = rec.book;
+            chapter = Number(rec.chapter);
+            sections = {
+              observe: String(rec.sections?.observe || ''),
+              interpret: String(rec.sections?.interpret || ''),
+              apply: String(rec.sections?.apply || '')
+            };
+            activeSection = NOTE_SECTION_LABELS[rec.activeSection] ? rec.activeSection : 'observe';
+            updatedAt = rec.updatedAt || winner.time || new Date().toISOString();
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt };
+          } else {
+            continue;
+          }
+          rowsToUpsert.push({
+            user_id: cloudSyncState.user.id,
+            book,
+            chapter,
+            sections,
+            active_section: activeSection,
+            updated_at: updatedAt,
+            deleted_at: winner.kind === 'deleted' ? updatedAt : null
+          });
+        }
+
+        // A single transactional-style batch upsert makes the merged result converge on the next sync.
+        if (rowsToUpsert.length) {
+          const { error: upsertError } = await cloudSyncState.client
+            .from('study_records')
+            .upsert(rowsToUpsert, { onConflict: 'user_id,book,chapter' });
+          if (upsertError) throw upsertError;
+        }
+        writeStudyLibrary(mergedLibrary);
+        writeStudyTombstones(mergedTombstones);
+        loadActiveStudyNote();
+        renderStudyLibrary();
+        cloudSyncState.lastError = '';
+        const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (!quiet) setCloudStatus(`Sync complete. ${Object.keys(mergedLibrary).filter(k => ['observe','interpret','apply'].some(section => (mergedLibrary[k].sections?.[section] || '').trim())).length} saved studies are up to date. Last synced at ${when}.`, 'success');
+        if (saveStatus) saveStatus.textContent = `Cloud synced ${when}`;
+      } finally {
+        cloudSyncState.syncing = false;
+      }
+    }
+
+    async function setupCloudSync() {
+      const modal = document.getElementById('cloudAccountModal');
+      const open = document.getElementById('cloudAccountBtn');
+      const close = document.getElementById('closeCloudAccountBtn');
+      const form = document.getElementById('cloudAuthForm');
+      const signIn = document.getElementById('cloudSignInBtn');
+      const signUp = document.getElementById('cloudSignUpBtn');
+      const signOut = document.getElementById('cloudSignOutBtn');
+      const syncNow = document.getElementById('cloudSyncNowBtn');
+      if (open && modal) open.addEventListener('click', () => modal.classList.remove('hidden'));
+      if (close && modal) close.addEventListener('click', () => modal.classList.add('hidden'));
+      if (modal) modal.addEventListener('click', event => { if (event.target === modal) modal.classList.add('hidden'); });
+
+      try {
+        const response = await fetch('/api/config', { cache: 'no-store' });
+        const config = await response.json();
+        cloudSyncState.configLoaded = true;
+        cloudSyncState.configured = !!(config.supabaseUrl && config.supabaseAnonKey);
+        if (!cloudSyncState.configured) {
+          setCloudStatus('Cloud sync is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY to the server environment, then restart or redeploy the app. Your local notes are still saving normally.', 'normal');
+          [signIn, signUp, signOut, syncNow].forEach(button => { if (button) button.disabled = true; });
+          updateCloudAccountUI();
+          return;
+        }
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') throw new Error('The Supabase client library could not load. Check your internet connection and refresh.');
+        cloudSyncState.client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        });
+        cloudSyncState.client.auth.onAuthStateChange((event, session) => {
+          cloudSyncState.user = session?.user || null;
+          updateCloudAccountUI();
+          if (cloudSyncState.user && event === 'SIGNED_IN') {
+            setTimeout(() => syncCloudStudyLibrary().catch(error => setCloudStatus(`Sign-in succeeded, but sync failed: ${error.message}`, 'error')), 0);
+          } else if (!cloudSyncState.user && event === 'SIGNED_OUT') {
+            setCloudStatus('Signed out. Your local notes remain saved on this device.', 'normal');
+          }
+        });
+        const { data, error } = await cloudSyncState.client.auth.getSession();
+        if (error) throw error;
+        cloudSyncState.user = data.session?.user || null;
+        updateCloudAccountUI();
+        if (cloudSyncState.user) {
+          setCloudStatus(`Signed in as ${cloudSyncState.user.email || 'your account'}. Checking for saved studies…`, 'normal');
+          syncCloudStudyLibrary().catch(error => setCloudStatus(`Cloud sync failed: ${error.message}`, 'error'));
+        } else {
+          setCloudStatus('Cloud service is ready. Sign in or create an account; this browser’s local studies will be merged on first sync.', 'normal');
+        }
+      } catch (error) {
+        cloudSyncState.lastError = error.message || 'Cloud initialization failed.';
+        setCloudStatus(`Cloud setup could not be loaded: ${cloudSyncState.lastError}. Your local notes are unaffected.`, 'error');
+      }
+
+      if (form) form.addEventListener('submit', event => event.preventDefault());
+      const getCredentials = () => ({
+        email: String(document.getElementById('cloudEmail')?.value || '').trim(),
+        password: String(document.getElementById('cloudPassword')?.value || '')
+      });
+      if (signIn) signIn.addEventListener('click', async () => {
+        if (!cloudSyncState.client) return setCloudStatus('Cloud sync is not configured. Add the Supabase settings to the server environment first.', 'error');
+        const credentials = getCredentials();
+        if (!credentials.email || !credentials.password) return setCloudStatus('Enter your email address and password.', 'error');
+        signIn.disabled = true;
+        setCloudStatus('Signing in…', 'normal');
+        try {
+          const { error } = await cloudSyncState.client.auth.signInWithPassword(credentials);
+          if (error) throw error;
+          setCloudStatus('Signed in. Synchronising studies…', 'success');
+        } catch (error) { setCloudStatus(error.message || 'Sign-in failed.', 'error'); }
+        finally { signIn.disabled = false; }
+      });
+      if (signUp) signUp.addEventListener('click', async () => {
+        if (!cloudSyncState.client) return setCloudStatus('Cloud sync is not configured. Add the Supabase settings to the server environment first.', 'error');
+        const credentials = getCredentials();
+        if (!credentials.email || credentials.password.length < 8) return setCloudStatus('Enter a valid email and a password of at least 8 characters.', 'error');
+        signUp.disabled = true;
+        setCloudStatus('Creating your account…', 'normal');
+        try {
+          const { data, error } = await cloudSyncState.client.auth.signUp(credentials);
+          if (error) throw error;
+          if (data.session) setCloudStatus('Account created. Your studies are synchronising now.', 'success');
+          else setCloudStatus('Account request created. Check your email for the confirmation link, then return here and sign in.', 'success');
+        } catch (error) { setCloudStatus(error.message || 'Account creation failed.', 'error'); }
+        finally { signUp.disabled = false; }
+      });
+      if (signOut) signOut.addEventListener('click', async () => {
+        if (!cloudSyncState.client) return;
+        try {
+          const { error } = await cloudSyncState.client.auth.signOut();
+          if (error) throw error;
+          cloudSyncState.user = null;
+          updateCloudAccountUI();
+          setCloudStatus('Signed out. Your local notes remain saved on this device.', 'normal');
+        } catch (error) { setCloudStatus(error.message || 'Sign-out failed.', 'error'); }
+      });
+      if (syncNow) syncNow.addEventListener('click', () => syncCloudStudyLibrary().catch(error => setCloudStatus(`Cloud sync failed: ${error.message}`, 'error')));
+    }
+
+    function setupMarkdownExport() {
+      const button = document.getElementById('exportMarkdownBtn');
+      if (!button) return;
+      button.onclick = () => {
+        saveActiveStudyNote();
+        const record = getStudyRecord();
+        const content = `# ${appState.currentBook} ${appState.currentChapter}\n\n` +
+          `## Observe\n\n${record.sections.observe || ''}\n\n` +
+          `## Interpret\n\n${record.sections.interpret || ''}\n\n` +
+          `## Apply\n\n${record.sections.apply || ''}\n`;
+        const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${appState.currentBook.replace(/\s+/g, '-')}-${appState.currentChapter}-study.md`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      };
+    }
+
+    function setupAIMentor() {
+      const form = document.getElementById('aiChatForm');
+      const input = document.getElementById('aiInput');
+      const stream = document.getElementById('aiChatStream');
+      const drawer = document.getElementById('aiDrawer');
+      const reviewNotesBtn = document.getElementById('askAiToReviewNotesBtn');
+      if (!form || !input || !stream) return;
+
+      const history = [];
+      const addMessage = (role, text) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = role === 'user'
+          ? 'ml-5 bg-amber-600/20 p-3 rounded-xl border border-amber-500/30 text-slate-100 leading-relaxed whitespace-pre-wrap'
+          : 'mr-2 bg-slate-800 p-3 rounded-xl border border-slate-700 text-slate-100 leading-relaxed whitespace-pre-wrap';
+        const label = document.createElement('p');
+        label.className = 'font-bold text-amber-400 mb-1';
+        label.textContent = role === 'user' ? 'You' : 'AI Study Mentor';
+        const body = document.createElement('p');
+        body.textContent = text;
+        wrapper.append(label, body);
+        stream.appendChild(wrapper);
+        stream.scrollTop = stream.scrollHeight;
+        return body;
+      };
+
+      const getContext = () => {
+        const scripture = document.getElementById('scriptureContainer');
+        const notes = document.getElementById('workspaceNoteArea');
+        return {
+          book: appState.currentBook,
+          chapter: appState.currentChapter,
+          translation: appState.currentTranslationAbbr || appState.currentTranslation || 'KJV',
+          selectedVerses: Array.from(appState.selectedVerses || []),
+          passageText: (scripture?.innerText || '').slice(0, 14000),
+          notes: (notes?.value || '').slice(0, 8000),
+          activeStudyTab: appState.activeNotesSection || 'observe'
+        };
+      };
+
+      async function askMentor(prompt) {
+        const question = String(prompt || '').trim();
+        if (!question) return;
+        drawer?.classList.remove('translate-x-full');
+        input.value = '';
+        addMessage('user', question);
+        const responseBody = addMessage('assistant', 'Thinking…');
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
+        history.push({ role: 'user', content: question });
+        try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (cloudSyncState.client) {
+            const { data: sessionData } = await cloudSyncState.client.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+          }
+          const response = await fetch('/api/mentor', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ question, context: getContext(), history: history.slice(-8) })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || `AI request failed (${response.status}).`);
+          const answer = String(data.answer || '').trim();
+          if (!answer) throw new Error('The AI service returned an empty response.');
+          responseBody.textContent = answer;
+          history.push({ role: 'assistant', content: answer });
+        } catch (error) {
+          responseBody.textContent = `I couldn't get a response. ${error.message}\n\nCheck that the local server is running and OPENROUTER_API_KEY is set in .env.`;
+          history.pop();
+        } finally {
+          if (submitButton) submitButton.disabled = false;
+          stream.scrollTop = stream.scrollHeight;
+        }
+      }
+
+      const promptChips = Array.from(document.querySelectorAll('.aiPromptChip'));
+      const setActivePrompt = activeButton => {
+        promptChips.forEach(button => {
+          const isActive = button === activeButton;
+          button.classList.toggle('is-active', isActive);
+          button.setAttribute('aria-pressed', String(isActive));
+          // Normalize the Analyze button's original amber text/border when inactive.
+          button.classList.remove('text-amber-300', 'border-amber-500/30');
+          if (!isActive) button.classList.add('text-slate-200', 'border-slate-700');
+        });
+      };
+
+      // Keep the current default mode visibly selected when the drawer opens.
+      const initialPrompt = promptChips.find(button => button.textContent.includes('Analyze My Notes')) || promptChips[0];
+      if (initialPrompt) setActivePrompt(initialPrompt);
+
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        askMentor(input.value);
+      });
+      promptChips.forEach(button => {
+        button.addEventListener('click', () => {
+          setActivePrompt(button);
+          askMentor(button.dataset.prompt || button.textContent);
+        });
+      });
+      if (reviewNotesBtn) {
+        reviewNotesBtn.addEventListener('click', () => askMentor('Guide me through reviewing my active notes using the inductive method. Identify observations I have made, questions I should ask, interpretive claims that need evidence from the passage, and possible applications. Do not invent observations or assume my conclusions are correct.'));
+      }
+    }
+
+    window.onload = () => {
+      initApp().then(() => {
+        setupNotesPersistence();
+        setupStudyLibrary();
+        setupMarkdownExport();
+        setupCloudSync();
+      }).catch(error => {
+        console.error('App initialization failed:', error);
+        const container = document.getElementById('scriptureContainer');
+        if (container) container.textContent = 'The study workspace could not initialize. Check the browser console for details.';
+      });
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "inductive-bible-study-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone Inductive Bible Study app with OpenRouter AI Mentor and optional Supabase cloud sync",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

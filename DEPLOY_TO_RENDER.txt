@@ -1,0 +1,23 @@
+INDUCTIVE BIBLE STUDY — DEPLOY TO RENDER
+
+IMPORTANT SECURITY RULE
+Never upload your real .env file or share your OpenRouter API key. The included .gitignore excludes .env files and node_modules. The .env.example file contains placeholders only.
+
+1. Create a NEW PRIVATE GitHub repository, e.g. inductive-bible-study-cloud. Do not use a public repository.
+2. In the repository choose Add file -> Upload files. From this package upload the files at the package root: .env.example, .gitignore, DEPLOY_TO_RENDER.txt, README.txt, index.html, package.json, render.yaml, server.js, and supabase_schema.sql. Do NOT upload your real .env file. Commit the files.
+3. In Render, choose New + -> Blueprint, connect GitHub if prompted, then select the private repository. Render will read render.yaml and create a Node web service on the Free plan.
+4. After the service is created, open its Environment settings and add these variables using the dashboard's secret-value fields:
+   OPENROUTER_API_KEY = your existing OpenRouter key
+   OPENROUTER_MODEL = openai/gpt-4o-mini (optional; may be omitted to use the default)
+   SUPABASE_URL = your Supabase Project URL
+   SUPABASE_ANON_KEY = your Supabase publishable/anon key
+   Do not add SUPABASE_SERVICE_ROLE_KEY or any Supabase secret key.
+5. Save changes and wait for deployment to finish. Open the HTTPS URL supplied by Render. Check that /healthz returns {"status":"ok"} and the app opens.
+6. In Supabase Dashboard -> Authentication -> URL Configuration, set Site URL to the Render HTTPS URL and add that exact URL to Redirect URLs if requested. Save.
+7. On the Render app, sign in with the same existing Supabase account and press Sync studies now. Confirm your Genesis 1 note appears. Then open the same HTTPS URL on your phone, sign into the same account, and verify the note is visible there too.
+
+FREE PLAN NOTE
+Render Free web services may spin down after a period of inactivity and take a short time to wake. This does not delete study data stored in Supabase.
+
+LOCAL APP SAFETY
+Keep your existing working local folder and backup exports until deployment and phone sync have both been verified. Do not delete local browser storage as part of deployment.

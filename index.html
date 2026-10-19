@@ -1614,6 +1614,27 @@
       return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
     }
 
+    function downloadStudyMarkdown(record) {
+      if (!record || !record.book || !Number.isInteger(Number(record.chapter))) return;
+      const book = String(record.book);
+      const chapter = Number(record.chapter);
+      const sections = record.sections || {};
+      const content = `# ${book} ${chapter}\n\n` +
+        `## Observe\n\n${sections.observe || ''}\n\n` +
+        `## Interpret\n\n${sections.interpret || ''}\n\n` +
+        `## Apply\n\n${sections.apply || ''}\n`;
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const safeBookName = book.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-');
+      link.href = url;
+      link.download = `${safeBookName}-${chapter}-study.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     function renderStudyLibrary() {
       const list = document.getElementById('studyLibraryList');
       if (!list) return;
@@ -1718,7 +1739,7 @@
         updated.textContent = `Last edited: ${formatStudyDate(record.updatedAt)}`;
         details.append(heading, sectionsLine, preview, updated);
         const actions = document.createElement('div');
-        actions.className = 'flex items-center gap-2 shrink-0';
+        actions.className = 'flex flex-wrap items-center gap-2 shrink-0';
         const openButton = document.createElement('button');
         openButton.className = 'text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white rounded px-3 py-2';
         openButton.textContent = 'Open study';
@@ -1741,6 +1762,13 @@
           loadActiveStudyNote();
           document.getElementById('studyLibraryModal')?.classList.add('hidden');
         });
+        const exportButton = document.createElement('button');
+        exportButton.type = 'button';
+        exportButton.className = 'text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white rounded px-3 py-2';
+        exportButton.textContent = 'Export MD';
+        exportButton.setAttribute('aria-label', `Export ${record.book} ${record.chapter} notes as Markdown`);
+        exportButton.addEventListener('click', () => downloadStudyMarkdown(record));
+
         const deleteButton = document.createElement('button');
         deleteButton.className = 'text-xs font-semibold bg-slate-100 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded px-3 py-2';
         deleteButton.textContent = 'Delete';
@@ -1765,7 +1793,7 @@
             scheduleCloudStudySync();
           }
         });
-        actions.append(openButton, deleteButton);
+        actions.append(openButton, exportButton, deleteButton);
         card.append(details, actions);
         list.appendChild(card);
       });
@@ -2342,19 +2370,11 @@
       button.onclick = () => {
         saveActiveStudyNote();
         const record = getStudyRecord();
-        const content = `# ${appState.currentBook} ${appState.currentChapter}\n\n` +
-          `## Observe\n\n${record.sections.observe || ''}\n\n` +
-          `## Interpret\n\n${record.sections.interpret || ''}\n\n` +
-          `## Apply\n\n${record.sections.apply || ''}\n`;
-        const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${appState.currentBook.replace(/\s+/g, '-')}-${appState.currentChapter}-study.md`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        downloadStudyMarkdown({
+          book: appState.currentBook,
+          chapter: appState.currentChapter,
+          sections: record.sections
+        });
       };
     }
 

@@ -337,6 +337,11 @@
             <option value="missing-apply">Missing Apply notes</option>
             <option value="complete">All three sections have notes</option>
           </select>
+          <label for="studyLibrarySort" class="block text-xs font-semibold text-slate-700 mt-3 mb-1">Sort by</label>
+          <select id="studyLibrarySort" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-amber-600">
+            <option value="recent">Recently edited</option>
+            <option value="bible">Bible order (Genesis to Revelation)</option>
+          </select>
           <p id="studyLibraryCount" class="text-[11px] text-slate-500 mt-2" aria-live="polite"></p>
         </div>
         <div id="studyLibraryList" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2">
@@ -1696,11 +1701,22 @@
       const list = document.getElementById('studyLibraryList');
       if (!list) return;
       const library = readStudyLibrary();
-      const allEntries = Object.values(library)
-        .filter(record => record && record.book && Number(record.chapter) > 0 && record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim()))
-        .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
       const searchInput = document.getElementById('studyLibrarySearch');
       const coverageInput = document.getElementById('studyLibraryCoverageFilter');
+      const sortInput = document.getElementById('studyLibrarySort');
+      const sortBy = String(sortInput?.value || 'recent');
+      const allEntries = Object.values(library)
+        .filter(record => record && record.book && Number(record.chapter) > 0 && record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim()))
+        .sort((a, b) => {
+          if (sortBy === 'bible') {
+            const aBookIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
+            const bBookIndex = BIBLE_CANON.findIndex(book => book.name === b.book);
+            const normalizedAIndex = aBookIndex < 0 ? Number.MAX_SAFE_INTEGER : aBookIndex;
+            const normalizedBIndex = bBookIndex < 0 ? Number.MAX_SAFE_INTEGER : bBookIndex;
+            return normalizedAIndex - normalizedBIndex || Number(a.chapter) - Number(b.chapter);
+          }
+          return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+        });
       const query = String(searchInput?.value || '').trim().toLocaleLowerCase();
       const coverageFilter = String(coverageInput?.value || 'all');
       const coverageLabels = {
@@ -1917,8 +1933,10 @@
       const modal = document.getElementById('studyLibraryModal');
       const searchInput = document.getElementById('studyLibrarySearch');
       const coverageInput = document.getElementById('studyLibraryCoverageFilter');
+      const sortInput = document.getElementById('studyLibrarySort');
       if (searchInput) searchInput.addEventListener('input', renderStudyLibrary);
       if (coverageInput) coverageInput.addEventListener('change', renderStudyLibrary);
+      if (sortInput) sortInput.addEventListener('change', renderStudyLibrary);
       if (openButton && modal) openButton.addEventListener('click', () => {
         saveActiveStudyNote();
         renderStudyLibrary();

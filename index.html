@@ -1254,7 +1254,11 @@
       if (closeSidebarMobile) closeSidebarMobile.onclick = () => toggleSidebar(false);
       if (mobileBackdrop) mobileBackdrop.onclick = () => {
         toggleSidebar(false);
-        document.getElementById('workspacePanel')?.classList.add('translate-x-full');
+        const notesPanel = document.getElementById('workspacePanel');
+        notesPanel?.classList.add('translate-x-full');
+        notesPanel?.setAttribute('aria-hidden', 'true');
+        document.getElementById('toggleWorkspaceMobile')?.setAttribute('aria-expanded', 'false');
+        document.getElementById('toggleWorkspaceMobile')?.setAttribute('title', 'Open study notes');
       };
 
       // Passage Selector Modal
@@ -1418,6 +1422,9 @@
             const entry = appState.currentModalLexicon;
             const textToAppend = `\n\n--- Lexicon Note (${entry.id}) ---\nWord: ${entry.lemma}\nTransliteration: ${entry.translit}\nGloss: ${entry.gloss}\nDefinition: ${entry.def}\n`;
             workspaceNoteArea.value += textToAppend;
+            // Save the inserted lexicon note immediately, and open the notes drawer so the user can review it.
+            workspaceNoteArea.dispatchEvent(new Event('input', { bubbles: true }));
+            setWorkspaceOpen(true);
             document.getElementById('strongsModal')?.classList.add('hidden');
           }
         };

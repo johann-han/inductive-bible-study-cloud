@@ -1747,6 +1747,24 @@
         wordCountLine.className = 'text-[11px] text-slate-500 mt-1';
         wordCountLine.textContent = `Word counts: Observe ${countWords(record.sections?.observe)} · Interpret ${countWords(record.sections?.interpret)} · Apply ${countWords(record.sections?.apply)}`;
 
+        const sectionCoverage = document.createElement('div');
+        sectionCoverage.className = 'mt-1 flex items-center gap-2';
+        const sectionCoverageLabel = document.createElement('span');
+        sectionCoverageLabel.className = 'text-[11px] text-slate-500 shrink-0';
+        sectionCoverageLabel.textContent = `Sections with notes: ${filledSections.length} of 3`;
+        const sectionCoverageTrack = document.createElement('div');
+        sectionCoverageTrack.className = 'h-1.5 flex-1 max-w-24 rounded-full bg-slate-200 overflow-hidden';
+        sectionCoverageTrack.setAttribute('role', 'progressbar');
+        sectionCoverageTrack.setAttribute('aria-label', `Sections with notes for ${record.book} ${record.chapter}`);
+        sectionCoverageTrack.setAttribute('aria-valuemin', '0');
+        sectionCoverageTrack.setAttribute('aria-valuemax', '3');
+        sectionCoverageTrack.setAttribute('aria-valuenow', String(filledSections.length));
+        const sectionCoverageFill = document.createElement('div');
+        sectionCoverageFill.className = 'h-full rounded-full bg-amber-500 transition-all';
+        sectionCoverageFill.style.width = `${Math.round((filledSections.length / 3) * 100)}%`;
+        sectionCoverageTrack.appendChild(sectionCoverageFill);
+        sectionCoverage.append(sectionCoverageLabel, sectionCoverageTrack);
+
         // Show why a study matched the search, or a short note preview when browsing.
         const previewParts = ['observe', 'interpret', 'apply']
           .map(section => ({
@@ -1794,7 +1812,7 @@
         const updated = document.createElement('p');
         updated.className = 'text-[11px] text-slate-400 mt-1';
         updated.textContent = `Last edited: ${formatStudyDate(record.updatedAt)}`;
-        details.append(heading, sectionsLine, wordCountLine, preview, updated);
+        details.append(heading, sectionsLine, wordCountLine, sectionCoverage, preview, updated);
         const actions = document.createElement('div');
         actions.className = 'flex flex-wrap items-center gap-2 shrink-0';
         const openButton = document.createElement('button');

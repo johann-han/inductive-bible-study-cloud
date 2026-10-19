@@ -318,6 +318,11 @@
           </div>
           <button id="closeStudyLibraryBtn" class="text-slate-500 hover:text-slate-900 text-2xl leading-none px-2" aria-label="Close study library">&times;</button>
         </header>
+        <div class="px-3 sm:px-4 py-3 border-b border-slate-200 bg-white">
+          <label for="studyLibrarySearch" class="block text-xs font-semibold text-slate-700 mb-1">Search saved studies</label>
+          <input id="studyLibrarySearch" type="search" autocomplete="off" placeholder="Book, chapter, or words in your notes..." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-amber-600">
+          <p id="studyLibraryCount" class="text-[11px] text-slate-500 mt-2" aria-live="polite"></p>
+        </div>
         <div id="studyLibraryList" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2">
           <p class="text-sm text-slate-500">Your saved studies will appear here.</p>
         </div>
@@ -1613,14 +1618,41 @@
       const list = document.getElementById('studyLibraryList');
       if (!list) return;
       const library = readStudyLibrary();
-      const entries = Object.values(library)
+      const allEntries = Object.values(library)
         .filter(record => record && record.book && Number(record.chapter) > 0 && record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim()))
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+      const searchInput = document.getElementById('studyLibrarySearch');
+      const query = String(searchInput?.value || '').trim().toLocaleLowerCase();
+      const entries = query
+        ? allEntries.filter(record => {
+            const searchableText = [
+              record.book,
+              record.chapter,
+              record.sections?.observe,
+              record.sections?.interpret,
+              record.sections?.apply
+            ].map(value => String(value || '')).join(' ').toLocaleLowerCase();
+            return searchableText.includes(query);
+          })
+        : allEntries;
+      const count = document.getElementById('studyLibraryCount');
+      if (count) {
+        count.textContent = query
+          ? `${entries.length} of ${allEntries.length} saved studies match your search.`
+          : `${allEntries.length} saved ${allEntries.length === 1 ? 'study' : 'studies'}.`;
+      }
       list.innerHTML = '';
-      if (!entries.length) {
+      if (!allEntries.length) {
         const empty = document.createElement('p');
         empty.className = 'text-sm text-slate-500 p-3';
         empty.textContent = 'No saved studies yet. Write notes in Observe, Interpret, or Apply and they will appear here automatically.';
+        list.appendChild(empty);
+        return;
+      }
+      if (!entries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-sm text-slate-500 p-3';
+        empty.textContent = `No saved studies match “${String(searchInput?.value || '').trim()}”. Try another book, chapter, or word from your notes.`;
         list.appendChild(empty);
         return;
       }
@@ -1694,6 +1726,8 @@
       const openButton = document.getElementById('openStudyLibraryBtn');
       const closeButton = document.getElementById('closeStudyLibraryBtn');
       const modal = document.getElementById('studyLibraryModal');
+      const searchInput = document.getElementById('studyLibrarySearch');
+      if (searchInput) searchInput.addEventListener('input', renderStudyLibrary);
       if (openButton && modal) openButton.addEventListener('click', () => {
         saveActiveStudyNote();
         renderStudyLibrary();

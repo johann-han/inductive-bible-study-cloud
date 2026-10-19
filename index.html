@@ -329,6 +329,14 @@
         <div class="px-3 sm:px-4 py-3 border-b border-slate-200 bg-white">
           <label for="studyLibrarySearch" class="block text-xs font-semibold text-slate-700 mb-1">Search saved studies</label>
           <input id="studyLibrarySearch" type="search" autocomplete="off" placeholder="Book, chapter, or words in your notes..." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-amber-600">
+          <label for="studyLibraryCoverageFilter" class="block text-xs font-semibold text-slate-700 mt-3 mb-1">Section coverage</label>
+          <select id="studyLibraryCoverageFilter" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-amber-600">
+            <option value="all">All saved studies</option>
+            <option value="missing-observe">Missing Observe notes</option>
+            <option value="missing-interpret">Missing Interpret notes</option>
+            <option value="missing-apply">Missing Apply notes</option>
+            <option value="complete">All three sections have notes</option>
+          </select>
           <p id="studyLibraryCount" class="text-[11px] text-slate-500 mt-2" aria-live="polite"></p>
         </div>
         <div id="studyLibraryList" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2">
@@ -1692,9 +1700,27 @@
         .filter(record => record && record.book && Number(record.chapter) > 0 && record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim()))
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
       const searchInput = document.getElementById('studyLibrarySearch');
+      const coverageInput = document.getElementById('studyLibraryCoverageFilter');
       const query = String(searchInput?.value || '').trim().toLocaleLowerCase();
+      const coverageFilter = String(coverageInput?.value || 'all');
+      const coverageLabels = {
+        all: 'all saved studies',
+        'missing-observe': 'studies missing Observe notes',
+        'missing-interpret': 'studies missing Interpret notes',
+        'missing-apply': 'studies missing Apply notes',
+        complete: 'studies with all three sections filled'
+      };
+      const coverageFilteredEntries = allEntries.filter(record => {
+        const sections = record.sections || {};
+        const hasNotes = section => String(sections[section] || '').trim().length > 0;
+        if (coverageFilter === 'missing-observe') return !hasNotes('observe');
+        if (coverageFilter === 'missing-interpret') return !hasNotes('interpret');
+        if (coverageFilter === 'missing-apply') return !hasNotes('apply');
+        if (coverageFilter === 'complete') return ['observe', 'interpret', 'apply'].every(hasNotes);
+        return true;
+      });
       const entries = query
-        ? allEntries.filter(record => {
+        ? coverageFilteredEntries.filter(record => {
             const searchableText = [
               record.book,
               record.chapter,
@@ -1704,11 +1730,12 @@
             ].map(value => String(value || '')).join(' ').toLocaleLowerCase();
             return searchableText.includes(query);
           })
-        : allEntries;
+        : coverageFilteredEntries;
       const count = document.getElementById('studyLibraryCount');
+      const isFiltered = Boolean(query) || coverageFilter !== 'all';
       if (count) {
-        count.textContent = query
-          ? `${entries.length} of ${allEntries.length} saved studies match your search.`
+        count.textContent = isFiltered
+          ? `${entries.length} of ${allEntries.length} saved studies shown.`
           : `${allEntries.length} saved ${allEntries.length === 1 ? 'study' : 'studies'}.`;
       }
       list.innerHTML = '';
@@ -1722,7 +1749,10 @@
       if (!entries.length) {
         const empty = document.createElement('p');
         empty.className = 'text-sm text-slate-500 p-3';
-        empty.textContent = `No saved studies match “${String(searchInput?.value || '').trim()}”. Try another book, chapter, or word from your notes.`;
+        const reasons = [];
+        if (query) reasons.push(`search “${String(searchInput?.value || '').trim()}”`);
+        if (coverageFilter !== 'all') reasons.push(coverageLabels[coverageFilter] || 'the selected section filter');
+        empty.textContent = `No saved studies match ${reasons.length ? reasons.join(' and ') : 'the current filters'}. Try changing your search or section filter.`;
         list.appendChild(empty);
         return;
       }
@@ -1886,7 +1916,9 @@
       const closeButton = document.getElementById('closeStudyLibraryBtn');
       const modal = document.getElementById('studyLibraryModal');
       const searchInput = document.getElementById('studyLibrarySearch');
+      const coverageInput = document.getElementById('studyLibraryCoverageFilter');
       if (searchInput) searchInput.addEventListener('input', renderStudyLibrary);
+      if (coverageInput) coverageInput.addEventListener('change', renderStudyLibrary);
       if (openButton && modal) openButton.addEventListener('click', () => {
         saveActiveStudyNote();
         renderStudyLibrary();

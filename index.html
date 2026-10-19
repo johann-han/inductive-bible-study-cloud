@@ -2733,7 +2733,15 @@
         });
       });
       if (reviewNotesBtn) {
-        reviewNotesBtn.addEventListener('click', () => askMentor('Guide me through reviewing my active notes using the inductive method. Identify observations I have made, questions I should ask, interpretive claims that need evidence from the passage, and possible applications. Do not invent observations or assume my conclusions are correct.'));
+        reviewNotesBtn.addEventListener('click', () => {
+          const sectionPrompts = {
+            observe: 'Guide me through reviewing my OBSERVATION notes for the active passage. Focus only on what the text explicitly says: people, actions, repeated words, structure, contrasts, commands, causes, and connections. Ask questions that help me notice evidence I may have missed. Clearly distinguish direct observations from interpretations or applications, and do not invent details.',
+            interpret: 'Guide me through reviewing my INTERPRETATION notes for the active passage. Check whether each conclusion is supported by the wording and context, identify assumptions that need testing, and ask about literary context, authorial flow, and relevant background only where helpful. Present plausible alternatives fairly when needed. Do not treat an application as the meaning of the passage or claim more certainty than the evidence allows.',
+            apply: 'Guide me through reviewing my APPLICATION notes for the active passage. Check that each application follows from the passage’s meaning in context, is specific and practical, and does not simply impose a modern idea on the text. Help me consider beliefs, attitudes, relationships, and actions where appropriate. Ask reflective questions; do not prescribe personal decisions or invent the user’s circumstances.'
+          };
+          const activeSection = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+          askMentor(sectionPrompts[activeSection]);
+        });
       }
 
       // Wire the bottom-bar Ask AI button to the selected verse(s). This handler was missing.

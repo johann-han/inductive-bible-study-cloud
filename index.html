@@ -1668,10 +1668,37 @@
         sectionsLine.className = 'text-xs text-slate-600 mt-1';
         const filledSections = ['observe', 'interpret', 'apply'].filter(section => (record.sections?.[section] || '').trim());
         sectionsLine.textContent = `Notes: ${filledSections.map(section => NOTE_SECTION_LABELS[section]).join(', ')}`;
+
+        // Show why a study matched the search, or a short note preview when browsing.
+        const previewParts = ['observe', 'interpret', 'apply']
+          .map(section => ({
+            section,
+            text: String(record.sections?.[section] || '').replace(/\s+/g, ' ').trim()
+          }))
+          .filter(part => part.text);
+        let previewPart = previewParts.find(part =>
+          query && part.text.toLocaleLowerCase().includes(query)
+        );
+        let previewText = '';
+        if (previewPart) {
+          const matchStart = previewPart.text.toLocaleLowerCase().indexOf(query);
+          const start = Math.max(0, matchStart - 55);
+          const end = Math.min(previewPart.text.length, matchStart + query.length + 95);
+          previewText = `${start > 0 ? '…' : ''}${previewPart.text.slice(start, end)}${end < previewPart.text.length ? '…' : ''}`;
+        } else if (previewParts.length) {
+          previewPart = previewParts[0];
+          previewText = previewPart.text.slice(0, 150) + (previewPart.text.length > 150 ? '…' : '');
+        }
+        const preview = document.createElement('p');
+        preview.className = 'text-xs text-slate-500 mt-1 leading-relaxed';
+        preview.textContent = previewText
+          ? `${NOTE_SECTION_LABELS[previewPart.section]} preview: ${previewText}`
+          : 'No note preview available.';
+
         const updated = document.createElement('p');
         updated.className = 'text-[11px] text-slate-400 mt-1';
         updated.textContent = `Last edited: ${formatStudyDate(record.updatedAt)}`;
-        details.append(heading, sectionsLine, updated);
+        details.append(heading, sectionsLine, preview, updated);
         const actions = document.createElement('div');
         actions.className = 'flex items-center gap-2 shrink-0';
         const openButton = document.createElement('button');

@@ -166,6 +166,12 @@
     }
 
   </style>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
 </head>
 <body class="bg-slate-100 text-slate-900 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
 
@@ -200,8 +206,8 @@
         <option value="BBE" data-abbr="BBE">BBE (Basic English)</option>
       </select>
 
-      <button id="toggleStrongsBtn" title="Toggle available Strong's tags" class="bg-amber-600 text-slate-950 font-extrabold text-xs px-2.5 py-1.5 rounded-lg border border-amber-500 transition flex items-center space-x-1 active:scale-95">
-        <span>🏷️ <span id="strongsStatusLabel" class="text-slate-950 font-extrabold">ON</span></span>
+      <button id="toggleStrongsBtn" type="button" aria-pressed="false" title="Turn Strong's tags on or off" class="bg-amber-600 text-slate-950 font-extrabold text-xs px-2.5 py-1.5 rounded-lg border border-amber-500 transition flex items-center space-x-1 active:scale-95">
+        <span>🏷️ <span id="strongsStatusLabel" class="text-slate-950 font-extrabold">Strongs</span></span>
       </button>
 
       <button id="toggleWorkspaceMobile" class="md:hidden bg-slate-800 text-amber-400 p-1.5 rounded-lg border border-slate-700 text-xs font-bold flex items-center space-x-1">
@@ -215,6 +221,8 @@
       <button id="toggleAiBtn" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs px-2.5 sm:px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-1">
         <span>🤖 <span class="hidden sm:inline">AI Guide</span></span>
       </button>
+
+      <button id="appInstallBtn" type="button" class="hidden bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap" aria-label="Install Bible Study app">⬇ Install</button>
     </div>
   </header>
 
@@ -543,7 +551,7 @@
       currentTranslationAbbr: "KJV",
       activeTab: "OT",
       activeNotesSection: "observe",
-      strongsActive: true,
+      strongsActive: false,
       selectedVerses: new Set(),
       highlights: { observation: new Set(), interpretation: new Set() },
       db: null,
@@ -1324,9 +1332,13 @@
       const toggleStrongsBtn = document.getElementById('toggleStrongsBtn');
       const strongsStatusLabel = document.getElementById('strongsStatusLabel');
       if (toggleStrongsBtn) {
+        // Strong's tags are OFF by default on every fresh app load.
+        if (strongsStatusLabel) strongsStatusLabel.textContent = appState.strongsActive ? 'ON' : 'Strongs';
+        toggleStrongsBtn.setAttribute('aria-pressed', String(appState.strongsActive));
         toggleStrongsBtn.onclick = () => {
           appState.strongsActive = !appState.strongsActive;
           if (strongsStatusLabel) strongsStatusLabel.textContent = appState.strongsActive ? 'ON' : 'Strongs';
+          toggleStrongsBtn.setAttribute('aria-pressed', String(appState.strongsActive));
           renderScripture();
         };
       }
@@ -2004,12 +2016,32 @@
       const getContext = () => {
         const scripture = document.getElementById('scriptureContainer');
         const notes = document.getElementById('workspaceNoteArea');
+        const selectedVerses = Array.from(appState.selectedVerses || []);
+        let passageText = (scripture?.innerText || '').slice(0, 14000);
+
+        // When verses are selected, send those verse texts instead of the whole chapter.
+        if (selectedVerses.length && scripture) {
+          const selectedSet = new Set(selectedVerses);
+          const lines = [];
+          scripture.querySelectorAll(':scope > div').forEach(verseDiv => {
+            const verseNumber = Number.parseInt(verseDiv.firstElementChild?.textContent || '', 10);
+            const verseKey = `${appState.currentBook} ${appState.currentChapter}:${verseNumber}`;
+            if (!Number.isInteger(verseNumber) || !selectedSet.has(verseKey)) return;
+            const textNode = verseDiv.querySelector('p');
+            if (!textNode) return;
+            const cleanText = textNode.cloneNode(true);
+            cleanText.querySelectorAll('.strongs-tag').forEach(tag => tag.remove());
+            lines.push(`${verseNumber}. ${(cleanText.innerText || cleanText.textContent || '').trim()}`);
+          });
+          if (lines.length) passageText = `${appState.currentBook} ${appState.currentChapter} — selected verse(s) (${selectedVerses.join(', ')}):\n${lines.join('\n')}`;
+        }
+
         return {
           book: appState.currentBook,
           chapter: appState.currentChapter,
           translation: appState.currentTranslationAbbr || appState.currentTranslation || 'KJV',
-          selectedVerses: Array.from(appState.selectedVerses || []),
-          passageText: (scripture?.innerText || '').slice(0, 14000),
+          selectedVerses,
+          passageText: passageText.slice(0, 14000),
           notes: (notes?.value || '').slice(0, 8000),
           activeStudyTab: appState.activeNotesSection || 'observe'
         };
@@ -2081,7 +2113,53 @@
       if (reviewNotesBtn) {
         reviewNotesBtn.addEventListener('click', () => askMentor('Guide me through reviewing my active notes using the inductive method. Identify observations I have made, questions I should ask, interpretive claims that need evidence from the passage, and possible applications. Do not invent observations or assume my conclusions are correct.'));
       }
+
+      // Wire the bottom-bar Ask AI button to the selected verse(s). This handler was missing.
+      const sendVersesToAiBtn = document.getElementById('sendVersesToAiBtn');
+      if (sendVersesToAiBtn) {
+        sendVersesToAiBtn.addEventListener('click', () => {
+          const selected = Array.from(appState.selectedVerses || []);
+          if (!selected.length) {
+            updateVerseSelectionBar();
+            return;
+          }
+          const prompt = `Help me study only the selected verse(s): ${selected.join(', ')}. Begin with specific observations supported by the text, then raise interpretation questions and relevant context. Do not jump directly to application or claim certainty beyond the supplied passage. Guide me with questions as well as concise explanations.`;
+          askMentor(prompt);
+        });
+      }
     }
+
+    let deferredInstallPrompt = null;
+
+    function setupPWAInstall() {
+      const installBtn = document.getElementById('appInstallBtn');
+      if (installBtn) {
+        window.addEventListener('beforeinstallprompt', event => {
+          event.preventDefault();
+          deferredInstallPrompt = event;
+          installBtn.classList.remove('hidden');
+        });
+        installBtn.addEventListener('click', async () => {
+          if (!deferredInstallPrompt) return;
+          deferredInstallPrompt.prompt();
+          try { await deferredInstallPrompt.userChoice; } catch (_) {}
+          deferredInstallPrompt = null;
+          installBtn.classList.add('hidden');
+        });
+        window.addEventListener('appinstalled', () => {
+          deferredInstallPrompt = null;
+          installBtn.classList.add('hidden');
+        });
+      }
+      if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(error => console.warn('PWA service worker registration failed:', error));
+        }, { once: true });
+      }
+    }
+
+    // Register install and service-worker listeners before the page load event.
+    setupPWAInstall();
 
     window.onload = () => {
       initApp().then(() => {

@@ -125,8 +125,15 @@ const server = http.createServer(async (req, res) => {
   if (!filePath.startsWith(path.resolve(__dirname) + path.sep)) return send(res, 403, { error: 'Forbidden.' });
   fs.readFile(filePath, (err, data) => {
     if (err) return send(res, 404, { error: 'Not found.' });
-    const type = filePath.endsWith('.html') ? 'text/html; charset=utf-8' : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' });
+    const type = filePath.endsWith('.html') ? 'text/html; charset=utf-8'
+      : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8'
+      : filePath.endsWith('.webmanifest') ? 'application/manifest+json; charset=utf-8'
+      : filePath.endsWith('.json') ? 'application/json; charset=utf-8'
+      : filePath.endsWith('.png') ? 'image/png'
+      : filePath.endsWith('.svg') ? 'image/svg+xml'
+      : 'application/octet-stream';
+    const cacheControl = ['index.html', 'sw.js', 'manifest.webmanifest'].includes(path.basename(filePath)) ? 'no-cache' : 'public, max-age=3600';
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheControl, 'X-Content-Type-Options': 'nosniff' });
     res.end(data);
   });
 });

@@ -598,6 +598,55 @@
       annotationSource: null,
       scriptureSource: null
     };
+
+    // Remember the last Bible passage locally so the reader reopens where the user left off.
+    const LAST_READING_STORAGE_KEY = 'inductive-bible-study-last-reading-v1';
+
+    function restoreLastReading() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(LAST_READING_STORAGE_KEY) || 'null');
+        if (!saved || typeof saved !== 'object') return false;
+
+        const bookInfo = BIBLE_CANON.find(book => book.name === saved.book);
+        const chapter = Number(saved.chapter);
+        if (!bookInfo || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(bookInfo.chapters)) {
+          return false;
+        }
+
+        appState.currentBook = bookInfo.name;
+        appState.currentChapter = chapter;
+        appState.activeTab = bookInfo.testament;
+
+        const translationSelect = document.getElementById('globalTranslationSelect');
+        const savedTranslation = String(saved.translation || 'KJV');
+        const translationOption = translationSelect
+          ? Array.from(translationSelect.options).find(option => option.value === savedTranslation)
+          : null;
+        appState.currentTranslation = translationOption ? translationOption.value : 'KJV';
+        appState.currentTranslationAbbr = translationOption
+          ? (translationOption.dataset.abbr || translationOption.value)
+          : 'KJV';
+        if (translationSelect) translationSelect.value = appState.currentTranslation;
+        return true;
+      } catch (error) {
+        console.warn('The last Bible reading could not be restored:', error);
+        return false;
+      }
+    }
+
+    function saveLastReading() {
+      try {
+        localStorage.setItem(LAST_READING_STORAGE_KEY, JSON.stringify({
+          book: appState.currentBook,
+          chapter: appState.currentChapter,
+          translation: appState.currentTranslation || 'KJV'
+        }));
+      } catch (error) {
+        // Reading history is a convenience; failure must never interrupt the Bible reader.
+        console.warn('The last Bible reading could not be saved:', error);
+      }
+    }
+
     const scriptureChapterCache = new Map();
 
     // Words that should not receive Strong's tags (stop words)
@@ -1023,6 +1072,7 @@
 
       const bookName = appState.currentBook;
       const chapterNum = appState.currentChapter;
+      saveLastReading();
 
       if (activeBookTitle) activeBookTitle.textContent = `${bookName} ${chapterNum}`;
       if (currentPassageLabel) currentPassageLabel.textContent = `${bookName} ${chapterNum}`;
@@ -1245,6 +1295,7 @@
     }
 
     async function initApp() {
+      restoreLastReading();
       await initSQLiteLexicon();
       renderBooksList();
       renderChapterPills();

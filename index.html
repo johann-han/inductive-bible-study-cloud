@@ -329,6 +329,7 @@
         <footer class="p-3 border-t border-slate-200 bg-slate-50 space-y-2">
           <div class="flex flex-wrap gap-2">
             <button id="exportStudyBackupBtn" type="button" class="text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg px-3 py-2">Download Full Backup</button>
+            <button id="exportAllStudiesMarkdownBtn" type="button" class="text-xs font-bold bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg px-3 py-2">Export All as Markdown</button>
             <button id="importStudyBackupBtn" type="button" class="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-lg px-3 py-2">Restore from Backup</button>
             <input id="studyBackupFileInput" type="file" accept=".json,application/json" class="hidden" aria-label="Choose a Bible study backup JSON file">
           </div>
@@ -1861,6 +1862,77 @@
           : 'text-slate-600');
     }
 
+    function exportAllStudiesMarkdown() {
+      // Capture the editor before collecting the entire local library.
+      saveActiveStudyNote();
+      migrateAllLegacyLocalNotes();
+      const library = readStudyLibrary();
+      const studies = Object.values(library)
+        .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
+          record.sections && ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim()))
+        .map(record => ({
+          book: String(record.book),
+          chapter: Number(record.chapter),
+          sections: {
+            observe: String(record.sections?.observe || ''),
+            interpret: String(record.sections?.interpret || ''),
+            apply: String(record.sections?.apply || '')
+          }
+        }))
+        .sort((a, b) => {
+          const aIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
+          const bIndex = BIBLE_CANON.findIndex(book => book.name === b.book);
+          return (aIndex < 0 ? Number.MAX_SAFE_INTEGER : aIndex) -
+            (bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex) || a.chapter - b.chapter;
+        });
+
+      if (!studies.length) {
+        setStudyBackupStatus('There are no saved notes to export yet.');
+        return;
+      }
+
+      const exportedAt = new Date();
+      const dateLabel = exportedAt.toLocaleString();
+      const parts = [
+        '# Inductive Bible Study — All Saved Studies',
+        '',
+        `Exported: ${dateLabel}`,
+        `Total studies: ${studies.length}`,
+        ''
+      ];
+
+      studies.forEach((record, index) => {
+        if (index > 0) parts.push('---', '');
+        parts.push(
+          `# ${record.book} ${record.chapter}`,
+          '',
+          '## Observe',
+          '',
+          record.sections.observe,
+          '',
+          '## Interpret',
+          '',
+          record.sections.interpret,
+          '',
+          '## Apply',
+          '',
+          record.sections.apply,
+          ''
+        );
+      });
+
+      const blob = new Blob([parts.join('\\n')], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `inductive-bible-study-all-notes-${exportedAt.toISOString().slice(0, 10)}.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setStudyBackupStatus(`Markdown export downloaded successfully: ${studies.length} saved studies included.`, 'success');
+    }
+
     function exportFullStudyBackup() {
       // Capture anything still in the editor and migrate notes saved by earlier app versions.
       saveActiveStudyNote();
@@ -2034,9 +2106,11 @@
 
     function setupStudyBackup() {
       const exportButton = document.getElementById('exportStudyBackupBtn');
+      const markdownButton = document.getElementById('exportAllStudiesMarkdownBtn');
       const importButton = document.getElementById('importStudyBackupBtn');
       const fileInput = document.getElementById('studyBackupFileInput');
       if (exportButton) exportButton.addEventListener('click', exportFullStudyBackup);
+      if (markdownButton) markdownButton.addEventListener('click', exportAllStudiesMarkdown);
       if (importButton && fileInput) importButton.addEventListener('click', () => {
         fileInput.value = '';
         fileInput.click();

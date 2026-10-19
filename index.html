@@ -309,6 +309,7 @@
 
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
+          <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
           <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
             <span>✨ Ask AI to Guide My Active Notes</span>
           </button>
@@ -1565,6 +1566,15 @@
       return record;
     }
 
+    function updateWorkspaceWordCount(value) {
+      const countLabel = document.getElementById('workspaceWordCount');
+      if (!countLabel) return;
+      const text = String(value || '').trim();
+      const count = text ? text.split(/\s+/).length : 0;
+      const sectionLabel = NOTE_SECTION_LABELS[appState.activeNotesSection] || 'Notes';
+      countLabel.textContent = `${sectionLabel}: ${count} ${count === 1 ? 'word' : 'words'}`;
+    }
+
     function saveActiveStudyNote() {
       const area = document.getElementById('workspaceNoteArea');
       const status = document.getElementById('noteSaveStatus');
@@ -1614,6 +1624,7 @@
       if (!area) return;
       const record = getStudyRecord();
       area.value = record.sections[appState.activeNotesSection] || '';
+      updateWorkspaceWordCount(area.value);
       if (title) title.textContent = `${appState.currentBook} ${appState.currentChapter} - ${NOTE_SECTION_LABELS[appState.activeNotesSection]} Notes`;
       if (status) status.textContent = record.updatedAt ? 'Saved locally' : 'Not saved yet';
       updateWorkspaceSectionButtons();
@@ -1629,7 +1640,10 @@
     function setupNotesPersistence() {
       const area = document.getElementById('workspaceNoteArea');
       if (!area) return;
-      area.addEventListener('input', saveActiveStudyNote);
+      area.addEventListener('input', () => {
+        updateWorkspaceWordCount(area.value);
+        saveActiveStudyNote();
+      });
       const sectionButtons = {
         observe: document.getElementById('wsTabObserve'),
         interpret: document.getElementById('wsTabInterpret'),

@@ -1680,20 +1680,38 @@
           query && part.text.toLocaleLowerCase().includes(query)
         );
         let previewText = '';
+        let previewMatchOffset = -1;
         if (previewPart) {
           const matchStart = previewPart.text.toLocaleLowerCase().indexOf(query);
           const start = Math.max(0, matchStart - 55);
           const end = Math.min(previewPart.text.length, matchStart + query.length + 95);
-          previewText = `${start > 0 ? '…' : ''}${previewPart.text.slice(start, end)}${end < previewPart.text.length ? '…' : ''}`;
+          const leadingEllipsis = start > 0 ? '…' : '';
+          previewText = `${leadingEllipsis}${previewPart.text.slice(start, end)}${end < previewPart.text.length ? '…' : ''}`;
+          previewMatchOffset = leadingEllipsis.length + matchStart - start;
         } else if (previewParts.length) {
           previewPart = previewParts[0];
           previewText = previewPart.text.slice(0, 150) + (previewPart.text.length > 150 ? '…' : '');
         }
         const preview = document.createElement('p');
         preview.className = 'text-xs text-slate-500 mt-1 leading-relaxed';
-        preview.textContent = previewText
-          ? `${NOTE_SECTION_LABELS[previewPart.section]} preview: ${previewText}`
-          : 'No note preview available.';
+        if (previewText) {
+          const label = document.createElement('span');
+          label.textContent = `${NOTE_SECTION_LABELS[previewPart.section]} preview: `;
+          preview.appendChild(label);
+          if (previewMatchOffset >= 0 && query &&
+              previewText.slice(previewMatchOffset, previewMatchOffset + query.length).toLocaleLowerCase() === query) {
+            preview.appendChild(document.createTextNode(previewText.slice(0, previewMatchOffset)));
+            const highlighted = document.createElement('mark');
+            highlighted.className = 'bg-amber-200 text-slate-900 rounded-sm px-0.5';
+            highlighted.textContent = previewText.slice(previewMatchOffset, previewMatchOffset + query.length);
+            preview.appendChild(highlighted);
+            preview.appendChild(document.createTextNode(previewText.slice(previewMatchOffset + query.length)));
+          } else {
+            preview.appendChild(document.createTextNode(previewText));
+          }
+        } else {
+          preview.textContent = 'No note preview available.';
+        }
 
         const updated = document.createElement('p');
         updated.className = 'text-[11px] text-slate-400 mt-1';

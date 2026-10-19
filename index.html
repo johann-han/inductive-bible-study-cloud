@@ -2610,6 +2610,95 @@
       };
     }
 
+    function appendMentorResponseToNotes(answer, context, button) {
+      const book = String(context?.book || appState.currentBook || '');
+      const chapter = Number(context?.chapter || appState.currentChapter);
+      const section = NOTE_SECTION_LABELS[context?.activeStudyTab]
+        ? context.activeStudyTab
+        : (NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe');
+      const answerText = String(answer || '').trim();
+      const bookInfo = BIBLE_CANON.find(entry => entry.name === book);
+      if (!bookInfo || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(bookInfo.chapters)) {
+        throw new Error('The passage reference is no longer valid. Please try the study again.');
+      }
+      if (!answerText) throw new Error('There is no AI response to add.');
+
+      // Migrate any notes from earlier versions before merging, so existing work is retained.
+      getStudyRecord(book, chapter);
+      const library = readStudyLibrary();
+      const key = studyRecordKey(book, chapter);
+      const record = library[key] || {
+        book,
+        chapter,
+        sections: { observe: '', interpret: '', apply: '' },
+        activeSection: section,
+        updatedAt: null
+      };
+      record.book = book;
+      record.chapter = chapter;
+      record.sections = record.sections && typeof record.sections === 'object'
+        ? record.sections
+        : { observe: '', interpret: '', apply: '' };
+      for (const name of ['observe', 'interpret', 'apply']) {
+        record.sections[name] = String(record.sections[name] || '');
+      }
+
+      const selectedVerses = Array.isArray(context?.selectedVerses)
+        ? context.selectedVerses.filter(value => typeof value === 'string' && value.trim())
+        : [];
+      const reference = selectedVerses.length ? selectedVerses.join(', ') : `${book} ${chapter}`;
+      const translation = String(context?.translation || '').trim();
+      const heading = `AI Study Mentor — ${reference}${translation ? ` (${translation})` : ''}`;
+      const addition = `${heading}\n\n${answerText}`;
+      const existingNotes = record.sections[section].replace(/\s+$/, '');
+      record.sections[section] = existingNotes ? `${existingNotes}\n\n---\n\n${addition}` : addition;
+      record.activeSection = section;
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+
+      const tombstones = readStudyTombstones();
+      const hadTombstone = Object.prototype.hasOwnProperty.call(tombstones, key);
+      const previousTombstone = tombstones[key];
+      if (hadTombstone) {
+        delete tombstones[key];
+        if (!writeStudyTombstones(tombstones)) {
+          throw new Error('Could not update the deletion marker. Your notes were not changed.');
+        }
+      }
+
+      if (!writeStudyLibrary(library)) {
+        if (hadTombstone) {
+          tombstones[key] = previousTombstone;
+          writeStudyTombstones(tombstones);
+        }
+        throw new Error('The response could not be saved to your study notes. Please check available device storage.');
+      }
+
+      // If this is the section currently open, refresh the editor and its live word count.
+      if (appState.currentBook === book &&
+          Number(appState.currentChapter) === chapter &&
+          appState.activeNotesSection === section) {
+        const area = document.getElementById('workspaceNoteArea');
+        if (area) {
+          area.value = record.sections[section];
+          updateWorkspaceWordCount(area.value);
+        }
+        const status = document.getElementById('noteSaveStatus');
+        if (status) status.textContent = cloudSyncState.user
+          ? 'AI response added · saved locally · syncing…'
+          : 'AI response added · saved locally';
+      }
+
+      scheduleCloudStudySync();
+      if (button) {
+        button.textContent = `Added to ${NOTE_SECTION_LABELS[section]}`;
+        button.disabled = true;
+        button.classList.remove('bg-amber-500', 'hover:bg-amber-400');
+        button.classList.add('bg-emerald-700', 'text-white', 'opacity-90', 'cursor-default');
+        button.setAttribute('aria-label', `AI response added to ${book} ${chapter} ${NOTE_SECTION_LABELS[section]} notes`);
+      }
+    }
+
     function setupAIMentor() {
       const form = document.getElementById('aiChatForm');
       const input = document.getElementById('aiInput');
@@ -2672,6 +2761,7 @@
       async function askMentor(prompt) {
         const question = String(prompt || '').trim();
         if (!question) return;
+        const answerContext = getContext();
         drawer?.classList.remove('translate-x-full');
         input.value = '';
         addMessage('user', question);
@@ -2689,13 +2779,31 @@
           const response = await fetch('/api/mentor', {
             method: 'POST',
             headers,
-            body: JSON.stringify({ question, context: getContext(), history: history.slice(-8) })
+            body: JSON.stringify({ question, context: answerContext, history: history.slice(-8) })
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || `AI request failed (${response.status}).`);
           const answer = String(data.answer || '').trim();
           if (!answer) throw new Error('The AI service returned an empty response.');
           responseBody.textContent = answer;
+          const responseWrapper = responseBody.parentElement;
+          if (responseWrapper) {
+            const actions = document.createElement('div');
+            actions.className = 'mt-3 flex flex-wrap gap-2';
+            const addToNotesButton = document.createElement('button');
+            addToNotesButton.type = 'button';
+            addToNotesButton.className = 'text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg px-3 py-2 transition';
+            addToNotesButton.textContent = 'Add to Study Notes';
+            addToNotesButton.addEventListener('click', () => {
+              try {
+                appendMentorResponseToNotes(answer, answerContext, addToNotesButton);
+              } catch (error) {
+                window.alert(error.message || 'Could not add the AI response to your study notes.');
+              }
+            });
+            actions.appendChild(addToNotesButton);
+            responseWrapper.appendChild(actions);
+          }
           history.push({ role: 'assistant', content: answer });
         } catch (error) {
           responseBody.textContent = `I couldn't get a response. ${error.message}\n\nCheck that the local server is running and OPENROUTER_API_KEY is set in .env.`;

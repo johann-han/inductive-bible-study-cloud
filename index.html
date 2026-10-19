@@ -310,6 +310,7 @@
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
+          <p id="workspaceStudyPrompt" class="text-xs text-slate-600 bg-slate-100 rounded-lg px-3 py-2 leading-relaxed" aria-live="polite">Observe: What does the passage actually say? Notice repeated words, people, places, commands, contrasts, and connections before explaining their meaning.</p>
           <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
             <span>✨ Ask AI to Guide My Active Notes</span>
           </button>
@@ -1575,6 +1576,17 @@
       countLabel.textContent = `${sectionLabel}: ${count} ${count === 1 ? 'word' : 'words'}`;
     }
 
+    function updateWorkspaceStudyPrompt() {
+      const prompt = document.getElementById('workspaceStudyPrompt');
+      if (!prompt) return;
+      const prompts = {
+        observe: 'Observe: What does the passage actually say? Notice repeated words, people, places, commands, contrasts, and connections before explaining their meaning.',
+        interpret: 'Interpret: What did this mean in its context? Follow the author’s words and reasoning, check nearby context, and support conclusions with evidence from the passage.',
+        apply: 'Apply: How should this truth shape belief, attitude, or action today? Make the response specific and connect it to what the passage supports.'
+      };
+      prompt.textContent = prompts[appState.activeNotesSection] || prompts.observe;
+    }
+
     function saveActiveStudyNote() {
       const area = document.getElementById('workspaceNoteArea');
       const status = document.getElementById('noteSaveStatus');
@@ -1625,6 +1637,7 @@
       const record = getStudyRecord();
       area.value = record.sections[appState.activeNotesSection] || '';
       updateWorkspaceWordCount(area.value);
+      updateWorkspaceStudyPrompt();
       if (title) title.textContent = `${appState.currentBook} ${appState.currentChapter} - ${NOTE_SECTION_LABELS[appState.activeNotesSection]} Notes`;
       if (status) status.textContent = record.updatedAt ? 'Saved locally' : 'Not saved yet';
       updateWorkspaceSectionButtons();

@@ -1810,6 +1810,10 @@
         }
         seen.add(key);
         const updatedMs = Date.parse(item.updatedAt || backup.exportedAt || '');
+        if (!Number.isFinite(updatedMs)) {
+          setStudyBackupStatus(`The backup has no valid modification date for ${book} ${chapter}. No changes were made.`, 'error');
+          return;
+        }
         validated.push({
           key,
           record: {
@@ -1817,7 +1821,7 @@
             chapter,
             sections,
             activeSection: NOTE_SECTION_LABELS[item.activeSection] ? item.activeSection : 'observe',
-            updatedAt: Number.isFinite(updatedMs) ? new Date(updatedMs).toISOString() : new Date().toISOString()
+            updatedAt: new Date(updatedMs).toISOString()
           }
         });
       }
@@ -1881,13 +1885,6 @@
       if (fileInput) fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
         if (!file) return;
-        const count = (() => {
-          try {
-            const parsed = JSON.parse('');
-            return parsed.studies.length;
-          } catch (_) { return null; }
-        })();
-        void count;
         const accepted = window.confirm(
           'Restore studies from this backup? Existing studies that are newer will be kept. Studies not present in the backup will not be deleted. If cloud sync is enabled, the merged library will sync to your account.'
         );

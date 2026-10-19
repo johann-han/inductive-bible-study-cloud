@@ -1442,7 +1442,7 @@
     const STUDY_LIBRARY_STORAGE_KEY = 'inductive-study-library-v1';
     const STUDY_TOMBSTONES_STORAGE_KEY = 'inductive-study-library-deleted-v1';
     const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', apply: 'Apply' };
-    const cloudSyncState = { client: null, user: null, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '' };
+    const cloudSyncState = { client: null, user: null, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };
 
     function readStudyTombstones() {
       try {
@@ -1851,7 +1851,7 @@
           } else {
             continue;
           }
-          rowsToUpsert.push({
+          const nextRow = {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
@@ -1859,7 +1859,16 @@
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
-          });
+          };
+          // Avoid rewriting unchanged rows on routine background refreshes.
+          const remoteAlreadyMatches = remote &&
+            String(remote.updated_at || '') === String(nextRow.updated_at || '') &&
+            String(remote.deleted_at || '') === String(nextRow.deleted_at || '') &&
+            String(remote.active_section || '') === String(nextRow.active_section || '') &&
+            String(remote.sections?.observe || '') === String(nextRow.sections.observe || '') &&
+            String(remote.sections?.interpret || '') === String(nextRow.sections.interpret || '') &&
+            String(remote.sections?.apply || '') === String(nextRow.sections.apply || '');
+          if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 
         // A single transactional-style batch upsert makes the merged result converge on the next sync.
@@ -1874,6 +1883,7 @@
         loadActiveStudyNote();
         renderStudyLibrary();
         cloudSyncState.lastError = '';
+        cloudSyncState.lastSuccessfulSyncAt = Date.now();
         const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         if (!quiet) setCloudStatus(`Sync complete. ${Object.keys(mergedLibrary).filter(k => ['observe','interpret','apply'].some(section => (mergedLibrary[k].sections?.[section] || '').trim())).length} saved studies are up to date. Last synced at ${when}.`, 'success');
         if (saveStatus) saveStatus.textContent = `Cloud synced ${when}`;
@@ -1977,6 +1987,51 @@
         } catch (error) { setCloudStatus(error.message || 'Sign-out failed.', 'error'); }
       });
       if (syncNow) syncNow.addEventListener('click', () => syncCloudStudyLibrary().catch(error => setCloudStatus(`Cloud sync failed: ${error.message}`, 'error')));
+    }
+
+    // Refresh cloud studies when the app returns to the foreground, and periodically while visible.
+    // Routine refreshes compare records first so unchanged cloud rows are not rewritten.
+    function setupAutomaticCloudRefresh() {
+      let pendingRefresh = null;
+
+      const canRefresh = () =>
+        document.visibilityState === 'visible' &&
+        navigator.onLine &&
+        !!cloudSyncState.client &&
+        !!cloudSyncState.user &&
+        !cloudSyncState.syncing &&
+        !cloudSyncState.syncTimer;
+
+      const requestRefresh = (force = false) => {
+        if (!canRefresh()) return;
+        const sinceLastSync = Date.now() - (cloudSyncState.lastSuccessfulSyncAt || 0);
+        if (!force && sinceLastSync < 12000) return;
+        if (pendingRefresh) clearTimeout(pendingRefresh);
+        pendingRefresh = setTimeout(() => {
+          pendingRefresh = null;
+          if (!canRefresh()) return;
+          syncCloudStudyLibrary({ quiet: true }).catch(error => {
+            cloudSyncState.lastError = error.message || 'Cloud refresh failed.';
+            console.warn('Automatic cloud refresh failed:', error);
+            const status = document.getElementById('noteSaveStatus');
+            if (status) status.textContent = 'Cloud refresh failed · open Cloud to retry';
+          });
+        }, 800);
+      };
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') requestRefresh();
+      });
+      window.addEventListener('focus', () => requestRefresh());
+      window.addEventListener('pageshow', () => requestRefresh());
+      window.addEventListener('online', () => requestRefresh());
+
+      // While both devices remain open, check at a modest interval, only while this app is visible.
+      window.setInterval(() => {
+        if (canRefresh() && Date.now() - (cloudSyncState.lastSuccessfulSyncAt || 0) >= 60000) {
+          requestRefresh(true);
+        }
+      }, 60000);
     }
 
     function setupMarkdownExport() {
@@ -2180,6 +2235,7 @@
         setupStudyLibrary();
         setupMarkdownExport();
         setupCloudSync();
+        setupAutomaticCloudRefresh();
       }).catch(error => {
         console.error('App initialization failed:', error);
         const container = document.getElementById('scriptureContainer');

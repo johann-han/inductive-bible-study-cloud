@@ -1833,30 +1833,42 @@
       let added = 0;
       let updated = 0;
       let keptNewer = 0;
-      let skippedDeleted = 0;
+      let recoveredDeleted = 0;
 
       for (const entry of validated) {
-        const incoming = entry.record;
+        const incoming = { ...entry.record };
         const incomingTime = Date.parse(incoming.updatedAt) || 0;
         const current = library[entry.key];
         const currentTime = Date.parse(current?.updatedAt || '') || 0;
         const deletedTime = Date.parse(tombstones[entry.key] || '') || 0;
 
-        // Do not resurrect a study if a newer deletion marker exists.
-        if (deletedTime >= incomingTime && deletedTime > 0) {
-          skippedDeleted++;
-          continue;
-        }
-        // A newer local version wins; the restore never blindly replaces newer work.
-        if (current && currentTime >= incomingTime) {
+        // Preserve a newer live study, unless a deletion marker is newer than that copy.
+        if (current && currentTime >= incomingTime && currentTime >= deletedTime) {
           keptNewer++;
           continue;
+        }
+
+        // Restore is an explicit user action: a backup entry may revive a deliberately
+        // deleted study. Give the recovered row a timestamp newer than its deletion
+        // marker so the next cloud merge does not immediately delete it again.
+        const needsRevival = deletedTime > 0 && deletedTime >= incomingTime ||
+          (!current && !deletedTime);
+        if (needsRevival) {
+          const restoredMs = Math.max(Date.now(), incomingTime + 1, deletedTime + 1, currentTime + 1);
+          incoming.updatedAt = new Date(restoredMs).toISOString();
+          if (deletedTime > 0 || !current) recoveredDeleted++;
         }
 
         if (current) updated++;
         else added++;
         library[entry.key] = incoming;
-        if (deletedTime < incomingTime) delete tombstones[entry.key];
+        // An explicit restore clears the deletion marker; the updated timestamp wins
+        // over the old cloud tombstone during the following sync.
+        if (deletedTime > 0 && Date.parse(incoming.updatedAt) > deletedTime) {
+          delete tombstones[entry.key];
+        } else if (!deletedTime) {
+          delete tombstones[entry.key];
+        }
       }
 
       if (!writeStudyLibrary(library)) {
@@ -1866,10 +1878,10 @@
       writeStudyTombstones(tombstones);
       loadActiveStudyNote();
       renderStudyLibrary();
-      if (added || updated) scheduleCloudStudySync();
+      if (added || updated || recoveredDeleted) scheduleCloudStudySync();
 
       const summary = `Restore complete. ${added} added, ${updated} updated, ${keptNewer} newer existing studies kept` +
-        (skippedDeleted ? `, ${skippedDeleted} older backup entries skipped because the study was deleted later` : '') + '.';
+        (recoveredDeleted ? `; ${recoveredDeleted} deleted study/studies recovered from backup` : '') + '.';
       setStudyBackupStatus(summary, 'success');
     }
 

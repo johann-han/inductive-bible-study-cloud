@@ -1856,7 +1856,7 @@
         if (needsRevival) {
           const restoredMs = Math.max(Date.now(), incomingTime + 1, deletedTime + 1, currentTime + 1);
           incoming.updatedAt = new Date(restoredMs).toISOString();
-          if (deletedTime > 0 || !current) recoveredDeleted++;
+          if (deletedTime > 0) recoveredDeleted++;
         }
 
         if (current) updated++;

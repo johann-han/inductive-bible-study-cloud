@@ -213,7 +213,7 @@
         <span>🏷️ <span id="strongsStatusLabel" class="text-slate-950 font-extrabold">Strongs</span></span>
       </button>
 
-      <button id="toggleWorkspaceMobile" class="md:hidden bg-slate-800 text-amber-400 p-1.5 rounded-lg border border-slate-700 text-xs font-bold flex items-center space-x-1">
+      <button id="toggleWorkspaceMobile" type="button" aria-controls="workspacePanel" aria-expanded="false" title="Open study notes" class="bg-slate-800 hover:bg-slate-700 text-amber-400 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-bold flex items-center space-x-1 shrink-0">
         <span>📝 Notes</span>
       </button>
 
@@ -282,12 +282,12 @@
       </section>
 
       <!-- STUDY WORKSPACE PANEL -->
-      <section id="workspacePanel" class="fixed inset-y-0 right-0 z-30 w-full sm:w-96 lg:w-80 xl:w-96 bg-slate-50 flex flex-col border-l border-slate-200 overflow-hidden transition-transform duration-300 translate-x-full lg:translate-x-0 lg:static shadow-2xl lg:shadow-none shrink-0">
+      <section id="workspacePanel" aria-hidden="true" class="fixed inset-y-0 right-0 z-30 w-full sm:w-96 lg:w-80 xl:w-96 bg-slate-50 flex flex-col border-l border-slate-200 overflow-hidden transition-transform duration-300 translate-x-full shadow-2xl shrink-0">
         <div class="flex border-b border-slate-200 bg-white text-xs font-semibold text-slate-600">
           <button id="wsTabObserve" class="flex-1 py-3 text-center border-b-2 border-amber-600 text-amber-700 bg-slate-50 font-bold">Observe</button>
           <button id="wsTabInterpret" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Interpret</button>
           <button id="wsTabApply" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Apply</button>
-          <button id="closeWorkspaceMobile" class="lg:hidden px-3 text-slate-500 hover:text-slate-900 font-bold text-base">&times;</button>
+          <button id="closeWorkspaceMobile" type="button" aria-label="Close study notes" class="px-3 text-slate-500 hover:text-slate-900 font-bold text-base">&times;</button>
         </div>
 
         <div class="p-3 bg-white border-b border-slate-200 flex items-center justify-between">
@@ -1388,23 +1388,26 @@
       // AI Study Mentor: requests go to the local backend; the OpenRouter key never enters this HTML.
       setupAIMentor();
 
-      // Workspace Mobile Drawer Toggle
+      // Study Notes Drawer: hidden while reading; open only when the user requests notes.
       const toggleWorkspaceMobile = document.getElementById('toggleWorkspaceMobile');
       const closeWorkspaceMobile = document.getElementById('closeWorkspaceMobile');
       const workspacePanel = document.getElementById('workspacePanel');
+      const setWorkspaceOpen = (show) => {
+        if (!workspacePanel) return;
+        workspacePanel.classList.toggle('translate-x-full', !show);
+        workspacePanel.setAttribute('aria-hidden', show ? 'false' : 'true');
+        toggleWorkspaceMobile?.setAttribute('aria-expanded', show ? 'true' : 'false');
+        toggleWorkspaceMobile?.setAttribute('title', show ? 'Close study notes' : 'Open study notes');
+        mobileBackdrop?.classList.toggle('hidden', !show);
+      };
 
       if (toggleWorkspaceMobile) {
         toggleWorkspaceMobile.onclick = () => {
-          workspacePanel?.classList.remove('translate-x-full');
-          mobileBackdrop?.classList.remove('hidden');
+          const isOpen = workspacePanel && !workspacePanel.classList.contains('translate-x-full');
+          setWorkspaceOpen(!isOpen);
         };
       }
-      if (closeWorkspaceMobile) {
-        closeWorkspaceMobile.onclick = () => {
-          workspacePanel?.classList.add('translate-x-full');
-          mobileBackdrop?.classList.add('hidden');
-        };
-      }
+      if (closeWorkspaceMobile) closeWorkspaceMobile.onclick = () => setWorkspaceOpen(false);
 
       // Strongs Modal Copy to Notes Button
       const copyStrongsToNotesBtn = document.getElementById('copyStrongsToNotesBtn');

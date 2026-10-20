@@ -21,6 +21,29 @@
     
     .highlight-observation { background-color: rgba(253, 224, 71, 0.35); border-bottom: 2px solid #eab308; }
     .highlight-interpretation { background-color: rgba(16, 185, 129, 0.25); border-bottom: 2px solid #059669; }
+
+    .scripture-markup-observation {
+      background: rgba(253, 224, 71, 0.48); border-bottom: 2px solid #ca8a04; border-radius: .12rem;
+      -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    }
+    .scripture-markup-repeated {
+      background: rgba(59, 130, 246, 0.10); text-decoration-line: underline; text-decoration-style: wavy;
+      text-decoration-color: #2563eb; text-decoration-thickness: 1.5px;
+      -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    }
+    .scripture-markup-contrast {
+      background: rgba(244, 63, 94, 0.12); border-bottom: 2px dashed #e11d48;
+      -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    }
+    .scripture-markup-command {
+      background: rgba(139, 92, 246, 0.10); text-decoration-line: underline; text-decoration-color: #7c3aed;
+      text-decoration-thickness: 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    }
+    .scripture-markup-promise {
+      background: rgba(16, 185, 129, 0.18); border-bottom: 2px solid #059669; border-radius: .12rem;
+      -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    }
+    #scriptureMarkupToolbar button:disabled { opacity: .42; cursor: not-allowed; }
     
     .strongs-tag {
       display: inline-flex;
@@ -288,6 +311,20 @@
           <div id="chapterPillContainer" class="flex items-center space-x-1.5 overflow-x-auto py-1 text-xs"></div>
         </div>
 
+        <div id="scriptureMarkupToolbar" class="border-t border-b border-slate-200 bg-slate-50 px-3 sm:px-6 py-2 space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-bold text-slate-700">Mark selected text</span>
+            <span class="text-[10px] text-slate-500">Choose the same mark again to remove it</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" data-scripture-mark="observation" disabled class="rounded-md border border-yellow-300 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 px-2 py-1 text-[10px] sm:text-xs font-semibold">Observe</button>
+            <button type="button" data-scripture-mark="repeated" disabled class="rounded-md border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-900 px-2 py-1 text-[10px] sm:text-xs font-semibold">↻ Repeated</button>
+            <button type="button" data-scripture-mark="contrast" disabled class="rounded-md border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-900 px-2 py-1 text-[10px] sm:text-xs font-semibold">↔ Contrast</button>
+            <button type="button" data-scripture-mark="command" disabled class="rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-violet-900 px-2 py-1 text-[10px] sm:text-xs font-semibold">! Command</button>
+            <button type="button" data-scripture-mark="promise" disabled class="rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 px-2 py-1 text-[10px] sm:text-xs font-semibold">✓ Promise</button>
+          </div>
+          <p id="scriptureMarkupStatus" class="text-[10px] text-slate-500" aria-live="polite">Select a word or phrase inside one verse to enable marking.</p>
+        </div>
         <div id="scriptureContainer" class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 leading-relaxed bg-white pb-28 md:pb-8"></div>
 
         <div id="verseSelectionBar" class="hidden absolute bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 p-2.5 sm:p-3 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-100 shadow-2xl gap-2 z-10">
@@ -999,6 +1036,267 @@
       })[char]);
     }
 
+    const SCRIPTURE_MARKUP_TYPES = Object.freeze({
+      observation: { label: 'Observation', className: 'scripture-markup-observation' },
+      repeated: { label: 'Repeated word', className: 'scripture-markup-repeated' },
+      contrast: { label: 'Contrast', className: 'scripture-markup-contrast' },
+      command: { label: 'Command', className: 'scripture-markup-command' },
+      promise: { label: 'Promise', className: 'scripture-markup-promise' }
+    });
+    let pendingScriptureMarkupSelection = null;
+    let scriptureMarkupToolbarInteraction = false;
+
+    function currentScriptureTranslationKey() {
+      return String(appState.currentTranslationAbbr || appState.currentTranslation || 'KJV').trim().toUpperCase();
+    }
+
+    function visibleScriptureText(node) {
+      if (!node) return '';
+      const clone = node.cloneNode(true);
+      if (clone.nodeType === Node.ELEMENT_NODE && clone.matches('.strongs-tag')) return '';
+      clone.querySelectorAll?.('.strongs-tag').forEach(element => element.remove());
+      return String(clone.textContent || '');
+    }
+
+    function setScriptureMarkupToolbarState(selection, statusText) {
+      const toolbar = document.getElementById('scriptureMarkupToolbar');
+      const status = document.getElementById('scriptureMarkupStatus');
+      if (toolbar) toolbar.querySelectorAll('[data-scripture-mark]').forEach(button => { button.disabled = !selection; });
+      if (status && typeof statusText === 'string') status.textContent = statusText;
+    }
+
+    function clearPendingScriptureMarkupSelection(statusText = 'Select a word or phrase inside one verse to enable marking.') {
+      pendingScriptureMarkupSelection = null;
+      setScriptureMarkupToolbarState(null, statusText);
+    }
+
+    function textOffsetInScriptureParagraph(paragraph, node, offset) {
+      if (!paragraph || !node) return null;
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        range.setEnd(node, offset);
+        return visibleScriptureText(range.cloneContents()).length;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function updatePendingScriptureMarkupSelection() {
+      if (scriptureMarkupToolbarInteraction) return;
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !String(selection.toString() || '').trim()) {
+        clearPendingScriptureMarkupSelection();
+        return;
+      }
+      const endpointIsStrongsTag = node => {
+        const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+        return Boolean(element?.closest?.('.strongs-tag'));
+      };
+      if (endpointIsStrongsTag(selection.anchorNode) || endpointIsStrongsTag(selection.focusNode)) {
+        clearPendingScriptureMarkupSelection('Select the Bible words, not a Strong’s number.');
+        return;
+      }
+      const paragraphFor = node => {
+        const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+        return element?.closest?.('#scriptureContainer .scripture-verse-text') || null;
+      };
+      const startParagraph = paragraphFor(selection.anchorNode);
+      const endParagraph = paragraphFor(selection.focusNode);
+      if (!startParagraph || !endParagraph) {
+        clearPendingScriptureMarkupSelection();
+        return;
+      }
+      if (startParagraph !== endParagraph) {
+        clearPendingScriptureMarkupSelection('Select text within a single verse at a time.');
+        return;
+      }
+      const startOffset = textOffsetInScriptureParagraph(startParagraph, selection.anchorNode, selection.anchorOffset);
+      const endOffset = textOffsetInScriptureParagraph(startParagraph, selection.focusNode, selection.focusOffset);
+      if (!Number.isInteger(startOffset) || !Number.isInteger(endOffset)) {
+        clearPendingScriptureMarkupSelection('That selection could not be read. Select the text again.');
+        return;
+      }
+      const source = visibleScriptureText(startParagraph);
+      let start = Math.min(startOffset, endOffset);
+      let end = Math.max(startOffset, endOffset);
+      while (start < end && /\s/.test(source[start])) start++;
+      while (end > start && /\s/.test(source[end - 1])) end--;
+      const quote = source.slice(start, end);
+      if (!quote.trim() || end <= start) {
+        clearPendingScriptureMarkupSelection();
+        return;
+      }
+      const verseDiv = startParagraph.closest('[data-verse-number]');
+      const verse = Number(verseDiv?.dataset.verseNumber);
+      if (!Number.isInteger(verse) || verse < 1) {
+        clearPendingScriptureMarkupSelection('Could not identify that verse. Select the text again.');
+        return;
+      }
+      pendingScriptureMarkupSelection = {
+        book: appState.currentBook,
+        chapter: Number(appState.currentChapter),
+        verse, start, end, quote,
+        translation: currentScriptureTranslationKey()
+      };
+      const excerpt = quote.length > 58 ? quote.slice(0, 55) + '…' : quote;
+      setScriptureMarkupToolbarState(pendingScriptureMarkupSelection, 'Selected “' + excerpt + '” — choose a mark below.');
+    }
+
+    function scriptureMarkupsForVerse(allMarkups, verseNumber, verseText) {
+      if (!Array.isArray(allMarkups)) return [];
+      const translation = currentScriptureTranslationKey();
+      return allMarkups.filter(mark => {
+        if (!mark || Number(mark.verse) !== verseNumber) return false;
+        if (String(mark.translation || '').toUpperCase() !== translation) return false;
+        if (!Number.isInteger(mark.start) || !Number.isInteger(mark.end) ||
+            mark.start < 0 || mark.end <= mark.start || mark.end > verseText.length) return false;
+        return typeof mark.quote === 'string' && verseText.slice(mark.start, mark.end) === mark.quote;
+      });
+    }
+
+    function applyScriptureMarkupsToParagraph(paragraph, markups) {
+      if (!paragraph || !Array.isArray(markups) || !markups.length) return;
+      const valid = markups.filter(mark => SCRIPTURE_MARKUP_TYPES[mark.type]);
+      if (!valid.length) return;
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          return node.parentElement?.closest('.strongs-tag') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      const textNodes = [];
+      let absoluteOffset = 0;
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = String(node.nodeValue || '');
+        textNodes.push({ node, start: absoluteOffset, end: absoluteOffset + text.length, text });
+        absoluteOffset += text.length;
+      }
+      for (const item of textNodes) {
+        if (!item.text || !item.node.parentNode) continue;
+        const intersecting = valid.filter(mark => mark.start < item.end && mark.end > item.start);
+        if (!intersecting.length) continue;
+        const boundaries = new Set([0, item.text.length]);
+        intersecting.forEach(mark => {
+          boundaries.add(Math.max(0, Math.min(item.text.length, mark.start - item.start)));
+          boundaries.add(Math.max(0, Math.min(item.text.length, mark.end - item.start)));
+        });
+        const sorted = Array.from(boundaries).sort((a, b) => a - b);
+        const fragment = document.createDocumentFragment();
+        for (let index = 0; index < sorted.length - 1; index++) {
+          const localStart = sorted[index];
+          const localEnd = sorted[index + 1];
+          if (localEnd <= localStart) continue;
+          const globalStart = item.start + localStart;
+          const globalEnd = item.start + localEnd;
+          const types = intersecting.filter(mark => mark.start <= globalStart && mark.end >= globalEnd)
+            .map(mark => SCRIPTURE_MARKUP_TYPES[mark.type]);
+          const textPart = document.createTextNode(item.text.slice(localStart, localEnd));
+          if (!types.length) {
+            fragment.appendChild(textPart);
+            continue;
+          }
+          const wrapper = document.createElement('span');
+          wrapper.className = Array.from(new Set(types.map(type => type.className))).join(' ');
+          wrapper.dataset.scriptureMarkup = types.map(type => type.label).join(', ');
+          wrapper.title = types.map(type => type.label).join(' + ');
+          wrapper.appendChild(textPart);
+          fragment.appendChild(wrapper);
+        }
+        item.node.parentNode.replaceChild(fragment, item.node);
+      }
+    }
+
+    function applySelectedScriptureMarkup(type) {
+      const selection = pendingScriptureMarkupSelection;
+      const status = document.getElementById('scriptureMarkupStatus');
+      const meta = SCRIPTURE_MARKUP_TYPES[type];
+      if (!selection || !meta) {
+        setScriptureMarkupToolbarState(null, 'Select a word or phrase inside one verse first.');
+        return;
+      }
+      if (selection.book !== appState.currentBook || selection.chapter !== Number(appState.currentChapter) ||
+          selection.translation !== currentScriptureTranslationKey()) {
+        clearPendingScriptureMarkupSelection('The passage changed. Select the text again before marking it.');
+        return;
+      }
+      const paragraph = document.querySelector(
+        '#scriptureContainer [data-verse-number="' + selection.verse + '"] .scripture-verse-text'
+      );
+      const currentText = visibleScriptureText(paragraph);
+      if (!paragraph || currentText.slice(selection.start, selection.end) !== selection.quote) {
+        clearPendingScriptureMarkupSelection('The selection no longer matches the passage. Select it again.');
+        return;
+      }
+
+      saveActiveStudyNote();
+      const library = readStudyLibrary();
+      const key = studyRecordKey(selection.book, selection.chapter);
+      const record = library[key] || getStudyRecord(selection.book, selection.chapter, false);
+      if (!record || !record.book) {
+        setScriptureMarkupToolbarState(null, 'Could not prepare this study for saving. Please try again.');
+        return;
+      }
+      record.sections = record.sections || { observe: '', interpret: '', apply: '' };
+      record.sections.observe = String(record.sections.observe || '');
+      record.sections.interpret = String(record.sections.interpret || '');
+      record.sections.apply = String(record.sections.apply || '');
+      const markups = Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups.slice() : [];
+      const duplicateIndex = markups.findIndex(mark =>
+        mark && Number(mark.verse) === selection.verse &&
+        String(mark.translation || '').toUpperCase() === selection.translation &&
+        mark.start === selection.start && mark.end === selection.end &&
+        mark.type === type && mark.quote === selection.quote
+      );
+      const removed = duplicateIndex >= 0;
+      if (removed) markups.splice(duplicateIndex, 1);
+      else markups.push({
+        verse: selection.verse, start: selection.start, end: selection.end,
+        quote: selection.quote, translation: selection.translation, type
+      });
+      record.scriptureMarkups = markups;
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) {
+        setScriptureMarkupToolbarState(null, 'Markup could not be saved on this device. Please try again.');
+        return;
+      }
+      const tombstones = readStudyTombstones();
+      delete tombstones[key];
+      writeStudyTombstones(tombstones);
+      pendingScriptureMarkupSelection = null;
+      setScriptureMarkupToolbarState(null, (removed ? 'Removed ' : 'Saved ') + meta.label + ' mark for “' + selection.quote + '”.');
+      const saveStatus = document.getElementById('noteSaveStatus');
+      if (saveStatus) saveStatus.textContent = cloudSyncState.user ? 'Markup saved locally · syncing…' : 'Markup saved locally';
+      scheduleCloudStudySync();
+      renderScripture();
+      if (status) status.textContent = (removed ? 'Removed ' : 'Saved ') + meta.label + ' mark for “' + selection.quote + '”.';
+    }
+
+    function setupScriptureMarkupToolbar() {
+      const toolbar = document.getElementById('scriptureMarkupToolbar');
+      const scripture = document.getElementById('scriptureContainer');
+      if (!toolbar || !scripture) return;
+      toolbar.addEventListener('pointerdown', event => {
+        if (event.target.closest?.('[data-scripture-mark]')) scriptureMarkupToolbarInteraction = true;
+      });
+      toolbar.addEventListener('mousedown', event => {
+        if (event.target.closest?.('[data-scripture-mark]')) scriptureMarkupToolbarInteraction = true;
+      });
+      toolbar.addEventListener('click', event => {
+        const button = event.target.closest?.('[data-scripture-mark]');
+        if (!button || button.disabled) return;
+        scriptureMarkupToolbarInteraction = true;
+        applySelectedScriptureMarkup(button.dataset.scriptureMark);
+        setTimeout(() => { scriptureMarkupToolbarInteraction = false; }, 150);
+      });
+      const capture = () => updatePendingScriptureMarkupSelection();
+      scripture.addEventListener('mouseup', capture);
+      scripture.addEventListener('keyup', capture);
+      scripture.addEventListener('touchend', () => setTimeout(capture, 0), { passive: true });
+      document.addEventListener('selectionchange', capture);
+    }
+
     function formatAnnotatedScriptureText(text, annotations, showStrongs) {
       const source = String(text || '');
       if (!showStrongs || !Array.isArray(annotations) || annotations.length === 0) return escapeHTML(source);
@@ -1137,6 +1435,7 @@
 
       const bookName = appState.currentBook;
       const chapterNum = appState.currentChapter;
+      clearPendingScriptureMarkupSelection();
       saveLastReading();
 
       if (activeBookTitle) activeBookTitle.textContent = `${bookName} ${chapterNum}`;
@@ -1173,6 +1472,8 @@
       if (!scriptureContainer) return;
 
       scriptureContainer.innerHTML = '';
+      const savedMarkupRecord = getStudyRecord(bookName, chapterNum, false);
+      const savedScriptureMarkups = Array.isArray(savedMarkupRecord.scriptureMarkups) ? savedMarkupRecord.scriptureMarkups : [];
 
       verses.forEach((verseText, idx) => {
         const vNum = idx + 1;
@@ -1186,6 +1487,7 @@
         if (isInt) highlightClass = 'highlight-interpretation';
 
         const verseDiv = document.createElement('div');
+        verseDiv.dataset.verseNumber = String(vNum);
         verseDiv.className = `p-2.5 rounded-lg transition text-sm sm:text-base leading-relaxed flex items-start space-x-3 cursor-pointer ${isSelected ? 'bg-amber-100/90 border border-amber-300 shadow-sm' : 'hover:bg-slate-50'}`;
         
         const annotations = appState.currentWordAnnotations[String(vNum)] || [];
@@ -1197,8 +1499,13 @@
 
         verseDiv.innerHTML = `
           <span class="text-xs font-mono font-bold text-amber-700 pt-1 shrink-0 select-none min-w-[24px] text-right pr-1">${vNum}</span>
-          <p class="flex-1 text-slate-900 ${highlightClass} px-1 rounded">${renderedText}</p>
+          <p class="scripture-verse-text flex-1 text-slate-900 ${highlightClass} px-1 rounded">${renderedText}</p>
         `;
+        const scriptureVerseParagraph = verseDiv.querySelector('.scripture-verse-text');
+        applyScriptureMarkupsToParagraph(
+          scriptureVerseParagraph,
+          scriptureMarkupsForVerse(savedScriptureMarkups, vNum, verseText)
+        );
 
         verseDiv.onclick = (e) => {
           const strongsElem = e.target.closest('.strongs-word, .strongs-tag');
@@ -1219,6 +1526,9 @@
             });
             return;
           }
+
+          const activeTextSelection = window.getSelection();
+          if (activeTextSelection && !activeTextSelection.isCollapsed && String(activeTextSelection.toString() || '').trim()) return;
 
           if (appState.selectedVerses.has(vKey)) {
             appState.selectedVerses.delete(vKey);
@@ -2786,6 +3096,7 @@
           interpret: String(row.sections?.interpret || ''),
           apply: String(row.sections?.apply || '')
         },
+        scriptureMarkups: Array.isArray(row.sections?._scriptureMarkups) ? row.sections._scriptureMarkups : [],
         activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
         updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
       };
@@ -2843,7 +3154,7 @@
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -2852,6 +3163,7 @@
             mergedTombstones[key] = updatedAt;
             sections = { observe: '', interpret: '', apply: '' };
             activeSection = 'observe';
+            scriptureMarkups = [];
           } else if (winner.record && winner.record.book) {
             const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
             book = rec.book;
@@ -2863,7 +3175,8 @@
             };
             activeSection = NOTE_SECTION_LABELS[rec.activeSection] ? rec.activeSection : 'observe';
             updatedAt = rec.updatedAt || winner.time || new Date().toISOString();
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt };
+            scriptureMarkups = Array.isArray(rec.scriptureMarkups) ? rec.scriptureMarkups : [];
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups };
           } else {
             continue;
           }
@@ -2871,7 +3184,7 @@
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections,
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -2883,7 +3196,9 @@
             String(remote.active_section || '') === String(nextRow.active_section || '') &&
             String(remote.sections?.observe || '') === String(nextRow.sections.observe || '') &&
             String(remote.sections?.interpret || '') === String(nextRow.sections.interpret || '') &&
-            String(remote.sections?.apply || '') === String(nextRow.sections.apply || '');
+            String(remote.sections?.apply || '') === String(nextRow.sections.apply || '') &&
+            JSON.stringify(Array.isArray(remote.sections?._scriptureMarkups) ? remote.sections._scriptureMarkups : []) ===
+              JSON.stringify(Array.isArray(nextRow.sections?._scriptureMarkups) ? nextRow.sections._scriptureMarkups : []);
           if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 
@@ -2930,10 +3245,14 @@
           }
         }
 
+        const activeStudyKey = studyRecordKey();
+        const activeMarkupsBeforeSync = JSON.stringify(localLibrary[activeStudyKey]?.scriptureMarkups || []);
+        const activeMarkupsAfterSync = JSON.stringify(mergedLibrary[activeStudyKey]?.scriptureMarkups || []);
         writeStudyLibrary(mergedLibrary);
         writeStudyTombstones(mergedTombstones);
         // Keep the active editor's caret and scroll when the text has not changed.
         loadActiveStudyNote({ preserveCaret: true });
+        if (activeMarkupsBeforeSync !== activeMarkupsAfterSync) renderScripture();
         renderStudyLibrary();
         cloudSyncState.lastError = '';
         cloudSyncState.lastSuccessfulSyncAt = Date.now();
@@ -3858,6 +4177,7 @@
 
     window.onload = () => {
       initApp().then(() => {
+        setupScriptureMarkupToolbar();
         setupNotesPersistence();
         setupStudyLibrary();
         setupStudyBackup();

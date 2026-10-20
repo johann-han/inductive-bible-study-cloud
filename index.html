@@ -682,6 +682,7 @@
             <button id="openStudyLibraryBtn" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-1 rounded font-semibold">My Studies</button>
             <button id="exportMarkdownBtn" class="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded font-semibold">Export MD</button>
             <button id="exportStudyReportBtn" type="button" title="Download a publication-ready, print-friendly report for this study" class="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-1 rounded font-semibold">Report</button>
+            <button id="exportSermonSourceBtn" type="button" title="Export this study as structured JSON for Expository Sermon Prep" class="text-[10px] bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1 rounded font-semibold">Sermon</button>
             <button id="studyNoteHistoryBtn" type="button" title="View and restore earlier versions of your study notes" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded font-semibold">History</button>
             <span id="noteSaveStatus" role="status" aria-live="polite" class="text-[9px] sm:text-[10px] text-slate-500 inline-block max-w-[6rem] sm:max-w-none truncate text-right">Saved locally</span>
           </div>
@@ -5695,7 +5696,218 @@ function renderStandardCrossReferenceList() {
       }, 60000);
     }
 
+    // Versioned, single-passage transfer packet for the separate Expository Sermon Prep tool.
+    // This export copies only the active study; it never exports the whole study library or recovery history.
+    function createSermonSourcePacket(record, options = {}) {
+      const book = String(record?.book || '').trim();
+      const chapter = Number(record?.chapter);
+      const bookInfo = BIBLE_CANON.find(entry => entry.name === book);
+      if (!bookInfo || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(bookInfo.chapters)) {
+        throw new Error('A valid saved Bible passage is required before exporting for sermon preparation.');
+      }
+
+      const sections = record?.sections && typeof record.sections === 'object' ? record.sections : {};
+      const outline = normalizePassageOutline(record?.passageOutline);
+      const verseMaps = normalizeVerseMaps(record?.verseMaps);
+      const scriptureMarkups = (Array.isArray(record?.scriptureMarkups) ? record.scriptureMarkups : [])
+        .filter(mark => mark && SCRIPTURE_MARKUP_TYPES[mark.type] &&
+          Number.isInteger(mark.verse) && mark.verse > 0 && mark.verse <= 250 &&
+          Number.isInteger(mark.start) && Number.isInteger(mark.end) &&
+          mark.start >= 0 && mark.end > mark.start && mark.end - mark.start <= 2000 &&
+          typeof mark.quote === 'string' && mark.quote.trim() && mark.quote.length <= 2000 &&
+          typeof mark.translation === 'string' && mark.translation.trim() && mark.translation.length <= 40)
+        .map(mark => ({
+          verse: mark.verse, start: mark.start, end: mark.end,
+          quote: mark.quote, translation: mark.translation, type: mark.type
+        }));
+
+      const customCrossReferences = (Array.isArray(record?.crossReferences) ? record.crossReferences : [])
+        .filter(ref => {
+          const targetBook = BIBLE_CANON.find(entry => entry.name === ref?.target?.book);
+          const targetChapter = Number(ref?.target?.chapter);
+          const targetStart = ref?.target?.startVerse;
+          const targetEnd = ref?.target?.endVerse;
+          return ref && typeof ref.id === 'string' && ref.id.length <= 100 &&
+            ref.source && ref.source.book === book && Number(ref.source.chapter) === chapter &&
+            Number.isInteger(ref.source.verse) && ref.source.verse >= 1 && ref.source.verse <= 250 &&
+            targetBook && Number.isInteger(targetChapter) && targetChapter >= 1 &&
+            targetChapter <= Number(targetBook.chapters) && CROSS_REFERENCE_RELATIONS[ref.relation] &&
+            typeof ref.note === 'string' && ref.note.length <= 2000 &&
+            ((targetStart === null && targetEnd === null) ||
+              (Number.isInteger(targetStart) && Number.isInteger(targetEnd) &&
+                targetStart >= 1 && targetEnd >= targetStart && targetEnd <= 250));
+        })
+        .map(ref => ({
+          id: ref.id,
+          source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: ref.source.verse },
+          target: {
+            book: ref.target.book,
+            chapter: Number(ref.target.chapter),
+            startVerse: Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null,
+            endVerse: Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : null
+          },
+          relation: ref.relation,
+          note: ref.note,
+          createdAt: typeof ref.createdAt === 'string' ? ref.createdAt.slice(0, 50) : ''
+        }));
+
+      const standardRows = Array.isArray(options.standardCrossReferenceRows) ? options.standardCrossReferenceRows : [];
+      const standardEntries = standardRows
+        .filter(row => row && Number.isInteger(Number(row.verse)) && Number(row.verse) >= 1 && Number(row.verse) <= 250 && Array.isArray(row.anchors))
+        .map(row => ({
+          verse: Number(row.verse),
+          anchors: row.anchors
+            .filter(anchor => anchor && typeof anchor.anchor === 'string' && anchor.anchor.length <= 2000 && Array.isArray(anchor.references))
+            .map(anchor => ({
+              anchor: anchor.anchor,
+              references: anchor.references.filter(ref => typeof ref === 'string' && ref.trim().length <= 200).map(ref => ref.trim())
+            }))
+            .filter(anchor => anchor.references.length > 0)
+        }))
+        .filter(row => row.anchors.length > 0);
+
+      const selectedVerses = Array.from(appState.selectedVerses || [])
+        .map(value => parseBibleReference(value))
+        .filter(ref => ref && ref.book === book && ref.chapter === chapter && Number.isInteger(ref.startVerse))
+        .map(ref => book + ' ' + chapter + ':' + ref.startVerse);
+
+      return {
+        format: 'inductive-bible-study-sermon-source',
+        version: 1,
+        exportedAt: options.exportedAt || new Date().toISOString(),
+        studyReference: { book, chapter, display: book + ' ' + chapter },
+        sermonPassage: String(options.sermonPassage || book + ' ' + chapter),
+        translation: String(options.translation || 'Unknown').slice(0, 40),
+        sourceUpdatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : null,
+        passageText: String(options.passageText || ''),
+        passageTextIncluded: Boolean(String(options.passageText || '').trim()),
+        sections: {
+          observe: String(sections.observe || ''),
+          interpret: String(sections.interpret || ''),
+          doctrine: String(sections.doctrine || ''),
+          discipleship: String(sections.apply || '')
+        },
+        passageOutline: outline,
+        verseMaps,
+        scriptureMarkups,
+        customCrossReferences,
+        standardCrossReferences: {
+          dataset: 'CrossReferences-org/bible-cross-references (TSK-derived)',
+          license: 'CC BY 4.0',
+          available: Boolean(options.standardCrossReferencesAvailable),
+          note: options.standardCrossReferencesAvailable
+            ? ''
+            : 'Standard cross-references could not be loaded at export time and are not included in this packet.',
+          entries: options.standardCrossReferencesAvailable ? standardEntries : []
+        },
+        selectedVerses
+      };
+    }
+
+    function getSermonPacketPassageText(startVerse, endVerse) {
+      const verseNodes = Array.from(document.querySelectorAll('#scriptureContainer [data-verse-number]'));
+      if (!verseNodes.length) return '';
+      const availableVerseNumbers = verseNodes
+        .map(node => Number(node.dataset.verseNumber))
+        .filter(value => Number.isInteger(value) && value > 0);
+      const firstVerse = Number.isInteger(startVerse) ? startVerse : Math.min(...availableVerseNumbers);
+      const lastVerse = Number.isInteger(endVerse) ? endVerse : Math.max(...availableVerseNumbers);
+      const lines = [];
+      for (let verse = firstVerse; verse <= lastVerse; verse++) {
+        const paragraph = document.querySelector(
+          '#scriptureContainer [data-verse-number="' + verse + '"] .scripture-verse-text'
+        );
+        if (!paragraph) return '';
+        const clone = paragraph.cloneNode(true);
+        clone.querySelectorAll('.strongs-tag').forEach(tag => tag.remove());
+        const verseText = String(clone.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (!verseText) return '';
+        lines.push(verse + '. ' + verseText);
+      }
+      return lines.join('\\n');
+    }
+
+    async function exportStudyForSermonPrep() {
+      const button = document.getElementById('exportSermonSourceBtn');
+      const status = document.getElementById('noteSaveStatus');
+      const originalLabel = button?.textContent || 'Sermon';
+      if (button) { button.disabled = true; button.textContent = 'Preparing…'; }
+      if (status) status.textContent = 'Preparing sermon study packet…';
+      try {
+        saveActiveStudyNote();
+        const book = appState.currentBook;
+        const chapter = Number(appState.currentChapter);
+        const record = getStudyRecord(book, chapter, false);
+        const defaultPassage = book + ' ' + chapter;
+        const passageInput = window.prompt(
+          'Enter the exact passage you intend to preach. It must be within ' + defaultPassage +
+          '. Example: ' + defaultPassage + ':1-16. Enter the whole chapter reference to include the chapter.',
+          defaultPassage
+        );
+        if (passageInput === null) {
+          if (status) status.textContent = 'Sermon packet export cancelled.';
+          return;
+        }
+        const parsedPassage = parseBibleReference(passageInput);
+        if (!parsedPassage || parsedPassage.book !== book || parsedPassage.chapter !== chapter) {
+          window.alert('Enter a valid passage within ' + defaultPassage + ', such as ' + defaultPassage + ':1-16. No packet was exported.');
+          if (status) status.textContent = 'Enter a valid sermon passage to export.';
+          return;
+        }
+
+        let standardAvailable = false;
+        let standardRows = [];
+        try {
+          await loadStandardCrossReferenceData();
+          standardAvailable = true;
+          standardRows = getStandardCrossReferenceRows(book, chapter);
+        } catch (error) {
+          console.warn('Standard cross-references were omitted from the sermon packet:', error);
+        }
+
+        const passageText = getSermonPacketPassageText(parsedPassage.startVerse, parsedPassage.endVerse);
+        const packet = createSermonSourcePacket(record, {
+          exportedAt: new Date().toISOString(),
+          sermonPassage: parsedPassage.startVerse === null
+            ? book + ' ' + chapter
+            : book + ' ' + chapter + ':' + parsedPassage.startVerse +
+              (parsedPassage.endVerse > parsedPassage.startVerse ? '-' + parsedPassage.endVerse : ''),
+          translation: appState.currentTranslationAbbr || appState.currentTranslation || 'Unknown',
+          passageText,
+          standardCrossReferencesAvailable: standardAvailable,
+          standardCrossReferenceRows: standardRows
+        });
+        const json = JSON.stringify(packet, null, 2);
+        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeBookName = book.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
+        const rangeSuffix = parsedPassage.startVerse === null
+          ? ''
+          : '-' + parsedPassage.startVerse +
+            (parsedPassage.endVerse > parsedPassage.startVerse ? '-' + parsedPassage.endVerse : '');
+        link.href = url;
+        link.download = safeBookName + '-' + chapter + rangeSuffix + '-sermon-source.json';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        if (status) {
+          status.textContent = 'Sermon packet exported' +
+            (packet.passageTextIncluded ? '' : ' · passage text unavailable; add it manually in Kerygma');
+        }
+      } catch (error) {
+        console.error('Sermon source packet export failed:', error);
+        if (status) status.textContent = 'Sermon packet export failed.';
+        window.alert(error.message || 'The sermon source packet could not be exported.');
+      } finally {
+        if (button) { button.disabled = false; button.textContent = originalLabel; }
+      }
+    }
+
     function setupMarkdownExport() {
+      const sermonButton = document.getElementById('exportSermonSourceBtn');
+      if (sermonButton) sermonButton.addEventListener('click', exportStudyForSermonPrep);
       const reportButton = document.getElementById('exportStudyReportBtn');
       reportButton?.addEventListener('click', async () => {
         saveActiveStudyNote();

@@ -168,6 +168,20 @@
       #globalTranslationSelect { max-width: 120px; }
     }
 
+    /* Let the Study Notes panel expand into a large writing surface on demand. */
+    #workspacePanel.workspace-expanded {
+      inset: 0 !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      max-width: 100vw !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      z-index: 45 !important;
+    }
+
     /* Once a book is selected, let the navigation drawer close on both phone and desktop. */
     #sidebar.sidebar-collapsed {
       position: absolute !important;
@@ -295,6 +309,7 @@
           <button id="wsTabObserve" class="flex-1 py-3 text-center border-b-2 border-amber-600 text-amber-700 bg-slate-50 font-bold">Observe</button>
           <button id="wsTabInterpret" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Interpret</button>
           <button id="wsTabApply" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Apply</button>
+          <button id="expandWorkspaceBtn" type="button" aria-label="Expand study notes" aria-expanded="false" title="Expand study notes" class="px-2.5 py-2 text-slate-500 hover:text-amber-700 hover:bg-amber-50 rounded font-bold text-base shrink-0">⛶</button>
           <button id="closeWorkspaceMobile" type="button" aria-label="Close study notes" class="px-3 text-slate-500 hover:text-slate-900 font-bold text-base">&times;</button>
         </div>
 
@@ -1492,7 +1507,27 @@
       // Study Notes Drawer: hidden while reading; open only when the user requests notes.
       const toggleWorkspaceMobile = document.getElementById('toggleWorkspaceMobile');
       const closeWorkspaceMobile = document.getElementById('closeWorkspaceMobile');
+      const expandWorkspaceBtn = document.getElementById('expandWorkspaceBtn');
       const workspacePanel = document.getElementById('workspacePanel');
+
+      const setWorkspaceExpanded = expanded => {
+        if (!workspacePanel) return;
+        workspacePanel.classList.toggle('workspace-expanded', expanded);
+        if (expandWorkspaceBtn) {
+          expandWorkspaceBtn.setAttribute('aria-expanded', String(expanded));
+          expandWorkspaceBtn.setAttribute('aria-label', expanded ? 'Restore study notes panel' : 'Expand study notes');
+          expandWorkspaceBtn.title = expanded ? 'Restore study notes panel' : 'Expand study notes';
+          expandWorkspaceBtn.textContent = expanded ? '↙' : '⛶';
+        }
+      };
+
+      if (expandWorkspaceBtn) {
+        expandWorkspaceBtn.addEventListener('click', () => {
+          const expanded = workspacePanel?.classList.contains('workspace-expanded') || false;
+          setWorkspaceExpanded(!expanded);
+        });
+      }
+
       const setWorkspaceOpen = (show) => {
         if (!workspacePanel) return;
         workspacePanel.classList.toggle('translate-x-full', !show);

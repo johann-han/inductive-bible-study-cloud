@@ -111,7 +111,7 @@ Before coding:
 2. Confirm the latest mobile UI changes are still present and the live app is working.
 3. After Render deploys the export commits, ask the user to test the new Sermon button and confirm the JSON file downloads with the expected study fields.
 4. Confirm the supplied Kerygma HTML checksum and preserve the original. Its deployment destination is the existing repository’s `sermon/index.html` path; use the current Node static server and same Render service, not a new service.
-5. Keep Kerygma out of `main` until the user confirms the IBS export in the live app. Do not overwrite the supplied source copy.
+5. Completed: the IBS export was confirmed by the uploaded Romans 2 packet, and Kerygma has since been merged in PR #1. Keep the original Kerygma source copy preserved; use the current `main/sermon/index.html` for future edits.
 5. Create an IBS full study backup and retain the original Kerygma file. Do not clear browser localStorage.
 6. Confirm whether Kerygma’s browser-local sermons need a backup/export enhancement before integration. If so, handle that as a small, separately tested preparation step.
 

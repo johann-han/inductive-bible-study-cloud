@@ -625,7 +625,7 @@
                     bigIdea: { interpret: 9000, doctrine: 7000 },
                     outline: { observe: 7000, interpret: 7000 },
                     applications: { doctrine: 7500, discipleship: 7500 },
-                    manuscript: { observe: 5000, interpret: 5000, doctrine: 5000, discipleship: 5000 },
+                    manuscript: { observe: 3500, interpret: 3500, doctrine: 3500, discipleship: 3500 },
                     all: { observe: 5000, interpret: 5000, doctrine: 5000, discipleship: 5000 }
                 };
                 const selectedSections = profileSections[profile] || profileSections.all;
@@ -648,8 +648,10 @@
                     if (value) blocks.push(sectionLabels[key] + ':\n' + value);
                 });
 
-                if (packet.passageTextIncluded && ['exegesis', 'bigIdea', 'outline', 'manuscript', 'all'].includes(profile)) {
-                    const passageText = clip(packet.passageText, profile === 'manuscript' ? 7000 : 11000);
+                const currentPassageText = String(sermon.text || '').trim();
+                const importedPassageText = String(packet.passageText || '').trim();
+                if (packet.passageTextIncluded && importedPassageText && importedPassageText !== currentPassageText && ['exegesis', 'bigIdea', 'outline', 'manuscript', 'all'].includes(profile)) {
+                    const passageText = clip(importedPassageText, profile === 'manuscript' ? 5500 : 8000);
                     if (passageText) blocks.push('IBS passage text (' + packet.translation + '):\n' + passageText);
                 }
 
@@ -691,9 +693,16 @@
                 }
 
                 if (['exegesis', 'manuscript', 'all'].includes(profile)) {
+                    const formatReference = point => {
+                        if (!point) return 'reference not recorded';
+                        let value = (point.book || '') + (point.chapter ? ' ' + point.chapter : '');
+                        if (point.verse) value += ':' + point.verse;
+                        else if (point.startVerse) value += ':' + point.startVerse + (point.endVerse && point.endVerse !== point.startVerse ? '-' + point.endVerse : '');
+                        return value.trim() || 'reference not recorded';
+                    };
                     const personal = (packet.customCrossReferences || []).slice(0, 18).map(ref => {
-                        const from = ref.source ? [ref.source.book, ref.source.chapter, ref.source.verse].filter(Boolean).join(' ') : 'source verse';
-                        const to = ref.target ? [ref.target.book, ref.target.chapter, ref.target.startVerse ? (ref.target.startVerse + (ref.target.endVerse && ref.target.endVerse !== ref.target.startVerse ? '-' + ref.target.endVerse : '')) : null].filter(Boolean).join(' ') : 'target';
+                        const from = formatReference(ref.source);
+                        const to = formatReference(ref.target);
                         return from + ' → ' + to + (ref.relation ? ' (' + clip(ref.relation, 100) + ')' : '') + (ref.note ? ': ' + clip(ref.note, 350) : '');
                     }).join('\n');
                     if (personal) blocks.push('IBS personal cross-references (user-created):\n' + personal);

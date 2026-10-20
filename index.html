@@ -325,6 +325,14 @@
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
+          <div id="workspaceNoteFind" class="space-y-1">
+            <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
+            <div class="flex items-center gap-2">
+              <input id="workspaceNoteFindInput" type="search" autocomplete="off" placeholder="Word or phrase…" class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-600">
+              <button id="workspaceNoteFindNextBtn" type="button" class="shrink-0 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-2">Find next</button>
+            </div>
+            <p id="workspaceNoteFindStatus" class="text-[10px] text-slate-500" aria-live="polite">Searches the active notes section.</p>
+          </div>
           <div id="workspaceVerseStudyNavigator" class="hidden space-y-1">
             <label for="workspaceVerseStudySelect" class="block text-[11px] font-semibold text-slate-600">Jump to verse study (all sections)</label>
             <select id="workspaceVerseStudySelect" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-600">
@@ -1758,6 +1766,84 @@
       };
     }
 
+    let workspaceNoteFindState = { query: '', indices: [], nextIndex: 0 };
+
+    function focusNotesTextRange(start, end) {
+      const area = document.getElementById('workspaceNoteArea');
+      if (!area || !Number.isInteger(start) || !Number.isInteger(end) ||
+          start < 0 || end <= start || end > area.value.length) return false;
+
+      area.setSelectionRange(start, end, 'forward');
+      if (!window.matchMedia('(pointer: coarse)').matches) {
+        area.focus({ preventScroll: true });
+        area.setSelectionRange(start, end, 'forward');
+      }
+
+      const style = window.getComputedStyle(area);
+      const fontSize = Number.parseFloat(style.fontSize) || 12;
+      const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.5;
+      const horizontalPadding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+      const approximateCharacterWidth = fontSize * 0.61;
+      const columns = Math.max(12, Math.floor(Math.max(1, area.clientWidth - horizontalPadding) / approximateCharacterWidth));
+      const priorLines = area.value.slice(0, start).split('\n');
+      const visualRowsBeforeMatch = priorLines.reduce((total, line) =>
+        total + Math.max(1, Math.ceil(line.length / columns)), 0);
+      area.scrollTop = Math.max(0, visualRowsBeforeMatch * lineHeight - lineHeight * 2);
+      return true;
+    }
+
+    function findNextInWorkspaceNotes() {
+      const input = document.getElementById('workspaceNoteFindInput');
+      const status = document.getElementById('workspaceNoteFindStatus');
+      const area = document.getElementById('workspaceNoteArea');
+      if (!input || !status || !area) return;
+
+      const query = String(input.value || '').trim();
+      if (!query) {
+        status.textContent = 'Enter a word or phrase to search this section.';
+        return;
+      }
+
+      if (workspaceNoteFindState.query.toLocaleLowerCase() !== query.toLocaleLowerCase()) {
+        workspaceNoteFindState = { query, indices: [], nextIndex: 0 };
+      }
+
+      if (!workspaceNoteFindState.indices.length) {
+        const source = area.value.toLocaleLowerCase();
+        const needle = query.toLocaleLowerCase();
+        let from = 0;
+        while (from <= source.length - needle.length) {
+          const index = source.indexOf(needle, from);
+          if (index < 0) break;
+          workspaceNoteFindState.indices.push(index);
+          from = index + Math.max(needle.length, 1);
+        }
+        workspaceNoteFindState.nextIndex = 0;
+      }
+
+      const total = workspaceNoteFindState.indices.length;
+      if (!total) {
+        status.textContent = 'No matches found in ' + NOTE_SECTION_LABELS[appState.activeNotesSection] + '.';
+        return;
+      }
+
+      const matchNumber = (workspaceNoteFindState.nextIndex % total) + 1;
+      const start = workspaceNoteFindState.indices[workspaceNoteFindState.nextIndex % total];
+      const end = start + query.length;
+      if (focusNotesTextRange(start, end)) {
+        status.textContent = 'Match ' + matchNumber + ' of ' + total + ' in ' + NOTE_SECTION_LABELS[appState.activeNotesSection] + '.';
+        workspaceNoteFindState.nextIndex = matchNumber % total;
+      }
+    }
+
+    function resetWorkspaceNoteFind() {
+      workspaceNoteFindState = { query: '', indices: [], nextIndex: 0 };
+      const input = document.getElementById('workspaceNoteFindInput');
+      const status = document.getElementById('workspaceNoteFindStatus');
+      if (input) input.value = '';
+      if (status) status.textContent = 'Searches the active notes section.';
+    }
+
     function getVerseStudyHeadingEntries(value) {
       const text = String(value || '');
       const pattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response|Verse Study)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
@@ -1889,6 +1975,7 @@
       const status = document.getElementById('noteSaveStatus');
       if (!area) return;
       const record = getStudyRecord();
+      if (options.resetFind !== false) resetWorkspaceNoteFind();
       const nextValue = String(record.sections[appState.activeNotesSection] || '');
       const preserveCaret = options.preserveCaret === true && document.activeElement === area;
       const selectionStart = preserveCaret ? area.selectionStart : null;
@@ -1933,6 +2020,25 @@
         updateWorkspaceVerseStudyNavigator(area.value);
         saveActiveStudyNote();
       });
+
+      const noteFindInput = document.getElementById('workspaceNoteFindInput');
+      const noteFindButton = document.getElementById('workspaceNoteFindNextBtn');
+      if (noteFindButton) noteFindButton.addEventListener('click', findNextInWorkspaceNotes);
+      if (noteFindInput) {
+        noteFindInput.addEventListener('keydown', event => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            findNextInWorkspaceNotes();
+          }
+        });
+        noteFindInput.addEventListener('input', () => {
+          workspaceNoteFindState = { query: '', indices: [], nextIndex: 0 };
+          const status = document.getElementById('workspaceNoteFindStatus');
+          if (status) status.textContent = noteFindInput.value.trim()
+            ? 'Press Find next or Enter to locate a match.'
+            : 'Searches the active notes section.';
+        });
+      }
 
       const verseStudySelect = document.getElementById('workspaceVerseStudySelect');
       if (verseStudySelect) {
@@ -3028,25 +3134,8 @@
         return false;
       }
 
-      // Select the actual saved heading so the user lands on the exact verse study.
-      area.setSelectionRange(start, end, 'forward');
-      if (!window.matchMedia('(pointer: coarse)').matches) {
-        area.focus({ preventScroll: true });
-        area.setSelectionRange(start, end, 'forward');
-      }
-
-      // Position the selected heading near the top of the editor, allowing for wrapped note lines.
-      const style = window.getComputedStyle(area);
-      const fontSize = Number.parseFloat(style.fontSize) || 12;
-      const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.5;
-      const horizontalPadding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
-      const approximateCharacterWidth = fontSize * 0.61;
-      const columns = Math.max(12, Math.floor(Math.max(1, area.clientWidth - horizontalPadding) / approximateCharacterWidth));
-      const priorLines = area.value.slice(0, start).split('\n');
-      const visualRowsBeforeHeading = priorLines.reduce((total, line) =>
-        total + Math.max(1, Math.ceil(line.length / columns)), 0);
-      area.scrollTop = Math.max(0, visualRowsBeforeHeading * lineHeight - lineHeight * 2);
-      return true;
+      // Use the same safe selection and scrolling logic as Find in Notes.
+      return focusNotesTextRange(start, end);
     }
 
     function openExistingAiStudy(context, existingStudy, button) {

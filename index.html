@@ -325,6 +325,12 @@
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
+          <div id="workspaceVerseStudyNavigator" class="hidden space-y-1">
+            <label for="workspaceVerseStudySelect" class="block text-[11px] font-semibold text-slate-600">Jump to verse study</label>
+            <select id="workspaceVerseStudySelect" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-600">
+              <option value="">Choose a saved verse study…</option>
+            </select>
+          </div>
           <button id="groupDuplicateAiHeadingsBtn" type="button" class="hidden self-start text-[11px] font-semibold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg px-3 py-2" title="Group repeated AI verse headings without deleting any response text">Group repeated AI verse headings</button>
           <p id="workspaceStudyPrompt" class="text-xs text-slate-600 bg-slate-100 rounded-lg px-3 py-2 leading-relaxed" aria-live="polite">Observe: What does the passage actually say? Notice repeated words, people, places, commands, contrasts, and connections before explaining their meaning.</p>
           <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
@@ -1752,6 +1758,54 @@
       };
     }
 
+    function getVerseStudyHeadingEntries(value) {
+      const text = String(value || '');
+      const pattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response|Verse Study)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
+      const counts = new Map();
+      const entries = [];
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const reference = match[1].trim();
+        const key = normalizeAiStudyReference(reference);
+        const count = (counts.get(key) || 0) + 1;
+        counts.set(key, count);
+        entries.push({
+          reference,
+          start: match.index,
+          end: pattern.lastIndex,
+          label: count === 1 ? reference : reference + ' — entry ' + count
+        });
+      }
+      return entries;
+    }
+
+    function updateWorkspaceVerseStudyNavigator(value) {
+      const navigator = document.getElementById('workspaceVerseStudyNavigator');
+      const select = document.getElementById('workspaceVerseStudySelect');
+      if (!navigator || !select) return;
+
+      const entries = getVerseStudyHeadingEntries(value);
+      const previousValue = select.value;
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Choose a saved verse study…';
+      select.replaceChildren(placeholder);
+
+      for (const entry of entries) {
+        const option = document.createElement('option');
+        option.value = entry.start + ':' + entry.end;
+        option.textContent = entry.label;
+        select.appendChild(option);
+      }
+
+      navigator.classList.toggle('hidden', entries.length === 0);
+      if (entries.some(entry => entry.start + ':' + entry.end === previousValue)) {
+        select.value = previousValue;
+      } else {
+        select.value = '';
+      }
+    }
+
     function updateDuplicateAiHeadingControl(value) {
       const button = document.getElementById('groupDuplicateAiHeadingsBtn');
       if (!button) return;
@@ -1824,6 +1878,7 @@
       area.value = record.sections[appState.activeNotesSection] || '';
       updateWorkspaceWordCount(area.value);
       updateDuplicateAiHeadingControl(area.value);
+      updateWorkspaceVerseStudyNavigator(area.value);
       updateWorkspaceStudyPrompt();
       if (title) title.textContent = `${appState.currentBook} ${appState.currentChapter} - ${NOTE_SECTION_LABELS[appState.activeNotesSection]} Notes`;
       if (status) status.textContent = record.updatedAt ? 'Saved locally' : 'Not saved yet';
@@ -1843,8 +1898,24 @@
       area.addEventListener('input', () => {
         updateWorkspaceWordCount(area.value);
         updateDuplicateAiHeadingControl(area.value);
+        updateWorkspaceVerseStudyNavigator(area.value);
         saveActiveStudyNote();
       });
+
+      const verseStudySelect = document.getElementById('workspaceVerseStudySelect');
+      if (verseStudySelect) {
+        verseStudySelect.addEventListener('change', () => {
+          const parts = String(verseStudySelect.value || '').split(':');
+          const start = Number(parts[0]);
+          const end = Number(parts[1]);
+          const selectedOption = verseStudySelect.options[verseStudySelect.selectedIndex];
+          if (!Number.isInteger(start) || !Number.isInteger(end) || end <= start) return;
+          if (focusExistingAiStudyHeading({ headingStart: start, headingEnd: end })) {
+            const status = document.getElementById('noteSaveStatus');
+            if (status) status.textContent = 'Jumped to ' + String(selectedOption?.textContent || 'saved verse study');
+          }
+        });
+      }
 
       const groupDuplicateButton = document.getElementById('groupDuplicateAiHeadingsBtn');
       if (groupDuplicateButton) {
@@ -3335,6 +3406,7 @@
           area.value = record.sections[section];
           updateWorkspaceWordCount(area.value);
           updateDuplicateAiHeadingControl(area.value);
+          updateWorkspaceVerseStudyNavigator(area.value);
         }
         const status = document.getElementById('noteSaveStatus');
         if (status) status.textContent = cloudSyncState.user

@@ -3672,6 +3672,29 @@ function renderStandardCrossReferenceList() {
       };
     }
 
+    function normalizeStudyNoteVersionHistory(value) {
+      if (!Array.isArray(value)) return [];
+      const seenIds = new Set();
+      return value.filter(entry => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+            typeof entry.id !== 'string' || !entry.id || entry.id.length > 100 ||
+            typeof entry.savedAt !== 'string' || !Number.isFinite(Date.parse(entry.savedAt)) ||
+            !entry.sections || typeof entry.sections !== 'object' || Array.isArray(entry.sections)) return false;
+        if (!STUDY_NOTE_VERSION_SECTIONS.every(section =>
+          typeof entry.sections[section.key] === 'string' && entry.sections[section.key].length <= 200000)) return false;
+        if (entry.activeSection !== undefined &&
+            !STUDY_NOTE_VERSION_SECTIONS.some(section => section.key === entry.activeSection)) return false;
+        if (seenIds.has(entry.id)) return false;
+        seenIds.add(entry.id);
+        return true;
+      }).map(entry => ({
+        id: entry.id,
+        savedAt: entry.savedAt,
+        activeSection: STUDY_NOTE_VERSION_SECTIONS.some(section => section.key === entry.activeSection) ? entry.activeSection : 'observe',
+        sections: cloneStudyNoteVersionSections(entry)
+      })).sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt)).slice(0, STUDY_NOTE_VERSION_LIMIT);
+    }
+
     function studyNoteVersionSignature(sections) {
       return JSON.stringify({
         observe: String(sections?.observe ?? ''),
@@ -3685,10 +3708,7 @@ function renderStandardCrossReferenceList() {
       if (!record || typeof record !== 'object') return false;
       const nowMs = Number.isFinite(options.now) ? options.now : Date.now();
       const sections = cloneStudyNoteVersionSections(record);
-      const history = Array.isArray(record.versionHistory)
-        ? record.versionHistory.filter(entry => entry && typeof entry === 'object' &&
-            entry.sections && typeof entry.sections === 'object' && typeof entry.savedAt === 'string')
-        : [];
+      const history = normalizeStudyNoteVersionHistory(record.versionHistory);
       const latest = history[0];
       const signature = studyNoteVersionSignature(sections);
 
@@ -4266,7 +4286,7 @@ function renderStandardCrossReferenceList() {
       const sortInput = document.getElementById('studyLibrarySort');
       const sortBy = String(sortInput?.value || 'recent');
       const allEntries = Object.values(library)
-        .filter(record => record && record.book && Number(record.chapter) > 0 && ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => (record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)))
+        .filter(record => record && record.book && Number(record.chapter) > 0 && ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => (record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline) || (Array.isArray(record.versionHistory) && record.versionHistory.length > 0)))
         .sort((a, b) => {
           if (sortBy === 'bible') {
             const aBookIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
@@ -4622,6 +4642,7 @@ function renderStandardCrossReferenceList() {
         .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
           record.sections && (
             ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
+            (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
             (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
           ))
@@ -4634,6 +4655,7 @@ function renderStandardCrossReferenceList() {
             doctrine: String(record.sections?.doctrine || ''),
             apply: String(record.sections?.apply || '')
           },
+          versionHistory: normalizeStudyNoteVersionHistory(record.versionHistory),
           scriptureMarkups: Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups
             .filter(mark => mark && SCRIPTURE_MARKUP_TYPES[mark.type] &&
               Number.isInteger(mark.verse) && mark.verse > 0 &&
@@ -4834,6 +4856,19 @@ function renderStandardCrossReferenceList() {
           passageOutline = normalizePassageOutline(outlineInput);
         }
 
+        let versionHistory = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'versionHistory')) {
+          if (!Array.isArray(item.versionHistory) || item.versionHistory.length > STUDY_NOTE_VERSION_LIMIT) {
+            setStudyBackupStatus(`The backup has invalid note history for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          versionHistory = normalizeStudyNoteVersionHistory(item.versionHistory);
+          if (versionHistory.length !== item.versionHistory.length) {
+            setStudyBackupStatus(`The backup has invalid note history for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
         const key = studyRecordKey(book, chapter);
         if (seen.has(key)) {
           setStudyBackupStatus(`The backup contains ${book} ${chapter} more than once. No changes were made.`, 'error');
@@ -4855,6 +4890,7 @@ function renderStandardCrossReferenceList() {
             ...(Object.prototype.hasOwnProperty.call(item, 'crossReferences') ? { crossReferences } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'verseMaps') ? { verseMaps } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'passageOutline') ? { passageOutline } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'versionHistory') ? { versionHistory } : {}),
             activeSection: NOTE_SECTION_LABELS[item.activeSection] ? item.activeSection : 'observe',
             updatedAt: new Date(updatedMs).toISOString()
           }
@@ -4885,6 +4921,8 @@ function renderStandardCrossReferenceList() {
         // Backups made before Verse Mapping existed preserve maps already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'verseMaps')) incoming.verseMaps = normalizeVerseMaps(current?.verseMaps);
         if (!Object.prototype.hasOwnProperty.call(incoming, 'passageOutline')) incoming.passageOutline = normalizePassageOutline(current?.passageOutline);
+        // Older backups without Note History preserve any history already saved locally.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'versionHistory')) incoming.versionHistory = normalizeStudyNoteVersionHistory(current?.versionHistory);
         // Old backups without Doctrine preserve any Doctrine notes already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming.sections, 'doctrine')) incoming.sections.doctrine = String(current?.sections?.doctrine || '');
         const currentTime = Date.parse(current?.updatedAt || '') || 0;
@@ -5045,6 +5083,7 @@ function renderStandardCrossReferenceList() {
         crossReferences: Array.isArray(row.sections?._crossReferences) ? row.sections._crossReferences : [],
         verseMaps: normalizeVerseMaps(row.sections?._verseMaps),
         passageOutline: normalizePassageOutline(row.sections?._passageOutline),
+        versionHistory: normalizeStudyNoteVersionHistory(row.sections?._versionHistory),
         activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
         updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
       };
@@ -5102,7 +5141,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline, versionHistory;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -5115,6 +5154,7 @@ function renderStandardCrossReferenceList() {
             crossReferences = [];
             verseMaps = {};
             passageOutline = null;
+            versionHistory = [];
           } else if (winner.record && winner.record.book) {
             const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
             book = rec.book;
@@ -5131,7 +5171,8 @@ function renderStandardCrossReferenceList() {
             crossReferences = Array.isArray(rec.crossReferences) ? rec.crossReferences : [];
             verseMaps = normalizeVerseMaps(rec.verseMaps);
             passageOutline = normalizePassageOutline(rec.passageOutline);
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline };
+            versionHistory = normalizeStudyNoteVersionHistory(rec.versionHistory);
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline, versionHistory };
           } else {
             continue;
           }
@@ -5139,7 +5180,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _verseMaps: verseMaps, _passageOutline: passageOutline },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -5158,7 +5199,8 @@ function renderStandardCrossReferenceList() {
             JSON.stringify(Array.isArray(remote.sections?._crossReferences) ? remote.sections._crossReferences : []) ===
               JSON.stringify(Array.isArray(nextRow.sections?._crossReferences) ? nextRow.sections._crossReferences : []) &&
             JSON.stringify(normalizeVerseMaps(remote.sections?._verseMaps)) === JSON.stringify(normalizeVerseMaps(nextRow.sections?._verseMaps)) &&
-            JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline));
+            JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline)) &&
+            JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory));
           if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 
@@ -5699,6 +5741,7 @@ function renderStandardCrossReferenceList() {
         if (sameOccurrence.found) {
           const sortedExisting = sortLexiconEntriesInVerseStudy(currentNotes, targetHeading, null, verseText);
           if (sortedExisting && sortedExisting.text !== currentNotes) {
+            saveStudyNoteVersionSnapshot(record, { force: true });
             record.sections[section] = sortedExisting.text;
             record.activeSection = section;
             record.updatedAt = new Date().toISOString();
@@ -5748,6 +5791,7 @@ function renderStandardCrossReferenceList() {
           throw new Error('Could not update the deletion marker. Your notes were not changed.');
         }
       }
+      saveStudyNoteVersionSnapshot(record, { force: true });
       record.sections[section] = updatedNotes;
       record.activeSection = section;
       record.updatedAt = new Date().toISOString();
@@ -5851,6 +5895,7 @@ function renderStandardCrossReferenceList() {
       const reference = selectedVerses.length ? selectedVerses.join(', ') : `${book} ${chapter}`;
       const translation = String(context?.translation || '').trim();
       const heading = 'AI Study Mentor — ' + reference + (translation ? ' (' + translation + ')' : '');
+      saveStudyNoteVersionSnapshot(record, { force: true });
       const existingNotes = record.sections[section].replace(/\s+$/, '');
       const addition = heading + '\n\n' + answerText;
       record.sections[section] = existingNotes ? existingNotes + '\n\n---\n\n' + addition : addition;

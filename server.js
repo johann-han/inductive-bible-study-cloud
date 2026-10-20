@@ -17,6 +17,12 @@ const MAX_BODY = 64 * 1024;
 const AI_RATE_WINDOW_MS = 10 * 60 * 1000;
 const AI_RATE_LIMIT = 30;
 const aiRateBuckets = new Map();
+const STANDARD_CROSS_REFERENCE_RAW_URL = 'https://raw.githubusercontent.com/CrossReferences-org/bible-cross-references/main/tsv/crossreferences_kjv.tsv';
+const STANDARD_CROSS_REFERENCE_BLOB_URL = 'https://api.github.com/repos/CrossReferences-org/bible-cross-references/git/blobs/077df1c569b95df05562e95e4493489110292204';
+const STANDARD_CROSS_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
+const STANDARD_CROSS_REFERENCE_MIN_CHARS = 1000000;
+let standardCrossReferenceCache = null;
+let standardCrossReferenceLoadPromise = null;
 
 async function authorizeAIMentor(req) {
   // Local-only development remains usable without Supabase. Once cloud settings exist,
@@ -56,6 +62,62 @@ function consumeAIRateLimit(identity) {
 
 const systemPrompt = `You are the AI Study Mentor inside an inductive Bible study app. Guide the user through Observation → Interpretation → Application. Start with what the supplied passage actually says. Distinguish textual observation, interpretation, historical background, theological synthesis, and personal application. Ask useful questions instead of taking over the user's study. Never fabricate quotations, Strong's definitions, historical facts, or source citations. If the supplied passage or context is insufficient, say so. Respect that Christians may hold differing interpretations; explain alternatives fairly when relevant. Do not treat an application as the meaning of the text. Use clear, practical language.`;
 
+async function fetchValidatedStandardCrossReferenceSource(sourceUrl, mode) {
+  const headers = { 'User-Agent': 'Inductive-Bible-Study-Workspace/1.0' };
+  if (mode === 'blob') headers.Accept = 'application/vnd.github+json';
+  const response = await fetch(sourceUrl, { headers, signal: AbortSignal.timeout(35000) });
+  if (!response.ok) throw new Error('Dataset source returned HTTP ' + response.status + '.');
+  let tsv;
+  if (mode === 'blob') {
+    const blob = await response.json();
+    if (!blob || blob.encoding !== 'base64' || typeof blob.content !== 'string') {
+      throw new Error('GitHub fallback blob did not contain base64 file content.');
+    }
+    tsv = Buffer.from(blob.content.replace(/\s/g, ''), 'base64').toString('utf8');
+  } else {
+    tsv = await response.text();
+  }
+  if (!tsv.startsWith('book\tchapter\tverse\tanchor\treferences')) {
+    throw new Error('Dataset source did not return the expected TSV header.');
+  }
+  if (tsv.length < STANDARD_CROSS_REFERENCE_MIN_CHARS) {
+    throw new Error('Dataset source returned an incomplete TSV file.');
+  }
+  return tsv;
+}
+
+async function getStandardCrossReferenceTsv() {
+  if (standardCrossReferenceCache && standardCrossReferenceCache.expiresAt > Date.now()) {
+    return standardCrossReferenceCache.tsv;
+  }
+  if (standardCrossReferenceLoadPromise) return standardCrossReferenceLoadPromise;
+  const staleCache = standardCrossReferenceCache;
+  standardCrossReferenceLoadPromise = (async () => {
+    const sources = [
+      { url: STANDARD_CROSS_REFERENCE_RAW_URL, mode: 'raw' },
+      { url: STANDARD_CROSS_REFERENCE_BLOB_URL, mode: 'blob' }
+    ];
+    const errors = [];
+    for (const source of sources) {
+      try {
+        const tsv = await fetchValidatedStandardCrossReferenceSource(source.url, source.mode);
+        standardCrossReferenceCache = { tsv, expiresAt: Date.now() + STANDARD_CROSS_REFERENCE_CACHE_MS };
+        return tsv;
+      } catch (error) {
+        errors.push(error && error.message ? error.message : String(error));
+      }
+    }
+    if (staleCache && typeof staleCache.tsv === 'string') {
+      console.warn('Using cached standard cross-reference data after source refresh failed:', errors.join(' | '));
+      return staleCache.tsv;
+    }
+    throw new Error('Standard cross-reference data could not be fetched from either source: ' + errors.join(' | '));
+  })().finally(() => {
+    standardCrossReferenceLoadPromise = null;
+  });
+  return standardCrossReferenceLoadPromise;
+}
+
 function send(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(obj));
@@ -69,6 +131,20 @@ function readJson(req) {
 }
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (req.method === 'GET' && url.pathname === '/api/standard-cross-references') {
+    try {
+      const tsv = await getStandardCrossReferenceTsv();
+      res.writeHead(200, {
+        'Content-Type': 'text/tab-separated-values; charset=utf-8',
+        'Cache-Control': 'public, max-age=21600, stale-while-revalidate=86400',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      return res.end(tsv);
+    } catch (error) {
+      console.error('Standard cross-reference dataset fetch failed:', error.message || error);
+      return send(res, 502, { error: 'Standard Bible cross-references are temporarily unavailable. Please try again.' });
+    }
+  }
   if (req.method === 'GET' && url.pathname === '/api/config') {
     // These are intentionally public browser settings. Do not expose OPENROUTER_API_KEY or Supabase service-role keys.
     return send(res, 200, {

@@ -2768,6 +2768,95 @@
       };
     }
 
+    function normalizeAiStudyReference(value) {
+      return String(value || '')
+        .replace(/\s+\((?:KJV|ASV|WEB|BBE)\)\s*$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLocaleLowerCase();
+    }
+
+    function findExistingAiStudyForContext(context) {
+      const book = String(context?.book || appState.currentBook || '');
+      const chapter = Number(context?.chapter || appState.currentChapter);
+      const bookInfo = BIBLE_CANON.find(entry => entry.name === book);
+      if (!bookInfo || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(bookInfo.chapters)) return null;
+
+      const selectedVerses = Array.isArray(context?.selectedVerses)
+        ? context.selectedVerses.filter(value => typeof value === 'string' && value.trim())
+        : [];
+      const reference = selectedVerses.length ? selectedVerses.join(', ') : book + ' ' + chapter;
+      const targetReference = normalizeAiStudyReference(reference);
+
+      // Check all sections so an existing study is found even when another tab is active.
+      getStudyRecord(book, chapter);
+      const record = readStudyLibrary()[studyRecordKey(book, chapter)];
+      if (!record || !record.sections) return null;
+
+      const headingPattern = /^\s*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)\s+[—–-]\s+(.+?)\s*$/gm;
+      for (const section of ['observe', 'interpret', 'apply']) {
+        const notes = String(record.sections[section] || '');
+        const matcher = new RegExp(headingPattern.source, 'gm');
+        let match;
+        while ((match = matcher.exec(notes)) !== null) {
+          if (normalizeAiStudyReference(match[1]) === targetReference) {
+            return { book, chapter, section, reference: match[1].trim() };
+          }
+        }
+      }
+      return null;
+    }
+
+    function openExistingAiStudy(context, existingStudy, button) {
+      if (!existingStudy) return;
+      saveActiveStudyNote();
+
+      const bookInfo = BIBLE_CANON.find(entry => entry.name === existingStudy.book);
+      if (!bookInfo) return;
+      appState.currentBook = existingStudy.book;
+      appState.currentChapter = Number(existingStudy.chapter);
+      appState.activeTab = bookInfo.testament;
+      appState.activeNotesSection = existingStudy.section;
+      appState.selectedVerses.clear();
+
+      const requestedTranslation = String(context?.translation || appState.currentTranslation || 'KJV');
+      const translationSelect = document.getElementById('globalTranslationSelect');
+      const option = translationSelect
+        ? Array.from(translationSelect.options).find(item => item.value === requestedTranslation)
+        : null;
+      if (option) {
+        appState.currentTranslation = option.value;
+        appState.currentTranslationAbbr = option.dataset.abbr || option.value;
+        translationSelect.value = option.value;
+      }
+
+      renderBooksList();
+      renderChapterPills();
+      renderScripture();
+      loadActiveStudyNote();
+
+      const workspacePanel = document.getElementById('workspacePanel');
+      const notesToggle = document.getElementById('toggleWorkspaceMobile');
+      const mobileBackdrop = document.getElementById('mobileBackdrop');
+      const aiDrawer = document.getElementById('aiDrawer');
+      workspacePanel?.classList.remove('translate-x-full');
+      workspacePanel?.setAttribute('aria-hidden', 'false');
+      notesToggle?.setAttribute('aria-expanded', 'true');
+      notesToggle?.setAttribute('title', 'Close study notes');
+      mobileBackdrop?.classList.remove('hidden');
+      aiDrawer?.classList.add('translate-x-full');
+
+      const status = document.getElementById('noteSaveStatus');
+      if (status) status.textContent = 'Existing study reopened · no new response added';
+      if (button) {
+        button.textContent = 'Opened Existing Study';
+        button.disabled = true;
+        button.classList.remove('bg-amber-500', 'hover:bg-amber-400');
+        button.classList.add('bg-emerald-700', 'text-white', 'opacity-90', 'cursor-default');
+        button.setAttribute('aria-label', 'Opened the existing study; no new response was added');
+      }
+    }
+
     function appendMentorResponseToNotes(answer, context, button) {
       const book = String(context?.book || appState.currentBook || '');
       const chapter = Number(context?.chapter || appState.currentChapter);
@@ -2780,6 +2869,18 @@
         throw new Error('The passage reference is no longer valid. Please try the study again.');
       }
       if (!answerText) throw new Error('There is no AI response to add.');
+
+      // Recheck at click time. Never append another response if a study already exists.
+      const existingStudy = findExistingAiStudyForContext({
+        ...context,
+        book,
+        chapter,
+        selectedVerses: Array.isArray(context?.selectedVerses) ? context.selectedVerses : []
+      });
+      if (existingStudy) {
+        openExistingAiStudy(context, existingStudy, button);
+        return;
+      }
 
       // Migrate any notes from earlier versions before merging, so existing work is retained.
       getStudyRecord(book, chapter);
@@ -2806,22 +2907,10 @@
         : [];
       const reference = selectedVerses.length ? selectedVerses.join(', ') : `${book} ${chapter}`;
       const translation = String(context?.translation || '').trim();
-      const heading = `AI Study Mentor — ${reference}${translation ? ` (${translation})` : ''}`;
+      const heading = 'AI Study Mentor — ' + reference + (translation ? ' (' + translation + ')' : '');
       const existingNotes = record.sections[section].replace(/\s+$/, '');
-      const referenceKey = reference.toLocaleLowerCase();
-      const relatedMentorHeading = /^\s*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)\s+[—–-]\s+(.+?)\s*$/gm;
-      let priorResponsesForReference = 0;
-      let priorHeadingMatch;
-      while ((priorHeadingMatch = relatedMentorHeading.exec(existingNotes)) !== null) {
-        const priorReference = priorHeadingMatch[1].replace(/\s+\((?:KJV|ASV|WEB|BBE)\)\s*$/i, '').trim().toLocaleLowerCase();
-        const currentReference = referenceKey.replace(/\s+\((?:KJV|ASV|WEB|BBE)\)\s*$/i, '').trim();
-        if (priorReference === currentReference) priorResponsesForReference++;
-      }
-      const nextHeading = priorResponsesForReference === 0
-        ? heading
-        : `${priorResponsesForReference === 1 ? 'Additional' : 'Further'} AI Study Mentor response — ${reference}${translation ? ` (${translation})` : ''}${priorResponsesForReference > 1 ? ` (${priorResponsesForReference + 1})` : ''}`;
-      const addition = `${nextHeading}\n\n${answerText}`;
-      record.sections[section] = existingNotes ? `${existingNotes}\n\n---\n\n${addition}` : addition;
+      const addition = heading + '\n\n' + answerText;
+      record.sections[section] = existingNotes ? existingNotes + '\n\n---\n\n' + addition : addition;
       record.activeSection = section;
       record.updatedAt = new Date().toISOString();
       library[key] = record;
@@ -2961,18 +3050,41 @@
           if (responseWrapper) {
             const actions = document.createElement('div');
             actions.className = 'mt-3 flex flex-wrap gap-2';
-            const addToNotesButton = document.createElement('button');
-            addToNotesButton.type = 'button';
-            addToNotesButton.className = 'text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg px-3 py-2 transition';
-            addToNotesButton.textContent = 'Add to Study Notes';
-            addToNotesButton.addEventListener('click', () => {
-              try {
-                appendMentorResponseToNotes(answer, answerContext, addToNotesButton);
-              } catch (error) {
-                window.alert(error.message || 'Could not add the AI response to your study notes.');
-              }
-            });
-            actions.appendChild(addToNotesButton);
+            const existingStudy = findExistingAiStudyForContext(answerContext);
+            const studyButton = document.createElement('button');
+            studyButton.type = 'button';
+            studyButton.className = 'text-xs font-bold rounded-lg px-3 py-2 transition';
+
+            if (existingStudy) {
+              const existingNotice = document.createElement('p');
+              existingNotice.className = 'w-full text-xs text-emerald-200';
+              existingNotice.textContent = 'A saved study for ' + existingStudy.reference + ' already exists in ' + NOTE_SECTION_LABELS[existingStudy.section] + '. This response will not be added to your notes.';
+              responseWrapper.appendChild(existingNotice);
+              studyButton.textContent = 'Open Existing Study';
+              studyButton.classList.add('bg-emerald-700', 'hover:bg-emerald-600', 'text-white');
+              studyButton.addEventListener('click', () => {
+                const currentStudy = findExistingAiStudyForContext(answerContext);
+                if (currentStudy) {
+                  openExistingAiStudy(answerContext, currentStudy, studyButton);
+                } else {
+                  studyButton.textContent = 'Existing study not found';
+                  studyButton.disabled = true;
+                  window.alert('The saved study could not be found. No response was added to your notes.');
+                }
+              });
+            } else {
+              studyButton.textContent = 'Add to Study Notes';
+              studyButton.classList.add('bg-amber-500', 'hover:bg-amber-400', 'text-slate-950');
+              studyButton.addEventListener('click', () => {
+                try {
+                  appendMentorResponseToNotes(answer, answerContext, studyButton);
+                } catch (error) {
+                  window.alert(error.message || 'Could not add the AI response to your study notes.');
+                }
+              });
+            }
+
+            actions.appendChild(studyButton);
             responseWrapper.appendChild(actions);
           }
           history.push({ role: 'assistant', content: answer });
@@ -3032,7 +3144,20 @@
             updateVerseSelectionBar();
             return;
           }
-          const prompt = `Help me study only the selected verse(s): ${selected.join(', ')}. Begin with specific observations supported by the text, then raise interpretation questions and relevant context. Do not jump directly to application or claim certainty beyond the supplied passage. Guide me with questions as well as concise explanations.`;
+          const studyContext = getContext();
+          const existingStudy = findExistingAiStudyForContext(studyContext);
+          if (existingStudy) {
+            addMessage('assistant',
+              'A saved study for ' + existingStudy.reference + ' already exists in ' +
+              NOTE_SECTION_LABELS[existingStudy.section] +
+              '. I have reopened it for you. No new AI response was generated or added to your notes.'
+            );
+            openExistingAiStudy(studyContext, existingStudy, null);
+            return;
+          }
+          const prompt = 'Help me study only the selected verse(s): ' + selected.join(', ') +
+            '. Begin with specific observations supported by the text, then raise interpretation questions and relevant context. ' +
+            'Do not jump directly to application or claim certainty beyond the supplied passage. Guide me with questions as well as concise explanations.';
           askMentor(prompt);
         });
       }

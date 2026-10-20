@@ -215,6 +215,14 @@
     }
 
 
+    /* Give the passage reader enough scrollable space above the fixed selection action bar. */
+    @media (max-width: 640px) {
+      #scriptureContainer.has-selected-verses {
+        padding-bottom: calc(10.5rem + env(safe-area-inset-bottom));
+        scroll-padding-bottom: calc(10.5rem + env(safe-area-inset-bottom));
+      }
+    }
+
     /* Small-screen refinements: keep passage actions reachable and selection controls tidy. */
     @media (max-width: 820px) {
       main > section:first-child > div:first-child > div:first-child {
@@ -3089,6 +3097,7 @@ function renderStandardCrossReferenceList() {
 
     function updateVerseSelectionBar() {
       const bar = document.getElementById('verseSelectionBar');
+      const scriptureContainer = document.getElementById('scriptureContainer');
       const countLabel = document.getElementById('selectedVersesCount');
       const summaryLabel = document.getElementById('selectedVersesSummary');
       const crossReferenceButton = document.getElementById('btnOpenCrossReferenceModal');
@@ -3111,10 +3120,12 @@ function renderStandardCrossReferenceList() {
 
       if (appState.selectedVerses.size > 0) {
         bar.classList.remove('hidden');
+        scriptureContainer?.classList.add('has-selected-verses');
         if (countLabel) countLabel.textContent = `${appState.selectedVerses.size} selected`;
         if (summaryLabel) summaryLabel.textContent = Array.from(appState.selectedVerses).join(', ');
       } else {
         bar.classList.add('hidden');
+        scriptureContainer?.classList.remove('has-selected-verses');
       }
     }
 

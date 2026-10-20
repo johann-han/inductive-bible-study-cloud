@@ -329,7 +329,8 @@
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
             <div class="flex items-center gap-2">
               <input id="workspaceNoteFindInput" type="search" autocomplete="off" placeholder="Word or phrase…" class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-600">
-              <button id="workspaceNoteFindNextBtn" type="button" class="shrink-0 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-2">Find next</button>
+              <button id="workspaceNoteFindPreviousBtn" type="button" class="shrink-0 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-2.5 py-2">Previous</button>
+              <button id="workspaceNoteFindNextBtn" type="button" class="shrink-0 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-2.5 py-2">Next</button>
             </div>
             <p id="workspaceNoteFindStatus" class="text-[10px] text-slate-500" aria-live="polite">Searches the active notes section.</p>
           </div>
@@ -1792,7 +1793,7 @@
       return true;
     }
 
-    function findNextInWorkspaceNotes() {
+    function findNextInWorkspaceNotes(direction = 1) {
       const input = document.getElementById('workspaceNoteFindInput');
       const status = document.getElementById('workspaceNoteFindStatus');
       const area = document.getElementById('workspaceNoteArea');
@@ -1827,15 +1828,20 @@
         return;
       }
 
-      const matchNumber = (workspaceNoteFindState.nextIndex % total) + 1;
-      const start = workspaceNoteFindState.indices[workspaceNoteFindState.nextIndex % total];
+      // nextIndex points to the next result for forward searches. For backward searches,
+      // step to the previous result and keep the index ready for the next backward click.
+      const selectedIndex = direction < 0
+        ? (workspaceNoteFindState.nextIndex - 1 + total) % total
+        : workspaceNoteFindState.nextIndex % total;
+      const start = workspaceNoteFindState.indices[selectedIndex];
       const end = start + query.length;
       if (focusNotesTextRange(start, end)) {
-        status.textContent = 'Match ' + matchNumber + ' of ' + total + ' in ' + NOTE_SECTION_LABELS[appState.activeNotesSection] + '.';
-        workspaceNoteFindState.nextIndex = matchNumber % total;
+        status.textContent = 'Match ' + (selectedIndex + 1) + ' of ' + total + ' in ' + NOTE_SECTION_LABELS[appState.activeNotesSection] + '.';
+        workspaceNoteFindState.nextIndex = direction < 0
+          ? selectedIndex
+          : (selectedIndex + 1) % total;
       }
     }
-
     function resetWorkspaceNoteFind() {
       workspaceNoteFindState = { query: '', indices: [], nextIndex: 0 };
       const input = document.getElementById('workspaceNoteFindInput');
@@ -2023,7 +2029,9 @@
 
       const noteFindInput = document.getElementById('workspaceNoteFindInput');
       const noteFindButton = document.getElementById('workspaceNoteFindNextBtn');
-      if (noteFindButton) noteFindButton.addEventListener('click', findNextInWorkspaceNotes);
+      const noteFindPreviousButton = document.getElementById('workspaceNoteFindPreviousBtn');
+      if (noteFindButton) noteFindButton.addEventListener('click', () => findNextInWorkspaceNotes(1));
+      if (noteFindPreviousButton) noteFindPreviousButton.addEventListener('click', () => findNextInWorkspaceNotes(-1));
       if (noteFindInput) {
         noteFindInput.addEventListener('keydown', event => {
           if (event.key === 'Enter') {

@@ -2374,7 +2374,7 @@ function renderStandardCrossReferenceList() {
         }
         const titleSource = block.heading || majorIdea || 'Major idea ' + (index + 1);
         const heading = titleSource.length > 80 ? titleSource.slice(0, 77).trimEnd() + '…' : titleSource;
-        return createPassageOutlineSection({ heading, verseRange: extractOutlineVerseRange(fullText || block.heading), majorIdea, supportingDetails: details });
+        return createPassageOutlineSection({ heading, verseRange: extractOutlineVerseRange(block.lines.join('\n') + '\n' + block.heading), majorIdea, supportingDetails: details });
       }).filter(section => section.heading || section.majorIdea || section.supportingDetails);
     }
 

@@ -460,7 +460,8 @@
         <div class="flex border-b border-slate-200 bg-white text-xs font-semibold text-slate-600">
           <button id="wsTabObserve" class="flex-1 py-3 text-center border-b-2 border-amber-600 text-amber-700 bg-slate-50 font-bold">Observe</button>
           <button id="wsTabInterpret" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Interpret</button>
-          <button id="wsTabApply" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Apply</button>
+          <button id="wsTabDoctrine" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Doctrine</button>
+          <button id="wsTabApply" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Discipleship</button>
           <button id="expandWorkspaceBtn" type="button" aria-label="Expand study notes" aria-expanded="false" title="Expand study notes" class="px-2.5 py-2 text-slate-500 hover:text-amber-700 hover:bg-amber-50 rounded font-bold text-base shrink-0">⛶</button>
           <button id="closeWorkspaceMobile" type="button" aria-label="Close study notes" class="px-3 text-slate-500 hover:text-slate-900 font-bold text-base">&times;</button>
         </div>
@@ -518,9 +519,10 @@
           <select id="studyLibraryCoverageFilter" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-amber-600">
             <option value="all">All saved studies</option>
             <option value="missing-observe">Missing Observe notes</option>
-            <option value="missing-interpret">Missing Interpret notes</option>
-            <option value="missing-apply">Missing Apply notes</option>
-            <option value="complete">All three sections have notes</option>
+            <option value="missing-interpret">Missing Interpretation notes</option>
+            <option value="missing-doctrine">Missing Doctrine notes</option>
+            <option value="missing-apply">Missing Discipleship notes</option>
+            <option value="complete">All four stages have notes</option>
           </select>
           <label for="studyLibrarySort" class="block text-xs font-semibold text-slate-700 mt-3 mb-1">Sort by</label>
           <select id="studyLibrarySort" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-amber-600">
@@ -2281,7 +2283,7 @@ function renderStandardCrossReferenceList() {
       for (const field of VERSE_MAP_CONTENT_FIELDS) { const input = document.querySelector('[data-verse-map-field="' + field + '"]'); map[field] = String(input?.value || '').slice(0, 10000); }
       const library = readStudyLibrary();
       const key = studyRecordKey(reference.book, reference.chapter);
-      const record = library[key] || { book: reference.book, chapter: reference.chapter, sections: { observe: '', interpret: '', apply: '' }, activeSection: appState.activeNotesSection || 'observe', updatedAt: new Date().toISOString() };
+      const record = library[key] || { book: reference.book, chapter: reference.chapter, sections: { observe: '', interpret: '', doctrine: '', apply: '' }, activeSection: appState.activeNotesSection || 'observe', updatedAt: new Date().toISOString() };
       record.sections = record.sections || { observe: '', interpret: '', apply: '' };
       record.verseMaps = normalizeVerseMaps(record.verseMaps);
       record.verseMaps[String(reference.verse)] = map;
@@ -2453,7 +2455,7 @@ function renderStandardCrossReferenceList() {
       const outline = normalizePassageOutline(readPassageOutlineDraftFromUi());
       const library = readStudyLibrary();
       const key = studyRecordKey(activePassageOutlineReference.book, activePassageOutlineReference.chapter);
-      const record = library[key] || { book: activePassageOutlineReference.book, chapter: activePassageOutlineReference.chapter, sections: { observe: '', interpret: '', apply: '' }, activeSection: appState.activeNotesSection || 'observe', updatedAt: new Date().toISOString() };
+      const record = library[key] || { book: activePassageOutlineReference.book, chapter: activePassageOutlineReference.chapter, sections: { observe: '', interpret: '', doctrine: '', apply: '' }, activeSection: appState.activeNotesSection || 'observe', updatedAt: new Date().toISOString() };
       record.sections = record.sections || { observe: '', interpret: '', apply: '' };
       record.passageOutline = outline;
       record.updatedAt = new Date().toISOString();
@@ -2577,7 +2579,7 @@ function renderStandardCrossReferenceList() {
         const key = studyRecordKey(source.book, source.chapter);
         const record = library[key] || {
           book: source.book, chapter: source.chapter,
-          sections: { observe: '', interpret: '', apply: '' },
+          sections: { observe: '', interpret: '', doctrine: '', apply: '' },
           activeSection: appState.activeNotesSection || 'observe',
           updatedAt: new Date().toISOString()
         };
@@ -3324,7 +3326,8 @@ function renderStandardCrossReferenceList() {
     // Study Library: save Observe / Interpret / Apply notes separately per book and chapter.
     const STUDY_LIBRARY_STORAGE_KEY = 'inductive-study-library-v1';
     const STUDY_TOMBSTONES_STORAGE_KEY = 'inductive-study-library-deleted-v1';
-    const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', apply: 'Apply' };
+    // Keep `apply` as the stored key so existing Application notes remain available as Discipleship notes.
+    const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' };
     const cloudSyncState = { client: null, user: null, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };
 
     function readStudyTombstones() {
@@ -3388,7 +3391,7 @@ function renderStandardCrossReferenceList() {
         if (legacyNote) {
           library[key] = {
             book, chapter,
-            sections: { observe: legacyNote, interpret: '', apply: '' },
+            sections: { observe: legacyNote, interpret: '', doctrine: '', apply: '' },
             activeSection: 'observe',
             updatedAt: new Date().toISOString()
           };
@@ -3396,10 +3399,11 @@ function renderStandardCrossReferenceList() {
         }
       }
       const record = library[key];
-      if (!record) return { book, chapter, sections: { observe: '', interpret: '', apply: '' }, activeSection: 'observe', updatedAt: null };
+      if (!record) return { book, chapter, sections: { observe: '', interpret: '', doctrine: '', apply: '' }, activeSection: 'observe', updatedAt: null };
       record.sections = record.sections || {};
       record.sections.observe = record.sections.observe || '';
       record.sections.interpret = record.sections.interpret || '';
+      record.sections.doctrine = record.sections.doctrine || '';
       record.sections.apply = record.sections.apply || '';
       return record;
     }
@@ -3570,7 +3574,7 @@ function renderStandardCrossReferenceList() {
       // Build the list from all three saved sections for the current book and chapter.
       const record = getStudyRecord();
       const entries = [];
-      for (const section of ['observe', 'interpret', 'apply']) {
+      for (const section of ['observe', 'interpret', 'doctrine', 'apply']) {
         const sectionText = String(record.sections?.[section] || '');
         for (const entry of getVerseStudyHeadingEntries(sectionText)) {
           entries.push({
@@ -3618,8 +3622,9 @@ function renderStandardCrossReferenceList() {
       if (!prompt) return;
       const prompts = {
         observe: 'Observe: What does the passage actually say? Notice repeated words, people, places, commands, contrasts, and connections before explaining their meaning.',
-        interpret: 'Interpret: What did this mean in its context? Follow the author’s words and reasoning, check nearby context, and support conclusions with evidence from the passage.',
-        apply: 'Apply: How should this truth shape belief, attitude, or action today? Make the response specific and connect it to what the passage supports.'
+        interpret: 'Interpret: What did this mean in its original context? Follow the author’s words and reasoning, check nearby context, and support conclusions with evidence from the passage.',
+        doctrine: 'Doctrine: What theological truth follows from the passage’s meaning? State what the text supports about God, humanity, salvation, or Christian life. Distinguish explicit teaching from careful inference, and test conclusions against the wider biblical context.',
+        apply: 'Discipleship: In light of the established meaning and doctrine, what should believers understand, change, practise, or teach? Make the response specific and supported by the passage.'
       };
       prompt.textContent = prompts[appState.activeNotesSection] || prompts.observe;
     }
@@ -3636,7 +3641,7 @@ function renderStandardCrossReferenceList() {
       const prior = existing || {
         book: appState.currentBook,
         chapter: appState.currentChapter,
-        sections: { observe: '', interpret: '', apply: '' },
+        sections: { observe: '', interpret: '', doctrine: '', apply: '' },
         activeSection: appState.activeNotesSection || 'observe'
       };
       prior.sections = prior.sections || { observe: '', interpret: '', apply: '' };
@@ -3656,7 +3661,7 @@ function renderStandardCrossReferenceList() {
     }
 
     function updateWorkspaceSectionButtons() {
-      const map = { observe: 'wsTabObserve', interpret: 'wsTabInterpret', apply: 'wsTabApply' };
+      const map = { observe: 'wsTabObserve', interpret: 'wsTabInterpret', doctrine: 'wsTabDoctrine', apply: 'wsTabApply' };
       Object.entries(map).forEach(([section, id]) => {
         const button = document.getElementById(id);
         if (!button) return;
@@ -3797,6 +3802,7 @@ function renderStandardCrossReferenceList() {
       const sectionButtons = {
         observe: document.getElementById('wsTabObserve'),
         interpret: document.getElementById('wsTabInterpret'),
+        doctrine: document.getElementById('wsTabDoctrine'),
         apply: document.getElementById('wsTabApply')
       };
       Object.entries(sectionButtons).forEach(([section, button]) => {
@@ -3843,8 +3849,9 @@ function renderStandardCrossReferenceList() {
       const passageOutline = formatPassageOutlineForMarkdown(record?.passageOutline);
       return `${book} ${chapter}\n\n` +
         `OBSERVE\n${sections.observe || ''}\n\n` +
-        `INTERPRET\n${sections.interpret || ''}\n\n` +
-        `APPLY\n${sections.apply || ''}\n` +
+        `INTERPRETATION\n${sections.interpret || ''}\n\n` +
+        `DOCTRINE\n${sections.doctrine || ''}\n\n` +
+        `DISCIPLESHIP\n${sections.apply || ''}\n` +
         (passageOutline ? `\nPASSAGE OUTLINE\n${passageOutline}\n` : '') +
         (verseMaps ? `\nVERSE MAPPING\n${verseMaps}\n` : '');
     }
@@ -3877,8 +3884,9 @@ function renderStandardCrossReferenceList() {
       const passageOutline = formatPassageOutlineForMarkdown(record.passageOutline);
       const content = `# ${book} ${chapter}\n\n` +
         `## Observe\n\n${sections.observe || ''}\n\n` +
-        `## Interpret\n\n${sections.interpret || ''}\n\n` +
-        `## Apply\n\n${sections.apply || ''}\n` +
+        `## Interpretation\n\n${sections.interpret || ''}\n\n` +
+        `## Doctrine\n\n${sections.doctrine || ''}\n\n` +
+        `## Discipleship\n\n${sections.apply || ''}\n` +
         (passageOutline ? `\n## Passage Outline\n\n${passageOutline}\n` : '') +
         (verseMaps ? `\n## Verse Mapping\n\n${verseMaps}\n` : '');
       const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
@@ -3902,7 +3910,7 @@ function renderStandardCrossReferenceList() {
       const sortInput = document.getElementById('studyLibrarySort');
       const sortBy = String(sortInput?.value || 'recent');
       const allEntries = Object.values(library)
-        .filter(record => record && record.book && Number(record.chapter) > 0 && ((record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)))
+        .filter(record => record && record.book && Number(record.chapter) > 0 && ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => (record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)))
         .sort((a, b) => {
           if (sortBy === 'bible') {
             const aBookIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
@@ -3918,17 +3926,19 @@ function renderStandardCrossReferenceList() {
       const coverageLabels = {
         all: 'all saved studies',
         'missing-observe': 'studies missing Observe notes',
-        'missing-interpret': 'studies missing Interpret notes',
-        'missing-apply': 'studies missing Apply notes',
-        complete: 'studies with all three sections filled'
+        'missing-interpret': 'studies missing Interpretation notes',
+        'missing-doctrine': 'studies missing Doctrine notes',
+        'missing-apply': 'studies missing Discipleship notes',
+        complete: 'studies with all four stages filled'
       };
       const coverageFilteredEntries = allEntries.filter(record => {
         const sections = record.sections || {};
         const hasNotes = section => String(sections[section] || '').trim().length > 0;
         if (coverageFilter === 'missing-observe') return !hasNotes('observe');
         if (coverageFilter === 'missing-interpret') return !hasNotes('interpret');
+        if (coverageFilter === 'missing-doctrine') return !hasNotes('doctrine');
         if (coverageFilter === 'missing-apply') return !hasNotes('apply');
-        if (coverageFilter === 'complete') return ['observe', 'interpret', 'apply'].every(hasNotes);
+        if (coverageFilter === 'complete') return ['observe', 'interpret', 'doctrine', 'apply'].every(hasNotes);
         return true;
       });
       const entries = query
@@ -3981,7 +3991,7 @@ function renderStandardCrossReferenceList() {
         heading.textContent = `${record.book} ${record.chapter}`;
         const sectionsLine = document.createElement('p');
         sectionsLine.className = 'text-xs text-slate-600 mt-1';
-        const filledSections = ['observe', 'interpret', 'apply'].filter(section => (record.sections?.[section] || '').trim());
+        const filledSections = ['observe', 'interpret', 'doctrine', 'apply'].filter(section => (record.sections?.[section] || '').trim());
         const studyArtifacts = [];
         if (hasSavedPassageOutline(record.passageOutline)) studyArtifacts.push('Passage outline');
         if (Object.keys(normalizeVerseMaps(record.verseMaps)).length) studyArtifacts.push('Verse Mapping');
@@ -3993,28 +4003,28 @@ function renderStandardCrossReferenceList() {
         };
         const wordCountLine = document.createElement('p');
         wordCountLine.className = 'text-[11px] text-slate-500 mt-1';
-        wordCountLine.textContent = `Word counts: Observe ${countWords(record.sections?.observe)} · Interpret ${countWords(record.sections?.interpret)} · Apply ${countWords(record.sections?.apply)}`;
+        wordCountLine.textContent = `Word counts: Observe ${countWords(record.sections?.observe)} · Interpretation ${countWords(record.sections?.interpret)} · Doctrine ${countWords(record.sections?.doctrine)} · Discipleship ${countWords(record.sections?.apply)}`;
 
         const sectionCoverage = document.createElement('div');
         sectionCoverage.className = 'mt-1 flex items-center gap-2';
         const sectionCoverageLabel = document.createElement('span');
         sectionCoverageLabel.className = 'text-[11px] text-slate-500 shrink-0';
-        sectionCoverageLabel.textContent = `Sections with notes: ${filledSections.length} of 3`;
+        sectionCoverageLabel.textContent = `Stages with notes: ${filledSections.length} of 4`;
         const sectionCoverageTrack = document.createElement('div');
         sectionCoverageTrack.className = 'h-1.5 flex-1 max-w-24 rounded-full bg-slate-200 overflow-hidden';
         sectionCoverageTrack.setAttribute('role', 'progressbar');
         sectionCoverageTrack.setAttribute('aria-label', `Sections with notes for ${record.book} ${record.chapter}`);
         sectionCoverageTrack.setAttribute('aria-valuemin', '0');
-        sectionCoverageTrack.setAttribute('aria-valuemax', '3');
+        sectionCoverageTrack.setAttribute('aria-valuemax', '4');
         sectionCoverageTrack.setAttribute('aria-valuenow', String(filledSections.length));
         const sectionCoverageFill = document.createElement('div');
         sectionCoverageFill.className = 'h-full rounded-full bg-amber-500 transition-all';
-        sectionCoverageFill.style.width = `${Math.round((filledSections.length / 3) * 100)}%`;
+        sectionCoverageFill.style.width = `${Math.round((filledSections.length / 4) * 100)}%`;
         sectionCoverageTrack.appendChild(sectionCoverageFill);
         sectionCoverage.append(sectionCoverageLabel, sectionCoverageTrack);
 
         // Show why a study matched the search, or a short note preview when browsing.
-        const previewParts = ['observe', 'interpret', 'apply']
+        const previewParts = ['observe', 'interpret', 'doctrine', 'apply']
           .map(section => ({
             section,
             text: String(record.sections?.[section] || '').replace(/\s+/g, ' ').trim()
@@ -4166,13 +4176,14 @@ function renderStandardCrossReferenceList() {
       const library = readStudyLibrary();
       const studies = Object.values(library)
         .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
-          ((record.sections && ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)))
+          ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)))
         .map(record => ({
           book: String(record.book),
           chapter: Number(record.chapter),
           sections: {
             observe: String(record.sections?.observe || ''),
             interpret: String(record.sections?.interpret || ''),
+            doctrine: String(record.sections?.doctrine || ''),
             apply: String(record.sections?.apply || '')
           },
           verseMaps: normalizeVerseMaps(record.verseMaps),
@@ -4209,11 +4220,15 @@ function renderStandardCrossReferenceList() {
           '',
           record.sections.observe,
           '',
-          '## Interpret',
+          '## Interpretation',
           '',
           record.sections.interpret,
           '',
-          '## Apply',
+          '## Doctrine',
+          '',
+          record.sections.doctrine,
+          '',
+          '## Discipleship',
           '',
           record.sections.apply,
           ''
@@ -4244,7 +4259,7 @@ function renderStandardCrossReferenceList() {
       const studies = Object.values(library)
         .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
           record.sections && (
-            ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
+            ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
             (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
           ))
@@ -4254,6 +4269,7 @@ function renderStandardCrossReferenceList() {
           sections: {
             observe: String(record.sections?.observe || ''),
             interpret: String(record.sections?.interpret || ''),
+            doctrine: String(record.sections?.doctrine || ''),
             apply: String(record.sections?.apply || '')
           },
           scriptureMarkups: Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups
@@ -4343,7 +4359,7 @@ function renderStandardCrossReferenceList() {
         }
         const sectionsInput = item.sections;
         if (!sectionsInput || typeof sectionsInput !== 'object' || Array.isArray(sectionsInput) ||
-            !['observe', 'interpret', 'apply'].every(section =>
+            !['observe', 'interpret', 'doctrine', 'apply'].every(section =>
               sectionsInput[section] === undefined || typeof sectionsInput[section] === 'string')) {
           setStudyBackupStatus(`The backup has invalid notes for ${book} ${chapter}. No changes were made.`, 'error');
           return;
@@ -4351,6 +4367,7 @@ function renderStandardCrossReferenceList() {
         const sections = {
           observe: sectionsInput.observe || '',
           interpret: sectionsInput.interpret || '',
+          ...(Object.prototype.hasOwnProperty.call(sectionsInput, 'doctrine') ? { doctrine: sectionsInput.doctrine || '' } : {}),
           apply: sectionsInput.apply || ''
         };
         if (Object.values(sections).some(note => note.length > 200000)) {
@@ -4506,6 +4523,8 @@ function renderStandardCrossReferenceList() {
         // Backups made before Verse Mapping existed preserve maps already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'verseMaps')) incoming.verseMaps = normalizeVerseMaps(current?.verseMaps);
         if (!Object.prototype.hasOwnProperty.call(incoming, 'passageOutline')) incoming.passageOutline = normalizePassageOutline(current?.passageOutline);
+        // Old backups without Doctrine preserve any Doctrine notes already saved locally.
+        if (!Object.prototype.hasOwnProperty.call(incoming.sections, 'doctrine')) incoming.sections.doctrine = String(current?.sections?.doctrine || '');
         const currentTime = Date.parse(current?.updatedAt || '') || 0;
         const deletedTime = Date.parse(tombstones[entry.key] || '') || 0;
 
@@ -4657,6 +4676,7 @@ function renderStandardCrossReferenceList() {
         sections: {
           observe: String(row.sections?.observe || ''),
           interpret: String(row.sections?.interpret || ''),
+          doctrine: String(row.sections?.doctrine || ''),
           apply: String(row.sections?.apply || '')
         },
         scriptureMarkups: Array.isArray(row.sections?._scriptureMarkups) ? row.sections._scriptureMarkups : [],
@@ -4740,6 +4760,7 @@ function renderStandardCrossReferenceList() {
             sections = {
               observe: String(rec.sections?.observe || ''),
               interpret: String(rec.sections?.interpret || ''),
+              doctrine: String(rec.sections?.doctrine || ''),
               apply: String(rec.sections?.apply || '')
             };
             activeSection = NOTE_SECTION_LABELS[rec.activeSection] ? rec.activeSection : 'observe';
@@ -4768,6 +4789,7 @@ function renderStandardCrossReferenceList() {
             String(remote.active_section || '') === String(nextRow.active_section || '') &&
             String(remote.sections?.observe || '') === String(nextRow.sections.observe || '') &&
             String(remote.sections?.interpret || '') === String(nextRow.sections.interpret || '') &&
+            String(remote.sections?.doctrine || '') === String(nextRow.sections.doctrine || '') &&
             String(remote.sections?.apply || '') === String(nextRow.sections.apply || '') &&
             JSON.stringify(Array.isArray(remote.sections?._scriptureMarkups) ? remote.sections._scriptureMarkups : []) ===
               JSON.stringify(Array.isArray(nextRow.sections?._scriptureMarkups) ? nextRow.sections._scriptureMarkups : []) &&
@@ -4836,7 +4858,7 @@ function renderStandardCrossReferenceList() {
         cloudSyncState.lastError = '';
         cloudSyncState.lastSuccessfulSyncAt = Date.now();
         const when = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (!quiet) setCloudStatus(`Sync complete. ${Object.keys(mergedLibrary).filter(k => ['observe','interpret','apply'].some(section => (mergedLibrary[k].sections?.[section] || '').trim())).length} saved studies are up to date. Last synced at ${when}.`, 'success');
+        if (!quiet) setCloudStatus(`Sync complete. ${Object.keys(mergedLibrary).filter(k => ['observe','interpret','doctrine','apply'].some(section => (mergedLibrary[k].sections?.[section] || '').trim())).length} saved studies are up to date. Last synced at ${when}.`, 'success');
         if (saveStatus) saveStatus.textContent = `Cloud synced ${when}`;
       } finally {
         cloudSyncState.syncing = false;
@@ -5027,7 +5049,7 @@ function renderStandardCrossReferenceList() {
       if (!record || !record.sections) return null;
 
       const headingPattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response|Verse Study)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
-      for (const section of ['observe', 'interpret', 'apply']) {
+      for (const section of ['observe', 'interpret', 'doctrine', 'apply']) {
         const notes = String(record.sections[section] || '');
         const matcher = new RegExp(headingPattern.source, 'gm');
         let match;
@@ -5257,7 +5279,7 @@ function renderStandardCrossReferenceList() {
       const record = library[key] || {
         book,
         chapter,
-        sections: { observe: '', interpret: '', apply: '' },
+        sections: { observe: '', interpret: '', doctrine: '', apply: '' },
         activeSection: section,
         updatedAt: null
       };
@@ -5266,7 +5288,7 @@ function renderStandardCrossReferenceList() {
       record.sections = record.sections && typeof record.sections === 'object'
         ? record.sections
         : { observe: '', interpret: '', apply: '' };
-      for (const name of ['observe', 'interpret', 'apply']) {
+      for (const name of ['observe', 'interpret', 'doctrine', 'apply']) {
         record.sections[name] = String(record.sections[name] || '');
       }
 
@@ -5447,7 +5469,7 @@ function renderStandardCrossReferenceList() {
       const record = library[key] || {
         book,
         chapter,
-        sections: { observe: '', interpret: '', apply: '' },
+        sections: { observe: '', interpret: '', doctrine: '', apply: '' },
         activeSection: section,
         updatedAt: null
       };
@@ -5456,7 +5478,7 @@ function renderStandardCrossReferenceList() {
       record.sections = record.sections && typeof record.sections === 'object'
         ? record.sections
         : { observe: '', interpret: '', apply: '' };
-      for (const name of ['observe', 'interpret', 'apply']) {
+      for (const name of ['observe', 'interpret', 'doctrine', 'apply']) {
         record.sections[name] = String(record.sections[name] || '');
       }
 
@@ -5687,7 +5709,8 @@ function renderStandardCrossReferenceList() {
           const sectionPrompts = {
             observe: 'Guide me through reviewing my OBSERVATION notes for the active passage. Focus only on what the text explicitly says: people, actions, repeated words, structure, contrasts, commands, causes, and connections. Ask questions that help me notice evidence I may have missed. Clearly distinguish direct observations from interpretations or applications, and do not invent details.',
             interpret: 'Guide me through reviewing my INTERPRETATION notes for the active passage. Check whether each conclusion is supported by the wording and context, identify assumptions that need testing, and ask about literary context, authorial flow, and relevant background only where helpful. Present plausible alternatives fairly when needed. Do not treat an application as the meaning of the passage or claim more certainty than the evidence allows.',
-            apply: 'Guide me through reviewing my APPLICATION notes for the active passage. Check that each application follows from the passage’s meaning in context, is specific and practical, and does not simply impose a modern idea on the text. Help me consider beliefs, attitudes, relationships, and actions where appropriate. Ask reflective questions; do not prescribe personal decisions or invent the user’s circumstances.'
+            doctrine: 'Guide me through reviewing my DOCTRINE notes. Identify the theological claims I believe follow from the passage’s established meaning, distinguish explicit statements from inferences, and check that conclusions are supported by context and wider biblical teaching. Show the reasoning rather than jumping from a verse to a doctrinal claim.',
+            apply: 'Guide me through reviewing my DISCIPLESHIP notes. Check that each response follows from the passage’s meaning and doctrine established, is specific and practical, and does not impose a modern idea on the text. Help me consider what believers should understand, change, practise, or teach. Ask reflective questions; do not prescribe personal decisions or invent the user’s circumstances.'
           };
           const activeSection = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
           askMentor(sectionPrompts[activeSection]);

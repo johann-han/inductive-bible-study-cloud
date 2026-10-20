@@ -223,6 +223,125 @@
       }
     }
 
+    /* Mobile selection actions now live in a collapsible bottom drawer so the Bible text remains visible. */
+    @media (max-width: 640px) {
+      #verseSelectionBar {
+        padding: .45rem .55rem;
+        padding-bottom: max(.45rem, env(safe-area-inset-bottom));
+        gap: .4rem;
+        transition: padding .2s ease;
+      }
+      #toggleVerseActionsDrawerBtn {
+        display: flex !important;
+        min-height: 42px;
+      }
+      #verseSelectionBar #verseSelectionDrawerContent {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: .65rem;
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transform: translateY(12px);
+        pointer-events: none;
+        transition: max-height .24s ease, opacity .18s ease, transform .24s ease;
+      }
+      #verseSelectionBar.is-expanded #verseSelectionDrawerContent {
+        max-height: min(52dvh, 25rem);
+        opacity: 1;
+        overflow-y: auto;
+        transform: translateY(0);
+        pointer-events: auto;
+        padding-top: .2rem;
+      }
+      #verseSelectionBar #verseSelectionDrawerContent > div:first-child {
+        width: 100%;
+        justify-content: space-between;
+      }
+      #verseSelectionBar #verseSelectionDrawerContent > div:last-child {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .4rem;
+        width: 100%;
+      }
+      #verseSelectionBar #verseSelectionDrawerContent > div:last-child > :not([hidden]) ~ :not([hidden]) {
+        margin-left: 0 !important;
+      }
+      #verseSelectionBar #verseSelectionDrawerContent > div:last-child button {
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding: .45rem .25rem;
+        white-space: nowrap;
+        font-size: 11px;
+        line-height: 1.15;
+      }
+      #scriptureContainer.has-selected-verses {
+        padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+        scroll-padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+      }
+      #scriptureContainer.has-expanded-verse-actions {
+        padding-bottom: calc(21rem + env(safe-area-inset-bottom));
+        scroll-padding-bottom: calc(21rem + env(safe-area-inset-bottom));
+      }
+    }
+
+    @media (max-width: 360px) {
+      #verseSelectionBar #verseSelectionDrawerContent > div:last-child {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      #verseSelectionBar #verseSelectionDrawerContent > div:last-child button {
+        white-space: normal;
+      }
+    }
+
+    /* Full-screen reading hides app chrome, sidebar and markup controls while keeping navigation available. */
+    body.reader-fullscreen-mode > header {
+      display: none !important;
+    }
+    body.reader-fullscreen-mode > .flex-1.flex.overflow-hidden.relative {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      width: 100vw;
+      height: 100dvh;
+      max-height: 100dvh;
+      min-height: 0;
+      background: #fff;
+    }
+    body.reader-fullscreen-mode #sidebar,
+    body.reader-fullscreen-mode #mobileBackdrop,
+    body.reader-fullscreen-mode #scriptureMarkupToolbar,
+    body.reader-fullscreen-mode #workspacePanel,
+    body.reader-fullscreen-mode #aiDrawer {
+      display: none !important;
+    }
+    body.reader-fullscreen-mode main.flex-1.flex.flex-col.overflow-hidden {
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+    }
+    body.reader-fullscreen-mode main > section:first-child {
+      width: 100%;
+      min-width: 0;
+      border-right: 0;
+    }
+    body.reader-fullscreen-mode main > section:first-child > div:first-child {
+      padding: .45rem .65rem;
+      gap: .25rem;
+    }
+    body.reader-fullscreen-mode #scriptureContainer {
+      padding: .8rem .75rem calc(5.5rem + env(safe-area-inset-bottom));
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      line-height: 1.8;
+    }
+    body.reader-fullscreen-mode #verseSelectionBar {
+      z-index: 65;
+    }
+
     /* Small-screen refinements: keep passage actions reachable and selection controls tidy. */
     @media (max-width: 820px) {
       main > section:first-child > div:first-child > div:first-child {
@@ -386,6 +505,7 @@
               <h2 id="activeBookTitle" class="text-sm sm:text-lg font-bold text-slate-900 cursor-pointer hover:text-amber-700 transition">Genesis 1</h2>
               <span id="activeTranslationBadge" class="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded">KJV</span>
               <button id="nextChapterBtn" aria-label="Next chapter" class="p-1 rounded hover:bg-slate-200 text-slate-700 font-bold text-sm sm:text-base">&rarr;</button>
+              <button id="toggleReaderFullscreenBtn" type="button" aria-label="Enter full-screen reading mode" aria-pressed="false" title="Enter full-screen reading mode" class="ml-1 shrink-0 inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500">⛶</button>
             </div>
             <div class="flex items-center space-x-2 text-[11px] sm:text-xs text-slate-500">
               <button id="openChapterCrossReferencesBtn" type="button" title="View cross-references for this chapter" class="rounded px-1.5 py-1 font-semibold text-sky-700 hover:bg-sky-50 hover:text-sky-900 whitespace-nowrap">Links <span id="chapterCrossReferenceCount" class="inline-flex min-w-[1.15rem] justify-center rounded-full bg-sky-100 px-1 text-sky-800">0</span></button>
@@ -418,7 +538,12 @@
         </div>
         <div id="scriptureContainer" class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 leading-relaxed bg-white pb-28 md:pb-8"></div>
 
-        <div id="verseSelectionBar" class="hidden absolute bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 p-2.5 sm:p-3 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-100 shadow-2xl gap-2 z-10">
+        <div id="verseSelectionBar" class="hidden absolute bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 p-2.5 sm:p-3 flex flex-col items-stretch justify-between text-xs text-slate-100 shadow-2xl gap-2 z-10">
+          <button id="toggleVerseActionsDrawerBtn" type="button" aria-controls="verseSelectionDrawerContent" aria-expanded="false" class="hidden w-full items-center justify-between gap-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2.5 text-left font-semibold text-slate-100">
+            <span class="inline-flex items-center gap-2 min-w-0"><span id="drawerSelectedVersesCount" class="shrink-0 rounded bg-amber-500 px-2 py-1 text-slate-950">1 selected</span><span id="verseActionsDrawerLabel" class="truncate">Verse actions</span></span>
+            <span id="verseActionsDrawerChevron" aria-hidden="true" class="shrink-0 text-lg leading-none">⌃</span>
+          </button>
+          <div id="verseSelectionDrawerContent" class="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
           <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
             <span class="font-bold bg-amber-500 text-slate-950 px-2 py-0.5 rounded shrink-0" id="selectedVersesCount">0 selected</span>
             <span id="selectedVersesSummary" class="text-amber-200 truncate max-w-[200px] sm:max-w-xs"></span>
@@ -429,6 +554,7 @@
             <button id="btnOpenCrossReferenceModal" type="button" disabled title="Select exactly one verse to link a passage" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1 rounded shadow disabled:opacity-40 disabled:cursor-not-allowed">Link passage</button>
             <button id="btnOpenVerseMapping" type="button" disabled title="Select exactly one verse to create a verse map" class="bg-violet-700 hover:bg-violet-600 text-white font-bold px-2.5 py-1 rounded shadow disabled:opacity-40 disabled:cursor-not-allowed">Verse Map</button>
             <button id="sendVersesToAiBtn" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-2.5 py-1 rounded shadow">Ask AI</button>
+          </div>
           </div>
         </div>
       </section>
@@ -3095,10 +3221,50 @@ function renderStandardCrossReferenceList() {
       }
     }
 
+    function setReaderFullscreenMode(enabled) {
+      const active = Boolean(enabled);
+      document.body.classList.toggle('reader-fullscreen-mode', active);
+      const button = document.getElementById('toggleReaderFullscreenBtn');
+      if (button) {
+        button.setAttribute('aria-pressed', String(active));
+        button.setAttribute('aria-label', active ? 'Exit full-screen reading mode' : 'Enter full-screen reading mode');
+        button.title = active ? 'Exit full-screen reading mode (Esc)' : 'Enter full-screen reading mode';
+        button.textContent = active ? '⤢' : '⛶';
+      }
+      if (active) {
+        setVerseActionsDrawerOpen(false);
+        document.getElementById('sidebar')?.classList.add('sidebar-collapsed', '-translate-x-full');
+        document.getElementById('mobileBackdrop')?.classList.add('hidden');
+        document.getElementById('mobileMenuBtn')?.setAttribute('aria-expanded', 'false');
+        const notesPanel = document.getElementById('workspacePanel');
+        notesPanel?.classList.add('translate-x-full');
+        notesPanel?.setAttribute('aria-hidden', 'true');
+        document.getElementById('toggleWorkspaceMobile')?.setAttribute('aria-expanded', 'false');
+        document.getElementById('toggleWorkspaceMobile')?.setAttribute('title', 'Open study notes');
+        document.getElementById('aiDrawer')?.classList.add('translate-x-full');
+      }
+    }
+
+    function setVerseActionsDrawerOpen(open) {
+      const bar = document.getElementById('verseSelectionBar');
+      const button = document.getElementById('toggleVerseActionsDrawerBtn');
+      const label = document.getElementById('verseActionsDrawerLabel');
+      const chevron = document.getElementById('verseActionsDrawerChevron');
+      const scriptureContainer = document.getElementById('scriptureContainer');
+      if (!bar) return;
+      const expanded = Boolean(open) && appState.selectedVerses.size > 0;
+      bar.classList.toggle('is-expanded', expanded);
+      scriptureContainer?.classList.toggle('has-expanded-verse-actions', expanded);
+      if (button) button.setAttribute('aria-expanded', String(expanded));
+      if (label) label.textContent = expanded ? 'Hide verse actions' : 'Verse actions';
+      if (chevron) chevron.textContent = expanded ? '⌄' : '⌃';
+    }
+
     function updateVerseSelectionBar() {
       const bar = document.getElementById('verseSelectionBar');
       const scriptureContainer = document.getElementById('scriptureContainer');
       const countLabel = document.getElementById('selectedVersesCount');
+      const drawerCountLabel = document.getElementById('drawerSelectedVersesCount');
       const summaryLabel = document.getElementById('selectedVersesSummary');
       const crossReferenceButton = document.getElementById('btnOpenCrossReferenceModal');
       const verseMappingButton = document.getElementById('btnOpenVerseMapping');
@@ -3119,11 +3285,16 @@ function renderStandardCrossReferenceList() {
       }
 
       if (appState.selectedVerses.size > 0) {
+        const wasHidden = bar.classList.contains('hidden');
         bar.classList.remove('hidden');
         scriptureContainer?.classList.add('has-selected-verses');
-        if (countLabel) countLabel.textContent = `${appState.selectedVerses.size} selected`;
+        if (wasHidden) setVerseActionsDrawerOpen(false);
+        const countText = `${appState.selectedVerses.size} selected`;
+        if (countLabel) countLabel.textContent = countText;
+        if (drawerCountLabel) drawerCountLabel.textContent = countText;
         if (summaryLabel) summaryLabel.textContent = Array.from(appState.selectedVerses).join(', ');
       } else {
+        setVerseActionsDrawerOpen(false);
         bar.classList.add('hidden');
         scriptureContainer?.classList.remove('has-selected-verses');
       }
@@ -3272,6 +3443,30 @@ function renderStandardCrossReferenceList() {
           }
           passageModal?.classList.add('hidden');
         };
+      }
+
+      // Full-screen reading and the mobile verse-action drawer.
+      const readerFullscreenButton = document.getElementById('toggleReaderFullscreenBtn');
+      if (readerFullscreenButton) {
+        readerFullscreenButton.addEventListener('click', () => {
+          setReaderFullscreenMode(!document.body.classList.contains('reader-fullscreen-mode'));
+        });
+      }
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && document.body.classList.contains('reader-fullscreen-mode')) {
+          setReaderFullscreenMode(false);
+        }
+      });
+      const verseActionsToggle = document.getElementById('toggleVerseActionsDrawerBtn');
+      const verseActionsBar = document.getElementById('verseSelectionBar');
+      if (verseActionsToggle && verseActionsBar) {
+        verseActionsToggle.addEventListener('click', () => {
+          setVerseActionsDrawerOpen(!verseActionsBar.classList.contains('is-expanded'));
+        });
+        verseActionsBar.addEventListener('click', event => {
+          if (event.target.closest('#toggleVerseActionsDrawerBtn')) return;
+          if (event.target.closest('#verseSelectionDrawerContent button')) setVerseActionsDrawerOpen(false);
+        });
       }
 
       // Prev & Next Chapter Controls

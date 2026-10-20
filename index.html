@@ -1030,6 +1030,31 @@
       });
     }
 
+    function captureStrongWordPosition(verseDiv, strongsElem) {
+      const paragraph = verseDiv?.querySelector('p');
+      if (!paragraph || !strongsElem) return null;
+      const wordElement = strongsElem.matches('.strongs-word')
+        ? strongsElem
+        : (strongsElem.previousElementSibling?.matches('.strongs-word') ? strongsElem.previousElementSibling : null);
+      if (!wordElement) return null;
+      const cleanParagraph = paragraph.cloneNode(true);
+      cleanParagraph.querySelectorAll('.strongs-tag').forEach(node => node.remove());
+      const verseText = String(cleanParagraph.textContent || '').replace(/\s+/g, ' ').trim();
+      let precedingText = '';
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        range.setEndBefore(wordElement);
+        const precedingFragment = range.cloneContents();
+        precedingFragment.querySelectorAll('.strongs-tag').forEach(node => node.remove());
+        precedingText = precedingFragment.textContent || '';
+      } catch (error) {
+        console.warn('Could not determine the selected word position in the verse.', error);
+      }
+      const wordsBefore = precedingText.match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g) || [];
+      return { verseText, verseWordOrder: wordsBefore.length + 1 };
+    }
+
     async function openStrongsModal(strongsId, word, verseContext = null) {
       const requestId = (appState.lexiconRequestId || 0) + 1;
       appState.lexiconRequestId = requestId;
@@ -1166,11 +1191,14 @@
             e.stopPropagation();
             const strongsId = strongsElem.dataset.strongs || 'H0430';
             const word = strongsElem.dataset.word || strongsElem.innerText || 'Lexicon Word';
+            const wordPosition = captureStrongWordPosition(verseDiv, strongsElem) || {};
             openStrongsModal(strongsId, word, {
               book: bookName,
               chapter: chapterNum,
               verse: vNum,
               verseKey: vKey,
+              verseText: wordPosition.verseText || '',
+              verseWordOrder: wordPosition.verseWordOrder || null,
               translation: appState.currentTranslationAbbr || appState.currentTranslation || 'KJV',
               activeSection: appState.activeNotesSection || 'observe'
             });
@@ -1190,11 +1218,14 @@
           if (strongsElem && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             e.stopPropagation();
+            const wordPosition = captureStrongWordPosition(verseDiv, strongsElem) || {};
             openStrongsModal(strongsElem.dataset.strongs, strongsElem.dataset.word || strongsElem.textContent || '', {
               book: bookName,
               chapter: chapterNum,
               verse: vNum,
               verseKey: vKey,
+              verseText: wordPosition.verseText || '',
+              verseWordOrder: wordPosition.verseWordOrder || null,
               translation: appState.currentTranslationAbbr || appState.currentTranslation || 'KJV',
               activeSection: appState.activeNotesSection || 'observe'
             });
@@ -2921,6 +2952,84 @@
       }
     }
 
+    function getLexiconEntryWordOrder(noteText, verseText) {
+      const savedOrder = String(noteText || '').match(/^[\t ]*Verse word order:[\t ]*(\d+)[\t ]*$/mi);
+      if (savedOrder) return Number(savedOrder[1]);
+      const selected = String(noteText || '').match(/^[\t ]*Selected word:[\t ]*(.+?)[\t ]*$/mi);
+      if (!selected || !String(verseText || '').trim()) return Number.MAX_SAFE_INTEGER;
+      const normalizeWord = value => String(value || '').toLocaleLowerCase().replace(/[^a-z0-9'’]/g, '');
+      const target = normalizeWord(selected[1]);
+      const words = String(verseText).match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g) || [];
+      const index = words.findIndex(word => normalizeWord(word) === target);
+      return index >= 0 ? index + 1 : Number.MAX_SAFE_INTEGER;
+    }
+
+    function sortLexiconEntriesInVerseStudy(currentNotes, targetHeading, newLexiconNote, verseText) {
+      const blockStart = targetHeading.end;
+      const dividerAt = currentNotes.indexOf('\n\n---\n\n', blockStart);
+      const blockEnd = dividerAt >= 0 ? dividerAt : currentNotes.length;
+      const studyBody = currentNotes.slice(blockStart, blockEnd);
+      const entryPattern = /^[\t ]*--- Lexicon Note \(([^)]+)\) ---[\t ]*$/gm;
+      const matches = Array.from(studyBody.matchAll(entryPattern));
+      if (!matches.length) {
+        if (!newLexiconNote) return null;
+        const addition = '\n\n' + newLexiconNote;
+        return {
+          text: currentNotes.slice(0, blockEnd) + addition + currentNotes.slice(blockEnd),
+          insertedStart: blockEnd + 2
+        };
+      }
+
+      const entries = [];
+      for (let index = 0; index < matches.length; index++) {
+        const match = matches[index];
+        const nextStart = index + 1 < matches.length ? matches[index + 1].index : studyBody.length;
+        const available = studyBody.slice(match.index, nextStart);
+        let endInAvailable = -1;
+        const explicitEnd = available.match(/^[\t ]*--- End Lexicon Note ---[\t ]*$/m);
+        const standardFooter = available.match(/^[\t ]*Usage: This brief lexicon supplies lexical senses, not verse-occurrence counts\.[^\r\n]*$/m);
+        if (explicitEnd) endInAvailable = explicitEnd.index + explicitEnd[0].length;
+        else if (standardFooter) endInAvailable = standardFooter.index + standardFooter[0].length;
+        else if (index + 1 < matches.length) endInAvailable = available.length;
+        else return null;
+
+        const noteText = available.slice(0, endInAvailable).replace(/[\r\n]+$/, '');
+        if (available.slice(endInAvailable).trim()) return null;
+        entries.push({
+          text: noteText,
+          order: getLexiconEntryWordOrder(noteText, verseText),
+          originalIndex: index,
+          start: match.index,
+          end: match.index + endInAvailable
+        });
+      }
+
+      const prefix = studyBody.slice(0, entries[0].start);
+      const lastEnd = entries[entries.length - 1].end;
+      const suffix = studyBody.slice(lastEnd);
+      const gapsAreSafe = entries.every((entry, index) =>
+        index === entries.length - 1 || !studyBody.slice(entry.end, entries[index + 1].start).trim()
+      );
+      if (!gapsAreSafe) return null;
+
+      if (newLexiconNote) {
+        entries.push({
+          text: newLexiconNote,
+          order: getLexiconEntryWordOrder(newLexiconNote, verseText),
+          originalIndex: entries.length,
+          isNew: true
+        });
+      }
+      entries.sort((a, b) => a.order - b.order || a.originalIndex - b.originalIndex);
+      const sortedText = prefix + entries.map(entry => entry.text).join('\n\n') + suffix;
+      const text = currentNotes.slice(0, blockStart) + sortedText + currentNotes.slice(blockEnd);
+      const newIndex = entries.findIndex(entry => entry.isNew);
+      const sortedBodyOffset = prefix.length + (newIndex < 0 ? 0 : entries
+        .slice(0, newIndex)
+        .reduce((total, entry) => total + entry.text.length + 2, 0));
+      return { text, insertedStart: newIndex < 0 ? -1 : blockStart + sortedBodyOffset };
+    }
+
     function appendLexiconEntryToVerseStudy(entry, verseContext) {
       if (!entry) throw new Error('The lexicon entry has not finished loading.');
       if (!verseContext || !Number.isInteger(Number(verseContext.verse))) {
@@ -2973,14 +3082,20 @@
 
       const currentNotes = record.sections[section];
       const lexiconHeading = '--- Lexicon Note (' + String(entry.id || 'Strong’s') + ') ---';
+      const verseText = String(verseContext.verseText || '');
+      const wordOrder = Number.isInteger(Number(verseContext.verseWordOrder)) && Number(verseContext.verseWordOrder) > 0
+        ? Number(verseContext.verseWordOrder)
+        : getLexiconEntryWordOrder('Selected word: ' + String(verseContext.word || entry.lemma || ''), verseText);
       const lexiconNote = lexiconHeading + '\nVerse: ' + reference +
         '\nSelected word: ' + String(verseContext.word || entry.lemma || '') +
+        '\nVerse word order: ' + wordOrder +
         '\nLemma: ' + String(entry.lemma || 'Not supplied') +
         '\nStrong’s ID: ' + String(entry.id || 'Not supplied') +
         '\nTransliteration: ' + String(entry.translit || 'Not supplied') +
         '\nGloss: ' + String(entry.gloss || 'Not supplied') +
         '\nDefinition: ' + String(entry.def || 'Not supplied') +
-        (entry.usage ? '\nUsage: ' + String(entry.usage) : '');
+        (entry.usage ? '\nUsage: ' + String(entry.usage) : '') +
+        '\n--- End Lexicon Note ---';
 
       const headingPattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response|Verse Study)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
       let targetHeading = null;
@@ -3000,14 +3115,39 @@
         const existingBlockEnd = afterHeading.indexOf('\n\n---\n\n');
         const existingBlock = existingBlockEnd >= 0 ? afterHeading.slice(0, existingBlockEnd) : afterHeading;
         if (existingBlock.includes(lexiconHeading)) {
-          throw new Error('This Strong’s lexicon entry is already recorded in the ' + reference + ' study.');
+          const sortedExisting = sortLexiconEntriesInVerseStudy(currentNotes, targetHeading, null, verseText);
+          if (sortedExisting && sortedExisting.text !== currentNotes) {
+            record.sections[section] = sortedExisting.text;
+            record.activeSection = section;
+            record.updatedAt = new Date().toISOString();
+            library[key] = record;
+            if (!writeStudyLibrary(library)) throw new Error('The existing lexicon entries could not be reordered. Your notes were not changed.');
+            appState.currentBook = book;
+            appState.currentChapter = chapter;
+            appState.activeTab = bookInfo.testament;
+            appState.activeNotesSection = section;
+            loadActiveStudyNote();
+            const workspacePanel = document.getElementById('workspacePanel');
+            const notesToggle = document.getElementById('toggleWorkspaceMobile');
+            const mobileBackdrop = document.getElementById('mobileBackdrop');
+            workspacePanel?.classList.remove('translate-x-full');
+            workspacePanel?.setAttribute('aria-hidden', 'false');
+            notesToggle?.setAttribute('aria-expanded', 'true');
+            notesToggle?.setAttribute('title', 'Close study notes');
+            mobileBackdrop?.classList.remove('hidden');
+            document.getElementById('strongsModal')?.classList.add('hidden');
+            const status = document.getElementById('noteSaveStatus');
+            if (status) status.textContent = 'Existing lexicon entries sorted by verse order · no duplicate added';
+            scheduleCloudStudySync();
+            return { book, chapter, verse, section, reference, sortedOnly: true };
+          }
+          throw new Error('This Strong’s lexicon entry is already recorded in the ' + reference + ' study. No duplicate was added.');
         }
 
-        // Put the lexicon entry directly underneath its verse heading, not at the end of the chapter notes.
-        const followingText = afterHeading.replace(/^(?:\r?\n){1,2}/, '');
-        const insertion = '\n\n' + lexiconNote + (followingText.trim() ? '\n\n' + followingText : '');
-        updatedNotes = currentNotes.slice(0, targetHeading.end) + insertion;
-        insertedStart = targetHeading.end + 2;
+        const sorted = sortLexiconEntriesInVerseStudy(currentNotes, targetHeading, lexiconNote, verseText);
+        if (!sorted) throw new Error('The existing lexicon notes do not have clear entry boundaries, so I could not safely reorder them. No notes were changed.');
+        updatedNotes = sorted.text;
+        insertedStart = sorted.insertedStart;
       } else {
         // A first word study creates its own verse-specific study block.
         const verseHeading = 'Verse Study — ' + reference + ' (' + translation + ')';

@@ -1769,6 +1769,16 @@
 
     let workspaceNoteFindState = { query: '', indices: [], currentIndex: -1 };
 
+    function invalidateWorkspaceNoteFindMatches() {
+      const input = document.getElementById('workspaceNoteFindInput');
+      const status = document.getElementById('workspaceNoteFindStatus');
+      const query = String(input?.value || '').trim();
+      workspaceNoteFindState = { query, indices: [], currentIndex: -1 };
+      if (status && query) {
+        status.textContent = 'Notes changed. Press Next or Previous to refresh matches.';
+      }
+    }
+
     function focusNotesTextRange(start, end) {
       const area = document.getElementById('workspaceNoteArea');
       if (!area || !Number.isInteger(start) || !Number.isInteger(end) ||
@@ -2018,6 +2028,7 @@
       const area = document.getElementById('workspaceNoteArea');
       if (!area) return;
       area.addEventListener('input', () => {
+        invalidateWorkspaceNoteFindMatches();
         updateWorkspaceWordCount(area.value);
         updateDuplicateAiHeadingControl(area.value);
         updateWorkspaceVerseStudyNavigator(area.value);

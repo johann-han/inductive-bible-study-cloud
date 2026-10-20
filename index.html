@@ -305,6 +305,8 @@
             <div class="flex items-center space-x-2 text-[11px] sm:text-xs text-slate-500">
               <button id="openChapterCrossReferencesBtn" type="button" title="View cross-references for this chapter" class="rounded px-1.5 py-1 font-semibold text-sky-700 hover:bg-sky-50 hover:text-sky-900 whitespace-nowrap">Links <span id="chapterCrossReferenceCount" class="inline-flex min-w-[1.15rem] justify-center rounded-full bg-sky-100 px-1 text-sky-800">0</span></button>
               <span>•</span>
+              <button id="openStandardCrossReferencesBtn" type="button" title="Load standard Bible cross-references based on the Treasury of Scripture Knowledge" class="rounded px-1.5 py-1 font-semibold text-violet-700 hover:bg-violet-50 hover:text-violet-900 whitespace-nowrap">Bible refs <span id="standardChapterCrossReferenceCount" class="inline-flex min-w-[1.15rem] justify-center rounded-full bg-violet-100 px-1 text-violet-800">TSK</span></button>
+              <span>•</span>
               <button id="selectAllVersesBtn" class="hover:text-amber-700 font-medium">Select All</button>
               <span>•</span>
               <button id="clearVerseSelectionBtn" class="hover:text-amber-700 font-medium">Clear</button>
@@ -380,6 +382,34 @@
               <div class="flex items-center justify-between gap-3"><h3 id="crossReferenceListTitle" class="text-sm font-bold text-slate-900">Links to and from this chapter</h3><span id="crossReferenceCount" class="text-[10px] text-slate-500"></span></div>
               <div id="crossReferenceList" class="space-y-2"><p class="text-xs text-slate-500">No saved cross-references for this chapter yet.</p></div>
             </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- STANDARD BIBLE CROSS-REFERENCES (TSK-DERIVED DATA) -->
+      <div id="standardCrossReferenceModal" class="hidden fixed inset-0 z-[80] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="standardCrossReferenceModalTitle">
+        <section class="w-full max-w-4xl max-h-[94dvh] overflow-hidden rounded-xl bg-white shadow-2xl border border-slate-200 flex flex-col">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 shrink-0">
+            <div>
+              <h2 id="standardCrossReferenceModalTitle" class="font-bold text-slate-900">Standard Bible Cross-References</h2>
+              <p id="standardCrossReferenceSubtitle" class="text-[11px] text-slate-500">References grouped by verse and phrase.</p>
+            </div>
+            <button id="closeStandardCrossReferenceModalBtn" type="button" aria-label="Close standard Bible cross-references" class="rounded px-3 py-1 text-xl font-bold text-slate-500 hover:bg-slate-100">&times;</button>
+          </div>
+          <div class="px-4 pt-3 shrink-0">
+            <p id="standardCrossReferenceStatus" role="status" aria-live="polite" class="text-xs text-slate-600">Standard references load when you open this view.</p>
+          </div>
+          <div class="p-4 pt-3 overflow-y-auto min-h-0 flex-1">
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <h3 id="standardCrossReferenceListTitle" class="text-sm font-bold text-slate-900">References for the current chapter</h3>
+              <span id="standardCrossReferenceCount" class="text-[10px] text-slate-500 shrink-0"></span>
+            </div>
+            <div id="standardCrossReferenceList" class="space-y-3">
+              <p class="text-xs text-slate-500">Open Bible refs to load the standard reference list.</p>
+            </div>
+          </div>
+          <div class="border-t border-slate-200 px-4 py-3 bg-slate-50 text-[10px] leading-relaxed text-slate-500 shrink-0">
+            Source: <a href="https://github.com/CrossReferences-org/bible-cross-references" target="_blank" rel="noopener noreferrer" class="font-semibold text-violet-700 underline">CrossReferences.org cross-reference dataset</a>, derived from the Treasury of Scripture Knowledge (TSK). Cross-reference data is licensed under CC BY 4.0. Anchor phrases follow KJV wording.
           </div>
         </section>
       </div>
@@ -1366,9 +1396,416 @@
       if (!count || !button) return;
       const total = collectCrossReferencesForChapter().length;
       count.textContent = String(total);
+      updateChapterStandardCrossReferenceButton();
       button.title = total
         ? 'View ' + total + ' saved cross-reference link' + (total === 1 ? '' : 's') + ' for this chapter'
         : 'View cross-references for this chapter (none saved yet)';
+    }
+
+    const STANDARD_CROSS_REFERENCE_TSV_URL =
+      'https://raw.githubusercontent.com/CrossReferences-org/bible-cross-references/main/tsv/crossreferences_kjv.tsv';
+
+    const STANDARD_CROSS_REFERENCE_BOOK_ALIASES = Object.freeze({
+      'Genesis': ['Gen', 'Ge', 'Gn'],
+      'Exodus': ['Exod', 'Exo', 'Ex'],
+      'Leviticus': ['Lev', 'Le', 'Lv'],
+      'Numbers': ['Num', 'Nu', 'Nm'],
+      'Deuteronomy': ['Deut', 'Deu', 'Dt'],
+      'Joshua': ['Josh', 'Jos', 'Jsh'],
+      'Judges': ['Judg', 'Jdg'],
+      'Ruth': ['Ruth', 'Rth', 'Ru'],
+      '1 Samuel': ['1 Sam', '1Sam', '1 Sa'],
+      '2 Samuel': ['2 Sam', '2Sam', '2 Sa'],
+      '1 Kings': ['1 Kgs', '1 Kgs.', '1 Ki', '1 Kg'],
+      '2 Kings': ['2 Kgs', '2 Kgs.', '2 Ki', '2 Kg'],
+      '1 Chronicles': ['1 Chr', '1 Chron', '1 Ch'],
+      '2 Chronicles': ['2 Chr', '2 Chron', '2 Ch'],
+      'Ezra': ['Ezra', 'Ezr'],
+      'Nehemiah': ['Neh', 'Ne'],
+      'Esther': ['Esth', 'Est'],
+      'Job': ['Job'],
+      'Psalms': ['Ps', 'Psa', 'Psal', 'Psalm', 'Pss', 'Psm'],
+      'Proverbs': ['Prov', 'Pro', 'Pr'],
+      'Ecclesiastes': ['Eccl', 'Ecc', 'Qoheleth'],
+      'Song of Solomon': ['Song', 'Song of Songs', 'Cant', 'Canticles', 'SOS'],
+      'Isaiah': ['Isa', 'Is'],
+      'Jeremiah': ['Jer', 'Je'],
+      'Lamentations': ['Lam', 'La'],
+      'Ezekiel': ['Ezek', 'Eze', 'Ezk'],
+      'Daniel': ['Dan', 'Da', 'Dn'],
+      'Hosea': ['Hos', 'Ho'],
+      'Joel': ['Joe', 'Jl'],
+      'Amos': ['Am'],
+      'Obadiah': ['Obad', 'Oba', 'Ob'],
+      'Jonah': ['Jon', 'Jnh'],
+      'Micah': ['Mic', 'Mi'],
+      'Nahum': ['Nah', 'Na'],
+      'Habakkuk': ['Hab', 'Hb'],
+      'Zephaniah': ['Zeph', 'Zep', 'Zp'],
+      'Haggai': ['Hag', 'Hg'],
+      'Zechariah': ['Zech', 'Zec', 'Zc'],
+      'Malachi': ['Mal', 'Ml'],
+      'Matthew': ['Matt', 'Mat', 'Mt'],
+      'Mark': ['Mar', 'Mk'],
+      'Luke': ['Luk', 'Lk'],
+      'John': ['Joh', 'Jn'],
+      'Acts': ['Act', 'Ac'],
+      'Romans': ['Rom', 'Ro', 'Rm'],
+      '1 Corinthians': ['1 Cor', '1Cor', '1 Co'],
+      '2 Corinthians': ['2 Cor', '2Cor', '2 Co'],
+      'Galatians': ['Gal', 'Ga'],
+      'Ephesians': ['Eph', 'Ep'],
+      'Philippians': ['Phil', 'Php', 'Phl'],
+      'Colossians': ['Col', 'Co'],
+      '1 Thessalonians': ['1 Thess', '1Thess', '1 Thes', '1 Th'],
+      '2 Thessalonians': ['2 Thess', '2Thess', '2 Thes', '2 Th'],
+      '1 Timothy': ['1 Tim', '1Tim', '1 Ti'],
+      '2 Timothy': ['2 Tim', '2Tim', '2 Ti'],
+      'Titus': ['Tit', 'Ti'],
+      'Philemon': ['Phlm', 'Phm', 'Philem'],
+      'Hebrews': ['Heb', 'He'],
+      'James': ['Jas', 'Jam'],
+      '1 Peter': ['1 Pet', '1Pet', '1 Pe'],
+      '2 Peter': ['2 Pet', '2Pet', '2 Pe'],
+      '1 John': ['1 John', '1 Jn', '1John', '1Jn', '1 Jo'],
+      '2 John': ['2 John', '2 Jn', '2John', '2Jn', '2 Jo'],
+      '3 John': ['3 John', '3 Jn', '3John', '3Jn', '3 Jo'],
+      'Jude': ['Jud'],
+      'Revelation': ['Rev', 'Re']
+    });
+
+    function normalizeStandardBookAlias(value) {
+      return String(value || '').toLocaleLowerCase().replace(/\\./g, '').replace(/\\s+/g, ' ').trim();
+    }
+
+    const STANDARD_CROSS_REFERENCE_BOOK_LOOKUP = (() => {
+      const lookup = new Map();
+      BIBLE_CANON.forEach(book => lookup.set(normalizeStandardBookAlias(book.name), book.name));
+      Object.entries(STANDARD_CROSS_REFERENCE_BOOK_ALIASES).forEach(([canonicalName, aliases]) => {
+        aliases.forEach(alias => {
+          const key = normalizeStandardBookAlias(alias);
+          if (!lookup.has(key)) lookup.set(key, canonicalName);
+        });
+      });
+      return lookup;
+    })();
+
+    const STANDARD_CROSS_REFERENCE_BOOK_PREFIXES = Array.from(STANDARD_CROSS_REFERENCE_BOOK_LOOKUP.keys())
+      .sort((a, b) => b.length - a.length);
+    let standardCrossReferencesByVerse = null;
+    let standardCrossReferencesByChapter = null;
+    let standardCrossReferencesLoadPromise = null;
+    let standardCrossReferenceViewFilter = null;
+
+    function standardCrossReferenceVerseKey(book, chapter, verse) {
+      return String(book) + '::' + Number(chapter) + '::' + Number(verse);
+    }
+
+    function standardCrossReferenceChapterKey(book, chapter) {
+      return String(book) + '::' + Number(chapter);
+    }
+
+    function parseStandardBibleReference(value) {
+      // A few TSK entries group several same-chapter verses in one display token (e.g. Ps 33:6,9).
+      // Keep the full token visible in the list, but navigate to its first verse.
+      const text = String(value || '').trim().replace(/[–—]/g, '-').split(',')[0].trim();
+      if (!text || text.length > 100) return null;
+      const normalized = normalizeStandardBookAlias(text);
+      for (const prefix of STANDARD_CROSS_REFERENCE_BOOK_PREFIXES) {
+        if (!normalized.startsWith(prefix + ' ')) continue;
+        const canonicalBook = STANDARD_CROSS_REFERENCE_BOOK_LOOKUP.get(prefix);
+        const remainder = normalized.slice(prefix.length).trim();
+        const match = remainder.match(/^(\\d+)(?::(\\d+)(?:-(?:(\\d+):)?(\\d+))?)?$/);
+        if (!match) continue;
+        const chapter = Number(match[1]);
+        const startVerse = match[2] ? Number(match[2]) : null;
+        const endChapter = match[3] ? Number(match[3]) : chapter;
+        const endVerse = match[4] ? Number(match[4]) : startVerse;
+        const bookInfo = BIBLE_CANON.find(book => book.name === canonicalBook);
+        if (!bookInfo || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(bookInfo.chapters)) return null;
+        if (startVerse !== null && (!Number.isInteger(startVerse) || startVerse < 1 || startVerse > 250)) return null;
+        if (endChapter < chapter || endChapter > Number(bookInfo.chapters)) return null;
+        if (endVerse !== null && (!Number.isInteger(endVerse) || endVerse < (endChapter === chapter ? startVerse : 1) || endVerse > 250)) return null;
+        return { book: canonicalBook, chapter, startVerse, endChapter, endVerse };
+      }
+      return null;
+    }
+
+    function loadStandardCrossReferenceData() {
+      if (standardCrossReferencesByVerse && standardCrossReferencesByChapter) {
+        return Promise.resolve(standardCrossReferencesByVerse);
+      }
+      if (standardCrossReferencesLoadPromise) return standardCrossReferencesLoadPromise;
+      standardCrossReferencesLoadPromise = (async () => {
+        const response = await fetchWithTimeout(STANDARD_CROSS_REFERENCE_TSV_URL, 30000);
+        if (!response.ok) throw new Error('Reference source returned HTTP ' + response.status + '.');
+        const tsv = await response.text();
+        if (!tsv.startsWith('book\\tchapter\\tverse\\tanchor\\treferences')) {
+          throw new Error('The downloaded reference file did not have the expected format.');
+        }
+
+        const byVerse = new Map();
+        let parsedRows = 0;
+        for (const line of tsv.split(/\\r?\\n/)) {
+          if (!line.trim()) continue;
+          const columns = line.split('\\t');
+          if (columns.length < 5) continue;
+          const book = STANDARD_CROSS_REFERENCE_BOOK_LOOKUP.get(normalizeStandardBookAlias(columns[0]));
+          const chapter = Number(columns[1]);
+          const verse = Number(columns[2]);
+          const anchor = String(columns[3] || '').trim();
+          const references = String(columns.slice(4).join('\\t') || '').split('|').map(ref => ref.trim()).filter(Boolean);
+          if (!book || !Number.isInteger(chapter) || chapter < 1 || !Number.isInteger(verse) || verse < 1 || !anchor || !references.length) continue;
+          const key = standardCrossReferenceVerseKey(book, chapter, verse);
+          if (!byVerse.has(key)) byVerse.set(key, []);
+          byVerse.get(key).push({ anchor, references });
+          parsedRows++;
+        }
+        if (parsedRows < 1000 || byVerse.size < 1000) {
+          throw new Error('The standard reference list was incomplete or could not be parsed.');
+        }
+
+        const byChapter = new Map();
+        for (const [key, anchors] of byVerse.entries()) {
+          const parts = key.split('::');
+          const chapterKey = standardCrossReferenceChapterKey(parts[0], Number(parts[1]));
+          if (!byChapter.has(chapterKey)) byChapter.set(chapterKey, []);
+          byChapter.get(chapterKey).push({ verse: Number(parts[2]), anchors });
+        }
+        for (const rows of byChapter.values()) rows.sort((a, b) => a.verse - b.verse);
+
+        standardCrossReferencesByVerse = byVerse;
+        standardCrossReferencesByChapter = byChapter;
+        return byVerse;
+      })().catch(error => {
+        standardCrossReferencesLoadPromise = null;
+        throw error;
+      });
+      return standardCrossReferencesLoadPromise;
+    }
+
+    function getStandardCrossReferenceGroups(book, chapter, verse) {
+      if (!standardCrossReferencesByVerse) return [];
+      return standardCrossReferencesByVerse.get(standardCrossReferenceVerseKey(book, chapter, verse)) || [];
+    }
+
+    function countStandardCrossReferencesForVerse(book, chapter, verse) {
+      return getStandardCrossReferenceGroups(book, chapter, verse)
+        .reduce((total, group) => total + group.references.length, 0);
+    }
+
+    function getStandardCrossReferenceRows(book, chapter, verse = null) {
+      if (!standardCrossReferencesByChapter) return [];
+      if (Number.isInteger(verse)) {
+        const anchors = getStandardCrossReferenceGroups(book, chapter, verse);
+        return anchors.length ? [{ verse, anchors }] : [];
+      }
+      return standardCrossReferencesByChapter.get(standardCrossReferenceChapterKey(book, chapter)) || [];
+    }
+
+    function updateChapterStandardCrossReferenceButton() {
+      const button = document.getElementById('openStandardCrossReferencesBtn');
+      const count = document.getElementById('standardChapterCrossReferenceCount');
+      if (!button || !count) return;
+      if (!standardCrossReferencesByChapter) {
+        count.textContent = 'TSK';
+        button.title = 'Load standard Bible cross-references based on the Treasury of Scripture Knowledge';
+        return;
+      }
+      const rows = getStandardCrossReferenceRows(appState.currentBook, appState.currentChapter);
+      count.textContent = String(rows.length);
+      const targetCount = rows.reduce((sum, row) => sum + row.anchors.reduce((anchorSum, group) => anchorSum + group.references.length, 0), 0);
+      button.title = rows.length
+        ? rows.length + ' verses with ' + targetCount + ' standard cross-references in this chapter'
+        : 'No standard cross-references are listed for this chapter in the current dataset';
+    }
+
+    function renderStandardCrossReferenceList() {
+      const list = document.getElementById('standardCrossReferenceList');
+      const status = document.getElementById('standardCrossReferenceStatus');
+      const count = document.getElementById('standardCrossReferenceCount');
+      const title = document.getElementById('standardCrossReferenceListTitle');
+      const subtitle = document.getElementById('standardCrossReferenceSubtitle');
+      if (!list) return;
+      list.replaceChildren();
+
+      const filter = standardCrossReferenceViewFilter;
+      const rows = getStandardCrossReferenceRows(
+        filter?.book || appState.currentBook,
+        filter?.chapter ?? appState.currentChapter,
+        filter ? filter.verse : null
+      );
+      if (title) title.textContent = filter
+        ? 'Standard references for ' + filter.book + ' ' + filter.chapter + ':' + filter.verse
+        : 'Standard references in ' + appState.currentBook + ' ' + appState.currentChapter;
+      if (subtitle) subtitle.textContent = appState.currentTranslationAbbr === 'KJV'
+        ? 'Reference links are grouped by the KJV phrase or idea they accompany.'
+        : 'Reference targets are verse-based. Anchor phrases below follow KJV wording and may not appear identically in ' + (appState.currentTranslationAbbr || appState.currentTranslation) + '.';
+
+      if (!standardCrossReferencesByVerse) {
+        if (status) status.textContent = 'Loading standard Bible cross-references from the TSK-derived dataset…';
+        if (count) count.textContent = '';
+        const loading = document.createElement('p');
+        loading.className = 'text-xs text-slate-500';
+        loading.textContent = 'Loading reference data. This may take a little while the first time.';
+        list.appendChild(loading);
+        return;
+      }
+
+      const totalLinks = rows.reduce((sum, row) => sum + row.anchors.reduce((anchorSum, group) => anchorSum + group.references.length, 0), 0);
+      if (status) status.textContent = rows.length
+        ? 'Choose any reference to open that passage in the Bible reader.'
+        : 'No standard references were found for this selection.';
+      if (count) count.textContent = rows.length + ' verses · ' + totalLinks + ' links';
+
+      if (!rows.length) {
+        const empty = document.createElement('p');
+        empty.className = 'rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600';
+        empty.textContent = filter
+          ? 'The standard dataset has no listed links for ' + filter.book + ' ' + filter.chapter + ':' + filter.verse + '.'
+          : 'The standard dataset has no listed links for ' + appState.currentBook + ' ' + appState.currentChapter + '.';
+        list.appendChild(empty);
+        return;
+      }
+
+      for (const row of rows) {
+        const card = document.createElement('article');
+        card.className = 'rounded-lg border border-slate-200 p-3 space-y-2';
+        const heading = document.createElement('h4');
+        heading.className = 'text-xs font-bold text-slate-900';
+        heading.textContent = appState.currentBook + ' ' + appState.currentChapter + ':' + row.verse;
+        card.appendChild(heading);
+
+        for (const group of row.anchors) {
+          const groupBox = document.createElement('div');
+          groupBox.className = 'rounded-md bg-slate-50 p-2 space-y-1.5';
+          const anchor = document.createElement('p');
+          anchor.className = 'text-[11px] font-semibold text-slate-700';
+          const anchorLabel = appState.currentTranslationAbbr === 'KJV' ? 'Anchor phrase' : 'KJV anchor phrase';
+          anchor.textContent = anchorLabel + ': “' + group.anchor + '”';
+          groupBox.appendChild(anchor);
+
+          const referenceButtons = document.createElement('div');
+          referenceButtons.className = 'flex flex-wrap gap-1.5';
+          for (const referenceText of group.references) {
+            const referenceButton = document.createElement('button');
+            referenceButton.type = 'button';
+            referenceButton.className = 'rounded-md border border-violet-200 bg-white px-2 py-1 text-[10px] sm:text-xs font-semibold text-violet-800 hover:bg-violet-50 disabled:cursor-default disabled:opacity-50';
+            referenceButton.textContent = referenceText;
+            const parsedTarget = parseStandardBibleReference(referenceText);
+            if (!parsedTarget) {
+              referenceButton.disabled = true;
+              referenceButton.title = 'This reference is listed in the source but could not be parsed for navigation.';
+            } else {
+              referenceButton.title = 'Open ' + formatStandardBibleReference(parsedTarget);
+              referenceButton.addEventListener('click', () => openStandardBibleReference(referenceText));
+            }
+            referenceButtons.appendChild(referenceButton);
+          }
+          groupBox.appendChild(referenceButtons);
+          card.appendChild(groupBox);
+        }
+        list.appendChild(card);
+      }
+    }
+
+    function formatStandardBibleReference(reference) {
+      if (!reference) return 'Unknown reference';
+      let result = reference.book + ' ' + reference.chapter;
+      if (reference.startVerse === null) return result;
+      result += ':' + reference.startVerse;
+      if (reference.endChapter > reference.chapter) return result + '-' + reference.endChapter + ':' + reference.endVerse;
+      if (reference.endVerse > reference.startVerse) return result + '-' + reference.endVerse;
+      return result;
+    }
+
+    async function openStandardBibleReference(referenceText) {
+      const reference = parseStandardBibleReference(referenceText);
+      if (!reference) {
+        const status = document.getElementById('standardCrossReferenceStatus');
+        if (status) status.textContent = 'Could not open that reference. It remains visible in the source list.';
+        return;
+      }
+      const bookInfo = BIBLE_CANON.find(book => book.name === reference.book);
+      if (!bookInfo) return;
+      saveActiveStudyNote();
+      appState.currentBook = reference.book;
+      appState.currentChapter = reference.chapter;
+      appState.activeTab = bookInfo.testament;
+      appState.selectedVerses.clear();
+      if (Number.isInteger(reference.startVerse)) {
+        appState.selectedVerses.add(reference.book + ' ' + reference.chapter + ':' + reference.startVerse);
+      }
+      loadActiveStudyNote();
+      renderChapterPills();
+      renderBooksList();
+      standardCrossReferenceViewFilter = null;
+      const modal = document.getElementById('standardCrossReferenceModal');
+      modal?.classList.add('hidden');
+      await renderScripture();
+      if (Number.isInteger(reference.startVerse)) {
+        document.querySelector('#scriptureContainer [data-verse-number="' + reference.startVerse + '"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }
+
+    async function openStandardCrossReferences(options = {}) {
+      const modal = document.getElementById('standardCrossReferenceModal');
+      const status = document.getElementById('standardCrossReferenceStatus');
+      const list = document.getElementById('standardCrossReferenceList');
+      standardCrossReferenceViewFilter = options.reference ? {
+        book: options.reference.book,
+        chapter: Number(options.reference.chapter),
+        verse: Number(options.reference.verse)
+      } : null;
+      if (modal) modal.classList.remove('hidden');
+      if (status) status.textContent = 'Loading standard Bible cross-references…';
+      if (list) {
+        list.replaceChildren();
+        const loading = document.createElement('p');
+        loading.className = 'text-xs text-slate-500';
+        loading.textContent = 'Loading the standard reference data for the first time…';
+        list.appendChild(loading);
+      }
+      try {
+        await loadStandardCrossReferenceData();
+        updateChapterStandardCrossReferenceButton();
+        renderStandardCrossReferenceList();
+        // Once the dataset is loaded, verses with standard links gain their own visible indicators.
+        renderScripture();
+      } catch (error) {
+        console.warn('Standard Bible cross-references could not be loaded:', error);
+        if (status) status.textContent = 'Standard references could not be loaded. Check your connection and try again.';
+        if (list) {
+          list.replaceChildren();
+          const errorMessage = document.createElement('p');
+          errorMessage.className = 'rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900';
+          errorMessage.textContent = 'The reference data could not be downloaded or read. Your personal cross-references and study notes are unaffected.';
+          list.appendChild(errorMessage);
+        }
+      }
+    }
+
+    function setupStandardCrossReferenceWorkflow() {
+      const modal = document.getElementById('standardCrossReferenceModal');
+      const openButton = document.getElementById('openStandardCrossReferencesBtn');
+      const closeButton = document.getElementById('closeStandardCrossReferenceModalBtn');
+      openButton?.addEventListener('click', () => openStandardCrossReferences());
+      closeButton?.addEventListener('click', () => {
+        modal?.classList.add('hidden');
+        standardCrossReferenceViewFilter = null;
+      });
+      modal?.addEventListener('click', event => {
+        if (event.target === modal) {
+          modal.classList.add('hidden');
+          standardCrossReferenceViewFilter = null;
+        }
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          modal?.classList.add('hidden');
+          standardCrossReferenceViewFilter = null;
+        }
+      });
     }
 
     const CROSS_REFERENCE_RELATIONS = Object.freeze({
@@ -1923,7 +2360,23 @@
             event.stopPropagation();
             openCrossReferenceModal({ viewOnly: true, reference: { book: bookName, chapter: chapterNum, verse: vNum } });
           });
-          verseDiv.insertBefore(indicator, scriptureVerseParagraph);
+            verseDiv.insertBefore(indicator, scriptureVerseParagraph);
+        }
+
+        const standardReferenceCount = countStandardCrossReferencesForVerse(bookName, chapterNum, vNum);
+        if (standardReferenceCount > 0) {
+          const standardIndicator = document.createElement('button');
+          standardIndicator.type = 'button';
+          standardIndicator.className = 'self-start mt-0.5 inline-flex shrink-0 items-center rounded border border-violet-200 bg-violet-50 px-1 py-0.5 text-[9px] sm:text-[10px] font-bold text-violet-800 hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500';
+          standardIndicator.setAttribute('aria-label', 'View ' + standardReferenceCount + ' standard Bible cross-references for ' + bookName + ' ' + chapterNum + ':' + vNum);
+          standardIndicator.title = standardReferenceCount + ' standard cross-references (TSK-derived) for ' + bookName + ' ' + chapterNum + ':' + vNum + '. Click to view.';
+          standardIndicator.textContent = 'Std ' + standardReferenceCount;
+          standardIndicator.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            openStandardCrossReferences({ reference: { book: bookName, chapter: chapterNum, verse: vNum } });
+          });
+          verseDiv.insertBefore(standardIndicator, scriptureVerseParagraph);
         }
 
         verseDiv.onclick = (e) => {
@@ -4710,6 +5163,7 @@
       initApp().then(() => {
         setupScriptureMarkupToolbar();
         setupCrossReferenceWorkflow();
+        setupStandardCrossReferenceWorkflow();
         setupNotesPersistence();
         setupStudyLibrary();
         setupStudyBackup();

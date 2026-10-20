@@ -471,6 +471,7 @@
           <div class="flex items-center space-x-2 shrink-0">
             <button id="openStudyLibraryBtn" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-1 rounded font-semibold">My Studies</button>
             <button id="exportMarkdownBtn" class="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded font-semibold">Export MD</button>
+            <button id="exportStudyReportBtn" type="button" title="Download a publication-ready, print-friendly report for this study" class="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-1 rounded font-semibold">Report</button>
             <span id="noteSaveStatus" role="status" aria-live="polite" class="text-[9px] sm:text-[10px] text-slate-500 inline-block max-w-[6rem] sm:max-w-none truncate text-right">Saved locally</span>
           </div>
         </div>
@@ -3901,6 +3902,109 @@ function renderStandardCrossReferenceList() {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function escapeStudyReportHtml(value) {
+      return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function formatStudyReportText(value) {
+      const lines = String(value || '').replace(/\r/g, '').split('\n');
+      const output = [];
+      let paragraph = [];
+      let listItems = [];
+      let listTag = 'ul';
+      const flushParagraph = () => {
+        if (paragraph.length) output.push('<p>' + paragraph.map(escapeStudyReportHtml).join('<br>') + '</p>');
+        paragraph = [];
+      };
+      const flushList = () => {
+        if (listItems.length) output.push('<' + listTag + '>' + listItems.map(item => '<li>' + escapeStudyReportHtml(item) + '</li>').join('') + '</' + listTag + '>');
+        listItems = []; listTag = 'ul';
+      };
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) { flushParagraph(); flushList(); continue; }
+        const heading = line.match(/^#{1,3}\s+(.+)$/);
+        if (heading) { flushParagraph(); flushList(); output.push('<h4>' + escapeStudyReportHtml(heading[1]) + '</h4>'); continue; }
+        const item = line.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
+        if (item) { flushParagraph(); if (listItems.length && listTag !== (/^\d+[.)]/.test(line) ? 'ol' : 'ul')) flushList(); listTag = /^\d+[.)]/.test(line) ? 'ol' : 'ul'; listItems.push(item[1]); continue; }
+        flushList(); paragraph.push(line);
+      }
+      flushParagraph(); flushList();
+      return output.join('\n') || '<p class="empty">Not recorded in this study.</p>';
+    }
+
+    function buildStudyReportHtml(record, standardRows = [], customLinks = [], standardDataAvailable = false, generatedAt = new Date()) {
+      const escape = escapeStudyReportHtml;
+      const book = String(record?.book || 'Bible passage');
+      const chapter = Number(record?.chapter);
+      const reference = book + (Number.isInteger(chapter) && chapter > 0 ? ' ' + chapter : '');
+      const sections = record?.sections || {};
+      const outline = normalizePassageOutline(record?.passageOutline);
+      const verseMaps = normalizeVerseMaps(record?.verseMaps);
+      const markups = Array.isArray(record?.scriptureMarkups) ? record.scriptureMarkups : [];
+      const dateLabel = generatedAt instanceof Date && !Number.isNaN(generatedAt.getTime()) ? generatedAt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : escape(generatedAt);
+      const textSection = (id, title, text) => '<section class="report-section" id="' + id + '"><h2>' + title + '</h2>' + formatStudyReportText(text) + '</section>';
+      const outlineHtml = outline ? '<section class="report-section" id="passage-outline"><h2>Passage Outline</h2><h3>' + escape(outline.title || reference + ' Outline') + '</h3>' + (outline.sections.length ? '<ol class="outline-list">' + outline.sections.map((section, index) => '<li class="outline-item"><h3>' + escape(section.heading || 'Outline point ' + (index + 1)) + '</h3>' + (section.verseRange ? '<p class="verse-range"><strong>Verses:</strong> ' + escape(section.verseRange) + '</p>' : '') + (section.majorIdea ? '<h4>Major idea</h4>' + formatStudyReportText(section.majorIdea) : '') + (section.supportingDetails ? '<h4>Supporting details</h4>' + formatStudyReportText(section.supportingDetails) : '') + '</li>').join('') + '</ol>' : '<p class="empty">The outline has a title but no outline points.</p>') + '</section>' : '';
+      const verseMapLabels = { context: 'Context', keyWords: 'Key words and relationships', wordStudies: 'Word meanings and Strong’s notes', translationComparison: 'Translation comparison', crossReferences: 'Cross-reference notes', meaningSummary: 'Meaning in context', response: 'Prayer and personal response' };
+      const verseMapHtml = Object.keys(verseMaps).length ? '<section class="report-section" id="verse-mapping"><h2>Verse Mapping and Word Studies</h2>' + Object.entries(verseMaps).sort((a, b) => Number(a[0]) - Number(b[0])).map(([verse, entry]) => '<article class="verse-map"><h3>' + escape(reference + ':' + verse) + '</h3>' + (entry.translation ? '<p class="meta">Translation: ' + escape(entry.translation) + '</p>' : '') + (entry.verseText ? '<blockquote>' + formatStudyReportText(entry.verseText) + '</blockquote>' : '') + VERSE_MAP_CONTENT_FIELDS.map(field => entry[field] && entry[field].trim() ? '<div class="map-field"><h4>' + escape(verseMapLabels[field] || field) + '</h4>' + formatStudyReportText(entry[field]) + '</div>' : '').join('') + '</article>').join('') + '</section>' : '';
+      const markupLabels = { observation: 'Observation', repeated: 'Repeated Word', repeatedWord: 'Repeated Word', contrast: 'Contrast', command: 'Command', promise: 'Promise' };
+      const markupHtml = markups.length ? '<section class="report-section" id="visual-markup"><h2>Visual Observation Markup</h2><ul class="reference-list">' + markups.map(mark => '<li><strong>' + escape(reference + ':' + mark.verse) + '</strong> — ' + escape(markupLabels[mark.type] || mark.type || 'Observation') + (mark.translation ? ' <span class="meta">(' + escape(mark.translation) + ')</span>' : '') + (mark.quote ? '<blockquote>' + escape(mark.quote) + '</blockquote>' : '') + '</li>').join('') + '</ul></section>' : '';
+      const standardHtml = standardDataAvailable ? '<section class="report-section" id="standard-cross-references"><h2>Standard Bible Cross-References</h2>' + (standardRows.length ? standardRows.map(row => '<article class="reference-group"><h3>' + escape(reference + ':' + row.verse) + '</h3>' + row.anchors.map(group => '<div class="anchor-group"><p><strong>Anchor phrase:</strong> “' + escape(group.anchor) + '”</p><p><strong>References:</strong> ' + group.references.map(escape).join('; ') + '</p></div>').join('') + '</article>').join('') : '<p class="empty">The standard dataset lists no cross-references for this chapter.</p>') + '<p class="source-note">Source: <a href="https://github.com/CrossReferences-org/bible-cross-references">CrossReferences-org/bible-cross-references</a>, a Treasury of Scripture Knowledge–derived reference dataset, licensed under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p></section>' : '<section class="report-section" id="standard-cross-references"><h2>Standard Bible Cross-References</h2><p class="empty">The established reference dataset could not be loaded when this report was generated, so standard references have been omitted rather than guessed. Generate the report again when the dataset is available.</p></section>';
+      const customHtml = '<section class="report-section" id="my-cross-references"><h2>My Cross-References</h2>' + (customLinks.length ? '<ul class="reference-list">' + customLinks.map(entry => { const ref = entry.crossReference || entry; const source = formatCrossReferenceSource(ref.source); const target = formatCrossReferenceTarget(ref.target); return '<li><p><strong>' + escape(source) + ' → ' + escape(target) + '</strong></p><p class="relation">' + escape(CROSS_REFERENCE_RELATIONS[ref.relation] || CROSS_REFERENCE_RELATIONS.other) + '</p>' + (ref.note ? formatStudyReportText(ref.note) : '') + '</li>'; }).join('') + '</ul>' : '<p class="empty">No user-created cross-reference links involving this chapter were saved.</p>') + '<p class="meta">These are your personal links and explanations, separate from the standard reference dataset above.</p></section>';
+      const contents = [['passage-outline','Passage Outline',!!outline],['observation','Observation',true],['interpretation','Interpretation',true],['doctrine','Doctrine',true],['discipleship','Discipleship',true],['verse-mapping','Verse Mapping and Word Studies',!!verseMapHtml],['visual-markup','Visual Observation Markup',!!markupHtml],['standard-cross-references','Standard Bible Cross-References',true],['my-cross-references','My Cross-References',true]].filter(item => item[2]);
+      const tocHtml = '<nav class="contents" aria-label="Report contents"><h2>Contents</h2><ol>' + contents.map(item => '<li><a href="#' + item[0] + '">' + item[1] + '</a></li>').join('') + '</ol></nav>';
+      return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>' + escape(reference + ' — Inductive Bible Study Report') + '</title>\n<style>' +
+        ' :root{color-scheme:light;--ink:#1f2937;--muted:#64748b;--line:#dbe2ea;--accent:#274c77;--paper:#fff;--wash:#f3f6fa}*{box-sizing:border-box}body{margin:0;background:#e8edf3;color:var(--ink);font:16px/1.65 Georgia,"Times New Roman",serif}.paper{max-width:900px;margin:32px auto;padding:58px 66px;background:var(--paper);box-shadow:0 6px 28px #0f172a18}.masthead{border-bottom:3px solid var(--accent);padding-bottom:24px;margin-bottom:28px}.eyebrow{font:700 11px/1.4 Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}h1,h2,h3,h4,.meta,.contents,.screen-actions,.source-note{font-family:Arial,Helvetica,sans-serif}h1{font-size:34px;line-height:1.15;margin:10px 0;color:#14263d}h2{font-size:22px;line-height:1.25;margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line);color:#1c3d5a}h3{font-size:16px;line-height:1.35;margin:16px 0 8px;color:#244664}h4{font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 5px;color:#475569}p{margin:0 0 12px}a{color:#245b89;text-decoration:underline}.meta,.empty,.source-note{font-size:12px;color:var(--muted)}.report-section{margin:30px 0;break-inside:auto}.report-section>h2{break-after:avoid}.contents{padding:18px 22px;background:var(--wash);border:1px solid var(--line);border-radius:8px;margin:24px 0}.contents h2{font-size:15px;border:0;margin:0;padding:0}.contents ol{columns:2;margin:10px 0 0;padding-left:20px}.contents li{break-inside:avoid;padding:2px 0}.outline-list{padding-left:24px}.outline-item{padding:12px 0 8px 4px;break-inside:avoid}.verse-range,.relation{font:600 12px Arial,sans-serif;color:#475569}.verse-map,.reference-group{padding:14px 0;border-bottom:1px solid var(--line);break-inside:avoid}.map-field{margin:12px 0}.anchor-group{padding:8px 12px;margin:8px 0;background:var(--wash);border-left:3px solid #8aa7c4;break-inside:avoid}.reference-list{padding-left:22px}.reference-list>li{padding:6px 0;break-inside:avoid}blockquote{margin:10px 0;padding:10px 15px;border-left:3px solid #8aa7c4;background:var(--wash);font-style:italic}ul,ol{padding-left:24px}li{padding:2px 0}.source-note{border-top:1px solid var(--line);margin-top:18px;padding-top:12px}.report-footer{border-top:1px solid var(--line);margin-top:38px;padding-top:14px}.screen-actions{display:flex;justify-content:flex-end;gap:10px;max-width:900px;margin:18px auto 0;padding:0 10px}.screen-actions button{border:0;border-radius:6px;background:var(--accent);color:#fff;padding:10px 15px;font-weight:700;cursor:pointer}.screen-actions button.secondary{background:#64748b}@media(max-width:700px){.paper{margin:0;padding:28px 22px;box-shadow:none}.screen-actions{margin:10px;justify-content:stretch}.screen-actions button{flex:1}h1{font-size:28px}.contents ol{columns:1}}@page{size:auto;margin:18mm}@media print{body{background:#fff;font-size:11pt;line-height:1.55}.paper{max-width:none;margin:0;padding:0;box-shadow:none}.screen-actions{display:none}.contents{background:#fff}.report-section{margin:22px 0}h1{font-size:26pt}h2{font-size:16pt}h3{font-size:12pt}a{color:inherit;text-decoration:none}.report-section,.verse-map,.reference-group,.outline-item,.anchor-group{break-inside:avoid} }' +
+        '</style>\n</head>\n<body>\n<div class="screen-actions"><button type="button" onclick="window.print()">Print / Save as PDF</button><button type="button" class="secondary" onclick="window.close()">Close</button></div>\n<main class="paper">' +
+        '<header class="masthead"><div class="eyebrow">Inductive Bible Study · Study Report</div><h1>' + escape(reference) + '</h1><p>Observation · Interpretation · Doctrine · Discipleship</p><p class="meta">Prepared from your saved study · Generated ' + escape(dateLabel) + '</p></header>' +
+        tocHtml +
+        (outlineHtml || '') +
+        textSection('observation','Observation',sections.observe || '') +
+        textSection('interpretation','Interpretation',sections.interpret || '') +
+        textSection('doctrine','Doctrine',sections.doctrine || '') +
+        textSection('discipleship','Discipleship',sections.apply || '') +
+        verseMapHtml + markupHtml + standardHtml + customHtml +
+        '<footer class="report-footer"><p class="meta">Generated by the Inductive Bible Study Workspace. Notes, outlines, word-study entries and personal cross-reference explanations are user-authored study material. References identify related passages but do not reproduce their full text.</p></footer>' +
+        '</main>\n</body>\n</html>';
+    }
+
+    async function downloadStudyReport(record) {
+      if (!record || !record.book || !Number.isInteger(Number(record.chapter))) return false;
+      try {
+        saveActiveStudyNote();
+        const stored = getStudyRecord(record.book, Number(record.chapter), false);
+        const merged = { ...stored, ...record, sections: { ...(stored.sections || {}), ...(record.sections || {}) } };
+        let standardRows = [];
+        let standardDataAvailable = false;
+        try {
+          await loadStandardCrossReferenceData();
+          standardRows = getStandardCrossReferenceRows(merged.book, Number(merged.chapter));
+          standardDataAvailable = true;
+        } catch (error) {
+          console.warn('Standard cross-references were omitted from the report because the dataset could not be loaded:', error);
+        }
+        const personalLinks = collectCrossReferencesForChapter(merged.book, Number(merged.chapter));
+        const content = buildStudyReportHtml(merged, standardRows, personalLinks, standardDataAvailable);
+        const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeBookName = String(merged.book).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-');
+        link.href = url;
+        link.download = safeBookName + '-' + Number(merged.chapter) + '-study-report.html';
+        document.body.appendChild(link); link.click(); link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+        if (merged.book === appState.currentBook && Number(merged.chapter) === Number(appState.currentChapter)) {
+          const status = document.getElementById('noteSaveStatus');
+          if (status) status.textContent = 'Study report downloaded';
+        }
+        return true;
+      } catch (error) {
+        console.error('The study report could not be generated:', error);
+        window.alert('The study report could not be generated. Your study notes remain saved. Please try again.');
+        return false;
+      }
+    }
+
     function renderStudyLibrary() {
       const list = document.getElementById('studyLibraryList');
       if (!list) return;
@@ -4108,6 +4212,12 @@ function renderStandardCrossReferenceList() {
         exportButton.textContent = 'Export MD';
         exportButton.setAttribute('aria-label', `Export ${record.book} ${record.chapter} notes as Markdown`);
         exportButton.addEventListener('click', () => downloadStudyMarkdown(record));
+        const reportButton = document.createElement('button');
+        reportButton.type = 'button';
+        reportButton.className = 'text-xs font-semibold bg-indigo-700 hover:bg-indigo-600 text-white rounded px-3 py-2';
+        reportButton.textContent = 'Export Report';
+        reportButton.setAttribute('aria-label', `Export ${record.book} ${record.chapter} publication-ready report`);
+        reportButton.addEventListener('click', () => downloadStudyReport(record));
 
         const deleteButton = document.createElement('button');
         deleteButton.className = 'text-xs font-semibold bg-slate-100 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded px-3 py-2';
@@ -4133,7 +4243,7 @@ function renderStandardCrossReferenceList() {
             scheduleCloudStudySync();
           }
         });
-        actions.append(openButton, copyButton, exportButton, deleteButton);
+        actions.append(openButton, copyButton, exportButton, reportButton, deleteButton);
         card.append(details, actions);
         list.appendChild(card);
       });
@@ -5010,16 +5120,17 @@ function renderStandardCrossReferenceList() {
     }
 
     function setupMarkdownExport() {
+      const reportButton = document.getElementById('exportStudyReportBtn');
+      reportButton?.addEventListener('click', async () => {
+        saveActiveStudyNote();
+        await downloadStudyReport(getStudyRecord(appState.currentBook, appState.currentChapter, false));
+      });
       const button = document.getElementById('exportMarkdownBtn');
       if (!button) return;
       button.onclick = () => {
         saveActiveStudyNote();
         const record = getStudyRecord();
-        downloadStudyMarkdown({
-          book: appState.currentBook,
-          chapter: appState.currentChapter,
-          sections: record.sections
-        });
+        downloadStudyMarkdown({ ...record, book: appState.currentBook, chapter: appState.currentChapter, sections: record.sections });
       };
     }
 

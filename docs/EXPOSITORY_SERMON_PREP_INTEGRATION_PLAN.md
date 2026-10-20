@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: integration in progress. The JSON packet contract and IBS-side export are implemented and committed; live Render testing is pending.
+Document status: Phase 1–3 implementation is on feature branch `feat/kerygma-inductive-study-import`. The IBS export was confirmed by an uploaded Romans 2 packet; Kerygma import and a secured server AI route are implemented with source-level validation passed. Live Render/browser testing remains pending.
 Last reviewed: 20 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -25,8 +25,12 @@ IBS is the source of the documented textual and interpretive work. Kerygma is th
 - Phase 1: a version 1 transfer contract is implemented in the export builder. The packet format is `inductive-bible-study-sermon-source`.
 - Phase 2: IBS-side JSON export is committed. Main implementation: [2dd717f](https://github.com/johann-han/inductive-bible-study-cloud/commit/2dd717f13a9ee7d40541334ce7360ff6eca404c2). Passage-text escaping correction: [1078da7](https://github.com/johann-han/inductive-bible-study-cloud/commit/1078da7a1bd49d9220bb34705ad7dc6d7619e4f9).
 - Source checks passed: all inline JavaScript parses; schema version and four-stage mapping pass; invalid markup is filtered; personal and standard cross-references remain separate; TSK-derived source attribution is included; JSON round-trip passes; verse-text normalization and line breaks passed a targeted test.
-- Live Render testing has **not yet been confirmed by the user**. Do not add the Kerygma page/import functionality until the user confirms export works.
-- Latest known IBS index blob after the two export commits: `c0269f7a1826d911d786cbb5aa2b36247dc01ff8` (fetch `main/index.html` again before use).
+- User confirmed IBS export by uploading `Romans-2-sermon-source.json` on 20 October 2026. It parses as format `inductive-bible-study-sermon-source`, version 1; it includes all 29 verses of Romans 2 in KJV because the exported reference is `Romans 2` (not Romans 2:1–16), four study sections, six outline sections, one verse map, one personal cross-reference, 29 standard cross-reference entries, dataset attribution and CC BY 4.0 licence. No API key field is present.
+- Phase 3 implementation is in feature branch `feat/kerygma-inductive-study-import`: Kerygma is placed at `sermon/index.html`, imports version 1 JSON after preview/confirmation, validates passage reference and structure, preserves source evidence under `inductiveStudySource`, and does not silently overwrite hand-written sermon fields. Source panel separates personal and standard cross-references with provenance.
+- The Kerygma browser code no longer calls Gemini directly or stores a Gemini API key. `/api/sermon-ai` uses the Gemini API through server-side `GEMINI_API_KEY` and optional `GEMINI_MODEL` environment variables, preserves the source app's structured JSON response schema, requires a valid signed-in Supabase session, and is rate-limited with request-size limits. The key must never be pasted into Kerygma or committed to GitHub. `/api/config` exposes only a boolean `geminiConfigured`, never the secret. If the Render service has no `GEMINI_API_KEY`, study import and local sermon work still function, but AI actions show a setup warning. AI prompts do not yet use the imported source packet; Phase 4 waits for manual live import/save/reload testing.
+- Source-level checks passed: both inline Kerygma scripts parse; uploaded Romans packet passes importer normalization; unsupported packet versions and cross-chapter sermon references are rejected; server syntax parses; the existing `/api/mentor` and root static route remain present. No live Render/browser test has yet been performed.
+- Commits on feature branch: server endpoint `1a3c7eaac31aea64abda111a0c6974614fbfd809`; Kerygma page/import `32963ec217a4a99b43312208fed1a070c7616440`. Do not confuse feature-branch content with the currently deployed `main`.
+- Latest known IBS index blob after export commits: `c0269f7a1826d911d786cbb5aa2b36247dc01ff8` (fetch again before edits).
 
 ## 2. Current baseline — do not lose this information
 
@@ -303,16 +307,16 @@ Initial integration is complete only when:
 ## 10. New-chat recovery instructions (copy this section into a new chat)
 
 We are integrating the separate Expository Sermon Preparation Studio (Kerygma) with the existing Inductive Bible Study Workspace. Read this handover document first:
-https://github.com/johann-han/inductive-bible-study-cloud/blob/main/docs/EXPOSITORY_SERMON_PREP_INTEGRATION_PLAN.md
+https://github.com/johann-han/inductive-bible-study-cloud/blob/feat/kerygma-inductive-study-import/docs/EXPOSITORY_SERMON_PREP_INTEGRATION_PLAN.md
 
 Current shared repository: https://github.com/johann-han/inductive-bible-study-cloud
 Live IBS app: https://inductive-bible-study-workspace.onrender.com/
 Chosen deployment layout: IBS remains `/`; Kerygma will later be added at `sermon/index.html` and served by the same Render service at `/sermon/index.html`.
 Baseline recorded on 20 October 2026: main tip fc59da3a375b99e7ed4b278d21fef5e00908ef8e. Always fetch the newest main/index.html and verify the latest baseline before editing.
 
-The Kerygma HTML is an uploaded standalone file whose SHA-256 at review time was 2fb84cecaa19255491dda8aeaa5e8bd125cab91d9dc21ab621ea7524f7a91656. It has no separate repository. The agreed destination is `sermon/index.html` inside the existing IBS repository and the same Render service; do not add it until the JSON contract and safe AI/API route are ready.
+The Kerygma HTML started as an uploaded standalone file whose SHA-256 at review time was 2fb84cecaa19255491dda8aeaa5e8bd125cab91d9dc21ab621ea7524f7a91656. Its integrated copy is now committed on feature branch `feat/kerygma-inductive-study-import` at `sermon/index.html`, with the server-side Gemini route changes in `server.js`. This is not deployed from `main` yet.
 
-Do not redesign either app. Read the progress section first. Phase 1 and the IBS-side Phase 2 export are implemented and committed, but the export still needs my live-app test and confirmation. Next: verify the latest main and Render deployment; have me export a known study and confirm its JSON. Only then add the Kerygma source page at `sermon/index.html`, implement safe JSON import and a source panel, and wait for my confirmation before changing AI prompts. Do not skip gates, overwrite handwritten work, expose API keys, or clear localStorage. Work incrementally, test every phase, commit and provide links.
+Do not redesign either app. Read the progress section first. The user confirmed the IBS export by uploading a valid Romans 2 v1 packet. Importer, preview/source panel and server-side Gemini endpoint are implemented on `feat/kerygma-inductive-study-import`; source-level checks pass but the branch is not deployed. Next: review/merge the feature branch only after the implementation review, let Render deploy, then have the user import the uploaded or a fresh packet, confirm preview and create-new-sermon behavior, save/reload the page, and verify the source evidence persists without overwriting the existing sample sermon. Only after that round-trip is confirmed should Phase 4 modify AI prompts to use imported source notes. Do not skip gates, overwrite handwritten work, expose API keys, or clear localStorage. The Render environment must have `GEMINI_API_KEY` set server-side for Kerygma AI to work; never ask for/paste a key in this chat or HTML. Work incrementally, test every phase, commit and provide links.
 
 ## 11. First action when resuming in a new chat
 

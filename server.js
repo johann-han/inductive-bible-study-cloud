@@ -13,6 +13,7 @@ function loadEnv() {
 loadEnv();
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
 const MAX_BODY = 64 * 1024;
 const AI_RATE_WINDOW_MS = 10 * 60 * 1000;
 const AI_RATE_LIMIT = 30;
@@ -122,10 +123,20 @@ function send(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(obj));
 }
-function readJson(req) {
+function readJson(req, maxBytes = MAX_BODY) {
   return new Promise((resolve, reject) => {
-    let body = ''; req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) { reject(new Error('Request too large.')); req.destroy(); } });
-    req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch { reject(new Error('Invalid JSON request.')); } });
+    let body = ''; let bytes = 0; let tooLarge = false;
+    req.on('data', chunk => {
+      if (tooLarge) return;
+      bytes += chunk.length;
+      if (bytes > maxBytes) { tooLarge = true; body = ''; return; }
+      body += chunk.toString('utf8');
+    });
+    req.on('end', () => {
+      if (tooLarge) { const error = new Error('Request body is too large.'); error.statusCode = 413; return reject(error); }
+      try { resolve(JSON.parse(body || '{}')); }
+      catch { const error = new Error('Invalid JSON request.'); error.statusCode = 400; reject(error); }
+    });
     req.on('error', reject);
   });
 }
@@ -149,11 +160,60 @@ const server = http.createServer(async (req, res) => {
     // These are intentionally public browser settings. Do not expose OPENROUTER_API_KEY or Supabase service-role keys.
     return send(res, 200, {
       supabaseUrl: process.env.SUPABASE_URL || '',
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+      geminiConfigured: !!process.env.GEMINI_API_KEY
     });
   }
   if (req.method === 'GET' && url.pathname === '/healthz') {
     return send(res, 200, { status: 'ok' });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/sermon-ai') {
+    if (!process.env.GEMINI_API_KEY) return send(res, 503, { error: 'Gemini AI is not configured on the server. Study import and local sermon notes remain available.' });
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      return send(res, 503, { error: 'Secure sermon AI requires the Inductive Bible Study sign-in service to be configured.' });
+    }
+    const identity = await authorizeAIMentor(req);
+    if (identity.error) return send(res, identity.status || 401, { error: identity.error });
+    if (!consumeAIRateLimit('sermon:' + identity.userId)) return send(res, 429, { error: 'The sermon AI request limit has been reached. Please wait a few minutes and try again.' });
+    try {
+      const body = await readJson(req, 256 * 1024);
+      const systemPrompt = String(body.systemPrompt || '').trim().slice(0, 12000);
+      const userQuery = String(body.userQuery || '').trim().slice(0, 48000);
+      if (!systemPrompt || !userQuery) return send(res, 400, { error: 'Both a system prompt and a user query are required.' });
+      const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
+      };
+      if (body.responseSchema && typeof body.responseSchema === 'object' && !Array.isArray(body.responseSchema)) {
+        const schemaText = JSON.stringify(body.responseSchema);
+        if (schemaText.length > 12000) return send(res, 413, { error: 'The requested structured-output schema is too large.' });
+        payload.generationConfig = {
+          responseMimeType: 'application/json',
+          responseSchema: body.responseSchema
+        };
+      }
+      const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+        encodeURIComponent(GEMINI_MODEL) + ':generateContent?key=' + encodeURIComponent(process.env.GEMINI_API_KEY);
+      const apiResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(60000)
+      });
+      const data = await apiResponse.json().catch(() => ({}));
+      if (!apiResponse.ok) {
+        const message = data && data.error && data.error.message ? data.error.message : 'Gemini returned HTTP ' + apiResponse.status + '.';
+        console.error('Kerygma Gemini provider error:', apiResponse.status, message.slice(0, 300));
+        return send(res, 502, { error: 'The server-managed Gemini request failed. Please try again shortly.' });
+      }
+      const parts = data && data.candidates && data.candidates[0] &&
+        data.candidates[0].content && data.candidates[0].content.parts;
+      const answer = Array.isArray(parts) ? parts.find(part => part && typeof part.text === 'string')?.text : null;
+      if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'Gemini returned no text response. The prompt may have been blocked or the model response was empty.' });
+      return send(res, 200, { answer: answer.trim(), model: data.modelVersion || GEMINI_MODEL });
+    } catch (error) {
+      return send(res, error.statusCode || 500, { error: error.statusCode === 413 || error.statusCode === 400 ? error.message : 'The sermon AI request could not be completed.' });
+    }
   }
   if (req.method === 'POST' && url.pathname === '/api/mentor') {
     if (!process.env.OPENROUTER_API_KEY) return send(res, 503, { error: 'OPENROUTER_API_KEY is not configured. Add it to the .env file and restart the server.' });
@@ -191,7 +251,7 @@ const server = http.createServer(async (req, res) => {
       if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'The selected model returned no text response.' });
       return send(res, 200, { answer: answer.trim(), model: data.model || MODEL });
     } catch (error) {
-      return send(res, 500, { error: error.message || 'Unexpected server error.' });
+      return send(res, error.statusCode || 500, { error: error.message || 'Unexpected server error.' });
     }
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed.' });

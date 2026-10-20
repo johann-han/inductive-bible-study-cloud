@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: planning only; no integration code has been implemented.
+Document status: integration in progress. The JSON packet contract and IBS-side export are implemented and committed; live Render testing is pending.
 Last reviewed: 20 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -17,6 +17,16 @@ IBS is the source of the documented textual and interpretive work. Kerygma is th
 **Chosen deployment layout:** keep both applications in the existing `johann-han/inductive-bible-study-cloud` repository and use its existing Render Node web service. IBS stays at `/`; the separate Kerygma app will live at `sermon/index.html` and be served at `/sermon/index.html` (a clean `/sermon/` route can be added if needed). The current Node server already serves files from subpaths. This avoids the need for a second repository or Render service and gives both pages the same HTTPS origin. Keep their interfaces and records separate; do not merge or redesign either app.
 
 **First integration method:** explicit, versioned JSON export from IBS and JSON import into Kerygma. Same-origin hosting makes deployment simpler, but the initial data bridge remains a validated, explicit transfer packet rather than implicit localStorage sharing. The uploaded Kerygma HTML is the source until it is placed under `sermon/` in the existing repository. It must not be put in the repo until the IBS export contract and Kerygma import/security path are ready.
+
+## Implementation progress — 20 October 2026
+
+- Deployment choice: keep both apps in the existing IBS repository and Render service. IBS stays at `/`; Kerygma will later be placed at `sermon/index.html` and served at `/sermon/index.html`.
+- The supplied Kerygma HTML is preserved as the source file; SHA-256: `2fb84cecaa19255491dda8aeaa5e8bd125cab91d9dc21ab621ea7524f7a91656`.
+- Phase 1: a version 1 transfer contract is implemented in the export builder. The packet format is `inductive-bible-study-sermon-source`.
+- Phase 2: IBS-side JSON export is committed. Main implementation: [2dd717f](https://github.com/johann-han/inductive-bible-study-cloud/commit/2dd717f13a9ee7d40541334ce7360ff6eca404c2). Passage-text escaping correction: [1078da7](https://github.com/johann-han/inductive-bible-study-cloud/commit/1078da7a1bd49d9220bb34705ad7dc6d7619e4f9).
+- Source checks passed: all inline JavaScript parses; schema version and four-stage mapping pass; invalid markup is filtered; personal and standard cross-references remain separate; TSK-derived source attribution is included; JSON round-trip passes; verse-text normalization and line breaks passed a targeted test.
+- Live Render testing has **not yet been confirmed by the user**. Do not add the Kerygma page/import functionality until the user confirms export works.
+- Latest known IBS index blob after the two export commits: `c0269f7a1826d911d786cbb5aa2b36247dc01ff8` (fetch `main/index.html` again before use).
 
 ## 2. Current baseline — do not lose this information
 
@@ -95,12 +105,13 @@ Relevant method locations in the uploaded Kerygma source (line numbers refer to 
 Before coding:
 1. Fetch the latest IBS main/index.html and record the branch tip and blob SHA.
 2. Confirm the latest mobile UI changes are still present and the live app is working.
-3. Confirm the supplied Kerygma HTML checksum and preserve the original. Its deployment destination is the existing repository’s `sermon/index.html` path; use the current Node static server and same Render service, not a new service.
-4. Keep Kerygma out of `main` until the IBS export contract is implemented and tested. Do not overwrite the supplied source copy.
+3. After Render deploys the export commits, ask the user to test the new Sermon button and confirm the JSON file downloads with the expected study fields.
+4. Confirm the supplied Kerygma HTML checksum and preserve the original. Its deployment destination is the existing repository’s `sermon/index.html` path; use the current Node static server and same Render service, not a new service.
+5. Keep Kerygma out of `main` until the user confirms the IBS export in the live app. Do not overwrite the supplied source copy.
 5. Create an IBS full study backup and retain the original Kerygma file. Do not clear browser localStorage.
 6. Confirm whether Kerygma’s browser-local sermons need a backup/export enhancement before integration. If so, handle that as a small, separately tested preparation step.
 
-Completion gate: both sources are identified and recoverable; integration code is still unchanged.
+Completion gate: the IBS repository and Render service are verified; the supplied Kerygma HTML is preserved and its target path (`sermon/index.html`) is decided. The integration is now proceeding in staged commits.
 
 ### Phase 1 — Define and test a stable transfer contract
 
@@ -301,13 +312,13 @@ Baseline recorded on 20 October 2026: main tip fc59da3a375b99e7ed4b278d21fef5e00
 
 The Kerygma HTML is an uploaded standalone file whose SHA-256 at review time was 2fb84cecaa19255491dda8aeaa5e8bd125cab91d9dc21ab621ea7524f7a91656. It has no separate repository. The agreed destination is `sermon/index.html` inside the existing IBS repository and the same Render service; do not add it until the JSON contract and safe AI/API route are ready.
 
-Do not redesign either app. Follow the phases in the handover exactly: Phase 0 baseline/backups and locate Kerygma; Phase 1 finalize/test the JSON contract; Phase 2 implement and test IBS export only; wait for my live-app confirmation; Phase 3 implement Kerygma import and source panel; wait for confirmation; Phase 4 connect AI prompts; then export/provenance and optional direct integration only if justified. Do not skip gates, overwrite handwritten work, expose API keys, or clear localStorage. Work incrementally, test every phase, commit and provide links. The integration code has not been started yet; only this plan is being documented.
+Do not redesign either app. Read the progress section first. Phase 1 and the IBS-side Phase 2 export are implemented and committed, but the export still needs my live-app test and confirmation. Next: verify the latest main and Render deployment; have me export a known study and confirm its JSON. Only then add the Kerygma source page at `sermon/index.html`, implement safe JSON import and a source panel, and wait for my confirmation before changing AI prompts. Do not skip gates, overwrite handwritten work, expose API keys, or clear localStorage. Work incrementally, test every phase, commit and provide links.
 
-## 11. First action when implementation begins
+## 11. First action when resuming in a new chat
 
-Do not start with code. First:
+Do not start with new code. First:
 1. Read this plan in full.
 2. Fetch current IBS main branch and current index.html from GitHub.
-3. Confirm the Kerygma file SHA and the agreed same-repository layout (`sermon/index.html`); keep the original file recoverable.
-4. Verify that both apps and the relevant local/browser data have backup or rollback paths.
-5. Propose the Phase 0 findings and wait for any missing location/ownership detail before implementation.
+3. Verify whether Render has deployed commits `2dd717f` and `1078da7`.
+4. Have the user test the Sermon export button and confirm the packet download; investigate and fix issues before proceeding.
+5. Keep Kerygma out of the live path until that confirmation. Then proceed to Phase 3, placing it at `sermon/index.html` in this same repo and handling its Gemini key through a server-side route rather than embedding a secret in browser code.

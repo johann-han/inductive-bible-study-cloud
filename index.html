@@ -341,6 +341,7 @@
             <button id="btnHighlightObserve" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 px-2.5 py-1 rounded font-semibold text-[11px] shadow">Observe</button>
             <button id="btnHighlightInterpret" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded font-semibold text-[11px] shadow">Interpret</button>
             <button id="btnOpenCrossReferenceModal" type="button" disabled title="Select exactly one verse to link a passage" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1 rounded shadow disabled:opacity-40 disabled:cursor-not-allowed">Link passage</button>
+            <button id="btnOpenVerseMapping" type="button" disabled title="Select exactly one verse to create a verse map" class="bg-violet-700 hover:bg-violet-600 text-white font-bold px-2.5 py-1 rounded shadow disabled:opacity-40 disabled:cursor-not-allowed">Verse Map</button>
             <button id="sendVersesToAiBtn" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-2.5 py-1 rounded shadow">Ask AI</button>
           </div>
         </div>
@@ -387,7 +388,29 @@
         </section>
       </div>
 
-      <!-- STANDARD BIBLE CROSS-REFERENCES (TSK-DERIVED DATA) -->
+      <!-- VERSE MAPPING WORKSHEET -->
+      <div id="verseMappingModal" class="hidden fixed inset-0 z-[85] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="verseMappingModalTitle">
+        <section class="w-full max-w-4xl max-h-[94dvh] overflow-hidden rounded-xl bg-white shadow-2xl border border-slate-200 flex flex-col">
+          <header class="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 shrink-0"><div class="min-w-0"><h2 id="verseMappingModalTitle" class="font-bold text-slate-900">Verse Mapping</h2><p id="verseMappingReference" class="text-[11px] text-slate-500">Select exactly one verse to begin a map.</p></div><button id="closeVerseMappingModalBtn" type="button" aria-label="Close verse mapping worksheet" class="rounded px-3 py-1 text-xl font-bold text-slate-500 hover:bg-slate-100">&times;</button></header>
+          <div class="px-4 pt-3 shrink-0"><p class="text-xs text-slate-600">Study the verse in context, trace key words and connections, compare translations, then summarize its meaning before recording a response. Your entries save automatically.</p></div>
+          <div class="p-4 pt-3 overflow-y-auto min-h-0 flex-1 space-y-4">
+            <div class="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-2"><div class="flex items-center justify-between gap-2"><label for="verseMappingVerseText" class="text-xs font-bold text-violet-950">Verse in focus</label><span id="verseMappingTranslation" class="rounded bg-white px-2 py-1 text-[10px] font-bold text-violet-800">KJV</span></div><textarea id="verseMappingVerseText" readonly rows="3" class="w-full resize-y rounded-md border border-violet-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-800"></textarea></div>
+            <input id="verseMappingSavedTranslation" type="hidden" value="KJV">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="space-y-1"><label for="verseMappingContext" class="block text-xs font-semibold text-slate-700">1. Context: who, what, when, where, why and how?</label><textarea id="verseMappingContext" data-verse-map-field="context" rows="4" maxlength="10000" placeholder="Read the surrounding paragraph and chapter. Note the speaker, audience, setting and argument." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600"></textarea></div>
+              <div class="space-y-1"><label for="verseMappingKeyWords" class="block text-xs font-semibold text-slate-700">2. Key words and relationships</label><textarea id="verseMappingKeyWords" data-verse-map-field="keyWords" rows="4" maxlength="10000" placeholder="List significant words, repeated ideas, contrasts, commands and how words relate." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600"></textarea></div>
+              <div class="space-y-1"><label for="verseMappingWordStudies" class="block text-xs font-semibold text-slate-700">3. Word meanings / Strong’s notes</label><textarea id="verseMappingWordStudies" data-verse-map-field="wordStudies" rows="4" maxlength="10000" placeholder="Record definitions and original-language observations from verified word-study sources." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600"></textarea></div>
+              <div class="space-y-1"><label for="verseMappingTranslations" class="block text-xs font-semibold text-slate-700">4. Translation comparison</label><textarea id="verseMappingTranslations" data-verse-map-field="translationComparison" rows="4" maxlength="10000" placeholder="Compare wording in other available translations. Note differences without assuming they automatically imply different meanings." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600"></textarea></div>
+              <div class="space-y-1"><label for="verseMappingCrossReferences" class="block text-xs font-semibold text-slate-700">5. Cross-references and biblical connections</label><textarea id="verseMappingCrossReferences" data-verse-map-field="crossReferences" rows="4" maxlength="10000" placeholder="Record relevant standard references or your own links, and explain how each connection helps in context." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600"></textarea></div>
+              <div class="space-y-1"><label for="verseMappingSummary" class="block text-xs font-semibold text-slate-700">6. Summary: what does the verse mean in context?</label><textarea id="verseMappingSummary" data-verse-map-field="meaningSummary" rows="4" maxlength="10000" placeholder="Put the pieces back together in one or two sentences, staying with the author’s intended meaning." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600"></textarea></div>
+              <div class="space-y-1 md:col-span-2"><label for="verseMappingResponse" class="block text-xs font-semibold text-slate-700">7. Prayer and personal response</label><textarea id="verseMappingResponse" data-verse-map-field="response" rows="3" maxlength="10000" placeholder="Record a prayer, question or careful response to the meaning you have established." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600"></textarea></div>
+            </div>
+          </div>
+          <footer class="border-t border-slate-200 px-4 py-3 bg-slate-50 shrink-0"><p id="verseMappingSaveStatus" role="status" aria-live="polite" class="text-[11px] text-slate-600">Changes save automatically to this study.</p></footer>
+        </section>
+      </div>
+
+            <!-- STANDARD BIBLE CROSS-REFERENCES (TSK-DERIVED DATA) -->
       <div id="standardCrossReferenceModal" class="hidden fixed inset-0 z-[80] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="standardCrossReferenceModalTitle">
         <section class="w-full max-w-4xl max-h-[94dvh] overflow-hidden rounded-xl bg-white shadow-2xl border border-slate-200 flex flex-col">
           <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 shrink-0">
@@ -2181,6 +2204,90 @@ function renderStandardCrossReferenceList() {
       if (status) status.textContent = 'Cross-reference removed.';
     }
 
+    const VERSE_MAP_FIELDS = Object.freeze(['verseText', 'translation', 'context', 'keyWords', 'wordStudies', 'translationComparison', 'crossReferences', 'meaningSummary', 'response']);
+    const VERSE_MAP_CONTENT_FIELDS = Object.freeze(['context', 'keyWords', 'wordStudies', 'translationComparison', 'crossReferences', 'meaningSummary', 'response']);
+    let activeVerseMappingReference = null;
+
+    function normalizeVerseMaps(value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+      const normalized = {};
+      for (const [verseKey, raw] of Object.entries(value).slice(0, 250)) {
+        if (!/^[1-9]\\d*$/.test(verseKey) || Number(verseKey) > 250 || !raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+        const entry = {};
+        for (const field of VERSE_MAP_FIELDS) { const maxLength = field === 'translation' ? 40 : 10000; entry[field] = typeof raw[field] === 'string' ? raw[field].slice(0, maxLength) : ''; }
+        entry.updatedAt = typeof raw.updatedAt === 'string' ? raw.updatedAt.slice(0, 50) : '';
+        if (entry.verseText.trim() || VERSE_MAP_CONTENT_FIELDS.some(field => entry[field].trim())) normalized[String(Number(verseKey))] = entry;
+      }
+      return normalized;
+    }
+
+    function getDisplayedVerseTextForMapping(verseNumber) {
+      const paragraph = document.querySelector('#scriptureContainer [data-verse-number="' + Number(verseNumber) + '"] .scripture-verse-text');
+      if (!paragraph) return '';
+      const clone = paragraph.cloneNode(true);
+      clone.querySelectorAll('.strongs-tag').forEach(node => node.remove());
+      return String(clone.textContent || '').trim();
+    }
+
+    function openVerseMapping() {
+      const selected = Array.from(appState.selectedVerses || []);
+      const source = selected.length === 1 ? parseBibleReference(selected[0]) : null;
+      const status = document.getElementById('verseMappingSaveStatus');
+      if (!source || source.startVerse === null) { if (status) status.textContent = 'Select exactly one verse in the Bible reader to open its verse map.'; return; }
+      saveActiveStudyNote();
+      const record = getStudyRecord(source.book, source.chapter, false);
+      const saved = normalizeVerseMaps(record.verseMaps)[String(source.startVerse)] || null;
+      activeVerseMappingReference = { book: source.book, chapter: source.chapter, verse: source.startVerse };
+      const modal = document.getElementById('verseMappingModal');
+      const label = document.getElementById('verseMappingReference');
+      const verseTextArea = document.getElementById('verseMappingVerseText');
+      const translationBadge = document.getElementById('verseMappingTranslation');
+      const savedTranslation = document.getElementById('verseMappingSavedTranslation');
+      if (label) label.textContent = source.book + ' ' + source.chapter + ':' + source.startVerse;
+      if (verseTextArea) verseTextArea.value = saved?.verseText || getDisplayedVerseTextForMapping(source.startVerse);
+      const translation = saved?.translation || appState.currentTranslationAbbr || appState.currentTranslation || 'KJV';
+      if (translationBadge) translationBadge.textContent = translation;
+      if (savedTranslation) savedTranslation.value = translation;
+      for (const field of VERSE_MAP_CONTENT_FIELDS) { const input = document.querySelector('[data-verse-map-field="' + field + '"]'); if (input) input.value = saved?.[field] || ''; }
+      if (status) status.textContent = saved?.updatedAt ? 'Last saved: ' + formatStudyDate(saved.updatedAt) + '. Further changes save automatically.' : 'This verse map has not been saved yet. Start typing to save it.';
+      if (modal) modal.classList.remove('hidden');
+      document.getElementById('verseMappingContext')?.focus({ preventScroll: true });
+    }
+
+    function saveVerseMappingDraft() {
+      const reference = activeVerseMappingReference;
+      if (!reference) return;
+      const verseTextArea = document.getElementById('verseMappingVerseText');
+      const translationInput = document.getElementById('verseMappingSavedTranslation');
+      const status = document.getElementById('verseMappingSaveStatus');
+      const map = { verseText: String(verseTextArea?.value || '').slice(0, 10000), translation: String(translationInput?.value || 'KJV').slice(0, 40), updatedAt: new Date().toISOString() };
+      for (const field of VERSE_MAP_CONTENT_FIELDS) { const input = document.querySelector('[data-verse-map-field="' + field + '"]'); map[field] = String(input?.value || '').slice(0, 10000); }
+      const library = readStudyLibrary();
+      const key = studyRecordKey(reference.book, reference.chapter);
+      const record = library[key] || { book: reference.book, chapter: reference.chapter, sections: { observe: '', interpret: '', apply: '' }, activeSection: appState.activeNotesSection || 'observe', updatedAt: new Date().toISOString() };
+      record.sections = record.sections || { observe: '', interpret: '', apply: '' };
+      record.verseMaps = normalizeVerseMaps(record.verseMaps);
+      record.verseMaps[String(reference.verse)] = map;
+      record.updatedAt = new Date().toISOString();
+      const tombstones = readStudyTombstones(); delete tombstones[key]; writeStudyTombstones(tombstones);
+      library[key] = record;
+      if (!writeStudyLibrary(library)) { if (status) status.textContent = 'Could not save this verse map in browser storage. Copy your notes before closing.'; return; }
+      if (status) status.textContent = cloudSyncState.user ? 'Saved locally · syncing to cloud…' : 'Saved locally · changes save automatically.';
+      scheduleCloudStudySync();
+      renderStudyLibrary();
+    }
+
+    function setupVerseMappingWorkflow() {
+      const modal = document.getElementById('verseMappingModal');
+      const openButton = document.getElementById('btnOpenVerseMapping');
+      const closeButton = document.getElementById('closeVerseMappingModalBtn');
+      openButton?.addEventListener('click', openVerseMapping);
+      closeButton?.addEventListener('click', () => { modal?.classList.add('hidden'); activeVerseMappingReference = null; });
+      modal?.addEventListener('click', event => { if (event.target === modal) { modal.classList.add('hidden'); activeVerseMappingReference = null; } });
+      modal?.querySelectorAll('[data-verse-map-field]').forEach(input => input.addEventListener('input', saveVerseMappingDraft));
+      document.addEventListener('keydown', event => { if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) { modal.classList.add('hidden'); activeVerseMappingReference = null; } });
+    }
+
     function setupCrossReferenceWorkflow() {
       const modal = document.getElementById('crossReferenceModal');
       const openButton = document.getElementById('btnOpenCrossReferenceModal');
@@ -2657,6 +2764,7 @@ function renderStandardCrossReferenceList() {
       const countLabel = document.getElementById('selectedVersesCount');
       const summaryLabel = document.getElementById('selectedVersesSummary');
       const crossReferenceButton = document.getElementById('btnOpenCrossReferenceModal');
+      const verseMappingButton = document.getElementById('btnOpenVerseMapping');
 
       updateChapterCrossReferenceButton();
       if (!bar) return;
@@ -2665,6 +2773,12 @@ function renderStandardCrossReferenceList() {
         crossReferenceButton.title = appState.selectedVerses.size === 1
           ? 'Link the selected verse to a related passage'
           : 'Select exactly one verse to link a passage';
+      }
+      if (verseMappingButton) {
+        verseMappingButton.disabled = appState.selectedVerses.size !== 1;
+        verseMappingButton.title = appState.selectedVerses.size === 1
+          ? 'Open a structured verse map for the selected verse'
+          : 'Select exactly one verse to create a verse map';
       }
 
       if (appState.selectedVerses.size > 0) {
@@ -3471,14 +3585,27 @@ function renderStandardCrossReferenceList() {
       return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
     }
 
+    function formatVerseMapsForMarkdown(value) {
+      const maps = normalizeVerseMaps(value);
+      const labels = { context: 'Context', keyWords: 'Key words and relationships', wordStudies: 'Word meanings / Strong’s notes', translationComparison: 'Translation comparison', crossReferences: 'Cross-references and biblical connections', meaningSummary: 'Meaning summary', response: 'Prayer and personal response' };
+      return Object.entries(maps).sort((a,b) => Number(a[0])-Number(b[0])).map(([verse,entry]) => {
+        const parts = ['### Verse ' + verse, ''];
+        if (entry.verseText) parts.push('> ' + entry.verseText.replace(/\r?\n/g, '\n> '), '');
+        for (const field of VERSE_MAP_CONTENT_FIELDS) if (entry[field] && entry[field].trim()) parts.push('**' + labels[field] + '**', '', entry[field], '');
+        return parts.join('\n').trim();
+      }).filter(Boolean).join('\n\n');
+    }
+
     function formatStudyNotesForCopy(record) {
       const book = String(record?.book || '');
       const chapter = Number(record?.chapter);
       const sections = record?.sections || {};
+      const verseMaps = formatVerseMapsForMarkdown(record?.verseMaps);
       return `${book} ${chapter}\n\n` +
         `OBSERVE\n${sections.observe || ''}\n\n` +
         `INTERPRET\n${sections.interpret || ''}\n\n` +
-        `APPLY\n${sections.apply || ''}\n`;
+        `APPLY\n${sections.apply || ''}\n` +
+        (verseMaps ? `\nVERSE MAPPING\n${verseMaps}\n` : '');
     }
 
     async function copyStudyNotes(record, button) {
@@ -3505,10 +3632,12 @@ function renderStandardCrossReferenceList() {
       const book = String(record.book);
       const chapter = Number(record.chapter);
       const sections = record.sections || {};
+      const verseMaps = formatVerseMapsForMarkdown(record.verseMaps);
       const content = `# ${book} ${chapter}\n\n` +
         `## Observe\n\n${sections.observe || ''}\n\n` +
         `## Interpret\n\n${sections.interpret || ''}\n\n` +
-        `## Apply\n\n${sections.apply || ''}\n`;
+        `## Apply\n\n${sections.apply || ''}\n` +
+        (verseMaps ? `\n## Verse Mapping\n\n${verseMaps}\n` : '');
       const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -3530,7 +3659,7 @@ function renderStandardCrossReferenceList() {
       const sortInput = document.getElementById('studyLibrarySort');
       const sortBy = String(sortInput?.value || 'recent');
       const allEntries = Object.values(library)
-        .filter(record => record && record.book && Number(record.chapter) > 0 && record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim()))
+        .filter(record => record && record.book && Number(record.chapter) > 0 && ((record.sections && ['observe', 'interpret', 'apply'].some(section => (record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0))
         .sort((a, b) => {
           if (sortBy === 'bible') {
             const aBookIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
@@ -3566,7 +3695,8 @@ function renderStandardCrossReferenceList() {
               record.chapter,
               record.sections?.observe,
               record.sections?.interpret,
-              record.sections?.apply
+              record.sections?.apply,
+              ...Object.values(normalizeVerseMaps(record.verseMaps)).flatMap(map => VERSE_MAP_FIELDS.map(field => map[field]))
             ].map(value => String(value || '')).join(' ').toLocaleLowerCase();
             return searchableText.includes(query);
           })
@@ -3788,7 +3918,7 @@ function renderStandardCrossReferenceList() {
       const library = readStudyLibrary();
       const studies = Object.values(library)
         .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
-          record.sections && ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim()))
+          ((record.sections && ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0))
         .map(record => ({
           book: String(record.book),
           chapter: Number(record.chapter),
@@ -3796,7 +3926,8 @@ function renderStandardCrossReferenceList() {
             observe: String(record.sections?.observe || ''),
             interpret: String(record.sections?.interpret || ''),
             apply: String(record.sections?.apply || '')
-          }
+          },
+          verseMaps: normalizeVerseMaps(record.verseMaps)
         }))
         .sort((a, b) => {
           const aIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
@@ -3838,6 +3969,8 @@ function renderStandardCrossReferenceList() {
           record.sections.apply,
           ''
         );
+        const verseMapMarkdown = formatVerseMapsForMarkdown(record.verseMaps);
+        if (verseMapMarkdown) parts.push('## Verse Mapping', '', verseMapMarkdown, '');
       });
 
       const blob = new Blob([parts.join('\n')], { type: 'text/markdown;charset=utf-8' });
@@ -3862,7 +3995,7 @@ function renderStandardCrossReferenceList() {
           record.sections && (
             ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
-            (Array.isArray(record.crossReferences) && record.crossReferences.length > 0)
+            (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0
           ))
         .map(record => ({
           book: String(record.book),
@@ -3898,6 +4031,7 @@ function renderStandardCrossReferenceList() {
                 endVerse: Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : null },
               relation: ref.relation, note: String(ref.note || ''), createdAt: String(ref.createdAt || '')
             })) : [],
+          verseMaps: normalizeVerseMaps(record.verseMaps),
           activeSection: NOTE_SECTION_LABELS[record.activeSection] ? record.activeSection : 'observe',
           updatedAt: record.updatedAt || new Date().toISOString()
         }))
@@ -4027,6 +4161,24 @@ function renderStandardCrossReferenceList() {
           }));
         }
 
+        let verseMaps = {};
+        if (Object.prototype.hasOwnProperty.call(item, 'verseMaps')) {
+          const verseMapsInput = item.verseMaps;
+          if (!verseMapsInput || typeof verseMapsInput !== 'object' || Array.isArray(verseMapsInput) || Object.keys(verseMapsInput).length > 250) {
+            setStudyBackupStatus(`The backup has invalid verse mapping data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          for (const [verseKey, mapping] of Object.entries(verseMapsInput)) {
+            if (!/^[1-9]\\d*$/.test(verseKey) || Number(verseKey) > 250 || !mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+              setStudyBackupStatus(`The backup has invalid verse mapping data for ${book} ${chapter}. No changes were made.`, 'error');
+              return;
+            }
+            for (const field of VERSE_MAP_FIELDS) { const maxLength = field === 'translation' ? 40 : 10000; if (mapping[field] !== undefined && (typeof mapping[field] !== 'string' || mapping[field].length > maxLength)) { setStudyBackupStatus(`The backup has invalid verse mapping text for ${book} ${chapter}:${verseKey}. No changes were made.`, 'error'); return; } }
+            if (mapping.updatedAt !== undefined && (typeof mapping.updatedAt !== 'string' || mapping.updatedAt.length > 50)) { setStudyBackupStatus(`The backup has invalid verse mapping date for ${book} ${chapter}:${verseKey}. No changes were made.`, 'error'); return; }
+          }
+          verseMaps = normalizeVerseMaps(verseMapsInput);
+        }
+
         const key = studyRecordKey(book, chapter);
         if (seen.has(key)) {
           setStudyBackupStatus(`The backup contains ${book} ${chapter} more than once. No changes were made.`, 'error');
@@ -4046,6 +4198,7 @@ function renderStandardCrossReferenceList() {
             sections,
             ...(Object.prototype.hasOwnProperty.call(item, 'scriptureMarkups') ? { scriptureMarkups } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'crossReferences') ? { crossReferences } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'verseMaps') ? { verseMaps } : {}),
             activeSection: NOTE_SECTION_LABELS[item.activeSection] ? item.activeSection : 'observe',
             updatedAt: new Date(updatedMs).toISOString()
           }
@@ -4073,6 +4226,8 @@ function renderStandardCrossReferenceList() {
         if (!Object.prototype.hasOwnProperty.call(incoming, 'crossReferences')) {
           incoming.crossReferences = Array.isArray(current?.crossReferences) ? current.crossReferences : [];
         }
+        // Backups made before Verse Mapping existed preserve maps already saved locally.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'verseMaps')) incoming.verseMaps = normalizeVerseMaps(current?.verseMaps);
         const currentTime = Date.parse(current?.updatedAt || '') || 0;
         const deletedTime = Date.parse(tombstones[entry.key] || '') || 0;
 
@@ -4228,6 +4383,7 @@ function renderStandardCrossReferenceList() {
         },
         scriptureMarkups: Array.isArray(row.sections?._scriptureMarkups) ? row.sections._scriptureMarkups : [],
         crossReferences: Array.isArray(row.sections?._crossReferences) ? row.sections._crossReferences : [],
+        verseMaps: normalizeVerseMaps(row.sections?._verseMaps),
         activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
         updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
       };
@@ -4285,7 +4441,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -4296,6 +4452,7 @@ function renderStandardCrossReferenceList() {
             activeSection = 'observe';
             scriptureMarkups = [];
             crossReferences = [];
+            verseMaps = {};
           } else if (winner.record && winner.record.book) {
             const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
             book = rec.book;
@@ -4309,7 +4466,8 @@ function renderStandardCrossReferenceList() {
             updatedAt = rec.updatedAt || winner.time || new Date().toISOString();
             scriptureMarkups = Array.isArray(rec.scriptureMarkups) ? rec.scriptureMarkups : [];
             crossReferences = Array.isArray(rec.crossReferences) ? rec.crossReferences : [];
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences };
+            verseMaps = normalizeVerseMaps(rec.verseMaps);
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps };
           } else {
             continue;
           }
@@ -4317,7 +4475,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _verseMaps: verseMaps },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -4333,7 +4491,8 @@ function renderStandardCrossReferenceList() {
             JSON.stringify(Array.isArray(remote.sections?._scriptureMarkups) ? remote.sections._scriptureMarkups : []) ===
               JSON.stringify(Array.isArray(nextRow.sections?._scriptureMarkups) ? nextRow.sections._scriptureMarkups : []) &&
             JSON.stringify(Array.isArray(remote.sections?._crossReferences) ? remote.sections._crossReferences : []) ===
-              JSON.stringify(Array.isArray(nextRow.sections?._crossReferences) ? nextRow.sections._crossReferences : []);
+              JSON.stringify(Array.isArray(nextRow.sections?._crossReferences) ? nextRow.sections._crossReferences : []) &&
+            JSON.stringify(normalizeVerseMaps(remote.sections?._verseMaps)) === JSON.stringify(normalizeVerseMaps(nextRow.sections?._verseMaps));
           if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 
@@ -5317,6 +5476,7 @@ function renderStandardCrossReferenceList() {
       initApp().then(() => {
         setupScriptureMarkupToolbar();
         setupCrossReferenceWorkflow();
+        setupVerseMappingWorkflow();
         setupStandardCrossReferenceWorkflow();
         setupNotesPersistence();
         setupStudyLibrary();

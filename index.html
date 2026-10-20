@@ -1767,7 +1767,7 @@
       };
     }
 
-    let workspaceNoteFindState = { query: '', indices: [], nextIndex: 0 };
+    let workspaceNoteFindState = { query: '', indices: [], currentIndex: -1 };
 
     function focusNotesTextRange(start, end) {
       const area = document.getElementById('workspaceNoteArea');
@@ -1806,7 +1806,7 @@
       }
 
       if (workspaceNoteFindState.query.toLocaleLowerCase() !== query.toLocaleLowerCase()) {
-        workspaceNoteFindState = { query, indices: [], nextIndex: 0 };
+        workspaceNoteFindState = { query, indices: [], currentIndex: -1 };
       }
 
       if (!workspaceNoteFindState.indices.length) {
@@ -1819,7 +1819,7 @@
           workspaceNoteFindState.indices.push(index);
           from = index + Math.max(needle.length, 1);
         }
-        workspaceNoteFindState.nextIndex = 0;
+        workspaceNoteFindState.currentIndex = -1;
       }
 
       const total = workspaceNoteFindState.indices.length;
@@ -1828,22 +1828,19 @@
         return;
       }
 
-      // nextIndex points to the next result for forward searches. For backward searches,
-      // step to the previous result and keep the index ready for the next backward click.
-      const selectedIndex = direction < 0
-        ? (workspaceNoteFindState.nextIndex - 1 + total) % total
-        : workspaceNoteFindState.nextIndex % total;
+      // Track the last displayed result so either direction moves to a different match.
+      const selectedIndex = workspaceNoteFindState.currentIndex < 0
+        ? (direction < 0 ? total - 1 : 0)
+        : (workspaceNoteFindState.currentIndex + (direction < 0 ? -1 : 1) + total) % total;
       const start = workspaceNoteFindState.indices[selectedIndex];
       const end = start + query.length;
       if (focusNotesTextRange(start, end)) {
         status.textContent = 'Match ' + (selectedIndex + 1) + ' of ' + total + ' in ' + NOTE_SECTION_LABELS[appState.activeNotesSection] + '.';
-        workspaceNoteFindState.nextIndex = direction < 0
-          ? selectedIndex
-          : (selectedIndex + 1) % total;
+        workspaceNoteFindState.currentIndex = selectedIndex;
       }
     }
     function resetWorkspaceNoteFind() {
-      workspaceNoteFindState = { query: '', indices: [], nextIndex: 0 };
+      workspaceNoteFindState = { query: '', indices: [], currentIndex: -1 };
       const input = document.getElementById('workspaceNoteFindInput');
       const status = document.getElementById('workspaceNoteFindStatus');
       if (input) input.value = '';
@@ -2040,7 +2037,7 @@
           }
         });
         noteFindInput.addEventListener('input', () => {
-          workspaceNoteFindState = { query: '', indices: [], nextIndex: 0 };
+          workspaceNoteFindState = { query: '', indices: [], currentIndex: -1 };
           const status = document.getElementById('workspaceNoteFindStatus');
           if (status) status.textContent = noteFindInput.value.trim()
             ? 'Press Find next or Enter to locate a match.'

@@ -3233,7 +3233,7 @@ function renderStandardCrossReferenceList() {
       }
       if (active) {
         setVerseActionsDrawerOpen(false);
-        document.getElementById('sidebar')?.classList.add('sidebar-collapsed', '-translate-x-full');
+        // The full-screen CSS hides the sidebar temporarily without changing its normal state.
         document.getElementById('mobileBackdrop')?.classList.add('hidden');
         document.getElementById('mobileMenuBtn')?.setAttribute('aria-expanded', 'false');
         const notesPanel = document.getElementById('workspacePanel');

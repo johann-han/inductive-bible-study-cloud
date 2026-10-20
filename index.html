@@ -1350,8 +1350,10 @@
 
     // Parse only canonical Bible book names and validate chapters against the book list.
     function parseBibleReference(value) {
-      const text = String(value || '').trim().replace(/[–—]/g, '-').replace(/\s+/g, ' ');
+      let text = String(value || '').trim().replace(/[–—]/g, '-').replace(/\s+/g, ' ');
       if (!text || text.length > 100) return null;
+      // Common book-name variants are normalized to the app's canonical book names.
+      text = text.replace(/^Psalm\s+/i, 'Psalms ').replace(/^Song of Songs\s+/i, 'Song of Solomon ');
       for (const book of BIBLE_CANON.slice().sort((a, b) => b.name.length - a.name.length)) {
         const prefix = book.name.toLocaleLowerCase() + ' ';
         if (!text.toLocaleLowerCase().startsWith(prefix)) continue;
@@ -1550,8 +1552,9 @@
           targetInput?.focus();
           return;
         }
-        if (source.book === target.book && source.chapter === target.chapter && target.startVerse !== null &&
-            source.startVerse >= target.startVerse && source.startVerse <= (target.endVerse || target.startVerse)) {
+        if (source.book === target.book && source.chapter === target.chapter &&
+            (target.startVerse === null ||
+              (source.startVerse >= target.startVerse && source.startVerse <= (target.endVerse || target.startVerse)))) {
           if (status) status.textContent = 'Choose a different passage from the starting verse.';
           return;
         }

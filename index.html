@@ -541,7 +541,7 @@
             <button id="importStudyBackupBtn" type="button" class="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-lg px-3 py-2">Restore from Backup</button>
             <input id="studyBackupFileInput" type="file" accept=".json,application/json" class="hidden" aria-label="Choose a Bible study backup JSON file">
           </div>
-          <p id="studyBackupStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Back up every study, including Observe, Interpret and Apply notes. Restoring merges studies without deleting existing work.</p>
+          <p id="studyBackupStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Back up every study, including Observe, Interpretation, Doctrine and Discipleship notes. Restoring merges studies without deleting existing work.</p>
           <p class="text-[11px] text-slate-500">Keep a backup somewhere outside this device. Cloud sync is helpful, but a separate downloaded backup provides an additional recovery copy.</p>
         </footer>
       </section>
@@ -3323,7 +3323,7 @@ function renderStandardCrossReferenceList() {
       }
     }
 
-    // Study Library: save Observe / Interpret / Apply notes separately per book and chapter.
+    // Study Library: save Observe / Interpretation / Doctrine / Discipleship notes separately per book and chapter.
     const STUDY_LIBRARY_STORAGE_KEY = 'inductive-study-library-v1';
     const STUDY_TOMBSTONES_STORAGE_KEY = 'inductive-study-library-deleted-v1';
     // Keep `apply` as the stored key so existing Application notes remain available as Discipleship notes.
@@ -3967,7 +3967,7 @@ function renderStandardCrossReferenceList() {
       if (!allEntries.length) {
         const empty = document.createElement('p');
         empty.className = 'text-sm text-slate-500 p-3';
-        empty.textContent = 'No saved studies yet. Write notes in Observe, Interpret, or Apply and they will appear here automatically.';
+        empty.textContent = 'No saved studies yet. Write notes in Observe, Interpretation, Doctrine, or Discipleship and they will appear here automatically.';
         list.appendChild(empty);
         return;
       }
@@ -4013,7 +4013,7 @@ function renderStandardCrossReferenceList() {
         const sectionCoverageTrack = document.createElement('div');
         sectionCoverageTrack.className = 'h-1.5 flex-1 max-w-24 rounded-full bg-slate-200 overflow-hidden';
         sectionCoverageTrack.setAttribute('role', 'progressbar');
-        sectionCoverageTrack.setAttribute('aria-label', `Sections with notes for ${record.book} ${record.chapter}`);
+        sectionCoverageTrack.setAttribute('aria-label', `Study stages with notes for ${record.book} ${record.chapter}`);
         sectionCoverageTrack.setAttribute('aria-valuemin', '0');
         sectionCoverageTrack.setAttribute('aria-valuemax', '4');
         sectionCoverageTrack.setAttribute('aria-valuenow', String(filledSections.length));

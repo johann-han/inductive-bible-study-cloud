@@ -303,6 +303,8 @@
               <button id="nextChapterBtn" aria-label="Next chapter" class="p-1 rounded hover:bg-slate-200 text-slate-700 font-bold text-sm sm:text-base">&rarr;</button>
             </div>
             <div class="flex items-center space-x-2 text-[11px] sm:text-xs text-slate-500">
+              <button id="openChapterCrossReferencesBtn" type="button" title="View cross-references for this chapter" class="rounded px-1.5 py-1 font-semibold text-sky-700 hover:bg-sky-50 hover:text-sky-900 whitespace-nowrap">Links <span id="chapterCrossReferenceCount" class="inline-flex min-w-[1.15rem] justify-center rounded-full bg-sky-100 px-1 text-sky-800">0</span></button>
+              <span>•</span>
               <button id="selectAllVersesBtn" class="hover:text-amber-700 font-medium">Select All</button>
               <span>•</span>
               <button id="clearVerseSelectionBtn" class="hover:text-amber-700 font-medium">Clear</button>
@@ -347,7 +349,7 @@
           <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div>
               <h2 id="crossReferenceModalTitle" class="font-bold text-slate-900">Connected cross-references</h2>
-              <p class="text-[11px] text-slate-500">Link passages and record why they belong together.</p>
+              <p id="crossReferenceModalSubtitle" class="text-[11px] text-slate-500">Link passages and record why they belong together.</p>
             </div>
             <button id="closeCrossReferenceModalBtn" type="button" aria-label="Close cross-reference study" class="rounded px-3 py-1 text-xl font-bold text-slate-500 hover:bg-slate-100">&times;</button>
           </div>
@@ -375,7 +377,7 @@
               </div>
             </form>
             <div class="space-y-2">
-              <div class="flex items-center justify-between gap-3"><h3 class="text-sm font-bold text-slate-900">Links to and from this chapter</h3><span id="crossReferenceCount" class="text-[10px] text-slate-500"></span></div>
+              <div class="flex items-center justify-between gap-3"><h3 id="crossReferenceListTitle" class="text-sm font-bold text-slate-900">Links to and from this chapter</h3><span id="crossReferenceCount" class="text-[10px] text-slate-500"></span></div>
               <div id="crossReferenceList" class="space-y-2"><p class="text-xs text-slate-500">No saved cross-references for this chapter yet.</p></div>
             </div>
           </div>
@@ -1339,6 +1341,36 @@
       document.addEventListener('selectionchange', capture);
     }
 
+    let crossReferenceListFilter = null;
+
+    function getCrossReferenceCountsForVerse(entries, book, chapter, verse) {
+      let outgoing = 0;
+      let incoming = 0;
+      for (const entry of entries || []) {
+        const ref = entry?.crossReference;
+        if (!ref?.source || !ref?.target) continue;
+        if (ref.source.book === book && Number(ref.source.chapter) === Number(chapter) &&
+            Number(ref.source.verse) === Number(verse)) outgoing++;
+        if (ref.target.book === book && Number(ref.target.chapter) === Number(chapter)) {
+          const start = Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null;
+          const end = Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : start;
+          if (start === null || (verse >= start && verse <= (end || start))) incoming++;
+        }
+      }
+      return { outgoing, incoming, total: outgoing + incoming };
+    }
+
+    function updateChapterCrossReferenceButton() {
+      const count = document.getElementById('chapterCrossReferenceCount');
+      const button = document.getElementById('openChapterCrossReferencesBtn');
+      if (!count || !button) return;
+      const total = collectCrossReferencesForChapter().length;
+      count.textContent = String(total);
+      button.title = total
+        ? 'View ' + total + ' saved cross-reference link' + (total === 1 ? '' : 's') + ' for this chapter'
+        : 'View cross-references for this chapter (none saved yet)';
+    }
+
     const CROSS_REFERENCE_RELATIONS = Object.freeze({
       quotation: 'Quotation or allusion',
       parallel: 'Parallel account',
@@ -1405,13 +1437,30 @@
       const list = document.getElementById('crossReferenceList');
       const count = document.getElementById('crossReferenceCount');
       if (!list) return;
-      const entries = collectCrossReferencesForChapter();
+      let entries = collectCrossReferencesForChapter();
+      if (crossReferenceListFilter) {
+        const filter = crossReferenceListFilter;
+        entries = entries.filter(entry => {
+          const ref = entry.crossReference;
+          const sourceMatches = ref.source.book === filter.book &&
+            Number(ref.source.chapter) === Number(filter.chapter) &&
+            Number(ref.source.verse) === Number(filter.verse);
+          const start = Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null;
+          const end = Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : start;
+          const targetMatches = ref.target.book === filter.book &&
+            Number(ref.target.chapter) === Number(filter.chapter) &&
+            (start === null || (Number(filter.verse) >= start && Number(filter.verse) <= (end || start)));
+          return sourceMatches || targetMatches;
+        });
+      }
       list.replaceChildren();
       if (count) count.textContent = entries.length + (entries.length === 1 ? ' link' : ' links');
       if (!entries.length) {
         const empty = document.createElement('p');
         empty.className = 'text-xs text-slate-500';
-        empty.textContent = 'No saved cross-references for this chapter yet.';
+        empty.textContent = crossReferenceListFilter
+          ? 'No saved cross-references for ' + crossReferenceListFilter.book + ' ' + crossReferenceListFilter.chapter + ':' + crossReferenceListFilter.verse + '.'
+          : 'No saved cross-references for this chapter yet.';
         list.appendChild(empty);
         return;
       }
@@ -1451,31 +1500,49 @@
       }
     }
 
-    function openCrossReferenceModal() {
-      const selected = Array.from(appState.selectedVerses || []);
+    function openCrossReferenceModal(options = {}) {
+      const viewOnly = options.viewOnly === true;
+      const source = options.reference || (Array.from(appState.selectedVerses || []).length === 1
+        ? parseBibleReference(Array.from(appState.selectedVerses)[0]) : null);
       const modal = document.getElementById('crossReferenceModal');
+      const form = document.getElementById('crossReferenceForm');
       const sourceLabel = document.getElementById('crossReferenceSourceLabel');
+      const subtitle = document.getElementById('crossReferenceModalSubtitle');
+      const listTitle = document.getElementById('crossReferenceListTitle');
       const status = document.getElementById('crossReferenceFormStatus');
       const targetInput = document.getElementById('crossReferenceTargetInput');
       const noteInput = document.getElementById('crossReferenceNoteInput');
-      if (selected.length !== 1) {
+
+      if (!viewOnly && (!source || source.startVerse === null)) {
         if (status) status.textContent = 'Select exactly one verse in the Bible text first.';
         return;
       }
-      const source = parseBibleReference(selected[0]);
-      if (!source || source.startVerse === null) {
-        if (status) status.textContent = 'Could not identify the selected verse. Select it again.';
-        return;
+
+      crossReferenceListFilter = viewOnly && options.reference
+        ? { book: options.reference.book, chapter: Number(options.reference.chapter), verse: Number(options.reference.verse) }
+        : null;
+      if (form) form.classList.toggle('hidden', viewOnly || !source || source.startVerse === null);
+      if (sourceLabel) sourceLabel.textContent = source && source.startVerse !== null
+        ? formatCrossReferenceTarget(source)
+        : 'Select a verse and choose Link passage to add a connection.';
+      if (subtitle) subtitle.textContent = viewOnly
+        ? (crossReferenceListFilter
+          ? 'Connections involving ' + formatCrossReferenceSource(crossReferenceListFilter) + '.'
+          : 'All saved connections to and from this chapter.')
+        : 'Link passages and record why they belong together.';
+      if (listTitle) listTitle.textContent = crossReferenceListFilter
+        ? 'Links for ' + crossReferenceListFilter.book + ' ' + crossReferenceListFilter.chapter + ':' + crossReferenceListFilter.verse
+        : 'Links to and from this chapter';
+
+      if (!viewOnly) {
+        if (targetInput) targetInput.value = '';
+        if (noteInput) noteInput.value = '';
+        if (status) status.textContent = 'Choose a related passage to create a link.';
       }
-      if (sourceLabel) sourceLabel.textContent = formatCrossReferenceTarget(source);
-      if (targetInput) targetInput.value = '';
-      if (noteInput) noteInput.value = '';
-      if (status) status.textContent = 'Choose a related passage to create a link.';
       renderCrossReferenceList();
       if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
-      targetInput?.focus();
+      if (!viewOnly) targetInput?.focus();
     }
-
     async function openCrossReferencePassage(entry) {
       const crossReference = entry?.crossReference;
       if (!crossReference) return;
@@ -1517,6 +1584,8 @@
       if (!writeStudyLibrary(library)) return;
       scheduleCloudStudySync();
       renderCrossReferenceList();
+      updateChapterCrossReferenceButton();
+      renderScripture();
       const status = document.getElementById('crossReferenceFormStatus');
       if (status) status.textContent = 'Cross-reference removed.';
     }
@@ -1524,19 +1593,33 @@
     function setupCrossReferenceWorkflow() {
       const modal = document.getElementById('crossReferenceModal');
       const openButton = document.getElementById('btnOpenCrossReferenceModal');
+      const chapterOverviewButton = document.getElementById('openChapterCrossReferencesBtn');
       const closeButton = document.getElementById('closeCrossReferenceModalBtn');
       const form = document.getElementById('crossReferenceForm');
       const targetInput = document.getElementById('crossReferenceTargetInput');
       const relationSelect = document.getElementById('crossReferenceRelationSelect');
       const noteInput = document.getElementById('crossReferenceNoteInput');
       const status = document.getElementById('crossReferenceFormStatus');
-      openButton?.addEventListener('click', openCrossReferenceModal);
-      closeButton?.addEventListener('click', () => { modal?.classList.add('hidden'); modal?.classList.remove('flex'); });
+      openButton?.addEventListener('click', () => openCrossReferenceModal());
+      chapterOverviewButton?.addEventListener('click', () => openCrossReferenceModal({ viewOnly: true }));
+      closeButton?.addEventListener('click', () => {
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+        crossReferenceListFilter = null;
+      });
       modal?.addEventListener('click', event => {
-        if (event.target === modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        if (event.target === modal) {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+          crossReferenceListFilter = null;
+        }
       });
       document.addEventListener('keydown', event => {
-        if (event.key === 'Escape') { modal?.classList.add('hidden'); modal?.classList.remove('flex'); }
+        if (event.key === 'Escape') {
+          modal?.classList.add('hidden');
+          modal?.classList.remove('flex');
+          crossReferenceListFilter = null;
+        }
       });
       form?.addEventListener('submit', event => {
         event.preventDefault();
@@ -1564,6 +1647,7 @@
           return;
         }
         const note = String(noteInput?.value || '').trim();
+        crossReferenceListFilter = null;
         saveActiveStudyNote();
         const library = readStudyLibrary();
         const key = studyRecordKey(source.book, source.chapter);
@@ -1606,6 +1690,8 @@
         if (noteInput) noteInput.value = '';
         if (status) status.textContent = 'Cross-reference saved.';
         renderCrossReferenceList();
+        updateChapterCrossReferenceButton();
+        renderScripture();
       });
     }
 
@@ -1786,6 +1872,7 @@
       scriptureContainer.innerHTML = '';
       const savedMarkupRecord = getStudyRecord(bookName, chapterNum, false);
       const savedScriptureMarkups = Array.isArray(savedMarkupRecord.scriptureMarkups) ? savedMarkupRecord.scriptureMarkups : [];
+      const chapterCrossReferences = collectCrossReferencesForChapter(bookName, chapterNum);
 
       verses.forEach((verseText, idx) => {
         const vNum = idx + 1;
@@ -1818,6 +1905,26 @@
           scriptureVerseParagraph,
           scriptureMarkupsForVerse(savedScriptureMarkups, vNum, verseText)
         );
+
+        const crossReferenceCounts = getCrossReferenceCountsForVerse(chapterCrossReferences, bookName, chapterNum, vNum);
+        if (crossReferenceCounts.total > 0) {
+          const indicator = document.createElement('button');
+          indicator.type = 'button';
+          indicator.className = 'self-start mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded border border-sky-200 bg-sky-50 px-1 py-0.5 text-[9px] sm:text-[10px] font-bold text-sky-800 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-500';
+          indicator.setAttribute('aria-label', 'View ' + crossReferenceCounts.total + ' cross-reference link' + (crossReferenceCounts.total === 1 ? '' : 's') + ' involving ' + bookName + ' ' + chapterNum + ':' + vNum);
+          indicator.title = [
+            crossReferenceCounts.outgoing ? crossReferenceCounts.outgoing + ' link(s) from this verse' : '',
+            crossReferenceCounts.incoming ? crossReferenceCounts.incoming + ' link(s) to this verse' : ''
+          ].filter(Boolean).join('; ') + '. Click to view.';
+          indicator.textContent = (crossReferenceCounts.outgoing ? '↗' + crossReferenceCounts.outgoing : '') +
+            (crossReferenceCounts.incoming ? (crossReferenceCounts.outgoing ? ' ' : '') + '↙' + crossReferenceCounts.incoming : '');
+          indicator.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            openCrossReferenceModal({ viewOnly: true, reference: { book: bookName, chapter: chapterNum, verse: vNum } });
+          });
+          verseDiv.insertBefore(indicator, scriptureVerseParagraph);
+        }
 
         verseDiv.onclick = (e) => {
           const strongsElem = e.target.closest('.strongs-word, .strongs-tag');
@@ -1944,6 +2051,7 @@
       const summaryLabel = document.getElementById('selectedVersesSummary');
       const crossReferenceButton = document.getElementById('btnOpenCrossReferenceModal');
 
+      updateChapterCrossReferenceButton();
       if (!bar) return;
       if (crossReferenceButton) {
         crossReferenceButton.disabled = appState.selectedVerses.size !== 1;
@@ -3668,11 +3776,14 @@
         const activeStudyKey = studyRecordKey();
         const activeMarkupsBeforeSync = JSON.stringify(localLibrary[activeStudyKey]?.scriptureMarkups || []);
         const activeMarkupsAfterSync = JSON.stringify(mergedLibrary[activeStudyKey]?.scriptureMarkups || []);
+        const activeCrossReferencesBeforeSync = JSON.stringify(localLibrary[activeStudyKey]?.crossReferences || []);
+        const activeCrossReferencesAfterSync = JSON.stringify(mergedLibrary[activeStudyKey]?.crossReferences || []);
         writeStudyLibrary(mergedLibrary);
         writeStudyTombstones(mergedTombstones);
         // Keep the active editor's caret and scroll when the text has not changed.
         loadActiveStudyNote({ preserveCaret: true });
-        if (activeMarkupsBeforeSync !== activeMarkupsAfterSync) renderScripture();
+        if (activeMarkupsBeforeSync !== activeMarkupsAfterSync ||
+            activeCrossReferencesBeforeSync !== activeCrossReferencesAfterSync) renderScripture();
         renderStudyLibrary();
         cloudSyncState.lastError = '';
         cloudSyncState.lastSuccessfulSyncAt = Date.now();

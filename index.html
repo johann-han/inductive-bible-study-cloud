@@ -1693,72 +1693,7 @@
       });
     }
 
-function renderStandardCrossReferenceList() {')
-        .replace(/\\s+/g, '\\s+');
-      const matcher = new RegExp('(^|[^A-Za-z0-9])(' + escapedPhrase + ')(?=$|[^A-Za-z0-9])', 'gi');
-      const matches = [];
-      let match;
-      while ((match = matcher.exec(text)) !== null) {
-        const start = match.index + match[1].length;
-        matches.push({ start, end: start + match[2].length });
-        if (match[0].length === 0) matcher.lastIndex++;
-      }
-      return matches;
-    }
-
-    function getStandardAnchorMatchStatuses(verseNumber, anchors) {
-      const verseNode = document.querySelector(
-        '#scriptureContainer [data-verse-number="' + Number(verseNumber) + '"] .scripture-verse-text'
-      );
-      if (!verseNode) {
-        return anchors.map(() => ({
-          kind: 'unavailable',
-          text: 'Verse text is not currently available for phrase matching.'
-        }));
-      }
-
-      // Clone before removing Strong's number chips so the live reader is never altered.
-      const verseClone = verseNode.cloneNode(true);
-      verseClone.querySelectorAll('.strongs-tag').forEach(node => node.remove());
-      const verseText = verseClone.textContent || '';
-      const isKjv = String(appState.currentTranslationAbbr || '').toUpperCase() === 'KJV';
-      const translation = appState.currentTranslationAbbr || appState.currentTranslation || 'current translation';
-      let cursor = 0;
-
-      return anchors.map(group => {
-        const matches = findStandardAnchorTextOccurrences(verseText, group.anchor);
-        if (!isKjv) {
-          return matches.length
-            ? {
-                kind: 'unverified',
-                text: 'Phrase appears in ' + translation + ' text (' + matches.length +
-                  ' match' + (matches.length === 1 ? '' : 'es') + '); location is not translation-aligned.'
-              }
-            : {
-                kind: 'missing',
-                text: 'KJV anchor phrase not found in ' + translation + ' text.'
-              };
-        }
-
-        const match = matches.find(candidate => candidate.start >= cursor);
-        if (!match) {
-          return {
-            kind: 'missing',
-            text: 'No sequential match in the displayed KJV verse text.'
-          };
-        }
-        cursor = match.end;
-        const occurrence = matches.findIndex(candidate => candidate.start === match.start) + 1;
-        return {
-          kind: 'matched',
-          text: matches.length > 1
-            ? 'KJV text match · occurrence ' + occurrence + ' of ' + matches.length
-            : 'Matched in KJV verse text'
-        };
-      });
-    }
-
-    function renderStandardCrossReferenceList() {
+function renderStandardCrossReferenceList() {
       const list = document.getElementById('standardCrossReferenceList');
       const status = document.getElementById('standardCrossReferenceStatus');
       const count = document.getElementById('standardCrossReferenceCount');

@@ -2800,11 +2800,49 @@
         let match;
         while ((match = matcher.exec(notes)) !== null) {
           if (normalizeAiStudyReference(match[1]) === targetReference) {
-            return { book, chapter, section, reference: match[1].trim() };
+            return {
+              book,
+              chapter,
+              section,
+              reference: match[1].trim(),
+              headingStart: match.index,
+              headingEnd: matcher.lastIndex
+            };
           }
         }
       }
       return null;
+    }
+
+    function focusExistingAiStudyHeading(existingStudy) {
+      const area = document.getElementById('workspaceNoteArea');
+      if (!area || !existingStudy) return false;
+
+      const start = Number(existingStudy.headingStart);
+      const end = Number(existingStudy.headingEnd);
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > area.value.length) {
+        return false;
+      }
+
+      // Select the actual saved heading so the user lands on the exact verse study.
+      area.setSelectionRange(start, end, 'forward');
+      if (!window.matchMedia('(pointer: coarse)').matches) {
+        area.focus({ preventScroll: true });
+        area.setSelectionRange(start, end, 'forward');
+      }
+
+      // Position the selected heading near the top of the editor, allowing for wrapped note lines.
+      const style = window.getComputedStyle(area);
+      const fontSize = Number.parseFloat(style.fontSize) || 12;
+      const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.5;
+      const horizontalPadding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+      const approximateCharacterWidth = fontSize * 0.61;
+      const columns = Math.max(12, Math.floor(Math.max(1, area.clientWidth - horizontalPadding) / approximateCharacterWidth));
+      const priorLines = area.value.slice(0, start).split('\n');
+      const visualRowsBeforeHeading = priorLines.reduce((total, line) =>
+        total + Math.max(1, Math.ceil(line.length / columns)), 0);
+      area.scrollTop = Math.max(0, visualRowsBeforeHeading * lineHeight - lineHeight * 2);
+      return true;
     }
 
     function openExistingAiStudy(context, existingStudy, button) {
@@ -2834,6 +2872,7 @@
       renderChapterPills();
       renderScripture();
       loadActiveStudyNote();
+      const exactStudyFocused = focusExistingAiStudyHeading(existingStudy);
 
       const workspacePanel = document.getElementById('workspacePanel');
       const notesToggle = document.getElementById('toggleWorkspaceMobile');
@@ -2847,7 +2886,12 @@
       aiDrawer?.classList.add('translate-x-full');
 
       const status = document.getElementById('noteSaveStatus');
-      if (status) status.textContent = 'Existing study reopened · no new response added';
+      if (status) {
+        const sectionName = NOTE_SECTION_LABELS[existingStudy.section] || 'study';
+        status.textContent = exactStudyFocused
+          ? `Opened ${existingStudy.reference} in ${sectionName} · no new response added`
+          : `Existing ${existingStudy.reference} study reopened · no new response added`;
+      }
       if (button) {
         button.textContent = 'Opened Existing Study';
         button.disabled = true;

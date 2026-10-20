@@ -1620,6 +1620,78 @@
         : 'No standard cross-references are listed for this chapter in the current dataset';
     }
 
+    // Compare source anchor phrases with the verse text currently shown in the reader.
+    // KJV anchors are matched in dataset order so repeated phrases can be disambiguated.
+    function findStandardAnchorTextOccurrences(verseText, anchorPhrase) {
+      const text = String(verseText || '');
+      const phrase = String(anchorPhrase || '').trim();
+      if (!text || !phrase) return [];
+      const escapedPhrase = phrase
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\    function renderStandardCrossReferenceList() {')
+        .replace(/\\s+/g, '\\s+');
+      const matcher = new RegExp('(^|[^A-Za-z0-9])(' + escapedPhrase + ')(?=$|[^A-Za-z0-9])', 'gi');
+      const matches = [];
+      let match;
+      while ((match = matcher.exec(text)) !== null) {
+        const start = match.index + match[1].length;
+        matches.push({ start, end: start + match[2].length });
+        if (match[0].length === 0) matcher.lastIndex++;
+      }
+      return matches;
+    }
+
+    function getStandardAnchorMatchStatuses(verseNumber, anchors) {
+      const verseNode = document.querySelector(
+        '#scriptureContainer [data-verse-number="' + Number(verseNumber) + '"] .scripture-verse-text'
+      );
+      if (!verseNode) {
+        return anchors.map(() => ({
+          kind: 'unavailable',
+          text: 'Verse text is not currently available for phrase matching.'
+        }));
+      }
+
+      // Clone before removing Strong's number chips so the live reader is never altered.
+      const verseClone = verseNode.cloneNode(true);
+      verseClone.querySelectorAll('.strongs-tag').forEach(node => node.remove());
+      const verseText = verseClone.textContent || '';
+      const isKjv = String(appState.currentTranslationAbbr || '').toUpperCase() === 'KJV';
+      const translation = appState.currentTranslationAbbr || appState.currentTranslation || 'current translation';
+      let cursor = 0;
+
+      return anchors.map(group => {
+        const matches = findStandardAnchorTextOccurrences(verseText, group.anchor);
+        if (!isKjv) {
+          return matches.length
+            ? {
+                kind: 'unverified',
+                text: 'Phrase appears in ' + translation + ' text (' + matches.length +
+                  ' match' + (matches.length === 1 ? '' : 'es') + '); location is not translation-aligned.'
+              }
+            : {
+                kind: 'missing',
+                text: 'KJV anchor phrase not found in ' + translation + ' text.'
+              };
+        }
+
+        const match = matches.find(candidate => candidate.start >= cursor);
+        if (!match) {
+          return {
+            kind: 'missing',
+            text: 'No sequential match in the displayed KJV verse text.'
+          };
+        }
+        cursor = match.end;
+        const occurrence = matches.findIndex(candidate => candidate.start === match.start) + 1;
+        return {
+          kind: 'matched',
+          text: matches.length > 1
+            ? 'KJV text match · occurrence ' + occurrence + ' of ' + matches.length
+            : 'Matched in KJV verse text'
+        };
+      });
+    }
+
     function renderStandardCrossReferenceList() {
       const list = document.getElementById('standardCrossReferenceList');
       const status = document.getElementById('standardCrossReferenceStatus');
@@ -1639,8 +1711,9 @@
         ? 'Standard references for ' + filter.book + ' ' + filter.chapter + ':' + filter.verse
         : 'Standard references in ' + appState.currentBook + ' ' + appState.currentChapter;
       if (subtitle) subtitle.textContent = appState.currentTranslationAbbr === 'KJV'
-        ? 'Reference links are grouped by the KJV phrase or idea they accompany.'
-        : 'Reference targets are verse-based. Anchor phrases below follow KJV wording and may not appear identically in ' + (appState.currentTranslationAbbr || appState.currentTranslation) + '.';
+        ? 'KJV anchor phrases are matched in sequence; occurrence order helps distinguish repeated phrases.'
+        : 'KJV anchor phrases are compared with ' + (appState.currentTranslationAbbr || appState.currentTranslation) +
+          ' text for possible matches only. The dataset does not provide verified anchor alignment for this translation.';
 
       if (!standardCrossReferencesByVerse) {
         if (status) status.textContent = 'Loading standard Bible cross-references from the TSK-derived dataset…';
@@ -1676,7 +1749,8 @@
         heading.textContent = appState.currentBook + ' ' + appState.currentChapter + ':' + row.verse;
         card.appendChild(heading);
 
-        for (const group of row.anchors) {
+        const anchorMatchStatuses = getStandardAnchorMatchStatuses(row.verse, row.anchors);
+        for (const [groupIndex, group] of row.anchors.entries()) {
           const groupBox = document.createElement('div');
           groupBox.className = 'rounded-md bg-slate-50 p-2 space-y-1.5';
           const anchor = document.createElement('p');
@@ -1684,6 +1758,20 @@
           const anchorLabel = appState.currentTranslationAbbr === 'KJV' ? 'Anchor phrase' : 'KJV anchor phrase';
           anchor.textContent = anchorLabel + ': “' + group.anchor + '”';
           groupBox.appendChild(anchor);
+
+          const matchStatus = document.createElement('p');
+          const match = anchorMatchStatuses[groupIndex] || {
+            kind: 'unavailable', text: 'Phrase match status is unavailable.'
+          };
+          matchStatus.className = match.kind === 'matched'
+            ? 'text-[10px] text-emerald-700'
+            : match.kind === 'unverified'
+              ? 'text-[10px] text-violet-700'
+              : match.kind === 'missing'
+                ? 'text-[10px] text-amber-700'
+                : 'text-[10px] text-slate-500';
+          matchStatus.textContent = match.text;
+          groupBox.appendChild(matchStatus);
 
           const referenceButtons = document.createElement('div');
           referenceButtons.className = 'flex flex-wrap gap-1.5';

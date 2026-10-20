@@ -2342,7 +2342,7 @@ function renderStandardCrossReferenceList() {
     }
 
     function stripOutlineListPrefix(line) {
-      return String(line || '').replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').replace(/^\s*v(?:erse)?s?\.?\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?\s*[:.)-]?\s*/i, '').trim();
+      return String(line || '').replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').replace(/^\s*(?:vv?\.?|verses?)\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?\s*[:.)-]?\s*/i, '').trim();
     }
 
     function draftPassageOutlineFromObservations(observationText) {

@@ -5820,11 +5820,11 @@ function renderStandardCrossReferenceList() {
         if (!paragraph) return '';
         const clone = paragraph.cloneNode(true);
         clone.querySelectorAll('.strongs-tag').forEach(tag => tag.remove());
-        const verseText = String(clone.textContent || '').replace(/\\s+/g, ' ').trim();
+        const verseText = String(clone.textContent || '').replace(/\s+/g, ' ').trim();
         if (!verseText) return '';
         lines.push(verse + '. ' + verseText);
       }
-      return lines.join('\\n');
+      return lines.join('\n');
     }
 
     async function exportStudyForSermonPrep() {

@@ -328,7 +328,7 @@
           <div id="workspaceNoteFind" class="space-y-1">
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
             <div class="flex items-center gap-2">
-              <input id="workspaceNoteFindInput" type="search" autocomplete="off" placeholder="Word or phrase…" class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-600">
+              <input id="workspaceNoteFindInput" type="search" autocomplete="off" title="Search notes (Ctrl+F or ⌘+F while editing)" placeholder="Word or phrase…" class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-600">
               <button id="workspaceNoteFindPreviousBtn" type="button" class="shrink-0 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-2.5 py-2">Previous</button>
               <button id="workspaceNoteFindNextBtn" type="button" class="shrink-0 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-2.5 py-2">Next</button>
             </div>
@@ -2022,6 +2022,15 @@
         updateDuplicateAiHeadingControl(area.value);
         updateWorkspaceVerseStudyNavigator(area.value);
         saveActiveStudyNote();
+      });
+      area.addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+          const input = document.getElementById('workspaceNoteFindInput');
+          if (!input) return;
+          event.preventDefault();
+          input.focus();
+          input.select();
+        }
       });
 
       const noteFindInput = document.getElementById('workspaceNoteFindInput');

@@ -2825,7 +2825,10 @@
       const library = readStudyLibrary();
       const studies = Object.values(library)
         .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
-          record.sections && ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim()))
+          record.sections && (
+            ['observe', 'interpret', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
+            (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0)
+          ))
         .map(record => ({
           book: String(record.book),
           chapter: Number(record.chapter),
@@ -2834,6 +2837,17 @@
             interpret: String(record.sections?.interpret || ''),
             apply: String(record.sections?.apply || '')
           },
+          scriptureMarkups: Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups
+            .filter(mark => mark && SCRIPTURE_MARKUP_TYPES[mark.type] &&
+              Number.isInteger(mark.verse) && mark.verse > 0 &&
+              Number.isInteger(mark.start) && Number.isInteger(mark.end) &&
+              mark.start >= 0 && mark.end > mark.start &&
+              typeof mark.quote === 'string' && mark.quote.length <= 2000 &&
+              typeof mark.translation === 'string' && mark.translation.length <= 40)
+            .map(mark => ({
+              verse: mark.verse, start: mark.start, end: mark.end,
+              quote: mark.quote, translation: mark.translation, type: mark.type
+            })) : [],
           activeSection: NOTE_SECTION_LABELS[record.activeSection] ? record.activeSection : 'observe',
           updatedAt: record.updatedAt || new Date().toISOString()
         }))
@@ -2907,6 +2921,33 @@
           setStudyBackupStatus(`A note in ${book} ${chapter} is unusually large. No changes were made.`, 'error');
           return;
         }
+        let scriptureMarkups = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'scriptureMarkups')) {
+          if (!Array.isArray(item.scriptureMarkups) || item.scriptureMarkups.length > 5000) {
+            setStudyBackupStatus(`The backup has invalid scripture markup data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          for (const mark of item.scriptureMarkups) {
+            if (!mark || !SCRIPTURE_MARKUP_TYPES[mark.type] ||
+                !Number.isInteger(mark.verse) || mark.verse < 1 || mark.verse > 250 ||
+                !Number.isInteger(mark.start) || !Number.isInteger(mark.end) ||
+                mark.start < 0 || mark.end <= mark.start || mark.end - mark.start > 2000 ||
+                typeof mark.quote !== 'string' || !mark.quote.trim() || mark.quote.length > 2000 ||
+                typeof mark.translation !== 'string' || !mark.translation.trim() || mark.translation.length > 40) {
+              setStudyBackupStatus(`The backup has invalid scripture markup data for ${book} ${chapter}. No changes were made.`, 'error');
+              return;
+            }
+          }
+          scriptureMarkups = item.scriptureMarkups.map(mark => ({
+            verse: mark.verse,
+            start: mark.start,
+            end: mark.end,
+            quote: mark.quote,
+            translation: mark.translation,
+            type: mark.type
+          }));
+        }
+
         const key = studyRecordKey(book, chapter);
         if (seen.has(key)) {
           setStudyBackupStatus(`The backup contains ${book} ${chapter} more than once. No changes were made.`, 'error');
@@ -2924,6 +2965,7 @@
             book,
             chapter,
             sections,
+            ...(Object.prototype.hasOwnProperty.call(item, 'scriptureMarkups') ? { scriptureMarkups } : {}),
             activeSection: NOTE_SECTION_LABELS[item.activeSection] ? item.activeSection : 'observe',
             updatedAt: new Date(updatedMs).toISOString()
           }
@@ -2943,6 +2985,10 @@
         const incoming = { ...entry.record };
         const incomingTime = Date.parse(incoming.updatedAt) || 0;
         const current = library[entry.key];
+        // Older version-1 backups have no scriptureMarkups property; preserve current marks in that case.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'scriptureMarkups')) {
+          incoming.scriptureMarkups = Array.isArray(current?.scriptureMarkups) ? current.scriptureMarkups : [];
+        }
         const currentTime = Date.parse(current?.updatedAt || '') || 0;
         const deletedTime = Date.parse(tombstones[entry.key] || '') || 0;
 

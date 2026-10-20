@@ -458,6 +458,7 @@
                         if (!response.ok) throw new Error('The sign-in service is unavailable.');
                         const config = await response.json();
                         if (!config.supabaseUrl || !config.supabaseAnonKey) throw new Error('Secure AI is not configured on this deployment. Your local sermon notes are unaffected.');
+                        if (config.geminiConfigured !== true) throw new Error('Gemini AI is not configured on the server yet. Import and local sermon notes still work; the server must be configured before AI tools can run. Never paste an API key into this page.');
                         if (!window.supabase || typeof window.supabase.createClient !== 'function') throw new Error('The sign-in library could not load. Refresh the page and try again.');
                         this.supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
                             auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }

@@ -1883,13 +1883,31 @@
       });
     }
 
-    function loadActiveStudyNote() {
+    function loadActiveStudyNote(options = {}) {
       const area = document.getElementById('workspaceNoteArea');
       const title = document.getElementById('workspaceNoteTitle');
       const status = document.getElementById('noteSaveStatus');
       if (!area) return;
       const record = getStudyRecord();
-      area.value = record.sections[appState.activeNotesSection] || '';
+      const nextValue = String(record.sections[appState.activeNotesSection] || '');
+      const preserveCaret = options.preserveCaret === true && document.activeElement === area;
+      const selectionStart = preserveCaret ? area.selectionStart : null;
+      const selectionEnd = preserveCaret ? area.selectionEnd : null;
+      const selectionDirection = preserveCaret ? area.selectionDirection : null;
+      const scrollTop = preserveCaret ? area.scrollTop : null;
+
+      // Assigning textarea.value resets the caret on mobile, even during a background sync.
+      // Avoid rewriting identical text; if a genuine refresh is needed, restore the user's caret.
+      if (area.value !== nextValue) {
+        area.value = nextValue;
+        if (preserveCaret) {
+          const start = Math.min(Number(selectionStart) || 0, nextValue.length);
+          const end = Math.min(Number(selectionEnd) || 0, nextValue.length);
+          area.setSelectionRange(start, end, selectionDirection || 'none');
+          area.scrollTop = scrollTop;
+        }
+      }
+
       updateWorkspaceWordCount(area.value);
       updateDuplicateAiHeadingControl(area.value);
       updateWorkspaceVerseStudyNavigator(area.value);
@@ -2654,6 +2672,7 @@
       }
       cloudSyncState.syncing = true;
       const saveStatus = document.getElementById('noteSaveStatus');
+      let localChangedDuringSync = false;
       try {
         // Capture the editor before merging. Local data is never cleared merely because cloud is unavailable.
         saveActiveStudyNote();
@@ -2744,9 +2763,46 @@
             .upsert(rowsToUpsert, { onConflict: 'user_id,book,chapter' });
           if (upsertError) throw upsertError;
         }
+        // Rebase local edits made while the network request was in flight.
+        // Otherwise this sync's older snapshot could overwrite text typed on the phone.
+        const latestLocalLibrary = readStudyLibrary();
+        const latestLocalTombstones = readStudyTombstones();
+        const concurrentKeys = new Set([
+          ...Object.keys(localLibrary),
+          ...Object.keys(latestLocalLibrary),
+          ...Object.keys(localTombstones),
+          ...Object.keys(latestLocalTombstones)
+        ]);
+        for (const key of concurrentKeys) {
+          const beforeRecord = localLibrary[key] || null;
+          const latestRecord = latestLocalLibrary[key] || null;
+          const beforeDelete = localTombstones[key] || null;
+          const latestDelete = latestLocalTombstones[key] || null;
+          const recordChanged = JSON.stringify(beforeRecord) !== JSON.stringify(latestRecord);
+          const deleteChanged = String(beforeDelete || '') !== String(latestDelete || '');
+          if (!recordChanged && !deleteChanged) continue;
+          localChangedDuringSync = true;
+
+          if (latestDelete && (!latestRecord ||
+              new Date(latestDelete).getTime() >= new Date(latestRecord.updatedAt || 0).getTime())) {
+            delete mergedLibrary[key];
+            mergedTombstones[key] = latestDelete;
+          } else if (latestRecord) {
+            mergedLibrary[key] = latestRecord;
+            delete mergedTombstones[key];
+          } else if (latestDelete) {
+            delete mergedLibrary[key];
+            mergedTombstones[key] = latestDelete;
+          } else {
+            delete mergedLibrary[key];
+            delete mergedTombstones[key];
+          }
+        }
+
         writeStudyLibrary(mergedLibrary);
         writeStudyTombstones(mergedTombstones);
-        loadActiveStudyNote();
+        // Keep the active editor's caret and scroll when the text has not changed.
+        loadActiveStudyNote({ preserveCaret: true });
         renderStudyLibrary();
         cloudSyncState.lastError = '';
         cloudSyncState.lastSuccessfulSyncAt = Date.now();
@@ -2755,6 +2811,8 @@
         if (saveStatus) saveStatus.textContent = `Cloud synced ${when}`;
       } finally {
         cloudSyncState.syncing = false;
+        // Edits made during this sync need a follow-up upload after syncing is unlocked.
+        if (localChangedDuringSync) scheduleCloudStudySync();
       }
     }
 

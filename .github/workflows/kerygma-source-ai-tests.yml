@@ -1,0 +1,36 @@
+name: Kerygma source-aware AI checks
+
+on:
+  pull_request:
+    paths:
+      - "sermon/index.html"
+      - "server.js"
+      - "tests/kerygma-source-ai.test.cjs"
+      - ".github/workflows/kerygma-source-ai-tests.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "sermon/index.html"
+      - "server.js"
+      - "tests/kerygma-source-ai.test.cjs"
+      - ".github/workflows/kerygma-source-ai-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-aware-ai-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check server JavaScript syntax
+        run: node --check server.js
+      - name: Run Kerygma source-aware prompt regression tests
+        run: node --test tests/kerygma-source-ai.test.cjs

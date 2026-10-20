@@ -13,6 +13,7 @@ function loadEnv() {
 loadEnv();
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
 const MAX_BODY = 64 * 1024;
 const AI_RATE_WINDOW_MS = 10 * 60 * 1000;
 const AI_RATE_LIMIT = 30;
@@ -159,14 +160,15 @@ const server = http.createServer(async (req, res) => {
     // These are intentionally public browser settings. Do not expose OPENROUTER_API_KEY or Supabase service-role keys.
     return send(res, 200, {
       supabaseUrl: process.env.SUPABASE_URL || '',
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+      geminiConfigured: !!process.env.GEMINI_API_KEY
     });
   }
   if (req.method === 'GET' && url.pathname === '/healthz') {
     return send(res, 200, { status: 'ok' });
   }
   if (req.method === 'POST' && url.pathname === '/api/sermon-ai') {
-    if (!process.env.OPENROUTER_API_KEY) return send(res, 503, { error: 'The server-managed AI provider is not configured.' });
+    if (!process.env.GEMINI_API_KEY) return send(res, 503, { error: 'Gemini AI is not configured on the server. Study import and local sermon notes remain available.' });
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
       return send(res, 503, { error: 'Secure sermon AI requires the Inductive Bible Study sign-in service to be configured.' });
     }
@@ -178,36 +180,37 @@ const server = http.createServer(async (req, res) => {
       const systemPrompt = String(body.systemPrompt || '').trim().slice(0, 12000);
       const userQuery = String(body.userQuery || '').trim().slice(0, 48000);
       if (!systemPrompt || !userQuery) return send(res, 400, { error: 'Both a system prompt and a user query are required.' });
-      let schemaText = '';
-      if (body.responseSchema && typeof body.responseSchema === 'object' && !Array.isArray(body.responseSchema)) {
-        schemaText = JSON.stringify(body.responseSchema);
-        if (schemaText.length > 12000) return send(res, 413, { error: 'The requested structured-output schema is too large.' });
-      }
-      const safeSystemPrompt = schemaText
-        ? systemPrompt + '\n\nReturn only valid JSON matching this response schema. Do not add Markdown fences or commentary. Schema: ' + schemaText
-        : systemPrompt;
       const payload = {
-        model: MODEL,
-        temperature: 0.3,
-        max_tokens: 4096,
-        messages: [{ role: 'system', content: safeSystemPrompt }, { role: 'user', content: userQuery }]
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
       };
-      if (schemaText) payload.response_format = { type: 'json_object' };
-      const apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      if (body.responseSchema && typeof body.responseSchema === 'object' && !Array.isArray(body.responseSchema)) {
+        const schemaText = JSON.stringify(body.responseSchema);
+        if (schemaText.length > 12000) return send(res, 413, { error: 'The requested structured-output schema is too large.' });
+        payload.generationConfig = {
+          responseMimeType: 'application/json',
+          responseSchema: body.responseSchema
+        };
+      }
+      const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+        encodeURIComponent(GEMINI_MODEL) + ':generateContent?key=' + encodeURIComponent(process.env.GEMINI_API_KEY);
+      const apiResponse = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY, 'Content-Type': 'application/json', 'X-OpenRouter-Title': 'Kerygma Expository Sermon Studio' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(60000)
       });
       const data = await apiResponse.json().catch(() => ({}));
       if (!apiResponse.ok) {
-        const message = data && data.error && data.error.message ? data.error.message : 'The AI provider returned HTTP ' + apiResponse.status + '.';
-        console.error('Kerygma AI provider error:', apiResponse.status, message.slice(0, 300));
-        return send(res, 502, { error: 'The server-managed AI request failed. Please try again shortly.' });
+        const message = data && data.error && data.error.message ? data.error.message : 'Gemini returned HTTP ' + apiResponse.status + '.';
+        console.error('Kerygma Gemini provider error:', apiResponse.status, message.slice(0, 300));
+        return send(res, 502, { error: 'The server-managed Gemini request failed. Please try again shortly.' });
       }
-      const answer = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'The selected AI model returned no text response.' });
-      return send(res, 200, { answer: answer.trim(), model: data.model || MODEL });
+      const parts = data && data.candidates && data.candidates[0] &&
+        data.candidates[0].content && data.candidates[0].content.parts;
+      const answer = Array.isArray(parts) ? parts.find(part => part && typeof part.text === 'string')?.text : null;
+      if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'Gemini returned no text response. The prompt may have been blocked or the model response was empty.' });
+      return send(res, 200, { answer: answer.trim(), model: data.modelVersion || GEMINI_MODEL });
     } catch (error) {
       return send(res, error.statusCode || 500, { error: error.statusCode === 413 || error.statusCode === 400 ? error.message : 'The sermon AI request could not be completed.' });
     }

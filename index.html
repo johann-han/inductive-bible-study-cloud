@@ -43,6 +43,7 @@
       background: rgba(16, 185, 129, 0.18); border-bottom: 2px solid #059669; border-radius: .12rem;
       -webkit-box-decoration-break: clone; box-decoration-break: clone;
     }
+        #scriptureContainer .scripture-verse-text::selection { background: rgba(250, 204, 21, 0.55); color: #111827; }
     #scriptureMarkupToolbar button:disabled { opacity: .42; cursor: not-allowed; }
     
     .strongs-tag {
@@ -1666,6 +1667,8 @@
           return matches.length
             ? {
                 kind: 'unverified',
+                start: matches[0].start,
+                end: matches[0].end,
                 text: 'Phrase appears in ' + translation + ' text (' + matches.length +
                   ' match' + (matches.length === 1 ? '' : 'es') + '); location is not translation-aligned.'
               }
@@ -1686,11 +1689,56 @@
         const occurrence = matches.findIndex(candidate => candidate.start === match.start) + 1;
         return {
           kind: 'matched',
+          start: match.start,
+          end: match.end,
           text: matches.length > 1
             ? 'KJV text match · occurrence ' + occurrence + ' of ' + matches.length
             : 'Matched in KJV verse text'
         };
       });
+    }
+
+    function locateStandardAnchorPhraseInVerse(verseNumber, startOffset, endOffset) {
+      const verse = document.querySelector('#scriptureContainer [data-verse-number="' + Number(verseNumber) + '"]');
+      const paragraph = verse && verse.querySelector('.scripture-verse-text');
+      if (!verse || !paragraph || !Number.isInteger(startOffset) || !Number.isInteger(endOffset) || endOffset <= startOffset) return false;
+
+      const nodes = [];
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+      let node;
+      let textLength = 0;
+      while ((node = walker.nextNode())) {
+        if (node.parentElement && node.parentElement.closest('.strongs-tag')) continue;
+        nodes.push({ node, start: textLength, end: textLength + node.nodeValue.length });
+        textLength += node.nodeValue.length;
+      }
+      if (endOffset > textLength) return false;
+
+      const locateOffset = (offset, isEnd) => {
+        const entry = nodes.find(item => isEnd
+          ? offset > item.start && offset <= item.end
+          : offset >= item.start && offset < item.end);
+        return entry ? { node: entry.node, offset: offset - entry.start } : null;
+      };
+      const start = locateOffset(startOffset, false);
+      const end = locateOffset(endOffset, true);
+      if (!start || !end) return false;
+
+      try {
+        const range = document.createRange();
+        range.setStart(start.node, start.offset);
+        range.setEnd(end.node, end.offset);
+        const selection = window.getSelection();
+        if (!selection) return false;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.getElementById('standardCrossReferenceModal')?.classList.add('hidden');
+        verse.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return true;
+      } catch (error) {
+        console.warn('Could not select standard cross-reference anchor phrase:', error);
+        return false;
+      }
     }
 
 function renderStandardCrossReferenceList() {
@@ -1773,6 +1821,24 @@ function renderStandardCrossReferenceList() {
                 : 'text-[10px] text-slate-500';
           matchStatus.textContent = match.text;
           groupBox.appendChild(matchStatus);
+
+          if (Number.isInteger(match.start) && Number.isInteger(match.end)) {
+            const locateButton = document.createElement('button');
+            locateButton.type = 'button';
+            locateButton.className = 'text-[10px] font-semibold text-violet-700 hover:text-violet-900 underline';
+            locateButton.textContent = match.kind === 'matched' ? 'Show phrase in verse' : 'Find possible text match';
+            locateButton.title = match.kind === 'matched'
+              ? 'Close this panel and select this phrase in the KJV verse.'
+              : 'Close this panel and select a possible text match; translation alignment is not verified.';
+            locateButton.addEventListener('click', () => {
+              if (locateStandardAnchorPhraseInVerse(row.verse, match.start, match.end)) {
+                standardCrossReferenceViewFilter = null;
+              } else if (status) {
+                status.textContent = 'Could not locate that phrase in the displayed verse text.';
+              }
+            });
+            groupBox.appendChild(locateButton);
+          }
 
           const referenceButtons = document.createElement('div');
           referenceButtons.className = 'flex flex-wrap gap-1.5';

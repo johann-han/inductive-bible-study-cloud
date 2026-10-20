@@ -325,6 +325,7 @@
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
+          <button id="groupDuplicateAiHeadingsBtn" type="button" class="hidden self-start text-[11px] font-semibold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg px-3 py-2" title="Group repeated AI verse headings without deleting any response text">Group repeated AI verse headings</button>
           <p id="workspaceStudyPrompt" class="text-xs text-slate-600 bg-slate-100 rounded-lg px-3 py-2 leading-relaxed" aria-live="polite">Observe: What does the passage actually say? Notice repeated words, people, places, commands, contrasts, and connections before explaining their meaning.</p>
           <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
             <span>✨ Ask AI to Guide My Active Notes</span>
@@ -1662,6 +1663,54 @@
       countLabel.textContent = `${sectionLabel}: ${count} ${count === 1 ? 'word' : 'words'}`;
     }
 
+    function countRepeatedAiMentorHeadings(value) {
+      const seen = new Map();
+      let repeatedCount = 0;
+      const lines = String(value || '').split(/\r?\n/);
+      for (const line of lines) {
+        const match = line.trim().match(/^AI Study Mentor\\s+[—–-]\\s+(.+?)\\s*$/);
+        if (!match) continue;
+        const key = match[1].trim().toLocaleLowerCase();
+        const nextCount = (seen.get(key) || 0) + 1;
+        seen.set(key, nextCount);
+        if (nextCount > 1) repeatedCount++;
+      }
+      return repeatedCount;
+    }
+
+    function groupRepeatedAiMentorHeadings(value) {
+      const original = String(value || '');
+      const lines = original.split(/\r?\n/);
+      const seen = new Map();
+      let groupedCount = 0;
+      const updatedLines = lines.map(line => {
+        const match = line.trim().match(/^AI Study Mentor\\s+[—–-]\\s+(.+?)\\s*$/);
+        if (!match) return line;
+        const reference = match[1].trim();
+        const key = reference.toLocaleLowerCase();
+        const nextCount = (seen.get(key) || 0) + 1;
+        seen.set(key, nextCount);
+        if (nextCount === 1) return line;
+        groupedCount++;
+        const suffix = nextCount > 2 ? ` (${nextCount})` : '';
+        return `Additional AI Study Mentor response — ${reference}${suffix}`;
+      });
+      return {
+        text: groupedCount ? updatedLines.join('\n') : original,
+        groupedCount
+      };
+    }
+
+    function updateDuplicateAiHeadingControl(value) {
+      const button = document.getElementById('groupDuplicateAiHeadingsBtn');
+      if (!button) return;
+      const repeatedCount = countRepeatedAiMentorHeadings(value);
+      button.classList.toggle('hidden', repeatedCount === 0);
+      button.textContent = repeatedCount
+        ? `Group repeated AI verse headings (${repeatedCount})`
+        : 'Group repeated AI verse headings';
+    }
+
     function updateWorkspaceStudyPrompt() {
       const prompt = document.getElementById('workspaceStudyPrompt');
       if (!prompt) return;
@@ -1723,6 +1772,7 @@
       const record = getStudyRecord();
       area.value = record.sections[appState.activeNotesSection] || '';
       updateWorkspaceWordCount(area.value);
+      updateDuplicateAiHeadingControl(area.value);
       updateWorkspaceStudyPrompt();
       if (title) title.textContent = `${appState.currentBook} ${appState.currentChapter} - ${NOTE_SECTION_LABELS[appState.activeNotesSection]} Notes`;
       if (status) status.textContent = record.updatedAt ? 'Saved locally' : 'Not saved yet';
@@ -1741,8 +1791,30 @@
       if (!area) return;
       area.addEventListener('input', () => {
         updateWorkspaceWordCount(area.value);
+        updateDuplicateAiHeadingControl(area.value);
         saveActiveStudyNote();
       });
+
+      const groupDuplicateButton = document.getElementById('groupDuplicateAiHeadingsBtn');
+      if (groupDuplicateButton) {
+        groupDuplicateButton.addEventListener('click', () => {
+          const result = groupRepeatedAiMentorHeadings(area.value);
+          if (!result.groupedCount) {
+            updateDuplicateAiHeadingControl(area.value);
+            return;
+          }
+          const confirmed = window.confirm(
+            `Group ${result.groupedCount} repeated AI verse heading(s)? All response text will be kept; only repeated headings will be renamed.`
+          );
+          if (!confirmed) return;
+          area.value = result.text;
+          area.dispatchEvent(new Event('input', { bubbles: true }));
+          const status = document.getElementById('noteSaveStatus');
+          if (status) status.textContent = cloudSyncState.user
+            ? 'Repeated headings grouped · saved locally · syncing…'
+            : 'Repeated headings grouped · saved locally';
+        });
+      }
       const sectionButtons = {
         observe: document.getElementById('wsTabObserve'),
         interpret: document.getElementById('wsTabInterpret'),
@@ -2735,8 +2807,20 @@
       const reference = selectedVerses.length ? selectedVerses.join(', ') : `${book} ${chapter}`;
       const translation = String(context?.translation || '').trim();
       const heading = `AI Study Mentor — ${reference}${translation ? ` (${translation})` : ''}`;
-      const addition = `${heading}\n\n${answerText}`;
       const existingNotes = record.sections[section].replace(/\s+$/, '');
+      const referenceKey = reference.toLocaleLowerCase();
+      const relatedMentorHeading = /^\s*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)\\s+[—–-]\\s+(.+?)\\s*$/gm;
+      let priorResponsesForReference = 0;
+      let priorHeadingMatch;
+      while ((priorHeadingMatch = relatedMentorHeading.exec(existingNotes)) !== null) {
+        const priorReference = priorHeadingMatch[1].replace(/\\s+\\((?:KJV|ASV|WEB|BBE)\\)\\s*$/i, '').trim().toLocaleLowerCase();
+        const currentReference = referenceKey.replace(/\\s+\\((?:KJV|ASV|WEB|BBE)\\)\\s*$/i, '').trim();
+        if (priorReference === currentReference) priorResponsesForReference++;
+      }
+      const nextHeading = priorResponsesForReference === 0
+        ? heading
+        : `${priorResponsesForReference === 1 ? 'Additional' : 'Further'} AI Study Mentor response — ${reference}${translation ? ` (${translation})` : ''}${priorResponsesForReference > 1 ? ` (${priorResponsesForReference + 1})` : ''}`;
+      const addition = `${nextHeading}\n\n${answerText}`;
       record.sections[section] = existingNotes ? `${existingNotes}\n\n---\n\n${addition}` : addition;
       record.activeSection = section;
       record.updatedAt = new Date().toISOString();
@@ -2768,6 +2852,7 @@
         if (area) {
           area.value = record.sections[section];
           updateWorkspaceWordCount(area.value);
+          updateDuplicateAiHeadingControl(area.value);
         }
         const status = document.getElementById('noteSaveStatus');
         if (status) status.textContent = cloudSyncState.user

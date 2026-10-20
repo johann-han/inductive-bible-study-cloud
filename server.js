@@ -122,10 +122,20 @@ function send(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(obj));
 }
-function readJson(req) {
+function readJson(req, maxBytes = MAX_BODY) {
   return new Promise((resolve, reject) => {
-    let body = ''; req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY) { reject(new Error('Request too large.')); req.destroy(); } });
-    req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch { reject(new Error('Invalid JSON request.')); } });
+    let body = ''; let bytes = 0; let tooLarge = false;
+    req.on('data', chunk => {
+      if (tooLarge) return;
+      bytes += chunk.length;
+      if (bytes > maxBytes) { tooLarge = true; body = ''; return; }
+      body += chunk.toString('utf8');
+    });
+    req.on('end', () => {
+      if (tooLarge) { const error = new Error('Request body is too large.'); error.statusCode = 413; return reject(error); }
+      try { resolve(JSON.parse(body || '{}')); }
+      catch { const error = new Error('Invalid JSON request.'); error.statusCode = 400; reject(error); }
+    });
     req.on('error', reject);
   });
 }
@@ -154,6 +164,53 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && url.pathname === '/healthz') {
     return send(res, 200, { status: 'ok' });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/sermon-ai') {
+    if (!process.env.OPENROUTER_API_KEY) return send(res, 503, { error: 'The server-managed AI provider is not configured.' });
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      return send(res, 503, { error: 'Secure sermon AI requires the Inductive Bible Study sign-in service to be configured.' });
+    }
+    const identity = await authorizeAIMentor(req);
+    if (identity.error) return send(res, identity.status || 401, { error: identity.error });
+    if (!consumeAIRateLimit('sermon:' + identity.userId)) return send(res, 429, { error: 'The sermon AI request limit has been reached. Please wait a few minutes and try again.' });
+    try {
+      const body = await readJson(req, 256 * 1024);
+      const systemPrompt = String(body.systemPrompt || '').trim().slice(0, 12000);
+      const userQuery = String(body.userQuery || '').trim().slice(0, 48000);
+      if (!systemPrompt || !userQuery) return send(res, 400, { error: 'Both a system prompt and a user query are required.' });
+      let schemaText = '';
+      if (body.responseSchema && typeof body.responseSchema === 'object' && !Array.isArray(body.responseSchema)) {
+        schemaText = JSON.stringify(body.responseSchema);
+        if (schemaText.length > 12000) return send(res, 413, { error: 'The requested structured-output schema is too large.' });
+      }
+      const safeSystemPrompt = schemaText
+        ? systemPrompt + '\n\nReturn only valid JSON matching this response schema. Do not add Markdown fences or commentary. Schema: ' + schemaText
+        : systemPrompt;
+      const payload = {
+        model: MODEL,
+        temperature: 0.3,
+        max_tokens: 4096,
+        messages: [{ role: 'system', content: safeSystemPrompt }, { role: 'user', content: userQuery }]
+      };
+      if (schemaText) payload.response_format = { type: 'json_object' };
+      const apiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY, 'Content-Type': 'application/json', 'X-OpenRouter-Title': 'Kerygma Expository Sermon Studio' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(60000)
+      });
+      const data = await apiResponse.json().catch(() => ({}));
+      if (!apiResponse.ok) {
+        const message = data && data.error && data.error.message ? data.error.message : 'The AI provider returned HTTP ' + apiResponse.status + '.';
+        console.error('Kerygma AI provider error:', apiResponse.status, message.slice(0, 300));
+        return send(res, 502, { error: 'The server-managed AI request failed. Please try again shortly.' });
+      }
+      const answer = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'The selected AI model returned no text response.' });
+      return send(res, 200, { answer: answer.trim(), model: data.model || MODEL });
+    } catch (error) {
+      return send(res, error.statusCode || 500, { error: error.statusCode === 413 || error.statusCode === 400 ? error.message : 'The sermon AI request could not be completed.' });
+    }
   }
   if (req.method === 'POST' && url.pathname === '/api/mentor') {
     if (!process.env.OPENROUTER_API_KEY) return send(res, 503, { error: 'OPENROUTER_API_KEY is not configured. Add it to the .env file and restart the server.' });
@@ -191,7 +248,7 @@ const server = http.createServer(async (req, res) => {
       if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'The selected model returned no text response.' });
       return send(res, 200, { answer: answer.trim(), model: data.model || MODEL });
     } catch (error) {
-      return send(res, 500, { error: error.message || 'Unexpected server error.' });
+      return send(res, error.statusCode || 500, { error: error.message || 'Unexpected server error.' });
     }
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed.' });

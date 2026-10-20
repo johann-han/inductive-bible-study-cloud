@@ -472,6 +472,7 @@
             <button id="openStudyLibraryBtn" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-1 rounded font-semibold">My Studies</button>
             <button id="exportMarkdownBtn" class="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded font-semibold">Export MD</button>
             <button id="exportStudyReportBtn" type="button" title="Download a publication-ready, print-friendly report for this study" class="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-1 rounded font-semibold">Report</button>
+            <button id="studyNoteHistoryBtn" type="button" title="View and restore earlier versions of your study notes" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded font-semibold">History</button>
             <span id="noteSaveStatus" role="status" aria-live="polite" class="text-[9px] sm:text-[10px] text-slate-500 inline-block max-w-[6rem] sm:max-w-none truncate text-right">Saved locally</span>
           </div>
         </div>
@@ -544,6 +545,28 @@
           </div>
           <p id="studyBackupStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Back up every study, including Observe, Interpretation, Doctrine and Discipleship notes. Restoring merges studies without deleting existing work.</p>
           <p class="text-[11px] text-slate-500">Keep a backup somewhere outside this device. Cloud sync is helpful, but a separate downloaded backup provides an additional recovery copy.</p>
+        </footer>
+      </section>
+    </div>
+
+    <!-- STUDY NOTE VERSION HISTORY DIALOG -->
+    <div id="studyNoteHistoryModal" class="hidden fixed inset-0 z-[90] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyNoteHistoryTitle">
+      <section class="w-full max-w-3xl max-h-[88vh] bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+        <header class="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+          <div>
+            <h2 id="studyNoteHistoryTitle" class="text-base font-bold text-slate-900">Study Note History</h2>
+            <p id="studyNoteHistoryReference" class="text-xs text-slate-500 mt-1">Earlier versions of your study notes</p>
+          </div>
+          <button id="closeStudyNoteHistoryBtn" type="button" class="text-slate-500 hover:text-slate-900 text-2xl leading-none px-2" aria-label="Close note history">&times;</button>
+        </header>
+        <div class="p-4 border-b border-slate-200 bg-white">
+          <p class="text-xs text-slate-600">Dated snapshots protect the four note sections: Observe, Interpretation, Doctrine and Discipleship. Restoring a version replaces those four sections only; your outline, verse mapping, visual markup and cross-references are left unchanged. Up to eight versions are kept for each passage.</p>
+        </div>
+        <div id="studyNoteHistoryList" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-3">
+          <p class="text-sm text-slate-500">Loading note history…</p>
+        </div>
+        <footer class="p-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+          <button id="closeStudyNoteHistoryFooterBtn" type="button" class="text-xs font-semibold bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg px-3 py-2">Close</button>
         </footer>
       </section>
     </div>
@@ -3630,6 +3653,229 @@ function renderStandardCrossReferenceList() {
       prompt.textContent = prompts[appState.activeNotesSection] || prompts.observe;
     }
 
+    const STUDY_NOTE_VERSION_LIMIT = 8;
+    const STUDY_NOTE_VERSION_INTERVAL_MS = 2 * 60 * 1000;
+    const STUDY_NOTE_VERSION_SECTIONS = [
+      { key: 'observe', label: 'Observe' },
+      { key: 'interpret', label: 'Interpretation' },
+      { key: 'doctrine', label: 'Doctrine' },
+      { key: 'apply', label: 'Discipleship' }
+    ];
+
+    function cloneStudyNoteVersionSections(record) {
+      const sections = record && record.sections && typeof record.sections === 'object' ? record.sections : {};
+      return {
+        observe: String(sections.observe ?? ''),
+        interpret: String(sections.interpret ?? ''),
+        doctrine: String(sections.doctrine ?? ''),
+        apply: String(sections.apply ?? '')
+      };
+    }
+
+    function studyNoteVersionSignature(sections) {
+      return JSON.stringify({
+        observe: String(sections?.observe ?? ''),
+        interpret: String(sections?.interpret ?? ''),
+        doctrine: String(sections?.doctrine ?? ''),
+        apply: String(sections?.apply ?? '')
+      });
+    }
+
+    function saveStudyNoteVersionSnapshot(record, options = {}) {
+      if (!record || typeof record !== 'object') return false;
+      const nowMs = Number.isFinite(options.now) ? options.now : Date.now();
+      const sections = cloneStudyNoteVersionSections(record);
+      const history = Array.isArray(record.versionHistory)
+        ? record.versionHistory.filter(entry => entry && typeof entry === 'object' &&
+            entry.sections && typeof entry.sections === 'object' && typeof entry.savedAt === 'string')
+        : [];
+      const latest = history[0];
+      const signature = studyNoteVersionSignature(sections);
+
+      // Avoid recording identical content when a user merely focuses or leaves the editor.
+      if (latest && studyNoteVersionSignature(latest.sections) === signature) {
+        record.versionHistory = history.slice(0, STUDY_NOTE_VERSION_LIMIT);
+        return false;
+      }
+      const latestTime = Date.parse(latest?.savedAt || '');
+      if (!options.force && latest && Number.isFinite(latestTime) &&
+          nowMs - latestTime < STUDY_NOTE_VERSION_INTERVAL_MS) {
+        return false;
+      }
+
+      const activeSection = STUDY_NOTE_VERSION_SECTIONS.some(section => section.key === record.activeSection)
+        ? record.activeSection
+        : 'observe';
+      const snapshot = {
+        id: 'note-v' + nowMs.toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+        savedAt: new Date(nowMs).toISOString(),
+        activeSection,
+        sections
+      };
+      record.versionHistory = [snapshot, ...history].slice(0, STUDY_NOTE_VERSION_LIMIT);
+      return true;
+    }
+
+    function saveCurrentStudyNoteVersionSnapshot() {
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      if (!record || !saveStudyNoteVersionSnapshot(record, { force: true })) return false;
+      if (!writeStudyLibrary(library)) return false;
+      scheduleCloudStudySync();
+      return true;
+    }
+
+    function renderStudyNoteVersionHistory() {
+      const modal = document.getElementById('studyNoteHistoryModal');
+      const list = document.getElementById('studyNoteHistoryList');
+      const reference = document.getElementById('studyNoteHistoryReference');
+      if (!modal || !list) return;
+      if (reference) reference.textContent = appState.currentBook + ' ' + appState.currentChapter;
+      const record = getStudyRecord(appState.currentBook, appState.currentChapter, false);
+      const history = Array.isArray(record.versionHistory)
+        ? record.versionHistory.filter(entry => entry && entry.sections && typeof entry.savedAt === 'string')
+            .slice().sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt))
+        : [];
+      list.replaceChildren();
+      if (!history.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-sm text-slate-600 p-2';
+        empty.textContent = 'No note versions have been saved for this passage yet. Edit a note and leave the editor to create a dated version.';
+        list.appendChild(empty);
+        return;
+      }
+
+      history.forEach((snapshot, index) => {
+        const card = document.createElement('article');
+        card.className = 'border border-slate-200 rounded-lg p-3 sm:p-4 space-y-3 bg-white';
+        const heading = document.createElement('div');
+        heading.className = 'flex flex-wrap items-start justify-between gap-2';
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'min-w-0';
+        const title = document.createElement('h3');
+        title.className = 'text-sm font-bold text-slate-900';
+        const parsedTime = Date.parse(snapshot.savedAt);
+        title.textContent = Number.isFinite(parsedTime)
+          ? new Date(parsedTime).toLocaleString()
+          : 'Date unavailable';
+        const summary = document.createElement('p');
+        summary.className = 'text-[11px] text-slate-500 mt-1';
+        summary.textContent = STUDY_NOTE_VERSION_SECTIONS.map(section => {
+          const value = String(snapshot.sections[section.key] ?? '').trim();
+          const words = value ? value.split(/\s+/).length : 0;
+          return section.label + ': ' + words;
+        }).join(' words · ') + ' words';
+        titleWrap.append(title, summary);
+        const restoreButton = document.createElement('button');
+        restoreButton.type = 'button';
+        restoreButton.className = 'shrink-0 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-3 py-2';
+        restoreButton.textContent = 'Restore this version';
+        restoreButton.setAttribute('aria-label', 'Restore note version ' + (index + 1) + ' for ' + appState.currentBook + ' ' + appState.currentChapter);
+        restoreButton.addEventListener('click', () => restoreStudyNoteVersion(snapshot.id));
+        heading.append(titleWrap, restoreButton);
+
+        const previewDetails = document.createElement('details');
+        previewDetails.className = 'border-t border-slate-100 pt-2';
+        const previewSummary = document.createElement('summary');
+        previewSummary.className = 'cursor-pointer text-xs font-semibold text-slate-700';
+        previewSummary.textContent = 'Preview saved notes';
+        previewDetails.appendChild(previewSummary);
+        const previewGrid = document.createElement('div');
+        previewGrid.className = 'mt-2 space-y-3';
+        STUDY_NOTE_VERSION_SECTIONS.forEach(section => {
+          const group = document.createElement('div');
+          const label = document.createElement('h4');
+          label.className = 'text-xs font-bold text-slate-700 mb-1';
+          label.textContent = section.label;
+          const body = document.createElement('pre');
+          body.className = 'text-xs text-slate-700 whitespace-pre-wrap break-words font-sans';
+          body.textContent = String(snapshot.sections[section.key] ?? '').trim() || 'No notes in this section.';
+          group.append(label, body);
+          previewGrid.appendChild(group);
+        });
+        previewDetails.appendChild(previewGrid);
+        card.append(heading, previewDetails);
+        list.appendChild(card);
+      });
+    }
+
+    function restoreStudyNoteVersion(snapshotId) {
+      const key = studyRecordKey();
+      const initialLibrary = readStudyLibrary();
+      const initialRecord = initialLibrary[key];
+      const initialHistory = Array.isArray(initialRecord?.versionHistory) ? initialRecord.versionHistory : [];
+      const chosen = initialHistory.find(entry => entry && entry.id === snapshotId);
+      if (!chosen || !chosen.sections) {
+        window.alert('That note version is no longer available. Refresh the history and try again.');
+        renderStudyNoteVersionHistory();
+        return;
+      }
+      const target = {
+        id: chosen.id,
+        savedAt: chosen.savedAt,
+        activeSection: chosen.activeSection,
+        sections: cloneStudyNoteVersionSections(chosen)
+      };
+      const restoredAt = new Date(target.savedAt);
+      const restoredLabel = Number.isNaN(restoredAt.getTime()) ? 'the selected date' : restoredAt.toLocaleString();
+      const accepted = window.confirm(
+        'Restore the note sections saved on ' + restoredLabel + '?\n\nThis replaces Observe, Interpretation, Doctrine and Discipleship for ' +
+        appState.currentBook + ' ' + appState.currentChapter +
+        '. A snapshot of your current notes will be kept. Your outline, verse mapping, visual markup and cross-references will remain unchanged.'
+      );
+      if (!accepted) return;
+
+      saveActiveStudyNote();
+      const library = readStudyLibrary();
+      const record = library[key];
+      if (!record) {
+        window.alert('This study could not be found. No notes were restored.');
+        return;
+      }
+      // Capture the current notes before replacing them with the selected version.
+      saveStudyNoteVersionSnapshot(record, { force: true });
+      record.sections = target.sections;
+      record.activeSection = STUDY_NOTE_VERSION_SECTIONS.some(section => section.key === target.activeSection)
+        ? target.activeSection
+        : (STUDY_NOTE_VERSION_SECTIONS.some(section => section.key === appState.activeNotesSection) ? appState.activeNotesSection : 'observe');
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) {
+        window.alert('Your browser could not save the restored notes. No notes were deliberately changed; please free some browser storage and try again.');
+        return;
+      }
+      appState.activeNotesSection = record.activeSection;
+      const modal = document.getElementById('studyNoteHistoryModal');
+      if (modal) modal.classList.add('hidden');
+      loadActiveStudyNote();
+      scheduleCloudStudySync();
+      const status = document.getElementById('noteSaveStatus');
+      if (status) status.textContent = cloudSyncState.user ? 'Restored locally · syncing…' : 'Earlier notes restored';
+    }
+
+    function setupStudyVersionHistory() {
+      const openButton = document.getElementById('studyNoteHistoryBtn');
+      const modal = document.getElementById('studyNoteHistoryModal');
+      const closeButtons = [
+        document.getElementById('closeStudyNoteHistoryBtn'),
+        document.getElementById('closeStudyNoteHistoryFooterBtn')
+      ].filter(Boolean);
+      if (!openButton || !modal) return;
+      openButton.addEventListener('click', () => {
+        saveActiveStudyNote();
+        renderStudyNoteVersionHistory();
+        modal.classList.remove('hidden');
+      });
+      closeButtons.forEach(button => button.addEventListener('click', () => modal.classList.add('hidden')));
+      modal.addEventListener('click', event => {
+        if (event.target === modal) modal.classList.add('hidden');
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) modal.classList.add('hidden');
+      });
+    }
+
     function saveActiveStudyNote() {
       const area = document.getElementById('workspaceNoteArea');
       const status = document.getElementById('noteSaveStatus');
@@ -3649,6 +3895,8 @@ function renderStandardCrossReferenceList() {
       const valueChanged = String(prior.sections[appState.activeNotesSection] || '') !== area.value;
       const sectionChanged = prior.activeSection !== appState.activeNotesSection;
       if (existing && !valueChanged && !sectionChanged) return;
+      // Keep the previously saved text before applying a meaningful change.
+      if (valueChanged) saveStudyNoteVersionSnapshot(prior);
       prior.sections[appState.activeNotesSection] = area.value;
       prior.activeSection = appState.activeNotesSection;
       prior.updatedAt = new Date().toISOString();
@@ -3723,6 +3971,10 @@ function renderStandardCrossReferenceList() {
         updateDuplicateAiHeadingControl(area.value);
         updateWorkspaceVerseStudyNavigator(area.value);
         saveActiveStudyNote();
+      });
+      area.addEventListener('blur', () => {
+        saveActiveStudyNote();
+        saveCurrentStudyNoteVersionSnapshot();
       });
       area.addEventListener('keydown', event => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
@@ -5896,6 +6148,7 @@ function renderStandardCrossReferenceList() {
         setupPassageOutlineWorkflow();
         setupStandardCrossReferenceWorkflow();
         setupNotesPersistence();
+        setupStudyVersionHistory();
         setupStudyLibrary();
         setupStudyBackup();
         setupMarkdownExport();

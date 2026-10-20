@@ -326,7 +326,7 @@
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
           <div id="workspaceVerseStudyNavigator" class="hidden space-y-1">
-            <label for="workspaceVerseStudySelect" class="block text-[11px] font-semibold text-slate-600">Jump to verse study</label>
+            <label for="workspaceVerseStudySelect" class="block text-[11px] font-semibold text-slate-600">Jump to verse study (all sections)</label>
             <select id="workspaceVerseStudySelect" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-amber-600">
               <option value="">Choose a saved verse study…</option>
             </select>
@@ -1784,7 +1784,21 @@
       const select = document.getElementById('workspaceVerseStudySelect');
       if (!navigator || !select) return;
 
-      const entries = getVerseStudyHeadingEntries(value);
+      // Build the list from all three saved sections for the current book and chapter.
+      const record = getStudyRecord();
+      const entries = [];
+      for (const section of ['observe', 'interpret', 'apply']) {
+        const sectionText = String(record.sections?.[section] || '');
+        for (const entry of getVerseStudyHeadingEntries(sectionText)) {
+          entries.push({
+            ...entry,
+            section,
+            value: section + '|' + entry.start + ':' + entry.end,
+            label: NOTE_SECTION_LABELS[section] + ' — ' + entry.label
+          });
+        }
+      }
+
       const previousValue = select.value;
       const placeholder = document.createElement('option');
       placeholder.value = '';
@@ -1793,13 +1807,13 @@
 
       for (const entry of entries) {
         const option = document.createElement('option');
-        option.value = entry.start + ':' + entry.end;
+        option.value = entry.value;
         option.textContent = entry.label;
         select.appendChild(option);
       }
 
       navigator.classList.toggle('hidden', entries.length === 0);
-      if (entries.some(entry => entry.start + ':' + entry.end === previousValue)) {
+      if (entries.some(entry => entry.value === previousValue)) {
         select.value = previousValue;
       } else {
         select.value = '';
@@ -1905,14 +1919,24 @@
       const verseStudySelect = document.getElementById('workspaceVerseStudySelect');
       if (verseStudySelect) {
         verseStudySelect.addEventListener('change', () => {
-          const parts = String(verseStudySelect.value || '').split(':');
-          const start = Number(parts[0]);
-          const end = Number(parts[1]);
+          const value = String(verseStudySelect.value || '');
+          const dividerIndex = value.indexOf('|');
+          if (dividerIndex <= 0) return;
+          const targetSection = value.slice(0, dividerIndex);
+          const offsets = value.slice(dividerIndex + 1).split(':');
+          const start = Number(offsets[0]);
+          const end = Number(offsets[1]);
           const selectedOption = verseStudySelect.options[verseStudySelect.selectedIndex];
-          if (!Number.isInteger(start) || !Number.isInteger(end) || end <= start) return;
+          const targetLabel = String(selectedOption?.textContent || 'saved verse study');
+          if (!NOTE_SECTION_LABELS[targetSection] || !Number.isInteger(start) || !Number.isInteger(end) || end <= start) return;
+
+          // Switch sections first, then focus the heading using offsets from that section's saved text.
+          if (targetSection !== appState.activeNotesSection) {
+            switchWorkspaceSection(targetSection);
+          }
           if (focusExistingAiStudyHeading({ headingStart: start, headingEnd: end })) {
             const status = document.getElementById('noteSaveStatus');
-            if (status) status.textContent = 'Jumped to ' + String(selectedOption?.textContent || 'saved verse study');
+            if (status) status.textContent = 'Jumped to ' + targetLabel;
           }
         });
       }

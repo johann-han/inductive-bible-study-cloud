@@ -2212,7 +2212,7 @@ function renderStandardCrossReferenceList() {
       if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
       const normalized = {};
       for (const [verseKey, raw] of Object.entries(value).slice(0, 250)) {
-        if (!/^[1-9]\\d*$/.test(verseKey) || Number(verseKey) > 250 || !raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+        if (!/^[1-9]\d*$/.test(verseKey) || Number(verseKey) > 250 || !raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
         const entry = {};
         for (const field of VERSE_MAP_FIELDS) { const maxLength = field === 'translation' ? 40 : 10000; entry[field] = typeof raw[field] === 'string' ? raw[field].slice(0, maxLength) : ''; }
         entry.updatedAt = typeof raw.updatedAt === 'string' ? raw.updatedAt.slice(0, 50) : '';
@@ -4169,7 +4169,7 @@ function renderStandardCrossReferenceList() {
             return;
           }
           for (const [verseKey, mapping] of Object.entries(verseMapsInput)) {
-            if (!/^[1-9]\\d*$/.test(verseKey) || Number(verseKey) > 250 || !mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+            if (!/^[1-9]\d*$/.test(verseKey) || Number(verseKey) > 250 || !mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
               setStudyBackupStatus(`The backup has invalid verse mapping data for ${book} ${chapter}. No changes were made.`, 'error');
               return;
             }

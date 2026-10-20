@@ -610,6 +610,8 @@
       highlights: { observation: new Set(), interpretation: new Set() },
       db: null,
       currentModalLexicon: null,
+      currentModalLexiconContext: null,
+      lexiconRequestId: 0,
       currentWordAnnotations: Object.create(null),
       annotationSource: null,
       scriptureSource: null
@@ -1028,7 +1030,12 @@
       });
     }
 
-    async function openStrongsModal(strongsId, word) {
+    async function openStrongsModal(strongsId, word, verseContext = null) {
+      const requestId = (appState.lexiconRequestId || 0) + 1;
+      appState.lexiconRequestId = requestId;
+      appState.currentModalLexiconContext = verseContext && Number.isInteger(Number(verseContext.verse))
+        ? { ...verseContext, verse: Number(verseContext.verse), word: String(word || '') }
+        : null;
       const modal = document.getElementById('strongsModal');
       const badge = document.getElementById('strongsNumberBadge');
       const orig = document.getElementById('strongsOriginalWord');
@@ -1055,6 +1062,8 @@
       if (modal) modal.classList.remove('hidden');
 
       const entry = await fetchStrongsDataFromDB(strongsId, word);
+      // Ignore stale lookups if a different word/verse was opened while this request was running.
+      if (requestId !== appState.lexiconRequestId) return;
       appState.currentModalLexicon = entry;
 
       // The user may have closed the modal or opened another entry while the request ran.
@@ -1157,7 +1166,14 @@
             e.stopPropagation();
             const strongsId = strongsElem.dataset.strongs || 'H0430';
             const word = strongsElem.dataset.word || strongsElem.innerText || 'Lexicon Word';
-            openStrongsModal(strongsId, word);
+            openStrongsModal(strongsId, word, {
+              book: bookName,
+              chapter: chapterNum,
+              verse: vNum,
+              verseKey: vKey,
+              translation: appState.currentTranslationAbbr || appState.currentTranslation || 'KJV',
+              activeSection: appState.activeNotesSection || 'observe'
+            });
             return;
           }
 
@@ -1174,7 +1190,14 @@
           if (strongsElem && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             e.stopPropagation();
-            openStrongsModal(strongsElem.dataset.strongs, strongsElem.dataset.word || strongsElem.textContent || '');
+            openStrongsModal(strongsElem.dataset.strongs, strongsElem.dataset.word || strongsElem.textContent || '', {
+              book: bookName,
+              chapter: chapterNum,
+              verse: vNum,
+              verseKey: vKey,
+              translation: appState.currentTranslationAbbr || appState.currentTranslation || 'KJV',
+              activeSection: appState.activeNotesSection || 'observe'
+            });
           }
         };
 
@@ -1551,14 +1574,11 @@
       const workspaceNoteArea = document.getElementById('workspaceNoteArea');
       if (copyStrongsToNotesBtn) {
         copyStrongsToNotesBtn.onclick = () => {
-          if (appState.currentModalLexicon && workspaceNoteArea) {
-            const entry = appState.currentModalLexicon;
-            const textToAppend = `\n\n--- Lexicon Note (${entry.id}) ---\nWord: ${entry.lemma}\nTransliteration: ${entry.translit}\nGloss: ${entry.gloss}\nDefinition: ${entry.def}\n`;
-            workspaceNoteArea.value += textToAppend;
-            // Save the inserted lexicon note immediately, and open the notes drawer so the user can review it.
-            workspaceNoteArea.dispatchEvent(new Event('input', { bubbles: true }));
-            setWorkspaceOpen(true);
-            document.getElementById('strongsModal')?.classList.add('hidden');
+          if (!appState.currentModalLexicon || !workspaceNoteArea) return;
+          try {
+            appendLexiconEntryToVerseStudy(appState.currentModalLexicon, appState.currentModalLexiconContext);
+          } catch (error) {
+            window.alert(error.message || 'Could not copy the lexicon entry into the selected verse study.');
           }
         };
       }
@@ -2793,7 +2813,7 @@
       const record = readStudyLibrary()[studyRecordKey(book, chapter)];
       if (!record || !record.sections) return null;
 
-      const headingPattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
+      const headingPattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response|Verse Study)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
       for (const section of ['observe', 'interpret', 'apply']) {
         const notes = String(record.sections[section] || '');
         const matcher = new RegExp(headingPattern.source, 'gm');
@@ -2899,6 +2919,163 @@
         button.classList.add('bg-emerald-700', 'text-white', 'opacity-90', 'cursor-default');
         button.setAttribute('aria-label', 'Opened the existing study; no new response was added');
       }
+    }
+
+    function appendLexiconEntryToVerseStudy(entry, verseContext) {
+      if (!entry) throw new Error('The lexicon entry has not finished loading.');
+      if (!verseContext || !Number.isInteger(Number(verseContext.verse))) {
+        throw new Error('Please open the Strong’s entry by selecting a word inside a Bible verse. The verse reference is needed to place the note correctly.');
+      }
+
+      const book = String(verseContext.book || '');
+      const chapter = Number(verseContext.chapter);
+      const verse = Number(verseContext.verse);
+      const translation = String(verseContext.translation || 'KJV').trim();
+      const bookInfo = BIBLE_CANON.find(item => item.name === book);
+      if (!bookInfo || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(bookInfo.chapters) ||
+          !Number.isInteger(verse) || verse < 1) {
+        throw new Error('The selected verse reference is invalid. Please select the word again from the Bible reader.');
+      }
+
+      // Save any editor changes first. The lexicon entry itself is then written into the verse's own note block.
+      saveActiveStudyNote();
+      getStudyRecord(book, chapter);
+      const reference = book + ' ' + chapter + ':' + verse;
+      const verseContextForLookup = {
+        book,
+        chapter,
+        translation,
+        selectedVerses: [reference]
+      };
+      const existingStudy = findExistingAiStudyForContext(verseContextForLookup);
+      const section = existingStudy && NOTE_SECTION_LABELS[existingStudy.section]
+        ? existingStudy.section
+        : (NOTE_SECTION_LABELS[verseContext.activeSection] ? verseContext.activeSection :
+            (NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe'));
+
+      const library = readStudyLibrary();
+      const key = studyRecordKey(book, chapter);
+      const record = library[key] || {
+        book,
+        chapter,
+        sections: { observe: '', interpret: '', apply: '' },
+        activeSection: section,
+        updatedAt: null
+      };
+      record.book = book;
+      record.chapter = chapter;
+      record.sections = record.sections && typeof record.sections === 'object'
+        ? record.sections
+        : { observe: '', interpret: '', apply: '' };
+      for (const name of ['observe', 'interpret', 'apply']) {
+        record.sections[name] = String(record.sections[name] || '');
+      }
+
+      const currentNotes = record.sections[section];
+      const lexiconHeading = '--- Lexicon Note (' + String(entry.id || 'Strong’s') + ') ---';
+      const lexiconNote = lexiconHeading + '\nVerse: ' + reference +
+        '\nSelected word: ' + String(verseContext.word || entry.lemma || '') +
+        '\nLemma: ' + String(entry.lemma || 'Not supplied') +
+        '\nStrong’s ID: ' + String(entry.id || 'Not supplied') +
+        '\nTransliteration: ' + String(entry.translit || 'Not supplied') +
+        '\nGloss: ' + String(entry.gloss || 'Not supplied') +
+        '\nDefinition: ' + String(entry.def || 'Not supplied') +
+        (entry.usage ? '\nUsage: ' + String(entry.usage) : '');
+
+      const headingPattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response|Verse Study)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
+      let targetHeading = null;
+      const matcher = new RegExp(headingPattern.source, 'gm');
+      let match;
+      while ((match = matcher.exec(currentNotes)) !== null) {
+        if (normalizeAiStudyReference(match[1]) === normalizeAiStudyReference(reference)) {
+          targetHeading = { start: match.index, end: matcher.lastIndex };
+          break;
+        }
+      }
+
+      let updatedNotes;
+      let insertedStart;
+      if (targetHeading) {
+        const afterHeading = currentNotes.slice(targetHeading.end);
+        const existingBlockEnd = afterHeading.indexOf('\n\n---\n\n');
+        const existingBlock = existingBlockEnd >= 0 ? afterHeading.slice(0, existingBlockEnd) : afterHeading;
+        if (existingBlock.includes(lexiconHeading)) {
+          throw new Error('This Strong’s lexicon entry is already recorded in the ' + reference + ' study.');
+        }
+
+        // Put the lexicon entry directly underneath its verse heading, not at the end of the chapter notes.
+        const followingText = afterHeading.replace(/^(?:\r?\n){1,2}/, '');
+        const insertion = '\n\n' + lexiconNote + (followingText.trim() ? '\n\n' + followingText : '');
+        updatedNotes = currentNotes.slice(0, targetHeading.end) + insertion;
+        insertedStart = targetHeading.end + 2;
+      } else {
+        // A first word study creates its own verse-specific study block.
+        const verseHeading = 'Verse Study — ' + reference + ' (' + translation + ')';
+        const trimmedNotes = currentNotes.replace(/\s+$/, '');
+        const block = verseHeading + '\n\n' + lexiconNote;
+        updatedNotes = trimmedNotes ? trimmedNotes + '\n\n---\n\n' + block : block;
+        insertedStart = updatedNotes.indexOf(lexiconHeading, Math.max(0, updatedNotes.length - block.length));
+      }
+
+      const tombstones = readStudyTombstones();
+      const hadTombstone = Object.prototype.hasOwnProperty.call(tombstones, key);
+      const previousTombstone = tombstones[key];
+      if (hadTombstone) {
+        delete tombstones[key];
+        if (!writeStudyTombstones(tombstones)) {
+          throw new Error('Could not update the deletion marker. Your notes were not changed.');
+        }
+      }
+      record.sections[section] = updatedNotes;
+      record.activeSection = section;
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) {
+        if (hadTombstone) {
+          tombstones[key] = previousTombstone;
+          writeStudyTombstones(tombstones);
+        }
+        throw new Error('The lexicon entry could not be saved. Please check available device storage.');
+      }
+
+      // Reopen the exact chapter and section that owns this verse note.
+      appState.currentBook = book;
+      appState.currentChapter = chapter;
+      appState.activeTab = bookInfo.testament;
+      appState.activeNotesSection = section;
+      renderBooksList();
+      renderChapterPills();
+      renderScripture();
+      loadActiveStudyNote();
+
+      const area = document.getElementById('workspaceNoteArea');
+      if (area && insertedStart >= 0) {
+        const start = Math.min(insertedStart, area.value.length);
+        const end = Math.min(start + lexiconNote.length, area.value.length);
+        area.setSelectionRange(start, end, 'forward');
+        const lineBefore = area.value.slice(0, start).split('\n');
+        const style = window.getComputedStyle(area);
+        const fontSize = Number.parseFloat(style.fontSize) || 12;
+        const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.5;
+        const columns = Math.max(12, Math.floor(Math.max(1, area.clientWidth) / (fontSize * 0.61)));
+        const rowsBefore = lineBefore.reduce((total, line) => total + Math.max(1, Math.ceil(line.length / columns)), 0);
+        area.scrollTop = Math.max(0, rowsBefore * lineHeight - lineHeight * 2);
+      }
+
+      const workspacePanel = document.getElementById('workspacePanel');
+      const notesToggle = document.getElementById('toggleWorkspaceMobile');
+      const mobileBackdrop = document.getElementById('mobileBackdrop');
+      workspacePanel?.classList.remove('translate-x-full');
+      workspacePanel?.setAttribute('aria-hidden', 'false');
+      notesToggle?.setAttribute('aria-expanded', 'true');
+      notesToggle?.setAttribute('title', 'Close study notes');
+      mobileBackdrop?.classList.remove('hidden');
+      document.getElementById('strongsModal')?.classList.add('hidden');
+
+      const status = document.getElementById('noteSaveStatus');
+      if (status) status.textContent = 'Lexicon entry saved under ' + reference + ' · ' + NOTE_SECTION_LABELS[section];
+      scheduleCloudStudySync();
+      return { book, chapter, verse, section, reference };
     }
 
     function appendMentorResponseToNotes(answer, context, button) {

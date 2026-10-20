@@ -1668,7 +1668,7 @@
       let repeatedCount = 0;
       const lines = String(value || '').split(/\r?\n/);
       for (const line of lines) {
-        const match = line.trim().match(/^AI Study Mentor\\s+[—–-]\\s+(.+?)\\s*$/);
+        const match = line.trim().match(/^AI Study Mentor\s+[—–-]\s+(.+?)\s*$/);
         if (!match) continue;
         const key = match[1].trim().toLocaleLowerCase();
         const nextCount = (seen.get(key) || 0) + 1;
@@ -1684,7 +1684,7 @@
       const seen = new Map();
       let groupedCount = 0;
       const updatedLines = lines.map(line => {
-        const match = line.trim().match(/^AI Study Mentor\\s+[—–-]\\s+(.+?)\\s*$/);
+        const match = line.trim().match(/^AI Study Mentor\s+[—–-]\s+(.+?)\s*$/);
         if (!match) return line;
         const reference = match[1].trim();
         const key = reference.toLocaleLowerCase();
@@ -2809,12 +2809,12 @@
       const heading = `AI Study Mentor — ${reference}${translation ? ` (${translation})` : ''}`;
       const existingNotes = record.sections[section].replace(/\s+$/, '');
       const referenceKey = reference.toLocaleLowerCase();
-      const relatedMentorHeading = /^\s*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)\\s+[—–-]\\s+(.+?)\\s*$/gm;
+      const relatedMentorHeading = /^\s*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)\s+[—–-]\s+(.+?)\s*$/gm;
       let priorResponsesForReference = 0;
       let priorHeadingMatch;
       while ((priorHeadingMatch = relatedMentorHeading.exec(existingNotes)) !== null) {
-        const priorReference = priorHeadingMatch[1].replace(/\\s+\\((?:KJV|ASV|WEB|BBE)\\)\\s*$/i, '').trim().toLocaleLowerCase();
-        const currentReference = referenceKey.replace(/\\s+\\((?:KJV|ASV|WEB|BBE)\\)\\s*$/i, '').trim();
+        const priorReference = priorHeadingMatch[1].replace(/\s+\((?:KJV|ASV|WEB|BBE)\)\s*$/i, '').trim().toLocaleLowerCase();
+        const currentReference = referenceKey.replace(/\s+\((?:KJV|ASV|WEB|BBE)\)\s*$/i, '').trim();
         if (priorReference === currentReference) priorResponsesForReference++;
       }
       const nextHeading = priorResponsesForReference === 0

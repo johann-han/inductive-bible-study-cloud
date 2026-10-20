@@ -332,7 +332,7 @@
               <button id="workspaceNoteFindPreviousBtn" type="button" class="shrink-0 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-2.5 py-2">Previous</button>
               <button id="workspaceNoteFindNextBtn" type="button" class="shrink-0 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-2.5 py-2">Next</button>
             </div>
-            <p id="workspaceNoteFindStatus" class="text-[10px] text-slate-500" aria-live="polite">Searches the active notes section.</p>
+            <p id="workspaceNoteFindStatus" class="text-[10px] text-slate-500" aria-live="polite">Enter: next match · Shift+Enter: previous match.</p>
           </div>
           <div id="workspaceVerseStudyNavigator" class="hidden space-y-1">
             <label for="workspaceVerseStudySelect" class="block text-[11px] font-semibold text-slate-600">Jump to verse study (all sections)</label>
@@ -1854,7 +1854,7 @@
       const input = document.getElementById('workspaceNoteFindInput');
       const status = document.getElementById('workspaceNoteFindStatus');
       if (input) input.value = '';
-      if (status) status.textContent = 'Searches the active notes section.';
+      if (status) status.textContent = 'Enter: next match · Shift+Enter: previous match.';
     }
 
     function getVerseStudyHeadingEntries(value) {
@@ -2053,7 +2053,7 @@
         noteFindInput.addEventListener('keydown', event => {
           if (event.key === 'Enter') {
             event.preventDefault();
-            findNextInWorkspaceNotes();
+            findNextInWorkspaceNotes(event.shiftKey ? -1 : 1);
           }
         });
         noteFindInput.addEventListener('input', () => {
@@ -2061,7 +2061,7 @@
           const status = document.getElementById('workspaceNoteFindStatus');
           if (status) status.textContent = noteFindInput.value.trim()
             ? 'Press Find next or Enter to locate a match.'
-            : 'Searches the active notes section.';
+            : 'Enter: next match · Shift+Enter: previous match.';
         });
       }
 

@@ -1,0 +1,312 @@
+# Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
+
+Document status: planning only; no integration code has been implemented.
+Last reviewed: 20 October 2026.
+Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
+
+## 1. Executive decision
+
+Build a staged connection between the Inductive Bible Study Workspace (IBS) and the separate Expository Sermon Preparation Studio (called “Kerygma” in its header).
+
+The governing workflow is:
+
+Observe the text → Interpret its meaning → Establish Doctrine → Develop Discipleship → Prepare the sermon Big Idea → Build the homiletical outline → Develop illustrations and applications → Write the manuscript.
+
+IBS is the source of the documented textual and interpretive work. Kerygma is the sermon-development workspace. The sermon should be built from the completed study, not used to predetermine the interpretation.
+
+**First integration method:** explicit, versioned JSON export from IBS and JSON import into Kerygma. This is preferable to immediate shared-database integration: the sermon tool is currently known only as an uploaded standalone HTML file, and its repository/hosting are not yet confirmed. JSON transfer can be validated independently and does not require both apps to share an origin or database.
+
+Do not implement anything until the source and deployment location of Kerygma have been identified and the latest app source has been inspected.
+
+## 2. Current baseline — do not lose this information
+
+### Inductive Bible Study Workspace
+
+- Repository: https://github.com/johann-han/inductive-bible-study-cloud
+- Branch: main
+- Last verified branch tip at the time of writing: fc59da3a375b99e7ed4b278d21fef5e00908ef8e
+- Latest main index.html blob SHA at the time of review: bb000fa07de8cbe1e6ca4661c9ae9278ca9762b1
+- Live application: https://inductive-bible-study-workspace.onrender.com/
+- Render is configured to deploy from the repository; verify the actual deployment after every code commit.
+- This document-only change must not be treated as implementation of integration functionality.
+
+Current IBS features include the four study stages Observe, Interpretation, Doctrine and Discipleship; Bible reading; Strong’s word studies; verse mapping; editable passage outlines; visual scripture markup; personal cross-references; standard TSK-derived cross-references; note version history and recovery; local saving; optional Supabase cloud sync; full backups; Markdown exports; and publication-ready HTML reports.
+
+Relevant code in IBS index.html:
+- Study data key: inductive-study-library-v1
+- Study record key format: book::chapter
+- Main access helpers: readStudyLibrary(), writeStudyLibrary(), getStudyRecord(), saveActiveStudyNote()
+- Markdown export: downloadStudyMarkdown(record)
+- Publication report: buildStudyReportHtml(...)
+- Study record data includes sections, passageOutline, verseMaps, scriptureMarkups, crossReferences and versionHistory.
+- The section persistence keys are observe, interpret, doctrine and apply. The user-facing “Discipleship” section deliberately keeps the apply key for backward compatibility.
+- Custom cross-references and standard TSK cross-references are distinct features. Keep their provenance separate in any transfer packet.
+- Cloud sync serializes many structured fields into the existing study_records.sections JSON object; do not casually alter its current schema during the first export/import phase.
+- Note history is for recovery and does not need to be included in the default sermon source packet. Do not expose or transfer all history by default.
+
+Inspect the live main index.html again before any code change. Never assume these SHAs remain current in a later chat.
+
+### Expository Sermon Preparation Studio / Kerygma
+
+- Uploaded source filename: index.html
+- SHA-256 of the supplied upload at review time: 2fb84cecaa19255491dda8aeaa5e8bd125cab91d9dc21ab621ea7524f7a91656
+- This SHA is for the supplied upload, not a repository commit.
+- The uploaded file is a standalone HTML app using Tailwind CSS, Lucide icons and the ExpositoryStudio JavaScript class.
+- No Kerygma repository URL, hosting URL or deployment pipeline has been confirmed. Locate/confirm these before editing the live sermon app.
+
+Observed current Kerygma storage and data model:
+- Sermons are saved in browser localStorage under kerygma_sermons.
+- The optional custom Gemini key is stored in localStorage under kerygma_gemini_api_key.
+- Each sermon currently contains fields including id, title, passage, text, context, keywords, exeSubject, exeComplement, bigIdea, aim, outline, illustrations, appSeekers, appBelievers, appSuffering and manuscript.
+- There are five UI workflow tabs: Text & Exegesis, Big Idea & Proposition, Homiletical Outline, Illustrations & Application, and Manuscript / Notes.
+- The Outline items use reference, statement and notes.
+- Kerygma currently has no structured IBS import function or dedicated source fields for all four IBS stages.
+- Kerygma currently calls the Gemini API directly from browser JavaScript; see security requirements in Section 10.
+
+Relevant method locations in the uploaded Kerygma source (line numbers refer to the supplied upload, not the IBS repo):
+- API caller: callGeminiAPI(), around line 418
+- Exegesis analysis: aiAnalyzeExegesis(), around line 466
+- Big Idea generation: aiGenerateBigIdea(), around line 512
+- Outline generation: aiGenerateOutline(), around line 558
+- Application brainstorming: aiBrainstormApplications(), around line 610
+- Manuscript drafting: aiDraftManuscript(), around line 673
+- Default record and fields: createDefaultSermon(), around line 704
+- Browser save: saveToStorage(), around line 734
+- Form loading and saving: loadCurrentSermon() and updateMeta(), around lines 811 and 833
+- Markdown-like outline-to-manuscript compilation: compileOutlineIntoManuscript(), around line 987
+- Text export: exportSermon(), around line 1016
+
+## 3. Intended user experience
+
+1. The user completes and saves the passage study in IBS.
+2. The user selects “Prepare Sermon” or equivalent from the active study or saved-study card.
+3. IBS creates a downloadable, schema-versioned JSON packet for that passage. The user can review the content and optionally include supporting evidence before download.
+4. In Kerygma, the user chooses “Import Inductive Study” and selects that JSON file.
+5. Kerygma validates the file, shows a preview containing passage reference, translation, notes and supporting evidence, and asks whether to create a new sermon or import into the currently selected sermon.
+6. After explicit confirmation, the tool attaches the structured study as the sermon’s source material and fills only agreed fields. Existing manual sermon work is never silently overwritten.
+7. The user reviews the material before any AI operation. AI outputs are drafts/suggestions, not replacements for exegesis or the user’s theological judgement.
+8. The imported source material remains accessible from all sermon workflow tabs and is saved with that sermon.
+9. The user can re-import a newer study packet later. The app must show a difference/overwrite choice and preserve sermon-specific content.
+
+## 4. Phase plan and order of work
+
+### Phase 0 — Verify baselines and backups
+
+Before coding:
+1. Fetch the latest IBS main/index.html and record the branch tip and blob SHA.
+2. Confirm the latest mobile UI changes are still present and the live app is working.
+3. Identify where the Kerygma file is hosted and its source repository. Do not infer its repo from its filename.
+4. Save a clean copy of the supplied Kerygma HTML and verify its checksum. Do not overwrite the supplied source until its destination repo/path is known.
+5. Create an IBS full study backup and retain the original Kerygma file. Do not clear browser localStorage.
+6. Confirm whether Kerygma’s browser-local sermons need a backup/export enhancement before integration. If so, handle that as a small, separately tested preparation step.
+
+Completion gate: both sources are identified and recoverable; integration code is still unchanged.
+
+### Phase 1 — Define and test a stable transfer contract
+
+Document and implement a pure schema/validation layer before wiring UI. Start with one book/chapter study per packet.
+
+Required packet structure (version 1; names can be finalized before implementation):
+
+- format: inductive-bible-study-sermon-source
+- version: 1
+- exportedAt: ISO timestamp
+- studyReference: object with book, chapter and display reference
+- translation: translation identifier/abbreviation, if known
+- sermonPassage: optional more precise sermon verse range supplied/confirmed by the user
+- sourceUpdatedAt: source study updatedAt
+- sections: observe, interpret, doctrine, discipleship
+- passageOutline: optional title plus sections containing heading, verseRange, majorIdea and supportingDetails
+- verseMaps: optional per-verse structured mapping
+- scriptureMarkups: optional selected/highlighted phrase and markup type
+- customCrossReferences: optional user-created cross-references, kept distinct from standard references
+- standardCrossReferences: optional standard dataset references with dataset/provenance metadata, kept distinct from personal links
+- selectedVerses: optional verse references if the user explicitly selected them at export time
+
+Rules:
+- Use actual stored data only. Do not synthesize absent study content.
+- Omit or mark unavailable fields rather than inventing a translation, verse text or reference.
+- Include only the study being exported, never the user’s full library, by default.
+- Do not include versionHistory by default.
+- Exclude credentials, API keys, Supabase tokens, account details and other secrets.
+- Put a size limit on import (initial proposal: 5 MB) and validate the complete packet before applying any changes.
+- Use a deterministic validator and normalize fields before saving.
+- Version 1 initially covers a single book/chapter record. Multi-chapter sermon packets can be added later by a new schema version after single-chapter transfer is reliable.
+
+Test the validator for a good packet, missing required fields, unsupported version, invalid Bible reference, oversized text/packet, invalid nested arrays/objects and unknown fields. Unknown optional fields should be safely ignored, not executed.
+
+### Phase 2 — Add JSON export to IBS only
+
+Make a small additive change in the current IBS index.html:
+1. Add a “Prepare Sermon” / “Export for Sermon Prep” action near existing current-study export tools. Keep Report and Export MD intact.
+2. Export one saved book/chapter study into the version 1 packet.
+3. Include the four note stages and available outline, mapping, markings and references with clear provenance. Keep custom links distinct from TSK-derived references.
+4. If a narrower preaching passage is needed, permit the user to enter/confirm it; do not guess verse boundaries.
+5. Show a clear download/success state and explain what is included.
+6. Avoid changing storage schema, cloud sync logic or the current Bible reader as part of this phase.
+
+Test:
+- Export an empty study, a partially filled study and a populated study.
+- Verify all four stage labels map correctly, particularly Discipleship ↔ stored apply.
+- Verify outline headings and verse ranges, maps, marks and references retain correct values and provenance.
+- Verify that data absent from the local study is not invented.
+- Recheck Report, Markdown, History, cloud/local saving, both cross-reference systems and mobile layout.
+
+Commit and test the IBS export before touching the sermon tool. Wait for the user’s live-app confirmation.
+
+### Phase 3 — Add JSON import and source display to Kerygma
+
+Only after Phase 2 is confirmed:
+1. Add a clearly labelled “Import Inductive Study” button and hidden file input.
+2. Parse JSON as data; never use eval or execute packet contents.
+3. Validate format/version/reference, shape, content lengths and maximum file size before mutating the current sermon.
+4. Display a preview and explicit choice: “Create new sermon” or “Import into current sermon.”
+5. For a new sermon, create a new unique ID. Preserve every other sermon.
+6. For import into an existing sermon, ask which fields to fill and whether any existing values may be replaced. Default to preserving existing handwritten content.
+7. Store the imported packet under a dedicated nested property such as inductiveStudySource on the Kerygma sermon record. Do not flatten all evidence into one text box.
+8. Add a collapsible “Source Inductive Study” display that preserves Observe, Interpretation, Doctrine, Discipleship, passage outline, verse maps and cross-reference provenance. Keep it available throughout the five sermon tabs.
+9. Extend loading/saving carefully. Older sermon records lacking inductiveStudySource must still load with empty source material; this must be a backward-compatible optional property.
+10. Preserve existing title, reference, AI buttons, outline editing, illustrations, applications, manuscript and export workflows.
+
+Suggested field mapping:
+- study reference → Kerygma passage (only on user confirmation; keep user-provided verse range)
+- available exact source passage text and translation → Kerygma text/translation metadata only if supplied and verified; otherwise ask the user to paste/select the sermon text
+- IBS context / interpretation → reference material for exegesis, not an automatic replacement of handwritten context
+- observations, Strong’s studies and verse maps → separate source evidence/keyword suggestions
+- IBS Doctrine → a distinct theological source field; do not collapse it into Interpretation
+- IBS Discipleship → starting evidence for applications, not an automatic replacement for seekers/believers/suffering application fields
+- IBS passage-outline sections → previewable candidates for homiletical points. Require user confirmation before replacing/merging an existing outline
+- personal and standard cross-references → two visibly distinct lists with their origin retained
+- verse markup → evidence/observation display; do not treat colored highlighting as proof of an interpretation
+
+Test import with valid and malformed JSON, duplicate imports, existing sermon with handwritten content, new sermon, old records with no source property, Unicode, long notes, unsupported versions, invalid references, mobile and desktop UI. Confirm that importing never deletes an existing sermon or silently overwrites a manuscript.
+
+### Phase 4 — Connect the imported study to AI prompts
+
+Do this only after import/export round-trip works and the user has confirmed it.
+
+Modify prompts deliberately, not by appending every field blindly:
+- Exegesis analysis: include available passage text, translation, existing context, observations, interpretation, original-language notes and selected verse maps. Ask AI to distinguish user source notes from additional suggestions and flag uncertainty.
+- Big Idea: use the established interpretation and doctrinal conclusions to propose an exegetical subject/complement and homiletical proposition. Require the output to be traceable to the passage and avoid moving from observation directly to application.
+- Outline: use the saved passage outline as evidence for textual divisions. Generate homiletical points from it without claiming that the homiletical outline is identical to the original passage outline. Preserve verse ranges and require text-based explanatory notes.
+- Applications: use the user’s Doctrine and Discipleship notes as constraints and foundations. Treat applications for seekers, believers and suffering hearers as tailored developments, not as three replacements for the Discipleship stage.
+- Manuscript: include the relevant core study, final user-approved Big Idea, approved sermon outline, doctrinal guardrails, chosen applications and supporting references. Avoid dumping unnecessary raw data into the prompt.
+- All AI-generated content remains editable and must never replace saved source material unless the user chooses to use it.
+
+Acceptance gate: an AI draft must reflect the imported study, preserve the intended meaning, retain the sermon’s reference/divisions, distinguish evidence from inference, and not invent sources or theological conclusions.
+
+### Phase 5 — Make export and provenance coherent
+
+- Preserve current Kerygma text export.
+- Add imported source material to a separate appendix or clearly labelled source-notes section only if the user selects it.
+- Ensure sermon export carries title, reference, Big Idea, objective, outline, applications, manuscript and optionally the original source study.
+- Distinguish citations/reference notes that were in the imported study from AI-suggested references.
+- Never silently claim that all standard cross-references are from TSK if they did not originate there; preserve available provenance/licensing information.
+- Round-trip test: import packet → save sermon → reload browser → export sermon → confirm the source study and manuscript persist.
+
+### Phase 6 — Optional direct integration (not part of the initial build)
+
+Only consider shared backend synchronization after JSON integration proves useful and the Kerygma hosting/repository is confirmed.
+
+Potential options:
+1. A server-mediated API that authenticates the user and returns a selected study packet; or
+2. A shared data model/database with carefully defined permissions.
+
+Do not expose Supabase service-role credentials, Gemini/OpenRouter secrets or user notes through a public unauthenticated endpoint. Do not create a public API endpoint that allows arbitrary users to enumerate studies. Do not make direct cross-origin access to browser localStorage part of the design.
+
+The simplest supported first release should remain downloadable JSON import/export; it is easier to validate, recover and roll back.
+
+## 5. Data contract decisions
+
+### Mapping from IBS
+
+Stored keys and user labels:
+- observe → Observe
+- interpret → Interpretation
+- doctrine → Doctrine
+- apply → Discipleship
+
+Structured data:
+- passageOutline: title and outline sections with heading, verseRange, majorIdea and supportingDetails
+- verseMaps: keyed by verse, with existing structured word-study, context, translation-comparison, cross-reference and response fields
+- scriptureMarkups: verse, quote, translation and markup type
+- crossReferences: personal links including source, target, relationship and note
+- standard cross-references: obtained from the separate standard dataset; only transfer when actual results/provenance are available
+- updatedAt and export timestamp: retain for source tracking
+- versionHistory: do not include by default; it is for recovery, not sermon drafting.
+
+### Suggested Kerygma extension
+
+Add an optional nested inductiveStudySource property to each sermon. It should contain the normalized version 1 packet and minimal import metadata (importedAt, sourceReference, schemaVersion). Do not store credentials or hidden account state in it.
+
+Keep the current Kerygma sermon fields independent; new source data must not change the semantics of text, context, keywords, Big Idea, outline, applications or manuscript.
+
+## 6. Test gates before each next phase
+
+Never move on just because code parses. Test in this order:
+1. Syntax/integrity checks on each modified HTML file.
+2. Pure schema/normalization tests.
+3. IBS export file inspection and round-trip validation.
+4. Kerygma import, preview, conflict choices and persistence.
+5. Existing feature regression tests in both tools.
+6. AI prompt spot-checks against a passage already studied by the user.
+7. Live deployment verification by the user, with explicit confirmation before continuing.
+
+Use a low-risk known study first (for example, the user’s already-tested Romans 2 study). Do not use a production sermon as the first destructive-overwrite test.
+
+## 7. Rollback and recovery
+
+- Make small, purpose-specific commits, one phase at a time.
+- Record each commit URL and the last confirmed good commit in the handover notes.
+- Never revert an entire current index.html to an old copy merely to undo one integration feature; that would remove subsequent mobile UI and recovery features.
+- Roll back by reverting only the integration-specific commit(s), or by a small corrective commit.
+- Keep the current working local copy of Kerygma and an IBS full backup.
+- Never clear localStorage to troubleshoot integration.
+- Import operations must validate first, ask for confirmation, and write only after approval.
+- Include a Cancel path and preserve current state on validation failure.
+- The source packet is read-only input: importing must not modify the original study in IBS.
+
+## 8. Security and privacy
+
+- The supplied Kerygma code stores the custom Gemini API key in browser localStorage and sends it from browser JavaScript in the Gemini URL. This is not an appropriate security model for a publicly deployed app.
+- Before a public/prod sermon integration, move Gemini calls server-side and read the secret from the deployment environment; do not ask the user to paste secrets into chat.
+- Do not log full study notes or manuscripts in server logs.
+- Keep import local and explicit, with a clear statement of what note material will become available to the sermon generator.
+- Do not send a user’s whole IBS library or all version history to the AI.
+- Validate imported text size and shape, render text as text, and do not interpolate imported fields into unsafe HTML.
+- If cloud-backed sermon records are later added, require authenticated, per-user authorization and test database policies.
+
+## 9. Definition of done
+
+Initial integration is complete only when:
+- The user can export a valid passage study from IBS.
+- The user can preview/import it in Kerygma.
+- All four study stages map and remain separately visible.
+- The outline, maps, markup and references preserve their structure and provenance.
+- Existing Kerygma sermons, custom edits, manuscript and current workflows remain intact.
+- Imported data persists after reload and is represented in export when selected.
+- AI prompts make considered use of the study without replacing it or inventing content.
+- The old and new app features have been tested in their live deployment(s).
+- The user explicitly confirms success before the next phase begins.
+
+## 10. New-chat recovery instructions (copy this section into a new chat)
+
+We are integrating the separate Expository Sermon Preparation Studio (Kerygma) with the existing Inductive Bible Study Workspace. Read this handover document first:
+https://github.com/johann-han/inductive-bible-study-cloud/blob/main/docs/EXPOSITORY_SERMON_PREP_INTEGRATION_PLAN.md
+
+Current IBS repository: https://github.com/johann-han/inductive-bible-study-cloud
+Live IBS app: https://inductive-bible-study-workspace.onrender.com/
+Baseline recorded on 20 October 2026: main tip fc59da3a375b99e7ed4b278d21fef5e00908ef8e. Always fetch the newest main/index.html and verify the latest baseline before editing.
+
+The Kerygma HTML is an uploaded standalone file whose SHA-256 at the time of review was 2fb84cecaa19255491dda8aeaa5e8bd125cab91d9dc21ab621ea7524f7a91656. Its repository/hosting have NOT yet been identified. Ask for or locate that source before touching it.
+
+Do not redesign either app. Follow the phases in the handover exactly: Phase 0 baseline/backups and locate Kerygma; Phase 1 finalize/test the JSON contract; Phase 2 implement and test IBS export only; wait for my live-app confirmation; Phase 3 implement Kerygma import and source panel; wait for confirmation; Phase 4 connect AI prompts; then export/provenance and optional direct integration only if justified. Do not skip gates, overwrite handwritten work, expose API keys, or clear localStorage. Work incrementally, test every phase, commit and provide links. The integration code has not been started yet; only this plan is being documented.
+
+## 11. First action when implementation begins
+
+Do not start with code. First:
+1. Read this plan in full.
+2. Fetch current IBS main branch and current index.html from GitHub.
+3. Ask for/confirm the Kerygma repository and deployment location if not available.
+4. Verify that both apps and the relevant local/browser data have backup or rollback paths.
+5. Propose the Phase 0 findings and wait for any missing location/ownership detail before implementation.

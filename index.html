@@ -2793,7 +2793,7 @@
       const record = readStudyLibrary()[studyRecordKey(book, chapter)];
       if (!record || !record.sections) return null;
 
-      const headingPattern = /^\s*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)\s+[—–-]\s+(.+?)\s*$/gm;
+      const headingPattern = /^[\t ]*(?:AI Study Mentor|Additional AI Study Mentor response|Further AI Study Mentor response)[\t ]+[—–-][\t ]+(.+?)[\t ]*$/gm;
       for (const section of ['observe', 'interpret', 'apply']) {
         const notes = String(record.sections[section] || '');
         const matcher = new RegExp(headingPattern.source, 'gm');

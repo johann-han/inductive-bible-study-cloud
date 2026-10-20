@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expository Sermon Preparation Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Lora', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f4f6f8',
+                            100: '#e5e9ee',
+                            500: '#2c4a6f',
+                            600: '#1e3857',
+                            700: '#14263d',
+                        },
+                        amber: {
+                            500: '#d97706',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full font-sans antialiased text-slate-800 flex flex-col">
+
+    <header class="bg-brand-700 text-white shadow-md z-10 flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-amber-500 p-2 rounded-lg text-brand-700">
+                        <i data-lucide="book-open" class="w-6 h-6 stroke-[2.5]"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-serif text-xl font-bold tracking-tight">Kerygma</h1>
+                        <p class="text-xs text-slate-300 font-sans">Expository Sermon Studio</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 flex-wrap justify-end">
+                    <button onclick="sermonApp.createNewSermon()" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-brand-700 bg-amber-500 hover:bg-amber-400 focus:outline-none transition-colors">
+                        <i data-lucide="plus" class="w-4 h-4 mr-1"></i> New Sermon
+                    </button>
+                    <button id="importInductiveStudyBtn" type="button" class="inline-flex items-center px-3 py-1.5 border border-amber-400 text-xs font-medium rounded-md text-amber-100 hover:bg-brand-600 focus:outline-none transition-colors" title="Import a versioned study packet from Inductive Bible Study">
+                        <i data-lucide="file-down" class="w-4 h-4 mr-1"></i> Import Study
+                    </button>
+                    <input id="inductiveStudyFileInput" type="file" accept=".json,application/json" class="hidden">
+                    <button onclick="sermonApp.openSettingsModal()" class="inline-flex items-center px-3 py-1.5 border border-slate-500 text-xs font-medium rounded-md text-slate-200 hover:bg-brand-600 focus:outline-none transition-colors">
+                        <i data-lucide="settings" class="w-4 h-4 mr-1"></i> API Settings
+                    </button>
+                    <button onclick="sermonApp.exportSermon()" class="inline-flex items-center px-3 py-1.5 border border-slate-500 text-xs font-medium rounded-md text-slate-200 hover:bg-brand-600 focus:outline-none transition-colors">
+                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar Navigation & Workspaces -->
+        <aside class="w-72 bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
+            <!-- Sermon Selection Header -->
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Sermon Vault</span>
+                <span id="sermon-count" class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium">1</span>
+            </div>
+            
+            <!-- Sermon List -->
+            <div id="sermon-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                <!-- Dynamically Populated -->
+            </div>
+
+            <!-- Preaching Process Guide Footer -->
+            <div class="p-4 border-t border-slate-200 bg-slate-50">
+                <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Expository Method</h4>
+                <ol class="text-xs text-slate-500 space-y-1 list-decimal list-inside font-medium">
+                    <li>Observe Text & Context</li>
+                    <li>Extract Big Idea (CIT)</li>
+                    <li>Structure Homiletically</li>
+                    <li>Apply & Contextualize</li>
+                </ol>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-slate-100">
+            
+            <!-- Workflow Steps Header Tabs -->
+            <nav class="bg-white border-b border-slate-200 px-6 pt-3 flex space-x-6 overflow-x-auto shadow-sm flex-shrink-0" id="workflow-tabs">
+                <button onclick="sermonApp.switchTab('passage')" id="tab-passage" class="pb-3 px-1 border-b-2 font-medium text-sm border-brand-500 text-brand-600 flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="book" class="w-4 h-4"></i>
+                    <span>1. Text & Exegesis</span>
+                </button>
+                <button onclick="sermonApp.switchTab('bigidea')" id="tab-bigidea" class="pb-3 px-1 border-b-2 font-medium text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="lightbulb" class="w-4 h-4"></i>
+                    <span>2. Big Idea & Proposition</span>
+                </button>
+                <button onclick="sermonApp.switchTab('outline')" id="tab-outline" class="pb-3 px-1 border-b-2 font-medium text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="list-tree" class="w-4 h-4"></i>
+                    <span>3. Homiletical Outline</span>
+                </button>
+                <button onclick="sermonApp.switchTab('illustrations')" id="tab-illustrations" class="pb-3 px-1 border-b-2 font-medium text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="layers" class="w-4 h-4"></i>
+                    <span>4. Illustrations & Application</span>
+                </button>
+                <button onclick="sermonApp.switchTab('manuscript')" id="tab-manuscript" class="pb-3 px-1 border-b-2 font-medium text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>5. Manuscript / Notes</span>
+                </button>
+            </nav>
+
+            <!-- Dynamic Tab Content Container -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                <section id="inductive-source-panel" class="hidden bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
+                    <div class="flex items-center justify-between gap-3 p-4 bg-emerald-50">
+                        <button id="inductiveSourceToggle" type="button" aria-expanded="false" class="font-semibold text-sm text-emerald-950 text-left">Source Inductive Study <span class="text-xs font-normal text-emerald-800">(open to review imported evidence)</span></button>
+                        <span id="inductiveSourceSummary" class="text-[11px] text-emerald-800 text-right"></span>
+                    </div>
+                    <div id="inductiveSourceContent" class="hidden p-4 space-y-3"></div>
+                </section>
+
+                <!-- STEP 1: TEXT & EXEGESIS -->
+                <section id="view-passage" class="tab-view space-y-6 max-w-5xl mx-auto">
+                    <!-- Basic Meta Block -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Sermon Title</label>
+                            <input type="text" id="sermon-title" oninput="sermonApp.updateMeta()" placeholder="e.g., Unshakable Faith in the Storm" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 font-medium text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Scripture Reference</label>
+                            <input type="text" id="sermon-passage" oninput="sermonApp.updateMeta()" placeholder="e.g., Mark 4:35-41" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 font-medium text-slate-800">
+                        </div>
+                    </div>
+
+                    <!-- AI Exegesis Bar -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-amber-500 rounded-lg text-white">
+                                <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-amber-950">Gemini Exegetical Assistant</h4>
+                                <p class="text-xs text-amber-800">Automatically analyze context, key original language terms, and themes.</p>
+                            </div>
+                        </div>
+                        <button id="btn-ai-exegesis" onclick="sermonApp.aiAnalyzeExegesis()" class="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-lg flex items-center justify-center transition-colors shadow-sm">
+                            <i data-lucide="wand-2" class="w-4 h-4 mr-1.5"></i> Analyze Passage
+                        </button>
+                    </div>
+
+                    <!-- Text Input & Exegetical Notes -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-bold uppercase tracking-wide text-slate-700 flex items-center">
+                                    <i data-lucide="book-open-text" class="w-4 h-4 mr-2 text-brand-500"></i> Scripture Text
+                                </h3>
+                                <span class="text-xs text-slate-400">Paste your chosen translation</span>
+                            </div>
+                            <textarea id="sermon-text" oninput="sermonApp.updateMeta()" placeholder="Paste passage text here..." class="flex-1 w-full min-h-[300px] p-3 border border-slate-300 rounded-lg font-serif text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 leading-relaxed custom-scrollbar"></textarea>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col space-y-4">
+                            <h3 class="text-sm font-bold uppercase tracking-wide text-slate-700 flex items-center">
+                                <i data-lucide="compass" class="w-4 h-4 mr-2 text-brand-500"></i> Context & Exegetical Observations
+                            </h3>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Literary & Historical Context</label>
+                                <textarea id="exe-context" oninput="sermonApp.updateMeta()" placeholder="Who wrote it? To whom? What precedes/follows this passage?" class="w-full h-24 p-2.5 border border-slate-300 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Key Words & Grammar Structure</label>
+                                <textarea id="exe-keywords" oninput="sermonApp.updateMeta()" placeholder="Original language insights, key verbs, repeating phrases..." class="w-full h-24 p-2.5 border border-slate-300 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- STEP 2: BIG IDEA & PROPOSITION -->
+                <section id="view-bigidea" class="tab-view hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-800 mb-1">Distilling the Text's Core Message</h2>
+                                <p class="text-xs text-slate-500">Expository preaching bridges the ancient context (Exegetical Idea) to modern hearers (Homiletical Idea).</p>
+                            </div>
+                            <button id="btn-ai-bigidea" onclick="sermonApp.aiGenerateBigIdea()" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-lg flex items-center transition-colors shadow-sm whitespace-nowrap">
+                                <i data-lucide="sparkles" class="w-4 h-4 mr-1.5"></i> Synthesize Big Idea with AI
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Exegetical Idea (Then) -->
+                            <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                                <span class="inline-block text-xs font-bold uppercase tracking-wider bg-brand-500 text-white px-2 py-0.5 rounded">Ancient Text (Then)</span>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Exegetical Subject (What is the author talking about?)</label>
+                                    <input type="text" id="exe-subject" oninput="sermonApp.updateMeta()" placeholder="e.g., Jesus' authority over creation..." class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-brand-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Exegetical Complement (What is the author saying about it?)</label>
+                                    <input type="text" id="exe-complement" oninput="sermonApp.updateMeta()" placeholder="e.g., ...reassures disciples who are terrified in the storm." class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-brand-500">
+                                </div>
+                            </div>
+
+                            <!-- Homiletical Idea (Now) -->
+                            <div class="p-4 bg-amber-50/50 border border-amber-200 rounded-lg space-y-3">
+                                <span class="inline-block text-xs font-bold uppercase tracking-wider bg-amber-500 text-brand-700 px-2 py-0.5 rounded">Modern Audience (Now)</span>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">The Big Idea / Proposition (One Single Sentence)</label>
+                                    <textarea id="big-idea" oninput="sermonApp.updateMeta()" placeholder="e.g., When storms make you question God's care, trust the sovereign presence of Christ." class="w-full h-24 p-2.5 border border-amber-300 rounded text-sm font-semibold text-brand-700 focus:ring-amber-500"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Objective / Aim -->
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Sermon Objective (What should hearers feel, know, or do?)</label>
+                            <input type="text" id="sermon-aim" oninput="sermonApp.updateMeta()" placeholder="e.g., To lead believers to surrender panic and rely on Christ during trials." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm text-slate-800">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- STEP 3: HOMILETICAL OUTLINE -->
+                <section id="view-outline" class="tab-view hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-800">Homiletical Structure</h2>
+                                <p class="text-xs text-slate-500">Organize points directly tied to scripture divisions.</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button id="btn-ai-outline" onclick="sermonApp.aiGenerateOutline()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg flex items-center transition-colors shadow-sm">
+                                    <i data-lucide="sparkles" class="w-4 h-4 mr-1"></i> AI Generate Outline
+                                </button>
+                                <button onclick="sermonApp.addMainPoint()" class="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg flex items-center transition-colors">
+                                    <i data-lucide="plus-circle" class="w-4 h-4 mr-1"></i> Add Main Point
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Outline Items List -->
+                        <div id="outline-container" class="space-y-4">
+                            <!-- Dynamic Content -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- STEP 4: ILLUSTRATIONS & APPLICATION -->
+                <section id="view-illustrations" class="tab-view hidden space-y-6 max-w-5xl mx-auto">
+                    <!-- AI Brainstorm Bar -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-amber-500 rounded-lg text-white">
+                                <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-amber-950">AI Homiletical Brainstormer</h4>
+                                <p class="text-xs text-amber-800">Generate tailored illustrations and context-specific applications based on your Big Idea.</p>
+                            </div>
+                        </div>
+                        <button id="btn-ai-brainstorm" onclick="sermonApp.aiBrainstormApplications()" class="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-lg flex items-center justify-center transition-colors shadow-sm whitespace-nowrap">
+                            <i data-lucide="wand-2" class="w-4 h-4 mr-1.5"></i> Brainstorm with AI
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Illustrations Pool -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold uppercase text-slate-700 flex items-center">
+                                    <i data-lucide="sparkles" class="w-4 h-4 mr-2 text-amber-500"></i> Illustrations & Analogies
+                                </h3>
+                                <button onclick="sermonApp.addIllustration()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md font-medium">Add</button>
+                            </div>
+                            <div id="illustration-list" class="space-y-3">
+                                <!-- Dynamic List -->
+                            </div>
+                        </div>
+
+                        <!-- Application Grid -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                            <h3 class="text-sm font-bold uppercase text-slate-700 flex items-center">
+                                <i data-lucide="target" class="w-4 h-4 mr-2 text-brand-500"></i> Contextual Application
+                            </h3>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">To Non-Believers / Seekers</label>
+                                <textarea id="app-seekers" oninput="sermonApp.updateMeta()" placeholder="How does this reveal the Gospel to those outside faith?" class="w-full h-20 p-2 border border-slate-300 rounded text-xs"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">To Believers / Growing Christians</label>
+                                <textarea id="app-believers" oninput="sermonApp.updateMeta()" placeholder="How does this sanctify and challenge daily Christian living?" class="w-full h-20 p-2 border border-slate-300 rounded text-xs"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">To Suffering / Weary Souls</label>
+                                <textarea id="app-suffering" oninput="sermonApp.updateMeta()" placeholder="What comfort and hope does this offer in trial?" class="w-full h-20 p-2 border border-slate-300 rounded text-xs"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- STEP 5: MANUSCRIPT & NOTES -->
+                <section id="view-manuscript" class="tab-view hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-200 pb-3 gap-3">
+                            <h2 class="text-lg font-bold text-slate-800">Full Manuscript / Preaching Notes</h2>
+                            <div class="flex items-center space-x-2">
+                                <button id="btn-ai-manuscript" onclick="sermonApp.aiDraftManuscript()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold shadow-sm transition-colors flex items-center">
+                                    <i data-lucide="sparkles" class="w-3.5 h-3.5 mr-1"></i> AI Draft Full Manuscript
+                                </button>
+                                <button onclick="sermonApp.compileOutlineIntoManuscript()" class="text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 px-3 py-1.5 rounded-lg font-semibold border border-brand-200 transition-colors">
+                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 inline mr-1"></i> Auto-Generate from Outline
+                                </button>
+                            </div>
+                        </div>
+
+                        <textarea id="sermon-manuscript" oninput="sermonApp.updateMeta()" placeholder="Write or refine your full manuscript here..." class="w-full min-h-[500px] p-4 font-serif text-base text-slate-800 border border-slate-300 rounded-lg leading-relaxed focus:ring-2 focus:ring-brand-500 custom-scrollbar"></textarea>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 class="text-base font-bold text-slate-800 flex items-center">
+                    <i data-lucide="settings" class="w-5 h-5 mr-2 text-brand-600"></i> AI Access
+                </h3>
+                <button onclick="sermonApp.closeSettingsModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-2">
+                <p class="text-sm text-slate-700">Kerygma uses the app’s server-managed AI service. API credentials are kept on the server and are not embedded in this page.</p>
+                <div id="ai-access-status" role="status" aria-live="polite" class="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">Checking sign-in status…</div>
+                <p class="text-[11px] text-slate-500">Sign in to your Inductive Bible Study account in the main app on this same site, then refresh Kerygma. Your sermon records remain saved in this browser.</p>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="sermonApp.closeSettingsModal()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold rounded-lg text-white">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="inductiveImportModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="inductiveImportTitle">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 space-y-4">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-200 pb-3">
+                <div>
+                    <h3 id="inductiveImportTitle" class="text-base font-bold text-slate-900">Import Inductive Study</h3>
+                    <p class="text-xs text-slate-500 mt-1">Review the source packet before it is attached to a sermon.</p>
+                </div>
+                <button id="cancelInductiveImportTop" type="button" aria-label="Close import preview" class="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+            </div>
+            <div id="inductiveImportPreview" class="space-y-2"></div>
+            <fieldset class="space-y-2 border-t border-slate-200 pt-4">
+                <legend class="text-xs font-bold uppercase tracking-wide text-slate-600 mb-2">Where should this source go?</legend>
+                <label class="flex items-start gap-2 p-3 rounded-lg border border-slate-200 cursor-pointer">
+                    <input type="radio" name="inductiveImportTarget" value="new" checked class="mt-1">
+                    <span><strong class="block text-sm text-slate-800">Create a new sermon</strong><span class="block text-xs text-slate-500">Keeps every existing sermon unchanged.</span></span>
+                </label>
+                <label class="flex items-start gap-2 p-3 rounded-lg border border-slate-200 cursor-pointer">
+                    <input type="radio" name="inductiveImportTarget" value="current" class="mt-1">
+                    <span><strong class="block text-sm text-slate-800">Attach to the selected sermon</strong><span id="inductiveImportCurrentLabel" class="block text-xs text-slate-500">Sermon fields that already contain text will be preserved.</span></span>
+                </label>
+            </fieldset>
+            <p id="inductiveImportWarning" class="hidden text-xs rounded-lg bg-amber-50 border border-amber-200 p-3 text-amber-900"></p>
+            <div class="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
+                <button id="cancelInductiveImport" type="button" class="px-4 py-2 border border-slate-300 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button id="confirmInductiveImport" type="button" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold rounded-lg text-white">Import Source Study</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Main Application Controller for Expository Sermon Prep
+         */
+        class ExpositoryStudio {
+            constructor() {
+                this.sermons = JSON.parse(localStorage.getItem('kerygma_sermons')) || [];
+                this.currentSermonId = null;
+                this.supabaseClient = null;
+                this.supabaseConfigPromise = null;
+                this.pendingInductiveStudyPacket = null;
+
+                if (this.sermons.length === 0) {
+                    this.createDefaultSermon();
+                } else {
+                    this.currentSermonId = this.sermons[0].id;
+                }
+
+                this.initUI();
+            }
+
+            // Helper to render icons safely
+            renderIcons() {
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    lucide.createIcons();
+                }
+            }
+
+            initUI() {
+                this.renderSermonList();
+                this.loadCurrentSermon();
+                this.bindInductiveStudyImport();
+                this.updateAISettingsStatus();
+                this.renderIcons();
+            }
+
+            openSettingsModal() {
+                document.getElementById('settings-modal').classList.remove('hidden');
+            }
+
+            closeSettingsModal() {
+                document.getElementById('settings-modal').classList.add('hidden');
+            }
+
+            saveSettings() {
+                this.closeSettingsModal();
+            }
+
+            async getSermonAccessToken() {
+                if (!this.supabaseConfigPromise) {
+                    this.supabaseConfigPromise = (async () => {
+                        const response = await fetch('/api/config', { cache: 'no-store' });
+                        if (!response.ok) throw new Error('The sign-in service is unavailable.');
+                        const config = await response.json();
+                        if (!config.supabaseUrl || !config.supabaseAnonKey) throw new Error('Secure AI is not configured on this deployment. Your local sermon notes are unaffected.');
+                        if (!window.supabase || typeof window.supabase.createClient !== 'function') throw new Error('The sign-in library could not load. Refresh the page and try again.');
+                        this.supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+                            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+                        });
+                    })().catch(error => { this.supabaseConfigPromise = null; throw error; });
+                }
+                await this.supabaseConfigPromise;
+                const result = await this.supabaseClient.auth.getSession();
+                if (result.error) throw new Error('Could not read the current sign-in session. Please refresh and sign in again.');
+                const token = result.data && result.data.session && result.data.session.access_token;
+                if (!token) throw new Error('Sign in to your Inductive Bible Study account in the main app, then refresh Kerygma to use AI.');
+                return token;
+            }
+
+            async updateAISettingsStatus() {
+                const status = document.getElementById('ai-access-status');
+                if (!status) return;
+                try {
+                    await this.getSermonAccessToken();
+                    status.textContent = 'Signed in. Server-managed AI is ready.';
+                    status.className = 'rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800';
+                } catch (error) {
+                    status.textContent = error.message || 'Sign-in is required for server-managed AI.';
+                    status.className = 'rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900';
+                }
+            }
+
+            bindInductiveStudyImport() {
+                const button = document.getElementById('importInductiveStudyBtn');
+                const input = document.getElementById('inductiveStudyFileInput');
+                const modal = document.getElementById('inductiveImportModal');
+                const cancel = () => {
+                    if (modal) modal.classList.add('hidden');
+                    if (modal) modal.classList.remove('flex');
+                    this.pendingInductiveStudyPacket = null;
+                };
+                if (button && input) button.addEventListener('click', () => input.click());
+                if (input) input.addEventListener('change', async () => {
+                    const file = input.files && input.files[0]; input.value = '';
+                    if (file) await this.handleInductiveStudyFile(file);
+                });
+                document.getElementById('cancelInductiveImport')?.addEventListener('click', cancel);
+                document.getElementById('cancelInductiveImportTop')?.addEventListener('click', cancel);
+                document.getElementById('confirmInductiveImport')?.addEventListener('click', () => this.confirmInductiveStudyImport());
+                const toggle = document.getElementById('inductiveSourceToggle');
+                const content = document.getElementById('inductiveSourceContent');
+                if (toggle && content) toggle.addEventListener('click', () => {
+                    const opened = !content.classList.contains('hidden');
+                    content.classList.toggle('hidden', opened);
+                    toggle.setAttribute('aria-expanded', String(!opened));
+                });
+                document.querySelectorAll('input[name="inductiveImportTarget"]').forEach(radio => radio.addEventListener('change', () => this.updateInductiveImportChoice()));
+                if (modal) modal.addEventListener('click', event => { if (event.target === modal) cancel(); });
+            }
+
+            normalizeInductiveStudyPacket(raw) {
+                if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('The selected file must contain a JSON object.');
+                if (raw.format !== 'inductive-bible-study-sermon-source') throw new Error('This file is not an Inductive Bible Study sermon-source packet.');
+                if (raw.version !== 1) throw new Error('This packet version is not supported. Export a fresh version 1 packet from Inductive Bible Study.');
+                const chapters = {'Genesis':50,'Exodus':40,'Leviticus':27,'Numbers':36,'Deuteronomy':34,'Joshua':24,'Judges':21,'Ruth':4,'1 Samuel':31,'2 Samuel':24,'1 Kings':22,'2 Kings':25,'1 Chronicles':29,'2 Chronicles':36,'Ezra':10,'Nehemiah':13,'Esther':10,'Job':42,'Psalms':150,'Proverbs':31,'Ecclesiastes':12,'Song of Solomon':8,'Isaiah':66,'Jeremiah':52,'Lamentations':5,'Ezekiel':48,'Daniel':12,'Hosea':14,'Joel':3,'Amos':9,'Obadiah':1,'Jonah':4,'Micah':7,'Nahum':3,'Habakkuk':3,'Zephaniah':3,'Haggai':2,'Zechariah':14,'Malachi':4,'Matthew':28,'Mark':16,'Luke':24,'John':21,'Acts':28,'Romans':16,'1 Corinthians':16,'2 Corinthians':13,'Galatians':6,'Ephesians':6,'Philippians':4,'Colossians':4,'1 Thessalonians':5,'2 Thessalonians':3,'1 Timothy':6,'2 Timothy':4,'Titus':3,'Philemon':1,'Hebrews':13,'James':5,'1 Peter':5,'2 Peter':3,'1 John':5,'2 John':1,'3 John':1,'Jude':1,'Revelation':22};
+                const clean = (value, max) => typeof value === 'string' ? value.slice(0, max) : '';
+                const int = (value, min, max) => Number.isInteger(value) && value >= min && value <= max ? value : null;
+                const validPlainRef = value => typeof value === 'string' && /^[A-Za-z0-9' .:–—-]{1,160}$/.test(value.trim());
+                const sr = raw.studyReference && typeof raw.studyReference === 'object' ? raw.studyReference : {};
+                const book = clean(sr.book,80).trim(); const chapter = int(sr.chapter,1,150);
+                if (!Object.prototype.hasOwnProperty.call(chapters,book) || !chapter || chapter > chapters[book]) throw new Error('The packet contains an invalid Bible book or chapter reference.');
+                const sermonPassage = clean(raw.sermonPassage,160).trim();
+                if (!validPlainRef(sermonPassage)) throw new Error('The sermon passage is missing or contains invalid characters.');
+                const passageMatch = sermonPassage.match(/^(.+?)\s+(\d+)(?::(\d+)(?:[-–](\d+))?)?$/);
+                if (!passageMatch || passageMatch[1] !== book || Number(passageMatch[2]) !== chapter) throw new Error('The sermon passage must be within the study book and chapter: ' + book + ' ' + chapter + '.');
+                const firstVerse = passageMatch[3] ? Number(passageMatch[3]) : null; const lastVerse = passageMatch[4] ? Number(passageMatch[4]) : firstVerse;
+                if (firstVerse !== null && (!Number.isInteger(firstVerse) || firstVerse < 1 || firstVerse > 250 || lastVerse < firstVerse || lastVerse > 250)) throw new Error('The sermon passage contains an invalid verse range.');
+                const sourceSections = raw.sections && typeof raw.sections === 'object' && !Array.isArray(raw.sections) ? raw.sections : {};
+                const sectionNames = ['observe','interpret','doctrine','discipleship'];
+                if (sectionNames.some(key => typeof sourceSections[key] !== 'string')) throw new Error('The packet must contain Observe, Interpretation, Doctrine and Discipleship sections.');
+                const sections = {}; sectionNames.forEach(key => { sections[key] = clean(sourceSections[key],100000); });
+                const sourceOutline = raw.passageOutline && typeof raw.passageOutline === 'object' && !Array.isArray(raw.passageOutline) ? raw.passageOutline : {};
+                const passageOutline = {title:clean(sourceOutline.title,500),sections:(Array.isArray(sourceOutline.sections)?sourceOutline.sections.slice(0,300):[]).filter(row => row && typeof row === 'object' && !Array.isArray(row)).map(row => ({id:clean(row.id,120),heading:clean(row.heading,1000),verseRange:clean(row.verseRange,160),majorIdea:clean(row.majorIdea,10000),supportingDetails:clean(row.supportingDetails,20000)}))};
+                const verseMaps = {}; const sourceMaps = raw.verseMaps && typeof raw.verseMaps === 'object' && !Array.isArray(raw.verseMaps) ? Object.entries(raw.verseMaps).slice(0,250) : [];
+                const mapFields = ['verseText','translation','context','keyWords','wordStudies','translationComparison','crossReferences','meaningSummary','response','updatedAt'];
+                sourceMaps.forEach(([key,value]) => { const verse=Number(key); if(!Number.isInteger(verse)||verse<1||verse>250||!value||typeof value!=='object'||Array.isArray(value))return; const entry={}; mapFields.forEach(field=>{entry[field]=clean(value[field],field==='verseText'?12000:10000);}); verseMaps[String(verse)]=entry; });
+                const markupRows = Array.isArray(raw.scriptureMarkups) ? raw.scriptureMarkups.slice(0,1000) : [];
+                const scriptureMarkups = markupRows.filter(mark=>mark&&['observation','repeated','contrast','command','promise'].includes(mark.type)&&int(mark.verse,1,250)!==null&&int(mark.start,0,1000000)!==null&&int(mark.end,1,1000000)!==null&&mark.end>mark.start&&typeof mark.quote==='string'&&mark.quote.length<=2000&&typeof mark.translation==='string'&&mark.translation.length<=40).map(mark=>({verse:mark.verse,start:mark.start,end:mark.end,quote:mark.quote,translation:mark.translation,type:mark.type}));
+                const refPoint = (value,sourcePoint) => { if(!value||typeof value!=='object'||Array.isArray(value))return null; const refBook=clean(value.book,80).trim(); const refChapter=int(value.chapter,1,150); if(!Object.prototype.hasOwnProperty.call(chapters,refBook)||!refChapter||refChapter>chapters[refBook])return null; if(sourcePoint){const verse=int(value.verse,1,250);return verse?{book:refBook,chapter:refChapter,verse}:null;} const start=value.startVerse==null?null:int(value.startVerse,1,250);const end=value.endVerse==null?null:int(value.endVerse,1,250);if(value.startVerse!=null&&!start)return null;if(value.endVerse!=null&&!end)return null;if(start&&end&&end<start)return null;return{book:refBook,chapter:refChapter,startVerse:start,endVerse:end};};
+                const customCrossReferences = (Array.isArray(raw.customCrossReferences)?raw.customCrossReferences.slice(0,1000):[]).filter(ref=>ref&&typeof ref==='object'&&refPoint(ref.source,true)&&refPoint(ref.target,false)).map(ref=>({id:clean(ref.id,120),source:refPoint(ref.source,true),target:refPoint(ref.target,false),relation:clean(ref.relation,80),note:clean(ref.note,4000),createdAt:clean(ref.createdAt,80)}));
+                const std = raw.standardCrossReferences && typeof raw.standardCrossReferences==='object'&&!Array.isArray(raw.standardCrossReferences)?raw.standardCrossReferences:{};
+                const standardCrossReferences = {dataset:clean(std.dataset,300),license:clean(std.license,100),available:std.available===true,note:clean(std.note,1000),entries:(Array.isArray(std.entries)?std.entries.slice(0,250):[]).filter(row=>row&&int(row.verse,1,250)!==null).map(row=>({verse:row.verse,anchors:(Array.isArray(row.anchors)?row.anchors.slice(0,100):[]).filter(anchor=>anchor&&typeof anchor==='object').map(anchor=>({anchor:clean(anchor.anchor,1000),references:(Array.isArray(anchor.references)?anchor.references.slice(0,250):[]).map(ref=>clean(ref,200)).filter(Boolean)}))}))};
+                const selectedVerses = (Array.isArray(raw.selectedVerses)?raw.selectedVerses.slice(0,250):[]).map(v=>clean(v,160)).filter(validPlainRef);
+                const passageText = clean(raw.passageText,150000);
+                return {format:'inductive-bible-study-sermon-source',version:1,exportedAt:clean(raw.exportedAt,80),studyReference:{book,chapter,display:book+' '+chapter},sermonPassage,translation:clean(raw.translation,40)||'Unknown',sourceUpdatedAt:typeof raw.sourceUpdatedAt==='string'?clean(raw.sourceUpdatedAt,80):null,passageText,passageTextIncluded:raw.passageTextIncluded===true&&Boolean(passageText.trim()),sections,passageOutline,verseMaps,scriptureMarkups,customCrossReferences,standardCrossReferences,selectedVerses};
+            }
+
+            async handleInductiveStudyFile(file) {
+                if (file.size > 5 * 1024 * 1024) { alert('This study packet is larger than the 5 MB import limit. No changes were made.'); return; }
+                try { const packet=this.normalizeInductiveStudyPacket(JSON.parse(await file.text())); this.pendingInductiveStudyPacket=packet; this.showInductiveStudyPreview(packet,file.name||'study packet'); }
+                catch(error) { alert('Could not import this study packet: '+(error.message||'Invalid JSON.')+'\n\nNo sermon data was changed.'); }
+            }
+
+            showInductiveStudyPreview(packet,filename) {
+                const modal=document.getElementById('inductiveImportModal');const preview=document.getElementById('inductiveImportPreview');const currentLabel=document.getElementById('inductiveImportCurrentLabel');
+                if(!modal||!preview)return;preview.replaceChildren();const heading=document.createElement('p');heading.className='text-xs text-slate-500';heading.textContent='File: '+filename+' · Version '+packet.version;preview.appendChild(heading);
+                const grid=document.createElement('dl');grid.className='grid grid-cols-1 sm:grid-cols-2 gap-2';const details=[['Sermon passage',packet.sermonPassage],['Translation',packet.translation],['Passage text',packet.passageTextIncluded?(packet.passageText.split(/\n/).length+' verse lines included'):'Not included'],['Study notes',packet.sections.observe.length+' obs · '+packet.sections.interpret.length+' interp · '+packet.sections.doctrine.length+' doctrine · '+packet.sections.discipleship.length+' discipleship characters'],['Passage outline',packet.passageOutline.sections.length+' source sections'],['Verse maps',Object.keys(packet.verseMaps).length+' verses'],['Visual marks',packet.scriptureMarkups.length],['Personal cross-references',packet.customCrossReferences.length],['Standard cross-reference entries',packet.standardCrossReferences.entries.length+(packet.standardCrossReferences.available?' · source available':' · unavailable')]];
+                details.forEach(pair=>{const item=document.createElement('div');item.className='rounded-lg border border-slate-200 p-3 min-w-0';const dt=document.createElement('dt');dt.className='text-[10px] uppercase tracking-wide text-slate-500';dt.textContent=pair[0];const dd=document.createElement('dd');dd.className='text-xs font-medium text-slate-800 mt-1 break-words';dd.textContent=String(pair[1]);item.appendChild(dt);item.appendChild(dd);grid.appendChild(item);});preview.appendChild(grid);
+                const note=document.createElement('p');note.className='text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3';note.textContent='Import stores the four IBS stages and supporting evidence separately. It does not replace a sermon’s Big Idea, outline, applications or manuscript. Blank passage/title fields may be filled; existing text is preserved.';preview.appendChild(note);
+                if(currentLabel){const current=this.getCurrentSermon();currentLabel.textContent='Selected: '+((current&&current.title)||'Untitled Sermon')+'. Populated sermon fields will be preserved.';}
+                const warning=document.getElementById('inductiveImportWarning');if(warning){warning.classList.add('hidden');warning.textContent='';}this.updateInductiveImportChoice();modal.classList.remove('hidden');modal.classList.add('flex');
+            }
+
+            updateInductiveImportChoice() {
+                const warning=document.getElementById('inductiveImportWarning');const choice=document.querySelector('input[name="inductiveImportTarget"]:checked')?.value||'new';const current=this.getCurrentSermon();if(!warning)return;
+                if(choice==='current'&&current&&current.inductiveStudySource){warning.textContent='The selected sermon already has an imported source study. Confirming will replace that source packet only; the sermon’s written fields will be preserved.';warning.classList.remove('hidden');}
+                else if(choice==='current'){warning.textContent='The packet will attach to the selected sermon. Existing non-empty title, passage, text, Big Idea, outline, applications and manuscript will not be overwritten.';warning.classList.remove('hidden');}
+                else{warning.classList.add('hidden');warning.textContent='';}
+            }
+
+            confirmInductiveStudyImport() {
+                const packet=this.pendingInductiveStudyPacket;if(!packet){alert('Select and preview a valid study packet first.');return;}const choice=document.querySelector('input[name="inductiveImportTarget"]:checked')?.value||'new';let sermon=null;
+                if(choice==='new'){
+                    sermon={id:'sermon-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),title:'Sermon on '+packet.sermonPassage,passage:packet.sermonPassage,text:packet.passageTextIncluded?packet.passageText:'',context:'',keywords:'',exeSubject:'',exeComplement:'',bigIdea:'',aim:'',outline:[{id:Date.now(),reference:'',statement:'',notes:''}],illustrations:[],appSeekers:'',appBelievers:'',appSuffering:'',manuscript:'',inductiveStudySource:packet};this.sermons.unshift(sermon);this.currentSermonId=sermon.id;
+                }else{
+                    this.updateMeta();sermon=this.getCurrentSermon();if(!sermon){alert('No sermon is selected. No changes were made.');return;}sermon.inductiveStudySource=packet;if(!String(sermon.title||'').trim())sermon.title='Sermon on '+packet.sermonPassage;if(!String(sermon.passage||'').trim())sermon.passage=packet.sermonPassage;if(!String(sermon.text||'').trim()&&packet.passageTextIncluded)sermon.text=packet.passageText;
+                }
+                this.saveToStorage();this.renderSermonList();this.loadCurrentSermon();const modal=document.getElementById('inductiveImportModal');if(modal){modal.classList.add('hidden');modal.classList.remove('flex');}this.pendingInductiveStudyPacket=null;this.switchTab('passage');alert('Inductive study imported for '+packet.sermonPassage+'. The source evidence is available in the “Source Inductive Study” panel.');
+            }
+
+            renderInductiveStudySource() {
+                const panel=document.getElementById('inductive-source-panel');const summary=document.getElementById('inductiveSourceSummary');const content=document.getElementById('inductiveSourceContent');const toggle=document.getElementById('inductiveSourceToggle');const sermon=this.getCurrentSermon();const packet=sermon&&sermon.inductiveStudySource;
+                if(!panel||!content||!summary||!toggle)return;if(!packet){panel.classList.add('hidden');content.replaceChildren();summary.textContent='';content.classList.add('hidden');toggle.setAttribute('aria-expanded','false');return;}
+                panel.classList.remove('hidden');summary.textContent=packet.sermonPassage+' · '+packet.translation;content.replaceChildren();
+                const addDetails=(label,text)=>{if(!text)return;const details=document.createElement('details');details.className='border border-slate-200 rounded-lg overflow-hidden';const sum=document.createElement('summary');sum.className='cursor-pointer px-3 py-2 bg-slate-50 text-xs font-semibold text-slate-700';sum.textContent=label;const pre=document.createElement('pre');pre.className='p-3 text-xs text-slate-700 whitespace-pre-wrap break-words font-sans leading-relaxed';pre.textContent=text;details.appendChild(sum);details.appendChild(pre);content.appendChild(details);};
+                ['observe','interpret','doctrine','discipleship'].forEach(key=>{const labels={observe:'Observe',interpret:'Interpretation',doctrine:'Doctrine',discipleship:'Discipleship'};addDetails(labels[key]+' ('+packet.sections[key].length+' characters)',packet.sections[key]);});
+                if(packet.passageTextIncluded)addDetails('Passage text · '+packet.translation,packet.passageText);
+                if(packet.passageOutline.sections.length)addDetails('IBS passage outline ('+packet.passageOutline.sections.length+' sections)',packet.passageOutline.sections.map((row,index)=>{let t=(index+1)+'. '+(row.heading||'Untitled section');if(row.verseRange)t+=' ['+row.verseRange+']';if(row.majorIdea)t+='\n'+row.majorIdea;if(row.supportingDetails)t+='\n'+row.supportingDetails;return t;}).join('\n\n'));
+                const mapKeys=Object.keys(packet.verseMaps);if(mapKeys.length)addDetails('Verse maps ('+mapKeys.length+' verses)',mapKeys.map(key=>'Verse '+key+'\n'+JSON.stringify(packet.verseMaps[key],null,2)).join('\n\n'));
+                if(packet.scriptureMarkups.length)addDetails('Visual Bible markup ('+packet.scriptureMarkups.length+' marks)',JSON.stringify(packet.scriptureMarkups,null,2));
+                if(packet.customCrossReferences.length)addDetails('My Cross-References · personal links ('+packet.customCrossReferences.length+')',JSON.stringify(packet.customCrossReferences,null,2));
+                const std=packet.standardCrossReferences;addDetails('Standard cross-references · '+(std.dataset||'source not specified')+' · '+(std.license||'licence not specified'),(std.note?std.note+'\n\n':'')+'Available: '+std.available+'\n\n'+JSON.stringify(std.entries,null,2));
+                if(packet.selectedVerses.length)addDetails('Selected verses',packet.selectedVerses.join('\n'));
+                const importedAt=packet.exportedAt?new Date(packet.exportedAt):null;addDetails('Transfer details','Exported: '+(importedAt&&!Number.isNaN(importedAt.getTime())?importedAt.toLocaleString():'date not recorded')+'\nSource updated: '+(packet.sourceUpdatedAt||'not recorded')+'\nFormat: '+packet.format+' v'+packet.version);
+            }
+
+            /** Calls the server-managed AI provider. No provider key is stored in or sent from the browser. */
+            async callGeminiAPI(systemPrompt,userQuery,responseSchema=null) {
+                const accessToken=await this.getSermonAccessToken();const response=await fetch('/api/sermon-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify({systemPrompt:systemPrompt,userQuery:userQuery,responseSchema:responseSchema})});
+                const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||('Sermon AI request failed with HTTP '+response.status+'.'));if(typeof result.answer!=='string'||!result.answer.trim())throw new Error('The AI service returned no text response.');return result.answer.trim();
+            }
+            async aiAnalyzeExegesis() {
+                const s = this.getCurrentSermon();
+                if (!s.passage && !s.text) {
+                    alert('Please enter a Scripture passage reference or text first.');
+                    return;
+                }
+
+                const btn = document.getElementById('btn-ai-exegesis');
+                const origText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 mr-1.5 animate-spin"></i> Analyzing...`;
+                this.renderIcons();
+
+                const systemPrompt = "You are an expert biblical scholar and expository theologian. Analyze the provided scripture passage and return JSON with historical/literary context and original language key word observations.";
+                const userQuery = `Passage Reference: ${s.passage}\nPassage Text:\n${s.text}`;
+
+                const schema = {
+                    type: "OBJECT",
+                    properties: {
+                        context: { type: "STRING" },
+                        keywords: { type: "STRING" }
+                    },
+                    propertyOrdering: ["context", "keywords"]
+                };
+
+                try {
+                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const parsed = JSON.parse(rawJson);
+                    if (parsed.context) {
+                        document.getElementById('exe-context').value = parsed.context;
+                        s.context = parsed.context;
+                    }
+                    if (parsed.keywords) {
+                        document.getElementById('exe-keywords').value = parsed.keywords;
+                        s.keywords = parsed.keywords;
+                    }
+                    this.saveToStorage();
+                } catch (e) {
+                    alert('Failed to analyze passage with Gemini API. Please try again.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origText;
+                    this.renderIcons();
+                }
+            }
+
+            async aiGenerateBigIdea() {
+                const s = this.getCurrentSermon();
+                if (!s.passage && !s.text) {
+                    alert('Please provide a Scripture passage or text first.');
+                    return;
+                }
+
+                const btn = document.getElementById('btn-ai-bigidea');
+                const origText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 mr-1.5 animate-spin"></i> Synthesizing...`;
+                this.renderIcons();
+
+                const systemPrompt = "You are a master expository preaching mentor (e.g. Haddon Robinson method). Extract the Exegetical Subject, Exegetical Complement, a single memorable Homiletical Big Idea, and a clear Sermon Aim for the passage.";
+                const userQuery = `Passage: ${s.passage}\nText: ${s.text}\nContext: ${s.context}\nKeywords: ${s.keywords}`;
+
+                const schema = {
+                    type: "OBJECT",
+                    properties: {
+                        exeSubject: { type: "STRING" },
+                        exeComplement: { type: "STRING" },
+                        bigIdea: { type: "STRING" },
+                        aim: { type: "STRING" }
+                    },
+                    propertyOrdering: ["exeSubject", "exeComplement", "bigIdea", "aim"]
+                };
+
+                try {
+                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const res = JSON.parse(rawJson);
+
+                    if (res.exeSubject) { document.getElementById('exe-subject').value = res.exeSubject; s.exeSubject = res.exeSubject; }
+                    if (res.exeComplement) { document.getElementById('exe-complement').value = res.exeComplement; s.exeComplement = res.exeComplement; }
+                    if (res.bigIdea) { document.getElementById('big-idea').value = res.bigIdea; s.bigIdea = res.bigIdea; }
+                    if (res.aim) { document.getElementById('sermon-aim').value = res.aim; s.aim = res.aim; }
+
+                    this.saveToStorage();
+                } catch (e) {
+                    alert('Failed to synthesize Big Idea with Gemini API.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origText;
+                    this.renderIcons();
+                }
+            }
+
+            async aiGenerateOutline() {
+                const s = this.getCurrentSermon();
+                if (!s.passage && !s.text) {
+                    alert('Please enter a Scripture passage reference or text first.');
+                    return;
+                }
+
+                const btn = document.getElementById('btn-ai-outline');
+                const origText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 mr-1 animate-spin"></i> Generating...`;
+                this.renderIcons();
+
+                const systemPrompt = "You are an expository preaching scholar. Create a structured 3-4 point expository outline based directly on the passage divisions. Each point must have a text reference, a homiletical statement, and explanatory sub-notes.";
+                const userQuery = `Passage: ${s.passage}\nText: ${s.text}\nBig Idea: ${s.bigIdea}`;
+
+                const schema = {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            reference: { type: "STRING" },
+                            statement: { type: "STRING" },
+                            notes: { type: "STRING" }
+                        },
+                        propertyOrdering: ["reference", "statement", "notes"]
+                    }
+                };
+
+                try {
+                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const items = JSON.parse(rawJson);
+
+                    if (Array.isArray(items) && items.length > 0) {
+                        s.outline = items.map((it, idx) => ({
+                            id: Date.now() + idx,
+                            reference: it.reference || '',
+                            statement: it.statement || '',
+                            notes: it.notes || ''
+                        }));
+                        this.saveToStorage();
+                        this.renderOutline();
+                    }
+                } catch (e) {
+                    alert('Failed to generate outline with Gemini API.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origText;
+                    this.renderIcons();
+                }
+            }
+
+            async aiBrainstormApplications() {
+                const s = this.getCurrentSermon();
+                if (!s.bigIdea && !s.passage) {
+                    alert('Please provide a passage or Big Idea first.');
+                    return;
+                }
+
+                const btn = document.getElementById('btn-ai-brainstorm');
+                const origText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 mr-1.5 animate-spin"></i> Brainstorming...`;
+                this.renderIcons();
+
+                const systemPrompt = "You are a creative homiletics consultant. Provide illustrations (stories, analogies) and contextual applications for Seekers, Believers, and Suffering individuals based on the sermon's Big Idea and Passage.";
+                const userQuery = `Passage: ${s.passage}\nBig Idea: ${s.bigIdea}\nAim: ${s.aim}`;
+
+                const schema = {
+                    type: "OBJECT",
+                    properties: {
+                        illustrations: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    title: { type: "STRING" },
+                                    content: { type: "STRING" }
+                                },
+                                propertyOrdering: ["title", "content"]
+                            }
+                        },
+                        appSeekers: { type: "STRING" },
+                        appBelievers: { type: "STRING" },
+                        appSuffering: { type: "STRING" }
+                    },
+                    propertyOrdering: ["illustrations", "appSeekers", "appBelievers", "appSuffering"]
+                };
+
+                try {
+                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const res = JSON.parse(rawJson);
+
+                    if (res.illustrations && Array.isArray(res.illustrations)) {
+                        s.illustrations = res.illustrations.map((ill, i) => ({
+                            id: Date.now() + i,
+                            title: ill.title || 'Illustration',
+                            content: ill.content || ''
+                        }));
+                    }
+                    if (res.appSeekers) { document.getElementById('app-seekers').value = res.appSeekers; s.appSeekers = res.appSeekers; }
+                    if (res.appBelievers) { document.getElementById('app-believers').value = res.appBelievers; s.appBelievers = res.appBelievers; }
+                    if (res.appSuffering) { document.getElementById('app-suffering').value = res.appSuffering; s.appSuffering = res.appSuffering; }
+
+                    this.saveToStorage();
+                    this.renderIllustrations();
+                } catch (e) {
+                    alert('Failed to brainstorm applications with Gemini API.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origText;
+                    this.renderIcons();
+                }
+            }
+
+            async aiDraftManuscript() {
+                const s = this.getCurrentSermon();
+                if (!s.passage && !s.bigIdea && (!s.outline || s.outline.length === 0)) {
+                    alert('Please add a passage, Big Idea, or Outline before generating a full manuscript.');
+                    return;
+                }
+
+                const btn = document.getElementById('btn-ai-manuscript');
+                const origText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 mr-1 animate-spin"></i> Drafting Manuscript...`;
+                this.renderIcons();
+
+                const systemPrompt = "You are an eloquent expository preacher. Write a complete, inspiring preach-ready sermon manuscript in clear Markdown format with an engaging Hook/Intro, structured movement through the text points, deep application, and an effective Gospel conclusion.";
+                
+                const userQuery = `Title: ${s.title}\nPassage: ${s.passage}\nText: ${s.text}\nBig Idea: ${s.bigIdea}\nObjective: ${s.aim}\nOutline:\n${JSON.stringify(s.outline)}\nApplications:\nSeekers: ${s.appSeekers}\nBelievers: ${s.appBelievers}\nSuffering: ${s.appSuffering}`;
+
+                try {
+                    const manuscriptText = await this.callGeminiAPI(systemPrompt, userQuery);
+                    document.getElementById('sermon-manuscript').value = manuscriptText;
+                    s.manuscript = manuscriptText;
+                    this.saveToStorage();
+                } catch (e) {
+                    alert('Failed to draft manuscript with Gemini API.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origText;
+                    this.renderIcons();
+                }
+            }
+
+            createDefaultSermon() {
+                const sample = {
+                    id: 'sermon-' + Date.now(),
+                    title: 'Peace in the Storm',
+                    passage: 'Mark 4:35-41',
+                    text: 'On that day, when evening had come, he said to them, "Let us go across to the other side." And leaving the crowd, they took him with them in the boat, just as he was...',
+                    context: 'Mark sets this story right after parables of kingdom growth. Jesus is establishing his authority over cosmic chaos.',
+                    keywords: 'Galilee storms (seiche waves), "Cared not" (sigh), Peace! Be still! (phimōthi - silence/muzzle).',
+                    exeSubject: 'Jesus controlling the wind and waves',
+                    exeComplement: 'reveals his divine identity and power over fear',
+                    bigIdea: 'When storms make you question God\'s care, trust the divine authority and presence of Jesus.',
+                    aim: 'To turn panic into worshipful trust during unexpected life trials.',
+                    outline: [
+                        { id: 1, reference: 'v. 35-38', statement: 'The Reality of Severe Storms', notes: 'Faith does not exempt believers from life storms.' },
+                        { id: 2, reference: 'v. 38b-39', statement: 'The Power of Divine Command', notes: 'Jesus commands creation with sovereign ease.' },
+                        { id: 3, reference: 'v. 40-41', statement: 'The Call to Fear-Replacing Faith', notes: 'The ultimate question: "Who then is this?"' }
+                    ],
+                    illustrations: [
+                        { id: 1, title: 'The Anchor in the Dark', content: 'Metaphor of ships anchoring not to visible waters, but deep seabed.' }
+                    ],
+                    appSeekers: 'Jesus offers genuine rest to those drowning in life beyond control.',
+                    appBelievers: 'Examine where fear exposes a lack of trust in God\'s goodness.',
+                    appSuffering: 'He may be silent in your boat, but He is never absent.',
+                    manuscript: '# Peace in the Storm\n\n**Text:** Mark 4:35-41\n\n## Introduction\nWe all encounter storms...'
+                };
+                this.sermons.push(sample);
+                this.currentSermonId = sample.id;
+                this.saveToStorage();
+            }
+
+            saveToStorage() {
+                localStorage.setItem('kerygma_sermons', JSON.stringify(this.sermons));
+            }
+
+            getCurrentSermon() {
+                return this.sermons.find(s => s.id === this.currentSermonId);
+            }
+
+            renderSermonList() {
+                const listEl = document.getElementById('sermon-list');
+                const countEl = document.getElementById('sermon-count');
+                listEl.innerHTML = '';
+                countEl.textContent = this.sermons.length;
+
+                this.sermons.forEach(s => {
+                    const isActive = s.id === this.currentSermonId;
+                    const item = document.createElement('div');
+                    item.className = `p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between ${isActive ? 'bg-brand-50 border border-brand-200 text-brand-700' : 'hover:bg-slate-100 text-slate-600'}`;
+                    item.onclick = () => this.selectSermon(s.id);
+
+                    item.innerHTML = `
+                        <div class="truncate pr-2">
+                            <h4 class="font-semibold text-xs truncate">${s.title || 'Untitled Sermon'}</h4>
+                            <p class="text-[10px] text-slate-400 font-mono mt-0.5">${s.passage || 'No Ref'}</p>
+                        </div>
+                        ${this.sermons.length > 1 ? `
+                            <button onclick="event.stopPropagation(); sermonApp.deleteSermon('${s.id}')" class="text-slate-300 hover:text-red-500 p-1">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        ` : ''}
+                    `;
+                    listEl.appendChild(item);
+                });
+                this.renderIcons();
+            }
+
+            selectSermon(id) {
+                this.currentSermonId = id;
+                this.renderSermonList();
+                this.loadCurrentSermon();
+            }
+
+            createNewSermon() {
+                const newSermon = {
+                    id: 'sermon-' + Date.now(),
+                    title: 'New Expository Sermon',
+                    passage: '',
+                    text: '',
+                    context: '',
+                    keywords: '',
+                    exeSubject: '',
+                    exeComplement: '',
+                    bigIdea: '',
+                    aim: '',
+                    outline: [{ id: Date.now(), reference: '', statement: '', notes: '' }],
+                    illustrations: [],
+                    appSeekers: '',
+                    appBelievers: '',
+                    appSuffering: '',
+                    manuscript: ''
+                };
+                this.sermons.unshift(newSermon);
+                this.currentSermonId = newSermon.id;
+                this.saveToStorage();
+                this.renderSermonList();
+                this.loadCurrentSermon();
+            }
+
+            deleteSermon(id) {
+                if (this.sermons.length <= 1) return;
+                this.sermons = this.sermons.filter(s => s.id !== id);
+                this.currentSermonId = this.sermons[0].id;
+                this.saveToStorage();
+                this.renderSermonList();
+                this.loadCurrentSermon();
+            }
+
+            loadCurrentSermon() {
+                const s = this.getCurrentSermon();
+                if (!s) return;
+
+                document.getElementById('sermon-title').value = s.title || '';
+                document.getElementById('sermon-passage').value = s.passage || '';
+                document.getElementById('sermon-text').value = s.text || '';
+                document.getElementById('exe-context').value = s.context || '';
+                document.getElementById('exe-keywords').value = s.keywords || '';
+                document.getElementById('exe-subject').value = s.exeSubject || '';
+                document.getElementById('exe-complement').value = s.exeComplement || '';
+                document.getElementById('big-idea').value = s.bigIdea || '';
+                document.getElementById('sermon-aim').value = s.aim || '';
+                document.getElementById('app-seekers').value = s.appSeekers || '';
+                document.getElementById('app-believers').value = s.appBelievers || '';
+                document.getElementById('app-suffering').value = s.appSuffering || '';
+                document.getElementById('sermon-manuscript').value = s.manuscript || '';
+
+                this.renderOutline();
+                this.renderIllustrations();
+                this.renderInductiveStudySource();
+            }
+
+            updateMeta() {
+                const s = this.getCurrentSermon();
+                if (!s) return;
+
+                s.title = document.getElementById('sermon-title').value;
+                s.passage = document.getElementById('sermon-passage').value;
+                s.text = document.getElementById('sermon-text').value;
+                s.context = document.getElementById('exe-context').value;
+                s.keywords = document.getElementById('exe-keywords').value;
+                s.exeSubject = document.getElementById('exe-subject').value;
+                s.exeComplement = document.getElementById('exe-complement').value;
+                s.bigIdea = document.getElementById('big-idea').value;
+                s.aim = document.getElementById('sermon-aim').value;
+                s.appSeekers = document.getElementById('app-seekers').value;
+                s.appBelievers = document.getElementById('app-believers').value;
+                s.appSuffering = document.getElementById('app-suffering').value;
+                s.manuscript = document.getElementById('sermon-manuscript').value;
+
+                this.saveToStorage();
+                this.renderSermonList();
+            }
+
+            switchTab(tabKey) {
+                document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+                document.getElementById(`view-${tabKey}`).classList.remove('hidden');
+
+                const tabs = document.querySelectorAll('#workflow-tabs button');
+                tabs.forEach(t => {
+                    t.classList.remove('border-brand-500', 'text-brand-600');
+                    t.classList.add('border-transparent', 'text-slate-500');
+                });
+
+                const activeTab = document.getElementById(`tab-${tabKey}`);
+                if (activeTab) {
+                    activeTab.classList.remove('border-transparent', 'text-slate-500');
+                    activeTab.classList.add('border-brand-500', 'text-brand-600');
+                }
+            }
+
+            renderOutline() {
+                const container = document.getElementById('outline-container');
+                const s = this.getCurrentSermon();
+                container.innerHTML = '';
+
+                if (!s.outline || s.outline.length === 0) {
+                    container.innerHTML = `<p class="text-xs text-slate-400 italic">No points added yet. Click above to add your first main point or generate with AI.</p>`;
+                    return;
+                }
+
+                s.outline.forEach((item, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3';
+                    row.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-brand-700 uppercase tracking-wide">Main Point ${index + 1}</span>
+                            <button onclick="sermonApp.removeMainPoint(${item.id})" class="text-slate-400 hover:text-red-500">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Text Ref</label>
+                                <input type="text" value="${item.reference || ''}" onchange="sermonApp.updateOutlineItem(${item.id}, 'reference', this.value)" placeholder="e.g., v. 35-37" class="w-full p-2 border border-slate-300 rounded text-xs">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Homiletical Point Statement</label>
+                                <input type="text" value="${item.statement || ''}" onchange="sermonApp.updateOutlineItem(${item.id}, 'statement', this.value)" placeholder="e.g., God is present in your deepest storms." class="w-full p-2 border border-slate-300 rounded text-xs font-medium">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Expository Sub-points / Notes</label>
+                            <textarea onchange="sermonApp.updateOutlineItem(${item.id}, 'notes', this.value)" placeholder="Sub-points, cross-references, or explanation..." class="w-full h-16 p-2 border border-slate-300 rounded text-xs">${item.notes || ''}</textarea>
+                        </div>
+                    `;
+                    container.appendChild(row);
+                });
+                this.renderIcons();
+            }
+
+            addMainPoint() {
+                const s = this.getCurrentSermon();
+                if (!s.outline) s.outline = [];
+                s.outline.push({ id: Date.now(), reference: '', statement: '', notes: '' });
+                this.saveToStorage();
+                this.renderOutline();
+            }
+
+            removeMainPoint(id) {
+                const s = this.getCurrentSermon();
+                s.outline = s.outline.filter(o => o.id !== id);
+                this.saveToStorage();
+                this.renderOutline();
+            }
+
+            updateOutlineItem(id, key, val) {
+                const s = this.getCurrentSermon();
+                const item = s.outline.find(o => o.id === id);
+                if (item) {
+                    item[key] = val;
+                    this.saveToStorage();
+                }
+            }
+
+            renderIllustrations() {
+                const container = document.getElementById('illustration-list');
+                const s = this.getCurrentSermon();
+                container.innerHTML = '';
+
+                if (!s.illustrations || s.illustrations.length === 0) {
+                    container.innerHTML = `<p class="text-xs text-slate-400 italic">No illustrations added yet.</p>`;
+                    return;
+                }
+
+                s.illustrations.forEach((ill) => {
+                    const card = document.createElement('div');
+                    card.className = 'p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2';
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <input type="text" value="${ill.title || ''}" onchange="sermonApp.updateIllustration(${ill.id}, 'title', this.value)" placeholder="Illustration Title" class="font-bold text-xs bg-transparent border-b border-slate-300 focus:border-brand-500 w-3/4">
+                            <button onclick="sermonApp.removeIllustration(${ill.id})" class="text-slate-400 hover:text-red-500">
+                                <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <textarea onchange="sermonApp.updateIllustration(${ill.id}, 'content', this.value)" placeholder="Brief story, analogy, or historical event..." class="w-full h-16 p-2 border border-slate-300 rounded text-xs">${ill.content || ''}</textarea>
+                    `;
+                    container.appendChild(card);
+                });
+                this.renderIcons();
+            }
+
+            addIllustration() {
+                const s = this.getCurrentSermon();
+                if (!s.illustrations) s.illustrations = [];
+                s.illustrations.push({ id: Date.now(), title: 'New Illustration', content: '' });
+                this.saveToStorage();
+                this.renderIllustrations();
+            }
+
+            removeIllustration(id) {
+                const s = this.getCurrentSermon();
+                s.illustrations = s.illustrations.filter(i => i.id !== id);
+                this.saveToStorage();
+                this.renderIllustrations();
+            }
+
+            updateIllustration(id, key, val) {
+                const s = this.getCurrentSermon();
+                const item = s.illustrations.find(i => i.id === id);
+                if (item) {
+                    item[key] = val;
+                    this.saveToStorage();
+                }
+            }
+
+            compileOutlineIntoManuscript() {
+                const s = this.getCurrentSermon();
+                let doc = `# ${s.title || 'Untitled Sermon'}\n`;
+                doc += `**Text:** ${s.passage || 'N/A'}\n\n`;
+                
+                if (s.bigIdea) {
+                    doc += `> **Big Idea:** ${s.bigIdea}\n\n`;
+                }
+
+                doc += `## Introduction\n[Hook & Context Here]\n\n`;
+
+                if (s.outline && s.outline.length > 0) {
+                    s.outline.forEach((pt, i) => {
+                        doc += `### Point ${i + 1}: ${pt.statement || 'Point Statement'} (${pt.reference || 'Ref'})\n`;
+                        if (pt.notes) doc += `${pt.notes}\n\n`;
+                    });
+                }
+
+                doc += `## Application\n`;
+                if (s.appBelievers) doc += `- **To Believers:** ${s.appBelievers}\n`;
+                if (s.appSeekers) doc += `- **To Seekers:** ${s.appSeekers}\n`;
+
+                doc += `\n## Conclusion\n[Reiterate Big Idea and final Gospel Call]\n`;
+
+                document.getElementById('sermon-manuscript').value = doc;
+                s.manuscript = doc;
+                this.saveToStorage();
+            }
+
+            exportSermon() {
+                const s = this.getCurrentSermon();
+                const content = `================================================
+SERMON TITLE: ${s.title}
+PASSAGE: ${s.passage}
+================================================
+
+BIG IDEA:
+${s.bigIdea || 'N/A'}
+
+OBJECTIVE:
+${s.aim || 'N/A'}
+
+OUTLINE:
+${(s.outline || []).map((o, idx) => `${idx + 1}. [${o.reference}] ${o.statement}\n   Notes: ${o.notes}`).join('\n\n')}
+
+APPLICATION:
+- Seekers: ${s.appSeekers || 'N/A'}
+- Believers: ${s.appBelievers || 'N/A'}
+- Suffering: ${s.appSuffering || 'N/A'}
+
+================================================
+MANUSCRIPT / PREACHING NOTES:
+================================================
+${s.manuscript || 'No manuscript generated.'}`;
+
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${(s.title || 'Sermon').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_prep.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        }
+
+        // Initialize Studio on DOM Load
+        let sermonApp;
+        window.addEventListener('DOMContentLoaded', () => {
+            sermonApp = new ExpositoryStudio();
+        });
+    </script>
+</body>
+</html>

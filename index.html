@@ -3030,6 +3030,31 @@
       return { text, insertedStart: newIndex < 0 ? -1 : blockStart + sortedBodyOffset };
     }
 
+    function findSameLexiconOccurrence(existingBlock, lexiconId, wordOrder, selectedWord, verseText) {
+      const entryPattern = /^[\t ]*--- Lexicon Note \(([^)]+)\) ---[\t ]*$/gm;
+      const matches = Array.from(String(existingBlock || '').matchAll(entryPattern));
+      const normalizeId = value => String(value || '').trim().toLocaleLowerCase();
+      const normalizeWord = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+
+      for (let index = 0; index < matches.length; index++) {
+        const match = matches[index];
+        if (normalizeId(match[1]) !== normalizeId(lexiconId)) continue;
+        const nextStart = index + 1 < matches.length ? matches[index + 1].index : String(existingBlock).length;
+        const noteText = String(existingBlock).slice(match.index, nextStart);
+        const existingOrder = getLexiconEntryWordOrder(noteText, verseText);
+        if (existingOrder === wordOrder) return { found: true, noteText, existingOrder };
+
+        // For older entries that still cannot be mapped to a token position, use the saved word as a conservative fallback.
+        if (existingOrder === Number.MAX_SAFE_INTEGER) {
+          const oldWord = noteText.match(/^[\t ]*Selected word:[\t ]*(.+?)[\t ]*$/mi)?.[1];
+          if (oldWord && normalizeWord(oldWord) === normalizeWord(selectedWord)) {
+            return { found: true, noteText, existingOrder };
+          }
+        }
+      }
+      return { found: false };
+    }
+
     function appendLexiconEntryToVerseStudy(entry, verseContext) {
       if (!entry) throw new Error('The lexicon entry has not finished loading.');
       if (!verseContext || !Number.isInteger(Number(verseContext.verse))) {
@@ -3114,7 +3139,14 @@
         const afterHeading = currentNotes.slice(targetHeading.end);
         const existingBlockEnd = afterHeading.indexOf('\n\n---\n\n');
         const existingBlock = existingBlockEnd >= 0 ? afterHeading.slice(0, existingBlockEnd) : afterHeading;
-        if (existingBlock.includes(lexiconHeading)) {
+        const sameOccurrence = findSameLexiconOccurrence(
+          existingBlock,
+          entry.id,
+          wordOrder,
+          String(verseContext.word || entry.lemma || ''),
+          verseText
+        );
+        if (sameOccurrence.found) {
           const sortedExisting = sortLexiconEntriesInVerseStudy(currentNotes, targetHeading, null, verseText);
           if (sortedExisting && sortedExisting.text !== currentNotes) {
             record.sections[section] = sortedExisting.text;
@@ -3141,7 +3173,7 @@
             scheduleCloudStudySync();
             return { book, chapter, verse, section, reference, sortedOnly: true };
           }
-          throw new Error('This Strong’s lexicon entry is already recorded in the ' + reference + ' study. No duplicate was added.');
+          throw new Error('This Strong’s lexicon entry for this word occurrence is already recorded in the ' + reference + ' study. No duplicate was added.');
         }
 
         const sorted = sortLexiconEntriesInVerseStudy(currentNotes, targetHeading, lexiconNote, verseText);

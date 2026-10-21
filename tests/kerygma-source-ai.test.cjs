@@ -145,7 +145,9 @@ test('Kerygma Guide coaches the user without editing or persisting sermon fields
   assert.ok(html.includes('You are both a guide and an assistant, not merely a content generator.'));
   assert.ok(html.includes('Never claim to have edited or saved a sermon field.'));
   assert.ok(html.includes('Never request or perform automatic changes to title, Bible text, notes, Big Idea, outline, applications, manuscript'));
-  assert.ok(html.includes("body.textContent = String(message.content || '')"));
+  assert.ok(html.includes('renderKerygmaGuideMarkdown(body, message.content)'));
+  assert.ok(!html.includes('body.innerHTML = String(message.content ||'));
+  assert.ok(html.includes('Never claim to have edited or saved a sermon field.'));
   assert.ok(html.includes("this.guideConversationSermonId !== s.id"));
   assert.ok(html.includes("this.activeWorkflowTab = tabKey"));
   assert.ok(html.includes('this.guideHistory = this.guideHistory.slice(-12)'));
@@ -163,6 +165,49 @@ test('Kerygma Guide coaches the user without editing or persisting sermon fields
   assert.ok(!method.includes('sermon.manuscript ='), 'guide must not overwrite the manuscript');
 });
 
+test('Kerygma Guide defaults to concise coaching instead of a multi-question worksheet', () => {
+  assert.ok(html.includes('keep a reply to about 80–140 words'));
+  assert.ok(html.includes('ask exactly ONE focused follow-up question OR suggest one next step, not both'));
+  assert.ok(html.includes('Do not produce a long numbered list of questions.'));
+  assert.ok(html.includes('If the user answers a question, engage that answer before moving forward.'));
+});
+
+test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s) links', () => {
+  const start = html.indexOf('function renderKerygmaGuideMarkdown(container, markdown) {');
+  const end = html.indexOf('class ExpositoryStudio', start);
+  assert.ok(start >= 0 && end > start, 'expected the Markdown renderer helper');
+  function TestNode(tagName, textContent = '') {
+    this.tagName = tagName;
+    this.textContent = textContent;
+    this.children = [];
+    this.attributes = {};
+    this.appendChild = child => { this.children.push(child); return child; };
+    this.replaceChildren = (...children) => { this.children = children; };
+  }
+  const sandbox = { document: {
+    createElement: tag => new TestNode(tag),
+    createTextNode: text => new TestNode('#text', text)
+  } };
+  vm.runInNewContext(html.slice(start, end) + String.fromCharCode(10) + 'this.renderGuide = renderKerygmaGuideMarkdown;', sandbox);
+  const root = new TestNode('div');
+  const markdown = '## Key point\\nYou noticed **judgment** and *hypocrisy*, with `truth`.\\n\\n1. Read the passage\\n2. Ask one question\\n\\n- Observation\\n- Interpretation\\n\\n[Safe link](https://example.org) [Unsafe link](javascript:alert(1)) <img src=x onerror=alert(1)>';
+  sandbox.renderGuide(root, markdown);
+  const nodes = [];
+  const visit = node => { nodes.push(node); (node.children || []).forEach(visit); };
+  visit(root);
+  assert.ok(nodes.some(node => node.tagName === 'h4'));
+  assert.ok(nodes.some(node => node.tagName === 'strong' && node.textContent === 'judgment'));
+  assert.ok(nodes.some(node => node.tagName === 'em' && node.textContent === 'hypocrisy'));
+  assert.ok(nodes.some(node => node.tagName === 'code' && node.textContent === 'truth'));
+  assert.ok(nodes.some(node => node.tagName === 'ol'));
+  assert.ok(nodes.some(node => node.tagName === 'ul'));
+  const links = nodes.filter(node => node.tagName === 'a');
+  assert.equal(links.length, 1, 'only the http(s) link should become clickable');
+  assert.equal(links[0].href, 'https://example.org');
+  assert.equal(links[0].rel, 'noopener noreferrer');
+  assert.ok(!nodes.some(node => node.tagName === 'img'), 'HTML-like user/model text must not become DOM elements');
+  assert.ok(nodes.some(node => node.tagName === '#text' && node.textContent.includes('[Unsafe link](javascript:alert(1))')));
+});
 test('Kerygma exegesis banner uses provider-neutral branding', () => {
   assert.ok(html.includes('Kerygma Exegetical Guide'));
   assert.ok(!html.includes('Gemini Exegetical Assistant'));

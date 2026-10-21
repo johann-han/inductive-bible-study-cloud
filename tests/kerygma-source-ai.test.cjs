@@ -58,3 +58,78 @@ test('browser-side Gemini key handling has not returned', () => {
   assert.ok(!html.includes('kerygma_gemini_api_key'));
   assert.ok(html.includes("fetch('/api/sermon-ai'"));
 });
+
+
+const serverPath = path.join(__dirname, '..', 'server.js');
+const serverSource = fs.readFileSync(serverPath, 'utf8');
+
+test('Kerygma server supports Gemini or OpenRouter without exposing provider secrets', () => {
+  assert.ok(serverSource.includes("openrouterConfigured: !!process.env.OPENROUTER_API_KEY"));
+  assert.ok(serverSource.includes("aiConfigured: Boolean(aiProvider)"));
+  assert.ok(serverSource.includes("if (hasGemini)"));
+  assert.ok(serverSource.includes("if (!hasGemini && !hasOpenRouter)"));
+  assert.ok(serverSource.includes("fetch('https://openrouter.ai/api/v1/chat/completions'"));
+  assert.ok(serverSource.includes("fetch(apiUrl"));
+  assert.ok(serverSource.includes("authorizeAIMentor(req)"));
+  assert.ok(serverSource.includes("consumeAIRateLimit('sermon:' + identity.userId)"));
+  assert.ok(!serverSource.includes("OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY"));
+  assert.ok(!html.includes("OPENROUTER_API_KEY="));
+});
+
+test('OpenRouter schema converter maps Gemini-style uppercase types to strict JSON Schema', () => {
+  const start = serverSource.indexOf('function toOpenRouterJsonSchema(');
+  const end = serverSource.indexOf('const server = http.createServer', start);
+  assert.ok(start >= 0 && end > start, 'expected provider-schema helpers in server.js');
+  const helperSource = serverSource.slice(start, end);
+  const sandbox = {};
+  vm.runInNewContext(helperSource + '\nthis.helpers = { toOpenRouterJsonSchema, prepareOpenRouterResponseFormat };', sandbox);
+  const converted = sandbox.helpers.toOpenRouterJsonSchema({
+    type: 'OBJECT',
+    properties: {
+      context: { type: 'STRING' },
+      keywords: { type: 'STRING' }
+    },
+    propertyOrdering: ['context', 'keywords']
+  });
+  assert.equal(converted.type, 'object');
+  assert.deepEqual(JSON.parse(JSON.stringify(converted.required)), ['context', 'keywords']);
+  assert.equal(converted.additionalProperties, false);
+  assert.equal(converted.properties.context.type, 'string');
+  assert.ok(!Object.hasOwn(converted, 'propertyOrdering'));
+});
+
+test('OpenRouter wraps a top-level array schema and returns a compatible array contract', () => {
+  const start = serverSource.indexOf('function toOpenRouterJsonSchema(');
+  const end = serverSource.indexOf('const server = http.createServer', start);
+  const sandbox = {};
+  vm.runInNewContext(serverSource.slice(start, end) + '\nthis.helpers = { prepareOpenRouterResponseFormat };', sandbox);
+  const prepared = sandbox.helpers.prepareOpenRouterResponseFormat({
+    type: 'ARRAY',
+    items: {
+      type: 'OBJECT',
+      properties: {
+        reference: { type: 'STRING' },
+        statement: { type: 'STRING' },
+        notes: { type: 'STRING' }
+      },
+      propertyOrdering: ['reference', 'statement', 'notes']
+    }
+  });
+  assert.equal(prepared.unwrapArray, true);
+  assert.equal(prepared.responseFormat.type, 'json_schema');
+  assert.equal(prepared.responseFormat.json_schema.schema.type, 'object');
+  assert.ok(Array.isArray(prepared.responseFormat.json_schema.schema.properties.items));
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(prepared.responseFormat.json_schema.schema.required)),
+    ['items']
+  );
+});
+
+test('the Kerygma page accepts either server-side provider and never asks for a browser key', () => {
+  assert.ok(html.includes('config.aiConfigured === true'));
+  assert.ok(html.includes('config.openrouterConfigured === true'));
+  assert.ok(html.includes('OPENROUTER_API_KEY'));
+  assert.ok(html.includes('Never paste an API key into this page or chat.'));
+  assert.ok(!html.includes('kerygma_gemini_api_key'));
+  assert.ok(!html.includes('generativelanguage.googleapis.com'));
+});

@@ -405,6 +405,77 @@
 
     <script>
         /**
+         * Formats the attached, normalized IBS packet as a clearly separated export appendix.
+         * The appendix is a read-only representation of imported source material, not AI output.
+         */
+        function formatInductiveStudySourceAppendix(packet) {
+            if (!packet || typeof packet !== 'object') return '';
+            const text = value => typeof value === 'string' ? value : '';
+            const list = value => Array.isArray(value) ? value : [];
+            const section = (heading, value) => '\\n\\n' + heading + '\\n' + '-'.repeat(Math.min(heading.length, 72)) + '\\n' + (text(value).trim() || '[No content in imported source packet]');
+            const lines = [
+                '',
+                '',
+                '================================================',
+                'APPENDIX: ORIGINAL INDUCTIVE BIBLE STUDY SOURCE',
+                '================================================',
+                'This appendix contains imported IBS source material, separate from the sermon draft above.',
+                'The sermon fields above may include AI-generated or user-edited content; this appendix represents the attached source packet.',
+                '',
+                'SOURCE TRANSFER METADATA',
+                '------------------------',
+                'Packet format: ' + (text(packet.format) || 'not recorded') + ' v' + (packet.version == null ? 'not recorded' : String(packet.version)),
+                'Study reference: ' + (text(packet.studyReference && packet.studyReference.display) || text(packet.sermonPassage) || 'not recorded'),
+                'Sermon passage: ' + (text(packet.sermonPassage) || 'not recorded'),
+                'Translation: ' + (text(packet.translation) || 'Unknown'),
+                'Source exported at: ' + (text(packet.exportedAt) || 'not recorded'),
+                'Source study updated at: ' + (text(packet.sourceUpdatedAt) || 'not recorded'),
+                'Passage text included: ' + (packet.passageTextIncluded === true ? 'Yes' : 'No')
+            ].join('\\n');
+            let appendix = lines;
+            const sections = packet.sections && typeof packet.sections === 'object' ? packet.sections : {};
+            appendix += section('OBSERVE — imported IBS notes', sections.observe);
+            appendix += section('INTERPRETATION — imported IBS notes', sections.interpret);
+            appendix += section('DOCTRINE — imported IBS notes', sections.doctrine);
+            appendix += section('DISCIPLESHIP — imported IBS notes', sections.discipleship);
+
+            if (packet.passageTextIncluded && text(packet.passageText).trim()) {
+                appendix += section('PASSAGE TEXT — ' + (text(packet.translation) || 'translation not recorded'), packet.passageText);
+            }
+
+            const outline = packet.passageOutline && typeof packet.passageOutline === 'object' ? packet.passageOutline : {};
+            const outlineRows = list(outline.sections);
+            appendix += section('IBS PASSAGE OUTLINE — source divisions, not the homiletical outline',
+                (text(outline.title) ? outline.title + '\\n\\n' : '') +
+                (outlineRows.length ? outlineRows.map((row, index) => {
+                    row = row && typeof row === 'object' ? row : {};
+                    const title = (index + 1) + '. ' + (text(row.heading) || 'Untitled section') + (text(row.verseRange) ? ' [' + text(row.verseRange) + ']' : '');
+                    return [title, text(row.majorIdea), text(row.supportingDetails)].filter(Boolean).join('\\n');
+                }).join('\\n\\n') : '[No passage outline in imported source packet]'));
+
+            const verseMaps = packet.verseMaps && typeof packet.verseMaps === 'object' && !Array.isArray(packet.verseMaps) ? packet.verseMaps : {};
+            appendix += section('VERSE MAPS — imported source evidence', Object.keys(verseMaps).length ? JSON.stringify(verseMaps, null, 2) : '[No verse maps in imported source packet]');
+            appendix += section('SCRIPTURE MARKUP — imported observations, not proof of interpretation',
+                list(packet.scriptureMarkups).length ? JSON.stringify(packet.scriptureMarkups, null, 2) : '[No scripture markup in imported source packet]');
+
+            appendix += section('PERSONAL CROSS-REFERENCES — user-created links',
+                list(packet.customCrossReferences).length ? JSON.stringify(packet.customCrossReferences, null, 2) : '[No personal cross-references in imported source packet]');
+
+            const standard = packet.standardCrossReferences && typeof packet.standardCrossReferences === 'object' ? packet.standardCrossReferences : {};
+            const standardEntries = list(standard.entries);
+            appendix += section('STANDARD CROSS-REFERENCES — dataset-derived, distinct from AI suggestions',
+                'Dataset: ' + (text(standard.dataset) || 'not specified') +
+                '\\nLicence: ' + (text(standard.license) || 'not specified') +
+                '\\nAvailable in imported packet: ' + (standard.available === true ? 'Yes' : 'No') +
+                (text(standard.note) ? '\\nSource note: ' + text(standard.note) : '') +
+                '\\nEntries:\\n' + (standardEntries.length ? JSON.stringify(standardEntries, null, 2) : '[No standard cross-reference entries in imported source packet]'));
+
+            const selectedVerses = list(packet.selectedVerses).filter(v => typeof v === 'string' && v.trim());
+            appendix += section('SELECTED VERSES — imported selection', selectedVerses.length ? selectedVerses.join('\\n') : '[No selected verses recorded]');
+            return appendix + '\\n';
+        }
+
+        /**
          * Main Application Controller for Expository Sermon Prep
          */
         class ExpositoryStudio {

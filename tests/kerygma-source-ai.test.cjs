@@ -125,6 +125,44 @@ test('OpenRouter wraps a top-level array schema and preserves the browser array 
   );
 });
 
+test('Kerygma Guide is available as a separate contextual conversation', () => {
+  for (const expected of [
+    'id="kerygma-guide-launcher"',
+    'id="kerygma-guide-panel"',
+    'Kerygma Guide & Assistant',
+    'id="kerygma-guide-messages"',
+    'id="kerygma-guide-input"',
+    'sermonApp.askKerygmaGuide()',
+    'this.callSermonAI(systemPrompt, userQuery)',
+    'getInductiveStudyPromptContext(stage.profile)',
+    'Guide me through this step.',
+    'Review my current work',
+    'What is a sensible next step, and why?'
+  ]) assert.ok(html.includes(expected), 'missing guide UI or behavior: ' + expected);
+});
+
+test('Kerygma Guide coaches the user without editing or persisting sermon fields', () => {
+  assert.ok(html.includes('You are both a guide and an assistant, not merely a content generator.'));
+  assert.ok(html.includes('Never claim to have edited or saved a sermon field.'));
+  assert.ok(html.includes('Never request or perform automatic changes to title, Bible text, notes, Big Idea, outline, applications, manuscript'));
+  assert.ok(html.includes("body.textContent = String(message.content || '')"));
+  assert.ok(html.includes("this.guideConversationSermonId !== s.id"));
+  assert.ok(html.includes("this.activeWorkflowTab = tabKey"));
+  assert.ok(html.includes('this.guideHistory = this.guideHistory.slice(-12)'));
+  assert.ok(html.includes('Kerygma sends your question and relevant sermon/source excerpts to the configured AI provider.'));
+  assert.ok(html.includes('const requestedSermonId = sermon.id'));
+  assert.ok(html.includes('this.currentSermonId !== requestedSermonId'));
+  assert.ok(!html.includes("localStorage.setItem('kerygmaGuide"));
+
+  const start = html.indexOf('async askKerygmaGuide() {');
+  const end = html.indexOf('confirmAIFieldOverwrite(fields)', start);
+  assert.ok(start >= 0 && end > start, 'expected the conversation-only guide method');
+  const method = html.slice(start, end);
+  assert.ok(!method.includes('saveToStorage('), 'guide must not persist changes to sermon data');
+  assert.ok(!method.includes('updateMeta('), 'guide must not update sermon fields');
+  assert.ok(!method.includes('sermon.manuscript ='), 'guide must not overwrite the manuscript');
+});
+
 test('Kerygma exegesis banner uses provider-neutral branding', () => {
   assert.ok(html.includes('Kerygma Exegetical Guide'));
   assert.ok(!html.includes('Gemini Exegetical Assistant'));

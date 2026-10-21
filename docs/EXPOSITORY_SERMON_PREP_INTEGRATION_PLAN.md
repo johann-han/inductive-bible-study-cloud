@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–4 source-level changes are merged into `main`; OpenRouter provider fallback is merged and its GitHub Actions checks passed. Live Render deployment, provider environment configuration, and the five AI workflows remain unverified.
+Document status: Phases 1–4 and OpenRouter fallback are merged into `main`; the user confirmed the live Kerygma page reflects the provider-neutral label and exercised all five AI workflows on the imported Romans 2 sermon. The exported sermon `.txt` was inspected; optional source-study appendix support is being implemented on `feat/kerygma-source-aware-export`. Final theological review and source-appendix export/save-reload checks remain pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -211,6 +211,8 @@ Modify prompts deliberately, not by appending every field blindly:
 Acceptance gate: an AI draft must reflect the imported study, preserve the intended meaning, retain the sermon’s reference/divisions, distinguish evidence from inference, and not invent sources or theological conclusions.
 
 ### Phase 5 — Make export and provenance coherent
+
+Current implementation status (21 October 2026): the existing `.txt` export includes title, passage, Big Idea, objective, homiletical outline, applications and manuscript, but omits the attached `inductiveStudySource` packet. A small addition is in progress on `feat/kerygma-source-aware-export`: preserve the current export and, when an IBS packet is attached, ask whether to append a separate source-study appendix. The appendix labels Observe, Interpretation, Doctrine and Discipleship separately; includes the source passage outline, verse maps, Scripture markup, selected verses, personal cross-references, and standard cross-reference dataset/licence metadata; and explicitly distinguishes imported source material from AI-generated or user-edited sermon content. Automated tests and live round-trip validation remain pending.
 
 - Preserve current Kerygma text export.
 - Add imported source material to a separate appendix or clearly labelled source-notes section only if the user selects it.

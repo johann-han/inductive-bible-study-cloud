@@ -208,6 +208,14 @@ test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s
   assert.ok(!nodes.some(node => node.tagName === 'img'), 'HTML-like user/model text must not become DOM elements');
   assert.ok(nodes.some(node => node.tagName === '#text' && node.textContent.includes('[Unsafe link](javascript:alert(1))')));
 });
+test('guide Markdown renderer does not interpret HTML or unsafe URL schemes', () => {
+  const start = html.indexOf('function renderKerygmaGuideMarkdown(container, markdown) {');
+  const end = html.indexOf('class ExpositoryStudio', start);
+  assert.ok(start >= 0 && end > start);
+  const helper = html.slice(start, end);
+  assert.ok(!helper.includes('innerHTML'), 'guide formatter must use safe DOM creation');
+  assert.ok(helper.includes('https?:\\\\/\\\\/'), 'only http(s) URLs should become links');
+});
 test('Kerygma exegesis banner uses provider-neutral branding', () => {
   assert.ok(html.includes('Kerygma Exegetical Guide'));
   assert.ok(!html.includes('Gemini Exegetical Assistant'));

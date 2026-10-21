@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–4 and OpenRouter fallback are merged into `main`; the user confirmed the live Kerygma page reflects the provider-neutral label and exercised all five AI workflows on the imported Romans 2 sermon. The exported sermon `.txt` was inspected. Optional imported-source appendix export is implemented on `feat/kerygma-source-aware-export`, and its source-aware AI regression workflow passed on code commit `8d556b8629a43529d02d725c4476d570d1471264`. Final theological review and live source-appendix export/save-reload checks remain pending.
+Document status: Phases 1–5 and OpenRouter provider support are merged into `main`. The user confirmed the live Kerygma label and exercised all five AI workflows with the imported Romans 2 study. Optional IBS source appendix export merged in PR #7 (`82c886d8d8266186bd355d0d2d97e9c3b168dc93`) and passed CI. The user supplied a post-reload/re-export `.txt` that matched the preceding appendix export byte-for-byte (48,410 bytes, 1,412 lines). A contextual Kerygma Guide & Assistant conversation panel is being implemented on `feat/kerygma-guide-assistant`; it is not yet merged or confirmed live. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -212,7 +212,7 @@ Acceptance gate: an AI draft must reflect the imported study, preserve the inten
 
 ### Phase 5 — Make export and provenance coherent
 
-Current implementation status (21 October 2026): the existing `.txt` export includes title, passage, Big Idea, objective, homiletical outline, applications and manuscript, but previously omitted the attached `inductiveStudySource` packet. The implementation on `feat/kerygma-source-aware-export` preserves the current sermon-only export and, when an IBS packet is attached, asks whether to append a separate source-study appendix. The appendix labels Observe, Interpretation, Doctrine and Discipleship separately; includes source passage text when included in the packet, the IBS passage outline, verse maps, Scripture markup, selected verses, personal cross-references, and standard cross-reference dataset/licence metadata; and explicitly distinguishes imported source material from AI-generated or user-edited sermon content. The `Kerygma source-aware AI checks` workflow passed on code commit `8d556b8629a43529d02d725c4476d570d1471264`; live export and save/reload validation remain pending.
+Current implementation status (21 October 2026): PR #7 merged optional imported-source appendix export into `main` at `82c886d8d8266186bd355d0d2d97e9c3b168dc93`; the `Kerygma source-aware AI checks` workflow passed on the merge commit. When a source packet is attached, export asks whether to include a separate appendix containing the four IBS stages, passage text when present, source passage outline, verse maps, Scripture markup, selected verses, personal cross-references, and standard cross-reference dataset/licence metadata. Imported material is explicitly distinguished from AI-generated or user-edited sermon fields. The user supplied the appendix export again after the reload/re-export step; it was byte-identical to the preceding export (48,410 bytes, 1,412 lines). Keep the sample sermon untouched. The manuscript's theological review remains pending.
 
 - Preserve current Kerygma text export.
 - Add imported source material to a separate appendix or clearly labelled source-notes section only if the user selects it.
@@ -220,6 +220,17 @@ Current implementation status (21 October 2026): the existing `.txt` export incl
 - Distinguish citations/reference notes that were in the imported study from AI-suggested references.
 - Never silently claim that all standard cross-references are from TSK if they did not originate there; preserve available provenance/licensing information.
 - Round-trip test: import packet → save sermon → reload browser → export sermon → confirm the source study and manuscript persist.
+
+### Kerygma Guide & Assistant — incremental follow-up (in progress)
+
+The user clarified that the AI must also act as a guide and assistant, not merely as a collection of content-generation buttons. This is being added on feature branch `feat/kerygma-guide-assistant`.
+
+- A collapsible `Kerygma Guide & Assistant` panel is available in the Kerygma UI proposal, usable across all five workflow tabs.
+- The assistant receives the active workflow stage, relevant current sermon fields, recent in-memory chat context, and the matching purpose-specific IBS source context. It reuses the existing server-managed `/api/sermon-ai` path, so Gemini/OpenRouter selection, sign-in, rate limits and provider credentials remain server-side.
+- Coaching behavior: explain the current step, ask guiding questions, review drafts, find missing textual support, explain interpretive alternatives fairly, identify theological risk, and suggest a next step. It distinguishes biblical text, imported IBS notes, inferences, and AI suggestions.
+- The assistant is conversation-only: it must not edit or save sermon fields or the imported source packet. Conversation history is held in page memory only, is not written into the sermon record, and is reset when the user switches sermons. A reply arriving after a sermon switch is discarded so it cannot be shown in the wrong sermon.
+- Chat content and relevant sermon/source excerpts are sent to the configured AI provider for the requested response; the UI states this. Do not log sermon/manuscript contents or API credentials.
+- Regression tests check contextual source use, provider-backed requests, non-mutating behavior, safe text rendering, stage awareness, sermon-switch reset and stale-response handling. The feature must not be considered deployed until CI passes, the PR is merged, Render deployment is verified, and a live prompt/response is tested without changing sermon fields.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

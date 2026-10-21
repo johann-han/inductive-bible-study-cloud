@@ -250,6 +250,9 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req, 256 * 1024);
       const systemPrompt = String(body.systemPrompt || '').trim().slice(0, 12000);
       const userQuery = String(body.userQuery || '').trim().slice(0, 48000);
+      const maxOutputTokens = Number.isInteger(body.maxOutputTokens)
+        ? Math.max(128, Math.min(1200, body.maxOutputTokens))
+        : null;
       if (!systemPrompt || !userQuery) return send(res, 400, { error: 'Both a system prompt and a user query are required.' });
 
       if (hasGemini) {
@@ -262,8 +265,11 @@ const server = http.createServer(async (req, res) => {
           if (schemaText.length > 12000) return send(res, 413, { error: 'The requested structured-output schema is too large.' });
           payload.generationConfig = {
             responseMimeType: 'application/json',
-            responseSchema: body.responseSchema
+            responseSchema: body.responseSchema,
+            ...(maxOutputTokens ? { maxOutputTokens } : {})
           };
+        } else if (maxOutputTokens) {
+          payload.generationConfig = { maxOutputTokens };
         }
         const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' +
           encodeURIComponent(GEMINI_MODEL) + ':generateContent?key=' + encodeURIComponent(process.env.GEMINI_API_KEY);
@@ -305,7 +311,7 @@ const server = http.createServer(async (req, res) => {
       const openRouterPayload = {
         model: MODEL,
         temperature: 0.3,
-        max_tokens: 5000,
+        max_tokens: maxOutputTokens || 5000,
         messages: [
           { role: 'system', content: openRouterSystemPrompt },
           { role: 'user', content: userQuery }

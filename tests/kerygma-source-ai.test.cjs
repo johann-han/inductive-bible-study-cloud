@@ -125,6 +125,11 @@ test('OpenRouter wraps a top-level array schema and preserves the browser array 
   );
 });
 
+test('Kerygma exegesis banner uses provider-neutral branding', () => {
+  assert.ok(html.includes('Kerygma Exegetical Guide'));
+  assert.ok(!html.includes('Gemini Exegetical Assistant'));
+});
+
 test('Kerygma UI accepts either server-side provider and never asks for a browser key', () => {
   assert.ok(html.includes('config.aiConfigured === true'));
   assert.ok(html.includes('config.openrouterConfigured === true'));

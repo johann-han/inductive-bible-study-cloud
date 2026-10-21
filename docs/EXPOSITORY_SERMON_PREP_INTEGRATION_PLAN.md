@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–5, OpenRouter provider support, the fuller Kerygma Guide, stage-specific Text & Exegesis coaching, and the ordered-list numbering fix are merged into `main`. The user confirmed the wider panel and chapter-level overview are live, and the live screenshot now shows numbered movements 1–4 correctly. The current follow-up branch `feat/kerygma-more-questions-and-insights` adds two opt-in Guide quick prompts and explicitly lets requested depth override the one-question-at-a-time default. CI and PR review for this follow-up are pending. Final theological review remains pending.
+Document status: Phases 1–5, OpenRouter provider support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, ordered-list numbering, and opt-in More Questions/More Insights options are merged into `main`. PR #19 merged at `75e69ea1cc067039313d671eddc7f7b2b9822fcf`; CI passed on the feature commit and the merge-commit workflow is running. The two new Guide quick prompts explicitly override the one-question-at-a-time default when the user requests more questions or insights. Live Render verification of the new prompt chips remains pending. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -253,7 +253,7 @@ Follow-up branch: `fix/kerygma-markdown-list-numbering` (not yet merged). The re
 
 The latest live screenshot confirms the numbered overview list now runs 1–4 correctly. The user asks for an explicit way to request further questions or insights rather than being limited by the Guide's default one-question coaching style.
 
-Current branch: `feat/kerygma-more-questions-and-insights` (not yet merged).
+Merged in PR #19 at `75e69ea1cc067039313d671eddc7f7b2b9822fcf`. CI passed on feature commit `0c8304f17cfaa2339a013fa3df2971cc4cd3ca84`; the merge-commit workflow is running. Live Render prompt-chip verification is pending.
 - Adds two quick prompt chips: **More questions** (requests five additional, non-repetitive questions tied to the active stage/passage, with verse reference and a short reason for each) and **More insights** (requests three to five further insights, with textual evidence and wider-context connection).
 - The chips populate the existing compose field, consistent with existing quick prompts; the user reviews the prompt and clicks Ask. They do not create a new request or change sermon fields automatically.
 - Prompt rules explicitly say the one-question-at-a-time behavior is a default, not a restriction. When the user asks for more questions, insights, alternatives or deeper exploration, the Guide should honor that request while staying grounded in the active stage, passage and IBS notes.

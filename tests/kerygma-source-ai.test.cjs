@@ -129,7 +129,7 @@ test('Kerygma Guide is available as a separate contextual conversation', () => {
   for (const expected of [
     'id="kerygma-guide-launcher"',
     'id="kerygma-guide-panel"',
-    'Kerygma Guide &amp; Assistant',
+    'Kerygma Guide & Assistant',
     'id="kerygma-guide-messages"',
     'id="kerygma-guide-input"',
     'sermonApp.askKerygmaGuide()',

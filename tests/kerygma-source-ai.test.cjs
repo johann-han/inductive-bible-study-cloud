@@ -130,6 +130,61 @@ test('Kerygma exegesis banner uses provider-neutral branding', () => {
   assert.ok(!html.includes('Gemini Exegetical Assistant'));
 });
 
+test('sermon export offers an optional, separate imported IBS source appendix', () => {
+  assert.ok(html.includes("const includeSource = Boolean(s.inductiveStudySource) && window.confirm("));
+  assert.ok(html.includes("includeSource ? formatInductiveStudySourceAppendix(s.inductiveStudySource) : ''"));
+  assert.ok(html.includes('Cancel: export sermon content only.'));
+  assert.ok(html.includes('SERMON TITLE: ${s.title}'));
+  assert.ok(html.includes('MANUSCRIPT / PREACHING NOTES:'));
+});
+
+test('source appendix keeps the four IBS stages and provenance categories distinct', () => {
+  const start = html.indexOf('function formatInductiveStudySourceAppendix(packet) {');
+  const end = html.indexOf('class ExpositoryStudio', start);
+  assert.ok(start >= 0 && end > start, 'expected the source appendix formatter');
+  const sandbox = {};
+  vm.runInNewContext(html.slice(start, end) + String.fromCharCode(10) + 'this.formatAppendix = formatInductiveStudySourceAppendix;', sandbox);
+  const appendix = sandbox.formatAppendix({
+    format: 'inductive-bible-study-sermon-source',
+    version: 1,
+    studyReference: { display: 'Romans 2' },
+    sermonPassage: 'Romans 2',
+    translation: 'KJV',
+    exportedAt: '2026-10-20T11:00:00.000Z',
+    sourceUpdatedAt: '2026-10-20T10:00:00.000Z',
+    passageTextIncluded: false,
+    sections: { observe: 'Observation source note', interpret: 'Interpretation source note', doctrine: 'Doctrine source note', discipleship: 'Discipleship source note' },
+    passageOutline: { title: 'Imported passage outline', sections: [{ heading: 'Judgment', verseRange: 'Romans 2:1-4', majorIdea: 'A source outline idea', supportingDetails: 'Source details' }] },
+    verseMaps: { '1': { keyWords: 'inexcusable' } },
+    scriptureMarkups: [{ verse: 1, type: 'observation', quote: 'Therefore' }],
+    customCrossReferences: [{ source: { book: 'Romans', chapter: 2, verse: 1 }, target: { book: 'James', chapter: 4, startVerse: 11, endVerse: 11 }, relation: 'theme', note: 'Personal link' }],
+    standardCrossReferences: { dataset: 'CrossReferences-org/bible-cross-references', license: 'CC BY 4.0', available: true, entries: [{ verse: 1, anchors: [{ anchor: 'Therefore', references: ['Rom 1:18-20'] }] }] },
+    selectedVerses: ['Romans 2:1']
+  });
+  for (const expected of [
+    'APPENDIX: ORIGINAL INDUCTIVE BIBLE STUDY SOURCE',
+    'OBSERVE — imported IBS notes',
+    'Observation source note',
+    'INTERPRETATION — imported IBS notes',
+    'Interpretation source note',
+    'DOCTRINE — imported IBS notes',
+    'Doctrine source note',
+    'DISCIPLESHIP — imported IBS notes',
+    'Discipleship source note',
+    'IBS PASSAGE OUTLINE — source divisions, not the homiletical outline',
+    'VERSE MAPS — imported source evidence',
+    'SCRIPTURE MARKUP — imported observations, not proof of interpretation',
+    'PERSONAL CROSS-REFERENCES — user-created links',
+    'STANDARD CROSS-REFERENCES — dataset-derived, distinct from AI suggestions',
+    'CrossReferences-org/bible-cross-references',
+    'CC BY 4.0',
+    'SELECTED VERSES — imported selection',
+    'Source study updated at: 2026-10-20T10:00:00.000Z'
+  ]) assert.ok(appendix.includes(expected), 'missing appendix evidence: ' + expected);
+  assert.ok(appendix.indexOf('OBSERVE — imported IBS notes') < appendix.indexOf('INTERPRETATION — imported IBS notes'));
+  assert.ok(!appendix.includes('OPENROUTER_API_KEY'));
+});
+
 test('Kerygma UI accepts either server-side provider and never asks for a browser key', () => {
   assert.ok(html.includes('config.aiConfigured === true'));
   assert.ok(html.includes('config.openrouterConfigured === true'));

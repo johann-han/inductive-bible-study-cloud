@@ -175,6 +175,16 @@ test('Kerygma Guide gives a substantive chapter overview and continues with one 
   assert.ok(html.includes('this.callSermonAI(systemPrompt, userQuery, null, 900)'));
 });
 
+test('Kerygma Guide lets the user explicitly request more questions or insights', () => {
+  assert.ok(html.includes('>More questions</button>'));
+  assert.ok(html.includes('>More insights</button>'));
+  assert.ok(html.includes('Give me 5 additional, non-repetitive questions about the current passage and active study stage.'));
+  assert.ok(html.includes('Give me 3–5 additional insights about the current passage and active study stage.'));
+  assert.ok(html.includes('The one-question-at-a-time approach is only the default, not a restriction.'));
+  assert.ok(html.includes('provide a useful set of the requested size'));
+  assert.ok(html.includes('This default does not apply when the user explicitly asks for additional questions or insights'));
+});
+
 test('Text and Exegesis guide acts as a critical interpreter and builds on IBS work', () => {
   assert.ok(html.includes('TEXT & EXEGESIS — EXEGETICAL COACHING'));
   assert.ok(html.includes('Exegesis is the critical interpretation and explanation of the biblical text.'));

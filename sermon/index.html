@@ -604,7 +604,8 @@
             if (heading) {
                 flushParagraph();
                 flushList();
-                const h = document.createElement(heading[1].length === 1 ? 'h3' : 'h4');
+                const headingTag = ['h3', 'h4', 'h5'][heading[1].length - 1] || 'h5';
+                const h = document.createElement(headingTag);
                 h.className = 'mt-2 mb-1 font-semibold text-slate-900';
                 appendInline(h, heading[2].trim());
                 container.appendChild(h);

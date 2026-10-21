@@ -201,7 +201,7 @@ test('More Questions button inline click handler parses and calls the prompt set
 
 test('More Questions keeps each rationale inside one continuous numbered-list item', () => {
   assert.ok(html.includes('Format the response as one continuous numbered list from 1 to 5.'));
-  assert.ok(html.includes("Put each verse reference, question, and brief 'Why it matters' explanation inside the SAME numbered list item."));
+  assert.ok(html.includes('Put each verse reference, question, and a brief Why it matters rationale inside the SAME numbered list item.'));
   assert.ok(html.includes('Do not insert separate paragraphs between list items, and do not restart numbering.'));
 });
 

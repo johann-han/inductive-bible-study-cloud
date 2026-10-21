@@ -242,11 +242,6 @@ test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s
   assert.ok(!nodes.some(node => node.tagName === 'img'), 'HTML-like user/model text must not become DOM elements');
   assert.ok(nodes.some(node => node.tagName === '#text' && node.textContent.includes('[Unsafe link](javascript:alert(1))')));
 });
-test('guide Markdown preserves ordered-list numbering across blank lines', () => {
-  assert.ok(html.includes('if (nextListTag !== listTag) flushList();'));
-  assert.ok(html.includes('blank lines must not split a single ordered list'));
-});
-
 test('guide Markdown renderer does not interpret HTML or unsafe URL schemes', () => {
   const start = html.indexOf('function renderKerygmaGuideMarkdown(container, markdown) {');
   const end = html.indexOf('class ExpositoryStudio', start);

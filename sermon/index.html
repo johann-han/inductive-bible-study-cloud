@@ -1394,9 +1394,9 @@
 
                 // Opt in to a separate source appendix. Cancel preserves the sermon-only export.
                 const includeSource = Boolean(s.inductiveStudySource) && window.confirm(
-                    'Include the original Inductive Bible Study source as a separate appendix?\\n\\n' +
+                    'Include the original Inductive Bible Study source as a separate appendix?\n\n' +
                     'OK: include the four study stages, passage outline, verse maps, Scripture marks, ' +
-                    'cross-references and source/licence information.\\n' +
+                    'cross-references and source/licence information.\n' +
                     'Cancel: export sermon content only.'
                 );
 
@@ -1412,7 +1412,7 @@ OBJECTIVE:
 ${s.aim || 'N/A'}
 
 OUTLINE:
-${(s.outline || []).map((o, idx) => `${idx + 1}. [${o.reference}] ${o.statement}\\n   Notes: ${o.notes}`).join('\\n\\n')}
+${(s.outline || []).map((o, idx) => `${idx + 1}. [${o.reference}] ${o.statement}\n   Notes: ${o.notes}`).join('\n\n')}
 
 APPLICATION:
 - Seekers: ${s.appSeekers || 'N/A'}

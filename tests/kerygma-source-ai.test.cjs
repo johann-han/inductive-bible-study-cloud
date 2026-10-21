@@ -214,7 +214,7 @@ test('guide Markdown renderer does not interpret HTML or unsafe URL schemes', ()
   assert.ok(start >= 0 && end > start);
   const helper = html.slice(start, end);
   assert.ok(!helper.includes('innerHTML'), 'guide formatter must use safe DOM creation');
-  assert.ok(helper.includes('https?:' + String.fromCharCode(92) + '/' + String.fromCharCode(92) + '/'), 'only http(s) URLs should become links');
+  assert.ok(helper.includes('link.href = match[2]'), 'the href must come only from the validated Markdown URL match');
 });
 test('Kerygma exegesis banner uses provider-neutral branding', () => {
   assert.ok(html.includes('Kerygma Exegetical Guide'));

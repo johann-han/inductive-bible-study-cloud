@@ -178,7 +178,7 @@ test('Kerygma Guide gives a substantive chapter overview and continues with one 
 test('Text and Exegesis guide acts as a critical interpreter and builds on IBS work', () => {
   assert.ok(html.includes('TEXT & EXEGESIS — EXEGETICAL COACHING'));
   assert.ok(html.includes('Exegesis is the critical interpretation and explanation of the biblical text.'));
-  assert.ok(html.includes('Review the supplied IBS Observe and Interpretation notes, verse maps and word-study notes, Scripture markups, cross-references, and passage outline where present.'));
+  assert.ok(html.includes('Before asking a question, review the supplied IBS Observe and Interpretation notes, verse maps and word-study notes, Scripture markups, cross-references, and passage outline where present.'));
   assert.ok(html.includes('Build on it instead of repeating a generic worksheet.'));
   assert.ok(html.includes('Do not ask the user to re-provide information already documented.'));
   assert.ok(html.includes('Focus questions on textual evidence: why a word or connective matters;'));

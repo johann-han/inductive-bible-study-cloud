@@ -412,7 +412,7 @@
             if (!packet || typeof packet !== 'object') return '';
             const text = value => typeof value === 'string' ? value : '';
             const list = value => Array.isArray(value) ? value : [];
-            const section = (heading, value) => '\\n\\n' + heading + '\\n' + '-'.repeat(Math.min(heading.length, 72)) + '\\n' + (text(value).trim() || '[No content in imported source packet]');
+            const section = (heading, value) => '\n\n' + heading + '\n' + '-'.repeat(Math.min(heading.length, 72)) + '\n' + (text(value).trim() || '[No content in imported source packet]');
             const lines = [
                 '',
                 '',
@@ -431,7 +431,7 @@
                 'Source exported at: ' + (text(packet.exportedAt) || 'not recorded'),
                 'Source study updated at: ' + (text(packet.sourceUpdatedAt) || 'not recorded'),
                 'Passage text included: ' + (packet.passageTextIncluded === true ? 'Yes' : 'No')
-            ].join('\\n');
+            ].join('\n');
             let appendix = lines;
             const sections = packet.sections && typeof packet.sections === 'object' ? packet.sections : {};
             appendix += section('OBSERVE — imported IBS notes', sections.observe);
@@ -446,12 +446,12 @@
             const outline = packet.passageOutline && typeof packet.passageOutline === 'object' ? packet.passageOutline : {};
             const outlineRows = list(outline.sections);
             appendix += section('IBS PASSAGE OUTLINE — source divisions, not the homiletical outline',
-                (text(outline.title) ? outline.title + '\\n\\n' : '') +
+                (text(outline.title) ? outline.title + '\n\n' : '') +
                 (outlineRows.length ? outlineRows.map((row, index) => {
                     row = row && typeof row === 'object' ? row : {};
                     const title = (index + 1) + '. ' + (text(row.heading) || 'Untitled section') + (text(row.verseRange) ? ' [' + text(row.verseRange) + ']' : '');
-                    return [title, text(row.majorIdea), text(row.supportingDetails)].filter(Boolean).join('\\n');
-                }).join('\\n\\n') : '[No passage outline in imported source packet]'));
+                    return [title, text(row.majorIdea), text(row.supportingDetails)].filter(Boolean).join('\n');
+                }).join('\n\n') : '[No passage outline in imported source packet]'));
 
             const verseMaps = packet.verseMaps && typeof packet.verseMaps === 'object' && !Array.isArray(packet.verseMaps) ? packet.verseMaps : {};
             appendix += section('VERSE MAPS — imported source evidence', Object.keys(verseMaps).length ? JSON.stringify(verseMaps, null, 2) : '[No verse maps in imported source packet]');
@@ -465,14 +465,14 @@
             const standardEntries = list(standard.entries);
             appendix += section('STANDARD CROSS-REFERENCES — dataset-derived, distinct from AI suggestions',
                 'Dataset: ' + (text(standard.dataset) || 'not specified') +
-                '\\nLicence: ' + (text(standard.license) || 'not specified') +
-                '\\nAvailable in imported packet: ' + (standard.available === true ? 'Yes' : 'No') +
-                (text(standard.note) ? '\\nSource note: ' + text(standard.note) : '') +
-                '\\nEntries:\\n' + (standardEntries.length ? JSON.stringify(standardEntries, null, 2) : '[No standard cross-reference entries in imported source packet]'));
+                '\nLicence: ' + (text(standard.license) || 'not specified') +
+                '\nAvailable in imported packet: ' + (standard.available === true ? 'Yes' : 'No') +
+                (text(standard.note) ? '\nSource note: ' + text(standard.note) : '') +
+                '\nEntries:\n' + (standardEntries.length ? JSON.stringify(standardEntries, null, 2) : '[No standard cross-reference entries in imported source packet]'));
 
             const selectedVerses = list(packet.selectedVerses).filter(v => typeof v === 'string' && v.trim());
-            appendix += section('SELECTED VERSES — imported selection', selectedVerses.length ? selectedVerses.join('\\n') : '[No selected verses recorded]');
-            return appendix + '\\n';
+            appendix += section('SELECTED VERSES — imported selection', selectedVerses.length ? selectedVerses.join('\n') : '[No selected verses recorded]');
+            return appendix + '\n';
         }
 
         /**
@@ -1390,6 +1390,16 @@
 
             exportSermon() {
                 const s = this.getCurrentSermon();
+                if (!s) { alert('Select a sermon before exporting.'); return; }
+
+                // Opt in to a separate source appendix. Cancel preserves the sermon-only export.
+                const includeSource = Boolean(s.inductiveStudySource) && window.confirm(
+                    'Include the original Inductive Bible Study source as a separate appendix?\\n\\n' +
+                    'OK: include the four study stages, passage outline, verse maps, Scripture marks, ' +
+                    'cross-references and source/licence information.\\n' +
+                    'Cancel: export sermon content only.'
+                );
+
                 const content = `================================================
 SERMON TITLE: ${s.title}
 PASSAGE: ${s.passage}
@@ -1402,7 +1412,7 @@ OBJECTIVE:
 ${s.aim || 'N/A'}
 
 OUTLINE:
-${(s.outline || []).map((o, idx) => `${idx + 1}. [${o.reference}] ${o.statement}\n   Notes: ${o.notes}`).join('\n\n')}
+${(s.outline || []).map((o, idx) => `${idx + 1}. [${o.reference}] ${o.statement}\\n   Notes: ${o.notes}`).join('\\n\\n')}
 
 APPLICATION:
 - Seekers: ${s.appSeekers || 'N/A'}
@@ -1412,7 +1422,7 @@ APPLICATION:
 ================================================
 MANUSCRIPT / PREACHING NOTES:
 ================================================
-${s.manuscript || 'No manuscript generated.'}`;
+${s.manuscript || 'No manuscript generated.'}${includeSource ? formatInductiveStudySourceAppendix(s.inductiveStudySource) : ''}`;
 
                 const blob = new Blob([content], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);

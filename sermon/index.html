@@ -357,7 +357,7 @@
         onclick="sermonApp.toggleKerygmaGuide()"
         aria-controls="kerygma-guide-panel" aria-expanded="false"
         class="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-700 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-amber-500">
-        <i data-lucide="message-circle-heart" class="h-5 w-5"></i>
+        <i data-lucide="message-circle" class="h-5 w-5"></i>
         Kerygma Guide & Assistant
     </button>
 
@@ -957,6 +957,7 @@
                     if (status) status.textContent = 'Select a sermon before asking the guide.';
                     return;
                 }
+                const requestedSermonId = sermon.id;
                 if (!Array.isArray(this.guideHistory)) this.guideHistory = [];
                 if (!Array.isArray(this.guideMessages)) this.guideMessages = [];
                 this.guideBusy = true;
@@ -1034,12 +1035,20 @@ ${question}
 
 Answer the current question in light of the active stage and the available source material. If the user asks for guidance, walk them through the reasoning rather than just producing a finished deliverable.`;
                     const answer = await this.callSermonAI(systemPrompt, userQuery);
+                    if (this.currentSermonId !== requestedSermonId) {
+                        if (status) status.textContent = 'A reply for the previous sermon was discarded because you switched sermons. No sermon fields were changed.';
+                        return;
+                    }
                     this.guideHistory.push({ role: 'assistant', content: answer });
                     this.guideHistory = this.guideHistory.slice(-12);
                     this.guideMessages.push({ role: 'assistant', content: answer });
                     this.guideMessages = this.guideMessages.slice(-30);
                     if (status) status.textContent = 'Reply ready. Review it and decide what, if anything, to apply to your sermon.';
                 } catch (error) {
+                    if (this.currentSermonId !== requestedSermonId) {
+                        if (status) status.textContent = 'The previous-sermon request ended after you switched sermons. Your current sermon was not changed.';
+                        return;
+                    }
                     this.guideHistory.pop();
                     this.guideMessages.push({
                         role: 'assistant',

@@ -185,6 +185,12 @@ test('Kerygma Guide lets the user explicitly request more questions or insights'
   assert.ok(html.includes('This default does not apply when the user explicitly asks for additional questions or insights'));
 });
 
+test('More Questions keeps each rationale inside one continuous numbered-list item', () => {
+  assert.ok(html.includes('Format the response as one continuous numbered list from 1 to 5.'));
+  assert.ok(html.includes("Put each verse reference, question, and brief 'Why it matters' explanation inside the SAME numbered list item."));
+  assert.ok(html.includes('Do not insert separate paragraphs between list items, and do not restart numbering.'));
+});
+
 test('Text and Exegesis guide acts as a critical interpreter and builds on IBS work', () => {
   assert.ok(html.includes('TEXT & EXEGESIS — EXEGETICAL COACHING'));
   assert.ok(html.includes('Exegesis is the critical interpretation and explanation of the biblical text.'));

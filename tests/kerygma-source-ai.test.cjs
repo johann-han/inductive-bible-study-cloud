@@ -175,6 +175,20 @@ test('Kerygma Guide gives a substantive chapter overview and continues with one 
   assert.ok(html.includes('this.callSermonAI(systemPrompt, userQuery, null, 900)'));
 });
 
+test('Text and Exegesis guide acts as a critical interpreter and builds on IBS work', () => {
+  assert.ok(html.includes('TEXT & EXEGESIS — EXEGETICAL COACHING'));
+  assert.ok(html.includes('Exegesis is the critical interpretation and explanation of the biblical text.'));
+  assert.ok(html.includes('Before asking a question, review the supplied IBS Observe and Interpretation notes, verse maps and word-study notes, Scripture markups, cross-references, and passage outline where present.'));
+  assert.ok(html.includes('Build on it instead of repeating a generic worksheet.'));
+  assert.ok(html.includes('Do not ask the user to re-provide information already documented.'));
+  assert.ok(html.includes('Focus questions on textual evidence: why a word or connective matters;'));
+  assert.ok(html.includes('Do not invent Greek/Hebrew meanings or historical facts.'));
+  assert.ok(html.includes('ACTIVE STAGE GUIDANCE:'));
+  assert.ok(html.includes('${stageGuidance}'));
+  assert.ok(html.includes('IBS PASSAGE OUTLINE (imported text divisions; source evidence, not sermon outline):'));
+  assert.ok(html.includes('const stage = this.getKerygmaGuideStage();'));
+  assert.ok(html.includes('if (stage.profile === \'exegesis\') {'));
+});
 test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable', () => {
   assert.ok(html.includes('width:min(94vw,760px)'));
   assert.ok(html.includes('min-width:min(94vw,380px)'));

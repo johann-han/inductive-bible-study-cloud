@@ -1101,7 +1101,38 @@
                 };
                 try {
                     const stage = this.getKerygmaGuideStage();
-                    const source = this.getInductiveStudyPromptContext(stage.profile);
+                    const stageGuidance = stage.profile === 'exegesis'
+                        ? [
+                            'TEXT & EXEGESIS — EXEGETICAL COACHING',
+                            'Exegesis is the critical interpretation and explanation of the biblical text. Focus on what the passage means as accurately as possible by examining its wording, grammar and syntax where supported, literary structure, immediate and wider context, documented historical background, and the author’s line of argument. Do not jump prematurely to sermon construction or application.',
+                            'Before asking a question, review the supplied IBS Observe and Interpretation notes, verse maps and word-study notes, Scripture markups, cross-references, and passage outline where present. Identify what work has already been done. Build on it instead of repeating a generic worksheet. If the IBS notes already record language, context, audience, historical background, or an interpretation, acknowledge the relevant finding and ask how it is supported by, or affects the reading of, the passage. Do not ask the user to re-provide information already documented.',
+                            'Focus questions on textual evidence: why a word or connective matters; how a sentence or paragraph works; how one verse follows from another; what contrast, repetition, cause, result, or emphasis is visible; whether an interpretation is supported by the wording; and how a passage movement contributes to the chapter’s argument. For a whole chapter, connect the main movements first, then focus on one meaningful exegetical issue. Ask one clear question at a time and explain why it matters.',
+                            'Use language or historical details only when supported by the supplied passage or imported notes. Do not invent Greek/Hebrew meanings or historical facts. If the IBS packet does not contain a detail needed to decide an issue, state the gap and identify precisely what evidence should be checked next. Keep exegesis distinct from later doctrine, homiletical outline, and application.'
+                        ].join('\n')
+                        : [
+                            'ACTIVE-STAGE COACHING',
+                            'Guide the user through ' + stage.label + '. First review the relevant sermon fields and supplied IBS notes for this stage. Build on work already completed; do not repeat generic questions or request details already documented. Explain how the current decision follows from the text and study evidence, distinguish source notes from inference and suggestions, and ask one focused question or offer one next step.'
+                        ].join('\n');
+                    let source = this.getInductiveStudyPromptContext(stage.profile);
+                    if (stage.profile === 'exegesis') {
+                        const packet = sermon.inductiveStudySource;
+                        const outlineRows = packet && packet.passageOutline && Array.isArray(packet.passageOutline.sections)
+                            ? packet.passageOutline.sections.slice(0, 12) : [];
+                        if (outlineRows.length) {
+                            const outlineText = outlineRows.map((row, index) => {
+                                const heading = clip(row && row.heading, 220) || 'Untitled section';
+                                const reference = clip(row && row.verseRange, 100);
+                                const idea = clip(row && row.majorIdea, 450);
+                                const details = clip(row && row.supportingDetails, 650);
+                                return [
+                                    (index + 1) + '. ' + heading + (reference ? ' [' + reference + ']' : ''),
+                                    idea ? 'Major idea: ' + idea : '',
+                                    details ? 'Supporting details: ' + details : ''
+                                ].filter(Boolean).join('\n');
+                            }).join('\n\n');
+                            source += '\n\nIBS PASSAGE OUTLINE (imported text divisions; source evidence, not sermon outline):\n' + outlineText;
+                        }
+                    }
                     const sourceExcerpt = source.length > 14000
                         ? source.slice(0, 13700) + '\n\n[The remaining imported source is available in the read-only Source Inductive Study panel.]'
                         : source;
@@ -1136,6 +1167,9 @@
                     const systemPrompt = `You are Kerygma Guide & Assistant, a patient expository preaching coach inside the Kerygma sermon workspace. You are both a guide and an assistant, not merely a content generator.
 
 Default to a thoughtful personal-coach conversation, not a worksheet. Give enough substance to teach. When the passage selected for study is a whole chapter, orient the learner to the chapter's overall argument and major movements, showing how they connect instead of narrowing prematurely to one verse. Mention relevant verse ranges when supported by the supplied passage and study notes. Usually aim for about 150–250 words, but use the length the user's question genuinely requires; do not rigidly compress important context.
+
+ACTIVE STAGE GUIDANCE:
+${stageGuidance}
 
 Use natural, readable Markdown. For a whole-chapter “Guide this step” request, briefly explain the purpose of the current stage, provide a useful overview of the chapter's main argument and a few major movements, identify one or two interpretive questions worth considering, and then invite the learner to begin with ONE question. Do not turn the overview into a questionnaire or list four or five questions.
 

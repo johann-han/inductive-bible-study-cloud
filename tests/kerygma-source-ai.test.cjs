@@ -118,7 +118,7 @@ test('OpenRouter wraps a top-level array schema and returns a compatible array c
   assert.equal(prepared.unwrapArray, true);
   assert.equal(prepared.responseFormat.type, 'json_schema');
   assert.equal(prepared.responseFormat.json_schema.schema.type, 'object');
-  assert.ok(Array.isArray(prepared.responseFormat.json_schema.schema.properties.items));
+  assert.equal(prepared.responseFormat.json_schema.schema.properties.items.type, 'array');
   assert.deepEqual(
     JSON.parse(JSON.stringify(prepared.responseFormat.json_schema.schema.required)),
     ['items']

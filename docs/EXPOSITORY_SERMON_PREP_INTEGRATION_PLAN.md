@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–5, OpenRouter provider support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, ordered-list numbering, and opt-in More Questions/More Insights options are merged into `main`. PR #19 merged at `75e69ea1cc067039313d671eddc7f7b2b9822fcf`; CI passed on the feature commit and the merge-commit workflow is running. The two new Guide quick prompts explicitly override the one-question-at-a-time default when the user requests more questions or insights. Live Render verification of the new prompt chips remains pending. Final theological review remains pending.
+Document status: Phases 1–5, OpenRouter provider support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, ordered-list numbering, and More Questions/More Insights options are merged into `main`. The user has confirmed both quick options are visible and has tested them on Romans 2. More Insights provides a useful set; More Questions still resets its item numbering because rationales are output as separate paragraphs. Follow-up branch `fix/kerygma-more-questions-list-format` asks the Guide to keep each question and its rationale inside one continuous numbered list item; regression tests and PR review are pending. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -251,7 +251,7 @@ Follow-up branch: `fix/kerygma-markdown-list-numbering` (not yet merged). The re
 
 ### Kerygma Guide: explicit requests for more questions and insights (21 October 2026)
 
-The latest live screenshot confirms the numbered overview list now runs 1–4 correctly. The user asks for an explicit way to request further questions or insights rather than being limited by the Guide's default one-question coaching style.
+The latest live screenshot confirms the numbered chapter-overview list runs 1–4 correctly and the More Questions/More Insights buttons are visible. The user has tested both: More Insights produces useful distinct insights; More Questions produces relevant verse-specific questions, but the rationale paragraph between list entries causes each ordered list to restart at 1. This specific follow-up fixes output structure, not the renderer.
 
 Merged in PR #19 at `75e69ea1cc067039313d671eddc7f7b2b9822fcf`. CI passed on feature commit `0c8304f17cfaa2339a013fa3df2971cc4cd3ca84`; the merge-commit workflow is running. Live Render prompt-chip verification is pending.
 - Adds two quick prompt chips: **More questions** (requests five additional, non-repetitive questions tied to the active stage/passage, with verse reference and a short reason for each) and **More insights** (requests three to five further insights, with textual evidence and wider-context connection).
@@ -259,6 +259,14 @@ Merged in PR #19 at `75e69ea1cc067039313d671eddc7f7b2b9822fcf`. CI passed on fea
 - Prompt rules explicitly say the one-question-at-a-time behavior is a default, not a restriction. When the user asks for more questions, insights, alternatives or deeper exploration, the Guide should honor that request while staying grounded in the active stage, passage and IBS notes.
 - Stage-specific Text & Exegesis rules are compatible with this override: default to one focused question, but offer a set when explicitly requested.
 - Added regression coverage for both buttons, prompt content, and explicit override instructions. Run the source-aware AI checks, then merge through PR only after CI passes. After Render auto-deploys from `main`, confirm the two chips show up and test each on the Romans 2 sermon without changing its fields or imported IBS source.
+
+### More Questions list numbering (21 October 2026)
+
+Follow-up branch: `fix/kerygma-more-questions-list-format` (not yet merged).
+- Update the More Questions quick-prompt text to request one continuous numbered list from 1–5.
+- Each list item must contain its verse reference, question, and brief “Why it matters” rationale within the same item. Do not put the rationale in a separate paragraph between list items and do not restart numbering.
+- Add a regression assertion for this explicit output contract. Do not change the Markdown renderer or More Insights behavior unless CI reveals a necessary issue.
+- After CI passes, merge through PR and allow Render to deploy from `main`; confirm the More Questions result displays a continuous 1–5 list.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

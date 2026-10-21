@@ -144,7 +144,7 @@ test('Kerygma Guide is available as a separate contextual conversation', () => {
 test('Kerygma Guide coaches the user without editing or persisting sermon fields', () => {
   assert.ok(html.includes('You are both a guide and an assistant, not merely a content generator.'));
   assert.ok(html.includes('Never claim to have edited or saved a sermon field.'));
-  assert.ok(html.includes('Never request or perform automatic changes to title, Bible text, notes, Big Idea, outline, applications, manuscript'));
+  assert.ok(html.includes('Never automatically change title, Bible text, notes, Big Idea, outline, applications, manuscript, or the imported IBS source.'));
   assert.ok(html.includes('renderKerygmaGuideMarkdown(body, message.content)'));
   assert.ok(!html.includes('body.innerHTML = String(message.content ||'));
   assert.ok(html.includes('Never claim to have edited or saved a sermon field.'));
@@ -190,7 +190,7 @@ test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s
   } };
   vm.runInNewContext(html.slice(start, end) + String.fromCharCode(10) + 'this.renderGuide = renderKerygmaGuideMarkdown;', sandbox);
   const root = new TestNode('div');
-  const markdown = '## Key point\\nYou noticed **judgment** and *hypocrisy*, with `truth`.\\n\\n1. Read the passage\\n2. Ask one question\\n\\n- Observation\\n- Interpretation\\n\\n[Safe link](https://example.org) [Unsafe link](javascript:alert(1)) <img src=x onerror=alert(1)>';
+  const markdown = '## Key point\nYou noticed **judgment** and *hypocrisy*, with `truth`.\n\n1. Read the passage\n2. Ask one question\n\n- Observation\n- Interpretation\n\n[Safe link](https://example.org) [Unsafe link](javascript:alert(1)) <img src=x onerror=alert(1)>';
   sandbox.renderGuide(root, markdown);
   const nodes = [];
   const visit = node => { nodes.push(node); (node.children || []).forEach(visit); };

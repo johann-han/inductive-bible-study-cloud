@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–5, OpenRouter support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, Markdown list numbering, and More Questions/More Insights options are merged into `main`. The user confirmed both quick options are visible and tested them on Romans 2. More Insights produced useful insights; More Questions had numbering reset because each rationale appeared in a separate paragraph. PR #21 merged the prompt-format fix at `926206daf71ee40883f09f219ca5af386885538a`; CI passed on both the feature branch and the main merge commit. The prompt now asks for one continuous numbered list 1–5 with each verse reference, question and rationale inside the same list item. Live Render verification of the revised More Questions formatting remains pending. Final theological review remains pending.
+Document status: Phases 1–5, OpenRouter support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, Markdown list numbering, and More Questions/More Insights options are merged into `main`. The user reports More Questions does not work. Root cause found: its inline `onclick` JavaScript string contained the nested single-quoted phrase `'Why it matters'`, prematurely terminating the outer single-quoted string so the click handler fails to parse. Branch `fix/kerygma-more-questions-click-handler` removes the nested quotes and adds a regression test that compiles the actual click handler with `vm.Script`. CI and PR are pending for this fix. Sermon/source data remain untouched. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -262,8 +262,8 @@ Merged in PR #19 at `75e69ea1cc067039313d671eddc7f7b2b9822fcf`. CI passed on fea
 
 ### More Questions list numbering (21 October 2026)
 
-Merged in PR #21 at `926206daf71ee40883f09f219ca5af386885538a`; CI passed on feature commit `bef49a6d75b4d40bca2c734294ab8d4b6d9af692` and main merge commit `926206daf71ee40883f09f219ca5af386885538a`. Live Render verification of the revised output remains pending.
-- Update the More Questions quick-prompt text to request one continuous numbered list from 1–5.
+PR #21 merged the prompt wording change, but the actual button is broken because its `onclick` string contains nested single quotes around ‘Why it matters’. The browser cannot parse that handler. Follow-up branch `fix/kerygma-more-questions-click-handler` replaces that phrase with unquoted words while preserving the continuous 1–5 list requirement, and adds a regression test that extracts the button’s `onclick` attribute and parses it using `new vm.Script`. CI/PR review must pass before merge.
+- The prompt asks for one continuous numbered list from 1–5.
 - Each list item must contain its verse reference, question, and brief “Why it matters” rationale within the same item. Do not put the rationale in a separate paragraph between list items and do not restart numbering.
 - Add a regression assertion for this explicit output contract. Do not change the Markdown renderer or More Insights behavior unless CI reveals a necessary issue.
 - The PR is merged with passing CI. After Render deploys `main`, test More Questions on Romans 2 and confirm items run 1–5 without numbering restarting.

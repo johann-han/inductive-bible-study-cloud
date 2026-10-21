@@ -185,9 +185,23 @@ test('Kerygma Guide lets the user explicitly request more questions or insights'
   assert.ok(html.includes('This default does not apply when the user explicitly asks for additional questions or insights'));
 });
 
+test('More Questions button inline click handler parses and calls the prompt setter', () => {
+  const label = '>More questions</button>';
+  const buttonEnd = html.indexOf(label);
+  assert.ok(buttonEnd >= 0, 'expected the More questions quick-prompt button');
+  const buttonStart = html.lastIndexOf('<button', buttonEnd);
+  assert.ok(buttonStart >= 0, 'expected the More questions button tag');
+  const button = html.slice(buttonStart, buttonEnd + label.length);
+  const handler = button.match(/onclick="([^"]+)"/);
+  assert.ok(handler, 'expected the button click handler');
+  assert.ok(handler[1].startsWith('sermonApp.setKerygmaGuidePrompt('));
+  assert.doesNotThrow(() => new vm.Script(handler[1]), 'More Questions click handler must be valid JavaScript');
+  assert.ok(handler[1].includes('Format the response as one continuous numbered list from 1 to 5.'));
+});
+
 test('More Questions keeps each rationale inside one continuous numbered-list item', () => {
   assert.ok(html.includes('Format the response as one continuous numbered list from 1 to 5.'));
-  assert.ok(html.includes("Put each verse reference, question, and brief 'Why it matters' explanation inside the SAME numbered list item."));
+  assert.ok(html.includes('Put each verse reference, question, and a brief Why it matters rationale inside the SAME numbered list item.'));
   assert.ok(html.includes('Do not insert separate paragraphs between list items, and do not restart numbering.'));
 });
 

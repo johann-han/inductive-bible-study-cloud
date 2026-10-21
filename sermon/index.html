@@ -377,7 +377,7 @@
         </header>
 
         <div class="border-b border-slate-200 bg-slate-50 p-3">
-            <p class="text-xs leading-relaxed text-slate-600">Ask for guidance, clarification, a review, or help deciding what to do next. Replies are suggestions for you to evaluate; this chat never edits the sermon or imported study automatically.</p>
+            <p class="text-xs leading-relaxed text-slate-600">Ask for guidance, clarification, a review, or help deciding what to do next. Kerygma sends your question and relevant sermon/source excerpts to the configured AI provider. Replies are suggestions for you to evaluate; this chat never edits the sermon or imported study automatically.</p>
             <div class="mt-2 flex flex-wrap gap-2">
                 <button type="button" onclick="sermonApp.setKerygmaGuidePrompt('Guide me through this step. Ask me useful questions rather than doing all the work for me.')" class="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">Guide this step</button>
                 <button type="button" onclick="sermonApp.setKerygmaGuidePrompt('Review my current work for faithfulness to the passage, logic, missing evidence, and theological risks. Separate observations from suggestions.')" class="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">Review my work</button>
@@ -907,6 +907,8 @@
 
             resetKerygmaGuideConversation() {
                 this.guideHistory = [];
+                const status = document.getElementById('kerygma-guide-status');
+                if (status) status.textContent = '';
                 this.guideMessages = [{
                     role: 'assistant',
                     content: 'We’ve switched sermons, so I’ve started a fresh guide conversation. I can help you reason through the text and your draft, but I will not edit any sermon fields or imported source notes.'

@@ -6,6 +6,8 @@ const vm = require('node:vm');
 
 const htmlPath = path.join(__dirname, '..', 'sermon', 'index.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
+const serverPath = path.join(__dirname, '..', 'server.js');
+const server = fs.readFileSync(serverPath, 'utf8');
 const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
   .map(match => match[1])
   .filter(script => script.trim());
@@ -166,10 +168,26 @@ test('Kerygma Guide coaches the user without editing or persisting sermon fields
 });
 
 test('Kerygma Guide defaults to concise coaching instead of a multi-question worksheet', () => {
-  assert.ok(html.includes('keep a reply to about 80–140 words'));
-  assert.ok(html.includes('ask exactly ONE focused follow-up question OR suggest one next step, not both'));
-  assert.ok(html.includes('Do not produce a long numbered list of questions.'));
-  assert.ok(html.includes('If the user answers a question, engage that answer before moving forward.'));
+  assert.ok(html.includes('Keep ordinary replies to 60–100 words and 3–5 sentences.'));
+  assert.ok(html.includes('respond to that exact answer first'));
+  assert.ok(html.includes('ask exactly ONE short, focused follow-up question.'));
+  assert.ok(html.includes('Do not ask a second question, list possible questions, recap the entire study, or add a separate'));
+  assert.ok(html.includes('this.callSermonAI(systemPrompt, userQuery, null, 320)'));
+});
+
+test('Kerygma Guide panel is wide, screen-bounded, and horizontally resizable', () => {
+  assert.ok(html.includes('width:min(94vw,640px)'));
+  assert.ok(html.includes('min-width:min(94vw,340px)'));
+  assert.ok(html.includes('max-width:94vw'));
+  assert.ok(html.includes('resize:horizontal'));
+});
+
+test('the guide-only response limit is bounded server-side for Gemini and OpenRouter', () => {
+  assert.ok(html.includes('async callSermonAI(systemPrompt, userQuery, responseSchema = null, maxOutputTokens = null)'));
+  assert.ok(server.includes('const maxOutputTokens = Number.isInteger(body.maxOutputTokens)'));
+  assert.ok(server.includes('Math.max(128, Math.min(1200, body.maxOutputTokens))'));
+  assert.ok(server.includes('max_tokens: maxOutputTokens || 5000'));
+  assert.ok(server.includes('...(maxOutputTokens ? { maxOutputTokens } : {})'));
 });
 
 test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s) links', () => {

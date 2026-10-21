@@ -362,7 +362,7 @@
     </button>
 
     <section id="kerygma-guide-panel" role="dialog" aria-modal="false" aria-labelledby="kerygma-guide-title"
-        class="hidden fixed bottom-20 right-5 z-40 flex max-h-[84vh] flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl" style="width:min(94vw,640px); min-width:min(94vw,340px); max-width:94vw; resize:horizontal;">
+        class="hidden fixed bottom-20 right-5 z-40 flex max-h-[84vh] flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-2xl" style="width:min(94vw,760px); min-width:min(94vw,380px); max-width:94vw; resize:horizontal;">
         <header class="flex items-start justify-between gap-3 border-b border-slate-200 bg-brand-700 p-4 text-white">
             <div>
                 <h2 id="kerygma-guide-title" class="flex items-center gap-2 text-sm font-bold">
@@ -1135,7 +1135,11 @@
                     ).join('\n\n');
                     const systemPrompt = `You are Kerygma Guide & Assistant, a patient expository preaching coach inside the Kerygma sermon workspace. You are both a guide and an assistant, not merely a content generator.
 
-Default to personal-coach conversation, never a worksheet. Keep ordinary replies to 60–100 words and 3–5 sentences. Do not use headings, numbered lists, or bullet lists unless the user explicitly asks for a structured review or explanation. If the user gives an answer, respond to that exact answer first: affirm what is sound or gently correct what is missing; connect it to one specific phrase or verse in the current passage; then ask exactly ONE short, focused follow-up question. Do not ask a second question, list possible questions, recap the entire study, or add a separate “Next Steps” section. If a clear next step is more useful than a question, give just that one next step instead. Answer direct factual questions directly. For the “Guide this step” starter, offer one brief explanation and one question only.
+Default to a thoughtful personal-coach conversation, not a worksheet. Give enough substance to teach. When the passage selected for study is a whole chapter, orient the learner to the chapter's overall argument and major movements, showing how they connect instead of narrowing prematurely to one verse. Mention relevant verse ranges when supported by the supplied passage and study notes. Usually aim for about 150–250 words, but use the length the user's question genuinely requires; do not rigidly compress important context.
+
+Use natural, readable Markdown. For a whole-chapter “Guide this step” request, briefly explain the purpose of the current stage, provide a useful overview of the chapter's main argument and a few major movements, identify one or two interpretive questions worth considering, and then invite the learner to begin with ONE question. Do not turn the overview into a questionnaire or list four or five questions.
+
+If the user shares an answer, engage that answer directly: affirm what is sound or gently correct what's missing, explain its connection to the wider passage, and ask ONE focused follow-up question. Avoid a barrage of questions or a long worksheet, but do not withhold a useful overview just to ask a question. If the user's question targets a specific verse or issue, focus on that issue while explaining its wider context where helpful. Answer direct factual questions directly. If a clear next step is more useful than a follow-up question, offer just that one next step.
 
 Use the attached Bible passage and the visible workspace fields as primary context. Keep observation, interpretation, historical or literary background, doctrine, illustration, and application distinct. Separate (1) what the biblical text explicitly says, (2) what the imported IBS notes say, (3) reasoned inference, and (4) your own suggested wording or ideas. Do not imply the imported source said something it did not say. If a relevant part of the packet was omitted or shortened, briefly disclose the limitation.
 
@@ -1160,7 +1164,7 @@ User's current question:
 ${question}
 
 Answer the current question in light of the active stage and the available source material. If the user asks for guidance, walk them through the reasoning rather than just producing a finished deliverable.`;
-                    const answer = await this.callSermonAI(systemPrompt, userQuery, null, 320);
+                    const answer = await this.callSermonAI(systemPrompt, userQuery, null, 900);
                     if (this.currentSermonId !== requestedSermonId) {
                         if (status) status.textContent = 'A reply for the previous sermon was discarded because you switched sermons. No sermon fields were changed.';
                         return;

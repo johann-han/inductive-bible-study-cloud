@@ -186,9 +186,13 @@ test('Kerygma Guide lets the user explicitly request more questions or insights'
 });
 
 test('More Questions button inline click handler parses and calls the prompt setter', () => {
-  const button = html.match(/<button\\b[^>]*>More questions<\\/button>/s);
-  assert.ok(button, 'expected the More questions quick-prompt button');
-  const handler = button[0].match(/onclick="([^"]+)"/);
+  const label = '>More questions</button>';
+  const buttonEnd = html.indexOf(label);
+  assert.ok(buttonEnd >= 0, 'expected the More questions quick-prompt button');
+  const buttonStart = html.lastIndexOf('<button', buttonEnd);
+  assert.ok(buttonStart >= 0, 'expected the More questions button tag');
+  const button = html.slice(buttonStart, buttonEnd + label.length);
+  const handler = button.match(/onclick="([^"]+)"/);
   assert.ok(handler, 'expected the button click handler');
   assert.ok(handler[1].startsWith('sermonApp.setKerygmaGuidePrompt('));
   assert.doesNotThrow(() => new vm.Script(handler[1]), 'More Questions click handler must be valid JavaScript');

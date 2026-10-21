@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–5, OpenRouter provider support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, ordered-list numbering, and More Questions/More Insights options are merged into `main`. The user has confirmed both quick options are visible and has tested them on Romans 2. More Insights provides a useful set; More Questions still resets its item numbering because rationales are output as separate paragraphs. Follow-up branch `fix/kerygma-more-questions-list-format` asks the Guide to keep each question and its rationale inside one continuous numbered list item; regression tests and PR review are pending. Final theological review remains pending.
+Document status: Phases 1–5, OpenRouter support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, Markdown list numbering, and More Questions/More Insights options are merged into `main`. The user confirmed both quick options are visible and tested them on Romans 2. More Insights produced useful insights; More Questions had numbering reset because each rationale appeared in a separate paragraph. PR #21 merged the prompt-format fix at `926206daf71ee40883f09f219ca5af386885538a`; CI passed on both the feature branch and the main merge commit. The prompt now asks for one continuous numbered list 1–5 with each verse reference, question and rationale inside the same list item. Live Render verification of the revised More Questions formatting remains pending. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -262,11 +262,11 @@ Merged in PR #19 at `75e69ea1cc067039313d671eddc7f7b2b9822fcf`. CI passed on fea
 
 ### More Questions list numbering (21 October 2026)
 
-Follow-up branch: `fix/kerygma-more-questions-list-format` (not yet merged).
+Merged in PR #21 at `926206daf71ee40883f09f219ca5af386885538a`; CI passed on feature commit `bef49a6d75b4d40bca2c734294ab8d4b6d9af692` and main merge commit `926206daf71ee40883f09f219ca5af386885538a`. Live Render verification of the revised output remains pending.
 - Update the More Questions quick-prompt text to request one continuous numbered list from 1–5.
 - Each list item must contain its verse reference, question, and brief “Why it matters” rationale within the same item. Do not put the rationale in a separate paragraph between list items and do not restart numbering.
 - Add a regression assertion for this explicit output contract. Do not change the Markdown renderer or More Insights behavior unless CI reveals a necessary issue.
-- After CI passes, merge through PR and allow Render to deploy from `main`; confirm the More Questions result displays a continuous 1–5 list.
+- The PR is merged with passing CI. After Render deploys `main`, test More Questions on Romans 2 and confirm items run 1–5 without numbering restarting.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

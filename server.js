@@ -140,6 +140,69 @@ function readJson(req, maxBytes = MAX_BODY) {
     req.on('error', reject);
   });
 }
+
+// Convert the UI's Gemini-style schema into strict OpenAI-compatible JSON Schema for OpenRouter.
+function toOpenRouterJsonSchema(input, path = 'responseSchema') {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error(path + ' must be a JSON schema object.');
+  }
+  const originalType = String(input.type || '').toLowerCase();
+  if (!['object', 'array', 'string', 'number', 'integer', 'boolean'].includes(originalType)) {
+    throw new Error(path + ' has an unsupported schema type.');
+  }
+  const output = { type: originalType };
+  if (typeof input.description === 'string') output.description = input.description.slice(0, 1000);
+  if (originalType === 'object') {
+    const properties = input.properties && typeof input.properties === 'object' && !Array.isArray(input.properties)
+      ? input.properties : {};
+    output.properties = {};
+    for (const [key, value] of Object.entries(properties)) {
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key)) throw new Error(path + ' contains an invalid property name.');
+      output.properties[key] = toOpenRouterJsonSchema(value, path + '.' + key);
+    }
+    // Strict structured output requires every property listed as required and disallows extras.
+    output.required = Object.keys(output.properties);
+    output.additionalProperties = false;
+  } else if (originalType === 'array') {
+    output.items = toOpenRouterJsonSchema(input.items, path + '.items');
+  } else if (Array.isArray(input.enum)) {
+    output.enum = input.enum.slice(0, 100);
+  }
+  return output;
+}
+
+function prepareOpenRouterResponseFormat(input) {
+  const schema = toOpenRouterJsonSchema(input);
+  // Strict structured-output APIs require an object at the root. Wrap arrays and unwrap on return
+  // to keep the existing browser contract unchanged (the outline AI still receives a JSON array).
+  if (schema.type === 'array') {
+    return {
+      responseFormat: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'sermon_ai_response',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: { items: schema },
+            required: ['items'],
+            additionalProperties: false
+          }
+        }
+      },
+      unwrapArray: true
+    };
+  }
+  if (schema.type !== 'object') throw new Error('The structured response must be an object or array schema.');
+  return {
+    responseFormat: {
+      type: 'json_schema',
+      json_schema: { name: 'sermon_ai_response', strict: true, schema }
+    },
+    unwrapArray: false
+  };
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (req.method === 'GET' && url.pathname === '/api/standard-cross-references') {
@@ -158,17 +221,25 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && url.pathname === '/api/config') {
     // These are intentionally public browser settings. Do not expose OPENROUTER_API_KEY or Supabase service-role keys.
+    const aiProvider = process.env.GEMINI_API_KEY ? 'gemini' : process.env.OPENROUTER_API_KEY ? 'openrouter' : '';
     return send(res, 200, {
       supabaseUrl: process.env.SUPABASE_URL || '',
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
-      geminiConfigured: !!process.env.GEMINI_API_KEY
+      geminiConfigured: !!process.env.GEMINI_API_KEY,
+      openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
+      aiConfigured: Boolean(aiProvider),
+      aiProvider
     });
   }
   if (req.method === 'GET' && url.pathname === '/healthz') {
     return send(res, 200, { status: 'ok' });
   }
   if (req.method === 'POST' && url.pathname === '/api/sermon-ai') {
-    if (!process.env.GEMINI_API_KEY) return send(res, 503, { error: 'Gemini AI is not configured on the server. Study import and local sermon notes remain available.' });
+    const hasGemini = Boolean(process.env.GEMINI_API_KEY);
+    const hasOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
+    if (!hasGemini && !hasOpenRouter) {
+      return send(res, 503, { error: 'No sermon AI provider is configured. Set GEMINI_API_KEY or OPENROUTER_API_KEY in the server environment.' });
+    }
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
       return send(res, 503, { error: 'Secure sermon AI requires the Inductive Bible Study sign-in service to be configured.' });
     }
@@ -180,39 +251,114 @@ const server = http.createServer(async (req, res) => {
       const systemPrompt = String(body.systemPrompt || '').trim().slice(0, 12000);
       const userQuery = String(body.userQuery || '').trim().slice(0, 48000);
       if (!systemPrompt || !userQuery) return send(res, 400, { error: 'Both a system prompt and a user query are required.' });
-      const payload = {
-        contents: [{ parts: [{ text: userQuery }] }],
-        systemInstruction: { parts: [{ text: systemPrompt }] }
-      };
+
+      if (hasGemini) {
+        const payload = {
+          contents: [{ parts: [{ text: userQuery }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] }
+        };
+        if (body.responseSchema && typeof body.responseSchema === 'object' && !Array.isArray(body.responseSchema)) {
+          const schemaText = JSON.stringify(body.responseSchema);
+          if (schemaText.length > 12000) return send(res, 413, { error: 'The requested structured-output schema is too large.' });
+          payload.generationConfig = {
+            responseMimeType: 'application/json',
+            responseSchema: body.responseSchema
+          };
+        }
+        const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+          encodeURIComponent(GEMINI_MODEL) + ':generateContent?key=' + encodeURIComponent(process.env.GEMINI_API_KEY);
+        const apiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(60000)
+        });
+        const data = await apiResponse.json().catch(() => ({}));
+        if (!apiResponse.ok) {
+          const message = data && data.error && data.error.message ? data.error.message : 'Gemini returned HTTP ' + apiResponse.status + '.';
+          console.error('Kerygma Gemini provider error:', apiResponse.status, message.slice(0, 300));
+          return send(res, 502, { error: 'The server-managed Gemini request failed. Please check the Gemini server configuration and try again.' });
+        }
+        const parts = data && data.candidates && data.candidates[0] &&
+          data.candidates[0].content && data.candidates[0].content.parts;
+        const answer = Array.isArray(parts) ? parts.find(part => part && typeof part.text === 'string')?.text : null;
+        if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'Gemini returned no text response. The model response may have been blocked or empty.' });
+        return send(res, 200, { answer: answer.trim(), model: data.modelVersion || GEMINI_MODEL, provider: 'gemini' });
+      }
+
+      let responseFormat = null;
+      let unwrapArray = false;
       if (body.responseSchema && typeof body.responseSchema === 'object' && !Array.isArray(body.responseSchema)) {
         const schemaText = JSON.stringify(body.responseSchema);
         if (schemaText.length > 12000) return send(res, 413, { error: 'The requested structured-output schema is too large.' });
-        payload.generationConfig = {
-          responseMimeType: 'application/json',
-          responseSchema: body.responseSchema
-        };
+        try {
+          const prepared = prepareOpenRouterResponseFormat(body.responseSchema);
+          responseFormat = prepared.responseFormat;
+          unwrapArray = prepared.unwrapArray;
+        } catch (error) {
+          return send(res, 400, { error: error.message || 'The requested response schema is invalid.' });
+        }
       }
-      const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-        encodeURIComponent(GEMINI_MODEL) + ':generateContent?key=' + encodeURIComponent(process.env.GEMINI_API_KEY);
-      const apiResponse = await fetch(apiUrl, {
+      const openRouterSystemPrompt = unwrapArray
+        ? systemPrompt + '\n\nReturn a single JSON object with one property named "items". Its value must be the requested JSON array. Do not include any other properties or markdown.'
+        : systemPrompt;
+      const openRouterPayload = {
+        model: MODEL,
+        temperature: 0.3,
+        max_tokens: 5000,
+        messages: [
+          { role: 'system', content: openRouterSystemPrompt },
+          { role: 'user', content: userQuery }
+        ]
+      };
+      if (responseFormat) openRouterPayload.response_format = responseFormat;
+      const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: {
+          'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY,
+          'Content-Type': 'application/json',
+          'X-OpenRouter-Title': 'Kerygma Expository Sermon Studio'
+        },
+        body: JSON.stringify(openRouterPayload),
         signal: AbortSignal.timeout(60000)
       });
-      const data = await apiResponse.json().catch(() => ({}));
-      if (!apiResponse.ok) {
-        const message = data && data.error && data.error.message ? data.error.message : 'Gemini returned HTTP ' + apiResponse.status + '.';
-        console.error('Kerygma Gemini provider error:', apiResponse.status, message.slice(0, 300));
-        return send(res, 502, { error: 'The server-managed Gemini request failed. Please try again shortly.' });
+      const openRouterData = await openRouterResponse.json().catch(() => ({}));
+      if (!openRouterResponse.ok) {
+        const message = openRouterData && openRouterData.error && openRouterData.error.message
+          ? openRouterData.error.message : 'OpenRouter returned HTTP ' + openRouterResponse.status + '.';
+        console.error('Kerygma OpenRouter provider error:', openRouterResponse.status, message.slice(0, 300));
+        if ([401, 403].includes(openRouterResponse.status)) {
+          return send(res, 502, { error: 'OpenRouter rejected the server credentials. Check OPENROUTER_API_KEY in the Render environment.' });
+        }
+        if (openRouterResponse.status === 404) {
+          return send(res, 502, { error: 'The configured OpenRouter model was not found. Check OPENROUTER_MODEL in the Render environment.' });
+        }
+        if (openRouterResponse.status === 429) {
+          return send(res, 502, { error: 'OpenRouter reported a rate or account limit. Check the account limits and try again.' });
+        }
+        return send(res, 502, { error: 'The server-managed OpenRouter request failed. Check the configured model and try again.' });
       }
-      const parts = data && data.candidates && data.candidates[0] &&
-        data.candidates[0].content && data.candidates[0].content.parts;
-      const answer = Array.isArray(parts) ? parts.find(part => part && typeof part.text === 'string')?.text : null;
-      if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'Gemini returned no text response. The prompt may have been blocked or the model response was empty.' });
-      return send(res, 200, { answer: answer.trim(), model: data.modelVersion || GEMINI_MODEL });
+      let answer = openRouterData && openRouterData.choices && openRouterData.choices[0] &&
+        openRouterData.choices[0].message && openRouterData.choices[0].message.content;
+      if (typeof answer !== 'string' || !answer.trim()) {
+        return send(res, 502, { error: 'OpenRouter returned no text response. The model response may have been empty.' });
+      }
+      answer = answer.trim();
+      if (unwrapArray) {
+        try {
+          const wrapped = JSON.parse(answer);
+          if (!wrapped || !Array.isArray(wrapped.items)) throw new Error('The "items" array is missing.');
+          answer = JSON.stringify(wrapped.items);
+        } catch (_) {
+          return send(res, 502, { error: 'OpenRouter did not return the requested structured outline. Try again or choose a compatible model.' });
+        }
+      }
+      return send(res, 200, { answer, model: openRouterData.model || MODEL, provider: 'openrouter' });
     } catch (error) {
-      return send(res, error.statusCode || 500, { error: error.statusCode === 413 || error.statusCode === 400 ? error.message : 'The sermon AI request could not be completed.' });
+      return send(res, error.statusCode || 500, {
+        error: error.statusCode === 413 || error.statusCode === 400
+          ? error.message : 'The sermon AI request could not be completed.'
+      });
     }
   }
   if (req.method === 'POST' && url.pathname === '/api/mentor') {

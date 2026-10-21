@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–5 and OpenRouter provider support are merged into `main`. The user confirmed the live Kerygma label and exercised all five AI workflows with the imported Romans 2 study. Optional IBS source appendix export merged in PR #7 (`82c886d8d8266186bd355d0d2d97e9c3b168dc93`) and passed CI. The user supplied a post-reload/re-export `.txt` that matched the preceding appendix export byte-for-byte (48,410 bytes, 1,412 lines). A contextual Kerygma Guide & Assistant conversation panel is being implemented on `feat/kerygma-guide-assistant`; it is not yet merged or confirmed live. Final theological review remains pending.
+Document status: Phases 1–5, OpenRouter provider support, and the contextual Kerygma Guide & Assistant source-level implementation are merged into `main`. PR #9 merged at `4547da9060e5764461e88be356bbb0e809b4f920`; the source-aware AI regression workflow passed on the feature and merge commits. The user confirmed the live provider-neutral label, exercised all five AI workflows with the imported Romans 2 study, and supplied a post-reload/re-export `.txt` that matched the preceding appendix export byte-for-byte (48,410 bytes, 1,412 lines). The newly merged guide panel still requires live Render deployment verification and a real prompt/response test. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -221,16 +221,16 @@ Current implementation status (21 October 2026): PR #7 merged optional imported-
 - Never silently claim that all standard cross-references are from TSK if they did not originate there; preserve available provenance/licensing information.
 - Round-trip test: import packet → save sermon → reload browser → export sermon → confirm the source study and manuscript persist.
 
-### Kerygma Guide & Assistant — incremental follow-up (in progress)
+### Kerygma Guide & Assistant — merged source-level implementation; live verification pending
 
-The user clarified that the AI must also act as a guide and assistant, not merely as a collection of content-generation buttons. This is being added on feature branch `feat/kerygma-guide-assistant`.
+The user clarified that the AI must also act as a guide and assistant, not merely as a collection of content-generation buttons. This was merged in PR #9 as commit `4547da9060e5764461e88be356bbb0e809b4f920`. Its source-aware AI regression workflow passed on both the feature and merge commits. Live Render deployment and an end-to-end guide response are not yet verified.
 
 - A collapsible `Kerygma Guide & Assistant` panel is available in the Kerygma UI proposal, usable across all five workflow tabs.
 - The assistant receives the active workflow stage, relevant current sermon fields, recent in-memory chat context, and the matching purpose-specific IBS source context. It reuses the existing server-managed `/api/sermon-ai` path, so Gemini/OpenRouter selection, sign-in, rate limits and provider credentials remain server-side.
 - Coaching behavior: explain the current step, ask guiding questions, review drafts, find missing textual support, explain interpretive alternatives fairly, identify theological risk, and suggest a next step. It distinguishes biblical text, imported IBS notes, inferences, and AI suggestions.
 - The assistant is conversation-only: it must not edit or save sermon fields or the imported source packet. Conversation history is held in page memory only, is not written into the sermon record, and is reset when the user switches sermons. A reply arriving after a sermon switch is discarded so it cannot be shown in the wrong sermon.
 - Chat content and relevant sermon/source excerpts are sent to the configured AI provider for the requested response; the UI states this. Do not log sermon/manuscript contents or API credentials.
-- Regression tests check contextual source use, provider-backed requests, non-mutating behavior, safe text rendering, stage awareness, sermon-switch reset and stale-response handling. The feature must not be considered deployed until CI passes, the PR is merged, Render deployment is verified, and a live prompt/response is tested without changing sermon fields.
+- Regression tests check contextual source use, provider-backed requests, non-mutating behavior, safe text rendering, stage awareness, sermon-switch reset and stale-response handling. The feature must not be considered live until the Render deployment is verified and a live prompt/response is tested without changing sermon fields or the imported IBS source.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

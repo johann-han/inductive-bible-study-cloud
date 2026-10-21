@@ -603,8 +603,8 @@
                     let nextIndex = lineIndex + 1;
                     while (nextIndex < lines.length && !lines[nextIndex].trim()) nextIndex++;
                     const nextLine = lines[nextIndex] || '';
-                    const nextUnordered = nextLine.match(/^\\s*[-*]\\s+(.+)$/);
-                    const nextOrdered = nextLine.match(/^\\s*\\d+[.)]\\s+(.+)$/);
+                    const nextUnordered = nextLine.match(/^\s*[-*]\s+(.+)$/);
+                    const nextOrdered = nextLine.match(/^\s*\d+[.)]\s+(.+)$/);
                     const nextListTag = nextUnordered ? 'ul' : nextOrdered ? 'ol' : '';
                     if (nextListTag !== listTag) flushList();
                 }

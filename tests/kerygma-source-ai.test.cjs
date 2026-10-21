@@ -149,7 +149,18 @@ test('Kerygma Guide coaches the user without editing or persisting sermon fields
   assert.ok(html.includes("this.guideConversationSermonId !== s.id"));
   assert.ok(html.includes("this.activeWorkflowTab = tabKey"));
   assert.ok(html.includes('this.guideHistory = this.guideHistory.slice(-12)'));
+  assert.ok(html.includes('Kerygma sends your question and relevant sermon/source excerpts to the configured AI provider.'));
+  assert.ok(html.includes('const requestedSermonId = sermon.id'));
+  assert.ok(html.includes('this.currentSermonId !== requestedSermonId'));
   assert.ok(!html.includes("localStorage.setItem('kerygmaGuide"));
+
+  const start = html.indexOf('async askKerygmaGuide() {');
+  const end = html.indexOf('confirmAIFieldOverwrite(fields)', start);
+  assert.ok(start >= 0 && end > start, 'expected the conversation-only guide method');
+  const method = html.slice(start, end);
+  assert.ok(!method.includes('saveToStorage('), 'guide must not persist changes to sermon data');
+  assert.ok(!method.includes('updateMeta('), 'guide must not update sermon fields');
+  assert.ok(!method.includes('sermon.manuscript ='), 'guide must not overwrite the manuscript');
 });
 
 test('Kerygma exegesis banner uses provider-neutral branding', () => {

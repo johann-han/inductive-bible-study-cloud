@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–5, OpenRouter provider support, safe Markdown rendering, and fuller Kerygma Guide coaching are merged into `main`. The user’s latest screenshot confirms the wider panel and broader chapter-level response are live. The next refinement is in progress on `fix/kerygma-exegesis-coaching`: make Text & Exegesis act as an exegetical coach, build on existing IBS observations/interpretation and related notes instead of repeating background questions, and add the IBS passage outline to the Guide-only context. Automated checks and PR review remain pending. Final theological review remains pending.
+Document status: Phases 1–5, OpenRouter provider support, the fuller Kerygma Guide, stage-specific Text & Exegesis coaching, and the ordered-list numbering fix are merged into `main`. The user confirmed the wider panel and chapter-level overview are live, and the live screenshot now shows numbered movements 1–4 correctly. The current follow-up branch `feat/kerygma-more-questions-and-insights` adds two opt-in Guide quick prompts and explicitly lets requested depth override the one-question-at-a-time default. CI and PR review for this follow-up are pending. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -248,6 +248,17 @@ Current branch: `fix/kerygma-exegesis-coaching` (not yet merged).
 The user shared live screenshots after PR #17 confirming the updated Text & Exegesis Guide is deployed. The chapter overview is readable and uses the intended exegesis coaching, but all entries in a numbered “Major Movements” list display as `1.`. Root cause: `renderKerygmaGuideMarkdown` flushes an open ordered list on every blank line, even when the next non-empty line is another ordered-list item.
 
 Follow-up branch: `fix/kerygma-markdown-list-numbering` (not yet merged). The renderer now looks ahead across blank lines and retains the current `ol`/ `ul` only if the next non-empty line continues the same list type. Blank lines before paragraphs/headings and transitions between ordered/unordered lists still close the list. Regression fixture includes a blank line between two ordered items and asserts they remain in one `ol` with two `li` children. No Guide prompt, source context, provider logic, sermon field, or IBS study data is changed. Run CI and merge via PR only after it passes; then verify Render deploy from `main`.
+
+### Kerygma Guide: explicit requests for more questions and insights (21 October 2026)
+
+The latest live screenshot confirms the numbered overview list now runs 1–4 correctly. The user asks for an explicit way to request further questions or insights rather than being limited by the Guide's default one-question coaching style.
+
+Current branch: `feat/kerygma-more-questions-and-insights` (not yet merged).
+- Adds two quick prompt chips: **More questions** (requests five additional, non-repetitive questions tied to the active stage/passage, with verse reference and a short reason for each) and **More insights** (requests three to five further insights, with textual evidence and wider-context connection).
+- The chips populate the existing compose field, consistent with existing quick prompts; the user reviews the prompt and clicks Ask. They do not create a new request or change sermon fields automatically.
+- Prompt rules explicitly say the one-question-at-a-time behavior is a default, not a restriction. When the user asks for more questions, insights, alternatives or deeper exploration, the Guide should honor that request while staying grounded in the active stage, passage and IBS notes.
+- Stage-specific Text & Exegesis rules are compatible with this override: default to one focused question, but offer a set when explicitly requested.
+- Added regression coverage for both buttons, prompt content, and explicit override instructions. Run the source-aware AI checks, then merge through PR only after CI passes. After Render auto-deploys from `main`, confirm the two chips show up and test each on the Romans 2 sermon without changing its fields or imported IBS source.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

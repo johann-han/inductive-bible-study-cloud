@@ -364,7 +364,7 @@
                 </button>
             </div>
             <div class="space-y-2">
-                <p class="text-sm text-slate-700">Kerygma uses the app’s server-managed AI service. API credentials are kept on the server and are not embedded in this page.</p>
+                <p class="text-sm text-slate-700">Kerygma uses the app’s server-managed AI service and can use Gemini or OpenRouter. API credentials stay on the server and are never embedded in this page. If no provider is configured, set <code>OPENROUTER_API_KEY</code> or <code>GEMINI_API_KEY</code> in the Render environment; do not paste keys here or into chat.</p>
                 <div id="ai-access-status" role="status" aria-live="polite" class="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">Checking sign-in status…</div>
                 <p class="text-[11px] text-slate-500">Sign in to your Inductive Bible Study account in the main app on this same site, then refresh Kerygma. Your sermon records remain saved in this browser.</p>
             </div>
@@ -413,6 +413,7 @@
                 this.currentSermonId = null;
                 this.supabaseClient = null;
                 this.supabaseConfigPromise = null;
+                this.aiProvider = '';
                 this.pendingInductiveStudyPacket = null;
 
                 if (this.sermons.length === 0) {
@@ -457,8 +458,10 @@
                         const response = await fetch('/api/config', { cache: 'no-store' });
                         if (!response.ok) throw new Error('The sign-in service is unavailable.');
                         const config = await response.json();
-                        if (!config.supabaseUrl || !config.supabaseAnonKey) throw new Error('Secure AI is not configured on this deployment. Your local sermon notes are unaffected.');
-                        if (config.geminiConfigured !== true) throw new Error('Gemini AI is not configured on the server yet. Import and local sermon notes still work; the server must be configured before AI tools can run. Never paste an API key into this page.');
+                        if (!config.supabaseUrl || !config.supabaseAnonKey) throw new Error('Secure AI sign-in is not configured on this deployment. Your imported study and local sermon notes are unaffected.');
+                        const aiConfigured = config.aiConfigured === true || config.geminiConfigured === true || config.openrouterConfigured === true;
+                        if (!aiConfigured) throw new Error('No AI provider is configured on the server yet. In Render → Environment, set OPENROUTER_API_KEY or GEMINI_API_KEY. Import and local sermon notes still work. Never paste an API key into this page or chat.');
+                        this.aiProvider = config.aiProvider || (config.geminiConfigured ? 'Gemini' : config.openrouterConfigured ? 'OpenRouter' : 'server-managed');
                         if (!window.supabase || typeof window.supabase.createClient !== 'function') throw new Error('The sign-in library could not load. Refresh the page and try again.');
                         this.supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
                             auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
@@ -478,7 +481,7 @@
                 if (!status) return;
                 try {
                     await this.getSermonAccessToken();
-                    status.textContent = 'Signed in. Server-managed AI is ready.';
+                    status.textContent = 'Signed in. Server-managed ' + (this.aiProvider || 'AI') + ' is ready.';
                     status.className = 'rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800';
                 } catch (error) {
                     status.textContent = error.message || 'Sign-in is required for server-managed AI.';
@@ -601,7 +604,7 @@
             }
 
             /** Calls the server-managed AI provider. No provider key is stored in or sent from the browser. */
-            async callGeminiAPI(systemPrompt,userQuery,responseSchema=null) {
+            async callSermonAI(systemPrompt,userQuery,responseSchema=null) {
                 const accessToken=await this.getSermonAccessToken();const response=await fetch('/api/sermon-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify({systemPrompt:systemPrompt,userQuery:userQuery,responseSchema:responseSchema})});
                 const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||('Sermon AI request failed with HTTP '+response.status+'.'));if(typeof result.answer!=='string'||!result.answer.trim())throw new Error('The AI service returned no text response.');return result.answer.trim();
             }
@@ -767,7 +770,7 @@
                 };
 
                 try {
-                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const rawJson = await this.callSermonAI(systemPrompt, userQuery, schema);
                     const parsed = JSON.parse(rawJson);
                     if (parsed.context) {
                         document.getElementById('exe-context').value = parsed.context;
@@ -779,7 +782,7 @@
                     }
                     this.saveToStorage();
                 } catch (e) {
-                    alert('Failed to analyze passage with Gemini API. Please try again.');
+                    alert('Failed to analyze the passage with server-managed AI. ' + (e && e.message ? e.message : 'Please try again.'));
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = origText;
@@ -822,7 +825,7 @@
                 };
 
                 try {
-                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const rawJson = await this.callSermonAI(systemPrompt, userQuery, schema);
                     const res = JSON.parse(rawJson);
 
                     if (res.exeSubject) { document.getElementById('exe-subject').value = res.exeSubject; s.exeSubject = res.exeSubject; }
@@ -832,7 +835,7 @@
 
                     this.saveToStorage();
                 } catch (e) {
-                    alert('Failed to synthesize Big Idea with Gemini API.');
+                    alert('Failed to synthesize the Big Idea with server-managed AI. ' + (e && e.message ? e.message : 'Please try again.'));
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = origText;
@@ -874,7 +877,7 @@
                 };
 
                 try {
-                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const rawJson = await this.callSermonAI(systemPrompt, userQuery, schema);
                     const items = JSON.parse(rawJson);
 
                     if (Array.isArray(items) && items.length > 0) {
@@ -888,7 +891,7 @@
                         this.renderOutline();
                     }
                 } catch (e) {
-                    alert('Failed to generate outline with Gemini API.');
+                    alert('Failed to generate the outline with server-managed AI. ' + (e && e.message ? e.message : 'Please try again.'));
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = origText;
@@ -941,7 +944,7 @@
                 };
 
                 try {
-                    const rawJson = await this.callGeminiAPI(systemPrompt, userQuery, schema);
+                    const rawJson = await this.callSermonAI(systemPrompt, userQuery, schema);
                     const res = JSON.parse(rawJson);
 
                     if (res.illustrations && Array.isArray(res.illustrations)) {
@@ -958,7 +961,7 @@
                     this.saveToStorage();
                     this.renderIllustrations();
                 } catch (e) {
-                    alert('Failed to brainstorm applications with Gemini API.');
+                    alert('Failed to brainstorm applications with server-managed AI. ' + (e && e.message ? e.message : 'Please try again.'));
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = origText;
@@ -988,12 +991,12 @@
                 const userQuery = `Title: ${s.title}\nPassage: ${s.passage}\nText: ${s.text}\nApproved Big Idea: ${s.bigIdea}\nObjective: ${s.aim}\nApproved homiletical outline:\n${JSON.stringify(s.outline)}\nApplications:\nSeekers: ${s.appSeekers}\nBelievers: ${s.appBelievers}\nSuffering: ${s.appSuffering}\n\n${this.getInductiveStudyPromptContext('manuscript')}`;
 
                 try {
-                    const manuscriptText = await this.callGeminiAPI(systemPrompt, userQuery);
+                    const manuscriptText = await this.callSermonAI(systemPrompt, userQuery);
                     document.getElementById('sermon-manuscript').value = manuscriptText;
                     s.manuscript = manuscriptText;
                     this.saveToStorage();
                 } catch (e) {
-                    alert('Failed to draft manuscript with Gemini API.');
+                    alert('Failed to draft the manuscript with server-managed AI. ' + (e && e.message ? e.message : 'Please try again.'));
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = origText;

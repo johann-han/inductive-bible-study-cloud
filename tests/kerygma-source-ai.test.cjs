@@ -6,8 +6,6 @@ const vm = require('node:vm');
 
 const htmlPath = path.join(__dirname, '..', 'sermon', 'index.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
-const serverPath = path.join(__dirname, '..', 'server.js');
-const server = fs.readFileSync(serverPath, 'utf8');
 const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
   .map(match => match[1])
   .filter(script => script.trim());
@@ -184,10 +182,10 @@ test('Kerygma Guide panel is wide, screen-bounded, and horizontally resizable', 
 
 test('the guide-only response limit is bounded server-side for Gemini and OpenRouter', () => {
   assert.ok(html.includes('async callSermonAI(systemPrompt, userQuery, responseSchema = null, maxOutputTokens = null)'));
-  assert.ok(server.includes('const maxOutputTokens = Number.isInteger(body.maxOutputTokens)'));
-  assert.ok(server.includes('Math.max(128, Math.min(1200, body.maxOutputTokens))'));
-  assert.ok(server.includes('max_tokens: maxOutputTokens || 5000'));
-  assert.ok(server.includes('...(maxOutputTokens ? { maxOutputTokens } : {})'));
+  assert.ok(serverSource.includes('const maxOutputTokens = Number.isInteger(body.maxOutputTokens)'));
+  assert.ok(serverSource.includes('Math.max(128, Math.min(1200, body.maxOutputTokens))'));
+  assert.ok(serverSource.includes('max_tokens: maxOutputTokens || 5000'));
+  assert.ok(serverSource.includes('...(maxOutputTokens ? { maxOutputTokens } : {})'));
 });
 
 test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s) links', () => {

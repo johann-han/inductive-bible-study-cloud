@@ -140,10 +140,10 @@ test('sermon export offers an optional, separate imported IBS source appendix', 
 
 test('source appendix keeps the four IBS stages and provenance categories distinct', () => {
   const start = html.indexOf('function formatInductiveStudySourceAppendix(packet) {');
-  const end = html.indexOf('/**\\n         * Main Application Controller', start);
+  const end = html.indexOf('class ExpositoryStudio', start);
   assert.ok(start >= 0 && end > start, 'expected the source appendix formatter');
   const sandbox = {};
-  vm.runInNewContext(html.slice(start, end) + '\\nthis.formatAppendix = formatInductiveStudySourceAppendix;', sandbox);
+  vm.runInNewContext(html.slice(start, end) + String.fromCharCode(10) + 'this.formatAppendix = formatInductiveStudySourceAppendix;', sandbox);
   const appendix = sandbox.formatAppendix({
     format: 'inductive-bible-study-sermon-source',
     version: 1,

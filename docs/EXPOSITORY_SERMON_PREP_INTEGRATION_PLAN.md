@@ -243,6 +243,12 @@ Current branch: `fix/kerygma-exegesis-coaching` (not yet merged).
 - Adds the imported IBS passage outline to the Guide-only source context when present; leaves shared source-context helper, the five AI generation workflows, sermon fields and IBS data unchanged.
 - Regression tests have been added for stage-specific guidance and inclusion of the source outline. Run GitHub Actions, open/merge a PR only after CI passes, then ask the user to test the Guide in Text & Exegesis.
 
+### Markdown ordered-list numbering fix (21 October 2026)
+
+The user shared live screenshots after PR #17 confirming the updated Text & Exegesis Guide is deployed. The chapter overview is readable and uses the intended exegesis coaching, but all entries in a numbered “Major Movements” list display as `1.`. Root cause: `renderKerygmaGuideMarkdown` flushes an open ordered list on every blank line, even when the next non-empty line is another ordered-list item.
+
+Follow-up branch: `fix/kerygma-markdown-list-numbering` (not yet merged). The renderer now looks ahead across blank lines and retains the current `ol`/ `ul` only if the next non-empty line continues the same list type. Blank lines before paragraphs/headings and transitions between ordered/unordered lists still close the list. Regression fixture includes a blank line between two ordered items and asserts they remain in one `ol` with two `li` children. No Guide prompt, source context, provider logic, sermon field, or IBS study data is changed. Run CI and merge via PR only after it passes; then verify Render deploy from `main`.
+
 ### Phase 6 — Optional direct integration (not part of the initial build)
 
 Only consider shared backend synchronization after JSON integration proves useful and the Kerygma hosting/repository is confirmed.

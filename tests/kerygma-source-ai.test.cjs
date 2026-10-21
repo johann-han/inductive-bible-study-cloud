@@ -222,7 +222,7 @@ test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s
   } };
   vm.runInNewContext(html.slice(start, end) + String.fromCharCode(10) + 'this.renderGuide = renderKerygmaGuideMarkdown;', sandbox);
   const root = new TestNode('div');
-  const markdown = '## Key point\nYou noticed **judgment** and *hypocrisy*, with `truth`.\n\n1. Read the passage\n2. Ask one question\n\n- Observation\n- Interpretation\n\n[Safe link](https://example.org) [Unsafe link](javascript:alert(1)) <img src=x onerror=alert(1)>';
+  const markdown = '## Key point\nYou noticed **judgment** and *hypocrisy*, with `truth`.\n\n1. Read the passage\n\n2. Ask one question\n\n- Observation\n- Interpretation\n\n[Safe link](https://example.org) [Unsafe link](javascript:alert(1)) <img src=x onerror=alert(1)>';
   sandbox.renderGuide(root, markdown);
   const nodes = [];
   const visit = node => { nodes.push(node); (node.children || []).forEach(visit); };
@@ -231,7 +231,9 @@ test('Kerygma Guide safely renders Markdown headings, emphasis, lists and http(s
   assert.ok(nodes.some(node => node.tagName === 'strong' && node.textContent === 'judgment'));
   assert.ok(nodes.some(node => node.tagName === 'em' && node.textContent === 'hypocrisy'));
   assert.ok(nodes.some(node => node.tagName === 'code' && node.textContent === 'truth'));
-  assert.ok(nodes.some(node => node.tagName === 'ol'));
+  const orderedLists = nodes.filter(node => node.tagName === 'ol');
+  assert.equal(orderedLists.length, 1, 'blank lines must not split a single ordered list');
+  assert.equal(orderedLists[0].children.length, 2, 'ordered-list numbering must continue across blank lines');
   assert.ok(nodes.some(node => node.tagName === 'ul'));
   const links = nodes.filter(node => node.tagName === 'a');
   assert.equal(links.length, 1, 'only the http(s) link should become clickable');

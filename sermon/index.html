@@ -593,10 +593,21 @@
             paragraph = [];
         };
 
-        for (const line of lines) {
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+            const line = lines[lineIndex];
             if (!line.trim()) {
                 flushParagraph();
-                flushList();
+                if (list) {
+                    // Keep an ordered/unordered list together across blank lines
+                    // when the next non-empty line is another item of the same kind.
+                    let nextIndex = lineIndex + 1;
+                    while (nextIndex < lines.length && !lines[nextIndex].trim()) nextIndex++;
+                    const nextLine = lines[nextIndex] || '';
+                    const nextUnordered = nextLine.match(/^\s*[-*]\s+(.+)$/);
+                    const nextOrdered = nextLine.match(/^\s*\d+[.)]\s+(.+)$/);
+                    const nextListTag = nextUnordered ? 'ul' : nextOrdered ? 'ol' : '';
+                    if (nextListTag !== listTag) flushList();
+                }
                 continue;
             }
 

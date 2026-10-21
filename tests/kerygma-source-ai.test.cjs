@@ -165,17 +165,19 @@ test('Kerygma Guide coaches the user without editing or persisting sermon fields
   assert.ok(!method.includes('sermon.manuscript ='), 'guide must not overwrite the manuscript');
 });
 
-test('Kerygma Guide defaults to concise coaching instead of a multi-question worksheet', () => {
-  assert.ok(html.includes('Keep ordinary replies to 60–100 words and 3–5 sentences.'));
-  assert.ok(html.includes('respond to that exact answer first'));
-  assert.ok(html.includes('ask exactly ONE short, focused follow-up question.'));
-  assert.ok(html.includes('Do not ask a second question, list possible questions, recap the entire study, or add a separate'));
-  assert.ok(html.includes('this.callSermonAI(systemPrompt, userQuery, null, 320)'));
+test('Kerygma Guide gives a substantive chapter overview and continues with one focused question', () => {
+  assert.ok(html.includes('When the passage selected for study is a whole chapter, orient the learner to the chapter'));
+  assert.ok(html.includes('Usually aim for about 150–250 words'));
+  assert.ok(html.includes('provide a useful overview of the chapter\'s main argument and a few major movements'));
+  assert.ok(html.includes('invite the learner to begin with ONE question'));
+  assert.ok(html.includes('If the user shares an answer, engage that answer directly'));
+  assert.ok(html.includes('ask ONE focused follow-up question.'));
+  assert.ok(html.includes('this.callSermonAI(systemPrompt, userQuery, null, 900)'));
 });
 
-test('Kerygma Guide panel is wide, screen-bounded, and horizontally resizable', () => {
-  assert.ok(html.includes('width:min(94vw,640px)'));
-  assert.ok(html.includes('min-width:min(94vw,340px)'));
+test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable', () => {
+  assert.ok(html.includes('width:min(94vw,760px)'));
+  assert.ok(html.includes('min-width:min(94vw,380px)'));
   assert.ok(html.includes('max-width:94vw'));
   assert.ok(html.includes('resize:horizontal'));
 });

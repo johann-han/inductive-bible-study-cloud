@@ -684,10 +684,10 @@ test('claim review decisions persist per sermon outside saved manuscript data', 
   };
   const sandbox = { localStorage: fakeStorage };
   vm.runInNewContext(
-    'this.reviewMethods = ({\n' + storageMethods + '\n});',
+    'this.ClaimReviewTestClass = class {\n' + storageMethods + '\n};',
     sandbox
   );
-  const service = sandbox.reviewMethods;
+  const service = new sandbox.ClaimReviewTestClass();
 
   assert.equal(service.claimReviewStorageKey(), 'kerygma_claim_review_status_v1');
   assert.equal(service.getClaimReviewStatus('sermon-1', 'claim-key'), 'not-reviewed');

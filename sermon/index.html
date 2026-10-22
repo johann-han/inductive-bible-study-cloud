@@ -92,6 +92,18 @@
                 <span id="sermon-count" class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium">1</span>
             </div>
             
+            <!-- Claim review queue: separate from the sermon list and manuscript fields -->
+            <div class="px-2 pt-2">
+                <button id="claim-review-dashboard-button" type="button" onclick="sermonApp.openClaimReviewDashboard()"
+                    class="w-full flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    <i data-lucide="clipboard-check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-800"></i>
+                    <span class="min-w-0">
+                        <span class="block text-xs font-semibold text-amber-950">Claim review queue</span>
+                        <span class="block text-[10px] text-amber-800">Needs research · Requires revision</span>
+                    </span>
+                </button>
+            </div>
+
             <!-- Sermon List -->
             <div id="sermon-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                 <!-- Dynamically Populated -->
@@ -1764,6 +1776,266 @@ Answer the current question in light of the active stage and the available sourc
                 return 'p' + Number(paragraphIndex) + '-s' + Number(claim.index || 0) + '-' + (hash >>> 0).toString(36);
             }
 
+            buildClaimReviewQueue(sermonLimit = 100, itemLimit = 100) {
+                const safeSermonLimit = Math.max(1, Math.min(100, Number(sermonLimit) || 100));
+                const safeItemLimit = Math.max(1, Math.min(100, Number(itemLimit) || 100));
+                const sermons = Array.isArray(this.sermons) ? this.sermons : [];
+                const scanSermons = sermons.slice(0, safeSermonLimit);
+                const storedStatuses = this.loadClaimReviewStatuses();
+                const counts = { 'not-reviewed': 0, reviewed: 0, 'needs-research': 0, 'requires-revision': 0 };
+                const items = [];
+                let omittedItems = 0;
+
+                scanSermons.forEach(sermon => {
+                    if (!sermon || !String(sermon.manuscript || '').trim()) return;
+                    const outline = Array.isArray(sermon.outline) ? sermon.outline : [];
+                    const outlinePoints = outline.map((point, index) => ({
+                        index: index + 1,
+                        statement: String(point && point.statement || '').trim(),
+                        reference: String(point && point.reference || '').trim(),
+                        notes: String(point && point.notes || '').trim()
+                    }));
+                    const analysis = this.analyzeManuscriptClaimParagraphs(
+                        String(sermon.manuscript || ''),
+                        outlinePoints,
+                        sermon.inductiveStudySource || null
+                    );
+                    const sermonStatuses = storedStatuses[String(sermon.id)] && typeof storedStatuses[String(sermon.id)] === 'object'
+                        ? storedStatuses[String(sermon.id)] : {};
+
+                    (Array.isArray(analysis.rows) ? analysis.rows : []).forEach(row => {
+                        (Array.isArray(row.claims) ? row.claims : []).forEach(claim => {
+                            if (!claim || claim.kind !== 'claim' || !String(claim.proposition || '').trim()) return;
+                            const reviewKey = this.makeClaimReviewKey(row.index, claim);
+                            const rawStatus = sermonStatuses[reviewKey];
+                            const status = ['not-reviewed', 'reviewed', 'needs-research', 'requires-revision'].includes(rawStatus)
+                                ? rawStatus : 'not-reviewed';
+                            counts[status] += 1;
+                            if (status !== 'needs-research' && status !== 'requires-revision') return;
+
+                            if (items.length >= safeItemLimit) {
+                                omittedItems += 1;
+                                return;
+                            }
+                            items.push({
+                                sermonId: String(sermon.id),
+                                sermonTitle: String(sermon.title || 'Untitled Sermon').slice(0, 180),
+                                passage: String(sermon.passage || 'Passage not recorded').slice(0, 100),
+                                paragraphIndex: row.index,
+                                claimIndex: claim.claimIndex,
+                                sourceSentenceIndex: claim.index,
+                                proposition: String(claim.proposition).slice(0, 600),
+                                status,
+                                reviewKey,
+                                references: Array.isArray(claim.references) ? claim.references.slice(0, 4) : [],
+                                outlineLinks: Array.isArray(claim.outlineLinks) ? claim.outlineLinks.slice(0, 2) : [],
+                                divisionLinks: Array.isArray(claim.divisionLinks) ? claim.divisionLinks.slice(0, 2) : [],
+                                flags: Array.isArray(claim.flags) ? claim.flags.slice(0, 4) : []
+                            });
+                        });
+                    });
+                });
+
+                return {
+                    items,
+                    counts,
+                    scannedSermons: scanSermons.length,
+                    omittedSermons: Math.max(0, sermons.length - scanSermons.length),
+                    omittedItems
+                };
+            }
+
+            openClaimReviewDashboard() {
+                const existing = document.getElementById('claim-review-dashboard-modal');
+                if (existing) existing.remove();
+
+                const dashboard = this.buildClaimReviewQueue();
+                const modal = document.createElement('div');
+                modal.id = 'claim-review-dashboard-modal';
+                modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm';
+                modal.setAttribute('role', 'dialog');
+                modal.setAttribute('aria-modal', 'true');
+                modal.setAttribute('aria-labelledby', 'claim-review-dashboard-title');
+                modal.tabIndex = -1;
+
+                const panel = document.createElement('div');
+                panel.className = 'flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl';
+
+                const header = document.createElement('div');
+                header.className = 'flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4';
+                const titleGroup = document.createElement('div');
+                const title = document.createElement('h2');
+                title.id = 'claim-review-dashboard-title';
+                title.className = 'text-base font-semibold text-slate-900';
+                title.textContent = 'Claim review queue';
+                const subtitle = document.createElement('p');
+                subtitle.className = 'mt-1 text-xs text-slate-600';
+                subtitle.textContent = 'Candidate propositions marked Needs research or Requires revision across your saved sermons.';
+                titleGroup.append(title, subtitle);
+                const closeButton = document.createElement('button');
+                closeButton.type = 'button';
+                closeButton.className = 'rounded-md px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500';
+                closeButton.textContent = 'Close';
+                closeButton.setAttribute('aria-label', 'Close claim review queue');
+                closeButton.addEventListener('click', () => modal.remove());
+                header.append(titleGroup, closeButton);
+                panel.appendChild(header);
+
+                const summary = document.createElement('div');
+                summary.className = 'grid grid-cols-1 gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3 sm:grid-cols-3';
+                const metric = (label, count, accent) => {
+                    const card = document.createElement('div');
+                    card.className = 'rounded-md border border-slate-200 bg-white px-3 py-2';
+                    const labelEl = document.createElement('p');
+                    labelEl.className = 'text-[11px] text-slate-500';
+                    labelEl.textContent = label;
+                    const countEl = document.createElement('p');
+                    countEl.className = 'text-xl font-semibold ' + accent;
+                    countEl.textContent = String(count);
+                    card.append(labelEl, countEl);
+                    return card;
+                };
+                summary.append(
+                    metric('Needs research', dashboard.counts['needs-research'], 'text-amber-700'),
+                    metric('Requires revision', dashboard.counts['requires-revision'], 'text-rose-700'),
+                    metric('Reviewed', dashboard.counts.reviewed, 'text-emerald-700')
+                );
+                panel.appendChild(summary);
+
+                const listWrap = document.createElement('div');
+                listWrap.className = 'flex-1 overflow-y-auto px-5 py-4';
+                const explanatory = document.createElement('p');
+                explanatory.className = 'mb-3 text-xs text-slate-500';
+                explanatory.textContent = 'The queue reads saved manuscripts and the separate claim-review status store. Opening an item takes you to that sermon and claim; it does not edit manuscript text or source evidence.';
+                listWrap.appendChild(explanatory);
+
+                if (!dashboard.items.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center';
+                    const emptyTitle = document.createElement('p');
+                    emptyTitle.className = 'font-semibold text-slate-800';
+                    emptyTitle.textContent = 'No propositions need action right now';
+                    const emptyBody = document.createElement('p');
+                    emptyBody.className = 'mt-1 text-xs text-slate-600';
+                    emptyBody.textContent = 'Mark a candidate proposition Needs research or Requires revision in Manuscript / Notes to add it here.';
+                    empty.append(emptyTitle, emptyBody);
+                    listWrap.appendChild(empty);
+                } else {
+                    const list = document.createElement('ul');
+                    list.className = 'space-y-3';
+                    dashboard.items.forEach(item => {
+                        const row = document.createElement('li');
+                        row.className = 'rounded-lg border border-slate-200 p-3';
+                        const top = document.createElement('div');
+                        top.className = 'flex flex-wrap items-start justify-between gap-2';
+                        const identity = document.createElement('div');
+                        identity.className = 'min-w-0 flex-1';
+                        const sermonTitle = document.createElement('p');
+                        sermonTitle.className = 'font-semibold text-slate-900';
+                        sermonTitle.textContent = item.sermonTitle + ' · ' + item.passage;
+                        const location = document.createElement('p');
+                        location.className = 'mt-0.5 text-[11px] text-slate-500';
+                        location.textContent = 'Paragraph ' + item.paragraphIndex + ' · source sentence ' + item.sourceSentenceIndex + ' · Claim ' + item.claimIndex;
+                        identity.append(sermonTitle, location);
+                        const status = document.createElement('span');
+                        status.className = item.status === 'needs-research'
+                            ? 'rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-900'
+                            : 'rounded-full bg-rose-100 px-2 py-1 text-[10px] font-semibold text-rose-900';
+                        status.textContent = item.status === 'needs-research' ? 'Needs research' : 'Requires revision';
+                        top.append(identity, status);
+                        row.appendChild(top);
+
+                        const proposition = document.createElement('p');
+                        proposition.className = 'mt-2 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-800';
+                        proposition.textContent = item.proposition;
+                        row.appendChild(proposition);
+
+                        const evidence = document.createElement('p');
+                        evidence.className = 'mt-2 whitespace-pre-wrap text-xs text-slate-600';
+                        evidence.textContent = 'References: ' + (item.references.length
+                            ? item.references.map(reference => String(reference.text || '') +
+                                (reference.source === 'section heading' ? ' [from section heading]' :
+                                    reference.source === 'paragraph context' ? ' [from paragraph context]' : '')).join('; ')
+                            : 'No sentence or inherited passage reference detected');
+                        row.appendChild(evidence);
+
+                        const flagsText = [];
+                        if (item.outlineLinks.length) flagsText.push('Outline: ' + item.outlineLinks.map(link => link.label).join('; '));
+                        if (item.divisionLinks.length) flagsText.push('IBS: ' + item.divisionLinks.map(link => link.label).join('; '));
+                        if (item.flags.length) flagsText.push('Review flags: ' + item.flags.join('; '));
+                        if (flagsText.length) {
+                            const flags = document.createElement('p');
+                            flags.className = 'mt-1 whitespace-pre-wrap text-xs text-slate-500';
+                            flags.textContent = flagsText.join('\n');
+                            row.appendChild(flags);
+                        }
+
+                        const actions = document.createElement('div');
+                        actions.className = 'mt-3 flex justify-end';
+                        const openButton = document.createElement('button');
+                        openButton.type = 'button';
+                        openButton.className = 'rounded-md bg-sky-700 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-500';
+                        openButton.textContent = 'Open claim in sermon';
+                        openButton.addEventListener('click', () => {
+                            modal.remove();
+                            this.openClaimReviewItem(item.sermonId, item.reviewKey);
+                        });
+                        actions.appendChild(openButton);
+                        row.appendChild(actions);
+                        list.appendChild(row);
+                    });
+                    listWrap.appendChild(list);
+                }
+
+                if (dashboard.omittedItems || dashboard.omittedSermons) {
+                    const limited = document.createElement('p');
+                    limited.className = 'mt-3 text-[11px] text-slate-500';
+                    limited.textContent = (dashboard.omittedItems ? dashboard.omittedItems + ' additional flagged propositions not shown. ' : '') +
+                        (dashboard.omittedSermons ? dashboard.omittedSermons + ' additional sermons were not scanned.' : '');
+                    listWrap.appendChild(limited);
+                }
+
+                panel.appendChild(listWrap);
+                const footer = document.createElement('div');
+                footer.className = 'flex items-center justify-between gap-3 border-t border-slate-200 px-5 py-3';
+                const footerNote = document.createElement('p');
+                footerNote.className = 'text-[11px] text-slate-500';
+                footerNote.textContent = 'Statuses are stored separately from manuscript and IBS data.';
+                const footerClose = document.createElement('button');
+                footerClose.type = 'button';
+                footerClose.className = 'rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50';
+                footerClose.textContent = 'Done';
+                footerClose.addEventListener('click', () => modal.remove());
+                footer.append(footerNote, footerClose);
+                panel.appendChild(footer);
+                modal.appendChild(panel);
+                modal.addEventListener('click', event => {
+                    if (event.target === modal) modal.remove();
+                });
+                modal.addEventListener('keydown', event => {
+                    if (event.key === 'Escape') modal.remove();
+                });
+                document.body.appendChild(modal);
+                closeButton.focus();
+            }
+
+            openClaimReviewItem(sermonId, reviewKey) {
+                const sermon = (Array.isArray(this.sermons) ? this.sermons : []).find(item => item && String(item.id) === String(sermonId));
+                if (!sermon || !reviewKey) return false;
+                this.selectSermon(sermon.id);
+                this.switchTab('manuscript');
+                const tracePanel = document.getElementById('manuscript-evidence-trace');
+                const traceDetails = tracePanel && tracePanel.querySelector('details');
+                if (traceDetails) traceDetails.open = true;
+                const target = document.getElementById('claim-review-item-' + reviewKey);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    target.focus({ preventScroll: true });
+                    return true;
+                }
+                return false;
+            }
+
             saveToStorage() {
                 localStorage.setItem('kerygma_sermons', JSON.stringify(this.sermons));
             }
@@ -2581,6 +2853,8 @@ Answer the current question in light of the active stage and the available sourc
 
                             if (claim.kind === 'claim') {
                                 const claimReviewKey = this.makeClaimReviewKey(row.index, claim);
+                                sentenceItem.id = 'claim-review-item-' + claimReviewKey;
+                                sentenceItem.tabIndex = -1;
                                 const controls = document.createElement('div');
                                 controls.className = 'mt-1 flex flex-wrap items-center gap-2 rounded-md bg-slate-50 px-2 py-2';
                                 const label = document.createElement('label');

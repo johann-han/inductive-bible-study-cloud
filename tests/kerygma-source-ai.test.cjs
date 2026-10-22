@@ -363,6 +363,54 @@ test('Illustrations and Application trace keeps Kerygma drafts distinct from IBS
   assert.ok(html.includes('this.saveToStorage();\n                this.renderIllustrations();\n                this.renderApplicationEvidenceTrace();'), 'refresh after adding/removing illustrations');
 });
 
+test('Manuscript evidence trace is read-only and keeps Kerygma draft separate from imported IBS evidence', () => {
+  assert.ok(html.includes('id="manuscript-evidence-trace"'));
+  assert.ok(html.includes('Evidence traceability · Manuscript / Notes'));
+  assert.ok(html.includes("this.renderManuscriptEvidenceTrace();"));
+  for (const label of [
+    'Current Kerygma manuscript · saved user/AI-edited draft',
+    'Approved Big Idea · Kerygma field',
+    'Sermon aim · Kerygma field',
+    'Homiletical outline points · candidate manuscript structure',
+    'IBS Interpretation · imported source evidence',
+    'IBS Doctrine · imported theological evidence',
+    'IBS passage divisions · possible links to outline / manuscript claims',
+    'Kerygma application drafts · sermon content, not IBS source',
+    'IBS Discipleship · imported response / formation evidence',
+    'Human review checklist',
+    'Provenance and limits: manuscript text is the current Kerygma draft',
+    'this panel does not determine theological correctness'
+  ]) assert.ok(html.includes(label), 'missing manuscript evidence category/caveat: ' + label);
+
+  const start = html.indexOf('renderManuscriptEvidenceTrace() {');
+  const end = html.indexOf('renderApplicationEvidenceTrace() {', start);
+  assert.ok(start >= 0 && end > start, 'expected the manuscript evidence view method');
+  const method = html.slice(start, end);
+  assert.ok(!method.includes('saveToStorage('), 'rendering manuscript evidence must not write sermon/source data');
+  assert.ok(!method.includes('updateMeta('), 'rendering manuscript evidence must not update editable sermon fields');
+  assert.ok(!method.includes('.inductiveStudySource ='), 'rendering manuscript evidence must not mutate the imported packet');
+  assert.ok(!method.includes('localStorage'), 'rendering manuscript evidence must not access browser storage');
+  assert.ok(!method.includes('innerHTML'), 'untrusted manuscript/source text must be rendered via text nodes');
+  assert.ok(method.includes('details.open = wasOpen;'), 'preserve open state while refreshing');
+  assert.ok(method.includes('fullText.slice(0, limit)'), 'bound manuscript/source excerpts');
+  assert.ok(method.includes('entries.slice(0, limit)'), 'bound source list rendering');
+  assert.ok(method.includes('No imported IBS source packet is attached.'));
+});
+
+test('Manuscript evidence trace refreshes without altering outline compilation or AI overwrite safeguards', () => {
+  assert.ok(html.includes('this.renderManuscriptEvidenceTrace();\n            }\n\n            updateMeta() {'),
+    'refresh on sermon load');
+  assert.ok(html.includes('this.renderManuscriptEvidenceTrace();\n            }\n\n            switchTab(tabKey)'),
+    'refresh after saved manuscript/meta edits');
+  assert.ok(html.includes('document.getElementById(\'sermon-manuscript\').value = doc;\n                s.manuscript = doc;\n                this.saveToStorage();\n                this.renderManuscriptEvidenceTrace();'),
+    'refresh after explicit outline compilation');
+  assert.ok(html.includes("confirmAIFieldOverwrite([\n                    { label: 'sermon manuscript'"),
+    'retain existing confirmation before replacing a populated manuscript');
+  assert.ok(html.includes('compileOutlineIntoManuscript() {'));
+  assert.ok(html.includes('this.renderBigIdeaEvidenceTrace();'));
+  assert.ok(html.includes('this.renderApplicationEvidenceTrace();'));
+});
+
 test('Big Idea evidence trace presents IBS interpretation and doctrine separately from the sermon claim', () => {
   assert.ok(html.includes('id="big-idea-evidence-trace"'));
   assert.ok(html.includes('this.renderBigIdeaEvidenceTrace();'));

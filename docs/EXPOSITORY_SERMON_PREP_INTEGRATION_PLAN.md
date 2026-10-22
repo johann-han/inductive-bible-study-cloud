@@ -371,20 +371,19 @@ Implementation:
 
 ### Manuscript / Notes evidence traceability (22 October 2026)
 
-Current feature branch: `feat/kerygma-manuscript-evidence-traceability`.
+Merged via PR #40, **Add manuscript evidence traceability**, at squash commit `02c58c05c6d041bbca1bf4a00224c3233f72dfdd` on 22 October 2026. Feature-branch CI passed on `645d7c4f6f251a2987cec640a831cb8eda5098e7`; the main-branch run passed on the merge commit: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39762524576. Live Render/browser verification remains pending.
 
-Implementation in review:
-- Add a collapsed, read-only **Evidence traceability · Manuscript / Notes** panel within the existing Manuscript / Notes tab, immediately before the manuscript editor. The editor, AI Draft Full Manuscript button and Auto-Generate from Outline button are retained.
-- Display the current saved Kerygma manuscript, Big Idea and aim separately from its outline points; show imported IBS Interpretation and Doctrine separately from Kerygma application drafts and imported IBS Discipleship notes.
-- Include imported passage divisions as potential contextual links, packet identity, a bounded review checklist, and review statuses for absent manuscripts, missing IBS packet, missing Big Idea/aim or missing outline.
-- Matching is not presented as proof of support. The panel asks the user to examine unsupported assertions, verse-to-claim fit, doctrinal warrants, application fit, quotations and factual claims. It does not automatically classify individual assertions as theologically correct or supported.
+Implementation:
+- A collapsed, read-only **Evidence traceability · Manuscript / Notes** panel is placed within the existing Manuscript / Notes tab, immediately before the manuscript editor. The editor, AI Draft Full Manuscript button and Auto-Generate from Outline button are retained.
+- It displays the current saved Kerygma manuscript, Big Idea and aim separately from homiletical outline points; imported IBS Interpretation and Doctrine separately from Kerygma application drafts and imported IBS Discipleship notes.
+- Imported passage divisions are shown as candidate links to outline points where verse ranges overlap. Missing/invalid reference data and missing source links receive explicit review statuses. Overlap is not proof of support.
+- The bounded review checklist asks the user to inspect unsupported assertions, verse-to-claim fit, doctrinal warrants, application fit, quotations and factual claims. The panel does not automatically classify each assertion as theologically correct or supported.
 - Source/manuscript excerpts and list counts are bounded and rendered with DOM text nodes. The view does not write storage, edit manuscript fields or mutate the imported packet. Its open/closed state is preserved when refreshed.
-- Regression tests cover the category/provenance labels, no-write/no-mutation behavior, bounded rendering, refresh paths, and preservation of the current outline-compilation and AI overwrite-confirmation flows.
+- Regression tests cover source/draft distinctions, no-write/no-mutation behavior, bounded rendering, candidate verse links, refresh paths, and preservation of outline compilation plus the manuscript AI overwrite-confirmation safeguard.
 
-Verification gates:
-1. Run `node --check server.js` and `node --test tests/kerygma-source-ai.test.cjs` locally or via GitHub Actions on the feature branch.
-2. Open a PR against `main`; only merge after the relevant GitHub Actions run passes.
-3. Confirm Render deploys the merged `main` SHA, then manually test the panel with the existing Romans 2 imported packet. Verify the current manuscript remains character-for-character unchanged when the panel is opened/refreshed, the existing “Peace in the Storm” sample sermon is intact, and all four IBS stages plus the manuscript/AI/outline actions still work. Live Render verification is separate from CI and remains pending until explicitly confirmed.
+Post-merge check still required:
+- Verify Render is serving `02c58c05c6d041bbca1bf4a00224c3233f72dfdd` or its descendant, then manually test the live panel with the existing Romans 2 imported packet. Confirm that opening/refreshing the panel leaves the manuscript text and packet unchanged; check the original “Peace in the Storm” sermon remains intact; and confirm all four IBS stages plus the manuscript, AI-draft and outline-compilation actions continue working.
+- At merge time, the Browser connector stopped responding during the live check. GitHub verifies the merge and passing CI, not Render deployment. Do not claim live success until this check is explicitly completed.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

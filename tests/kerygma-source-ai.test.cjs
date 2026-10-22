@@ -622,6 +622,8 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.ok(html.includes("Paragraph-by-paragraph / sentence-level claim traceability · heuristic review"));
   assert.ok(html.includes("claim.index + ': ' + claim.text"));
   assert.ok(html.includes('Sentence-level claims ('), 'show individual sentence review inside each paragraph');
+  assert.ok(!html.includes("'\\nParagraph excerpt: ' + row.excerpt +"), 'parent paragraph excerpts must not be rendered');
+  assert.ok(html.includes("'\\nParagraph reference(s): '"), 'paragraph reference context remains available without the paragraph excerpt');
 });
 
 test('Manuscript evidence trace refreshes without altering outline compilation or AI overwrite safeguards', () => {

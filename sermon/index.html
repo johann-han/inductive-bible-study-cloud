@@ -1545,6 +1545,7 @@ Answer the current question in light of the active stage and the available sourc
 
                     this.saveToStorage();
                     this.renderIllustrations();
+                    this.renderApplicationEvidenceTrace();
                 } catch (e) {
                     alert('Failed to brainstorm applications with server-managed AI. ' + (e && e.message ? e.message : 'Please try again.'));
                 } finally {
@@ -1723,6 +1724,7 @@ Answer the current question in light of the active stage and the available sourc
                 this.renderIllustrations();
                 this.renderInductiveStudySource();
                 this.renderBigIdeaEvidenceTrace();
+                this.renderApplicationEvidenceTrace();
             }
 
             updateMeta() {
@@ -1746,6 +1748,7 @@ Answer the current question in light of the active stage and the available sourc
                 this.saveToStorage();
                 this.renderSermonList();
                 this.renderBigIdeaEvidenceTrace();
+                this.renderApplicationEvidenceTrace();
             }
 
             switchTab(tabKey) {
@@ -2491,6 +2494,7 @@ Answer the current question in light of the active stage and the available sourc
                 s.illustrations.push({ id: Date.now(), title: 'New Illustration', content: '' });
                 this.saveToStorage();
                 this.renderIllustrations();
+                this.renderApplicationEvidenceTrace();
             }
 
             removeIllustration(id) {
@@ -2498,6 +2502,7 @@ Answer the current question in light of the active stage and the available sourc
                 s.illustrations = s.illustrations.filter(i => i.id !== id);
                 this.saveToStorage();
                 this.renderIllustrations();
+                this.renderApplicationEvidenceTrace();
             }
 
             updateIllustration(id, key, val) {
@@ -2506,6 +2511,7 @@ Answer the current question in light of the active stage and the available sourc
                 if (item) {
                     item[key] = val;
                     this.saveToStorage();
+                    this.renderApplicationEvidenceTrace();
                 }
             }
 

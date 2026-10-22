@@ -748,6 +748,7 @@ test('claim review queue gathers only needs-research and requires-revision propo
     return vm.runInNewContext('(' + source + ')');
   };
   const buildQueue = extractMethod('buildClaimReviewQueue', 'openClaimReviewDashboard');
+  const filterQueueItems = extractMethod('filterClaimReviewQueueItems', 'openClaimReviewItem');
   const makeKey = (paragraphIndex, claim) => 'p' + paragraphIndex + '-s' + claim.index + '-' +
     String(claim.proposition).toLowerCase().replace(/\\s+/g, '-');
   const sampleRows = {
@@ -823,6 +824,42 @@ test('claim review queue gathers only needs-research and requires-revision propo
   assert.ok(html.includes("id = 'claim-review-item-' + claimReviewKey"));
   assert.ok(html.includes('No propositions need action right now'));
   assert.ok(html.includes('Open claim in sermon'));
+  assert.ok(html.includes('Search sermon, passage, proposition, or reference'));
+  assert.ok(html.includes("this.filterClaimReviewQueueItems(dashboard.items, statusFilter.value, searchInput.value)"));
+  assert.ok(html.includes("row.hidden = !visibleItems.includes(item)"));
+
+  const filterFixtures = [
+    {
+      sermonTitle: 'Romans Exposition', passage: 'Romans 2:1–4', proposition: 'The judge lacks excuse',
+      status: 'needs-research', references: [{ text: 'Romans 2:1' }], outlineLinks: [{ label: 'Point One' }],
+      divisionLinks: [{ label: '2:1–4' }], flags: ['Check context']
+    },
+    {
+      sermonTitle: 'Gospel Sermon', passage: 'John 3:16', proposition: 'God gave his Son',
+      status: 'requires-revision', references: [{ text: 'John 3:16' }], outlineLinks: [],
+      divisionLinks: [], flags: []
+    }
+  ];
+  assert.deepEqual(
+    Array.from(filterQueueItems(filterFixtures, 'needs-research', 'ROMANS'), item => item.proposition),
+    ['The judge lacks excuse'],
+    'status filtering and case-insensitive search should work together'
+  );
+  assert.deepEqual(
+    Array.from(filterQueueItems(filterFixtures, 'all', 'john 3:16'), item => item.proposition),
+    ['God gave his Son'],
+    'search should include passage references'
+  );
+  assert.deepEqual(
+    Array.from(filterQueueItems(filterFixtures, 'requires-revision', 'Romans'), item => item.proposition),
+    [],
+    'status filters should exclude other review states'
+  );
+  assert.deepEqual(
+    Array.from(filterQueueItems(filterFixtures, 'all', ''), item => item.proposition),
+    ['The judge lacks excuse', 'God gave his Son'],
+    'an empty search should leave all flagged items visible'
+  );
 });
 
 test('claim review queue and navigation remain bounded and use a separate status store', () => {

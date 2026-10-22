@@ -656,6 +656,92 @@
         flushList();
     }
 
+        function formatCrossReferencePoint(point, isSource = false) {
+            if (!point || typeof point !== 'object') return '[Reference not recorded]';
+            const book = String(point.book || '').trim();
+            const chapter = Number(point.chapter);
+            if (!book || !Number.isInteger(chapter) || chapter < 1) return '[Reference not recorded]';
+            let reference = book + ' ' + chapter;
+            if (isSource && Number.isInteger(Number(point.verse)) && Number(point.verse) > 0) {
+                reference += ':' + Number(point.verse);
+            } else if (!isSource) {
+                const startVerse = Number.isInteger(Number(point.startVerse)) && Number(point.startVerse) > 0
+                    ? Number(point.startVerse) : null;
+                const endVerse = Number.isInteger(Number(point.endVerse)) && Number(point.endVerse) > 0
+                    ? Number(point.endVerse) : null;
+                if (startVerse && endVerse && startVerse !== endVerse) reference += ':' + startVerse + '–' + endVerse;
+                else if (startVerse || endVerse) reference += ':' + (startVerse || endVerse);
+            }
+            return reference;
+        }
+
+        function formatPersonalCrossReferences(references, limit = 100) {
+            const rows = Array.isArray(references) ? references : [];
+            if (!rows.length) return '[No personal cross-references in imported source packet]';
+            const safeLimit = Math.max(1, Math.min(100, Number(limit) || 100));
+            const output = rows.slice(0, safeLimit).map((reference, index) => {
+                const row = reference && typeof reference === 'object' ? reference : {};
+                const source = formatCrossReferencePoint(row.source, true);
+                const target = formatCrossReferencePoint(row.target, false);
+                const relation = String(row.relation || '').trim();
+                const note = String(row.note || '').trim();
+                return [
+                    (index + 1) + '. ' + source + ' → ' + target,
+                    relation ? '   Relationship: ' + relation : '',
+                    note ? '   Note: ' + note : ''
+                ].filter(Boolean).join('\n');
+            });
+            if (rows.length > safeLimit) output.push('… ' + (rows.length - safeLimit) + ' additional personal links not shown.');
+            return output.join('\n\n');
+        }
+
+        function formatStandardCrossReferences(standard, limit = 60, anchorLimit = 12, referenceLimit = 12) {
+            const source = standard && typeof standard === 'object' && !Array.isArray(standard) ? standard : {};
+            const entries = Array.isArray(source.entries) ? source.entries : [];
+            const safeLimit = Math.max(1, Math.min(60, Number(limit) || 60));
+            const safeAnchorLimit = Math.max(1, Math.min(12, Number(anchorLimit) || 12));
+            const safeReferenceLimit = Math.max(1, Math.min(12, Number(referenceLimit) || 12));
+            const lines = [
+                'Availability: ' + (source.available === true ? 'Available' : 'Not marked available'),
+                source.note ? 'Source note: ' + String(source.note).trim() : ''
+            ].filter(Boolean);
+            if (!entries.length) {
+                lines.push('[No standard cross-reference entries in imported source packet]');
+                return lines.join('\n\n');
+            }
+            lines.push('References grouped by verse:');
+            entries.slice(0, safeLimit).forEach(entry => {
+                if (!entry || typeof entry !== 'object') return;
+                const verse = Number(entry.verse);
+                if (!Number.isInteger(verse) || verse < 1) return;
+                lines.push('\nVerse ' + verse);
+                const anchors = Array.isArray(entry.anchors) ? entry.anchors : [];
+                if (!anchors.length) {
+                    lines.push('  No anchor phrases or references recorded.');
+                    return;
+                }
+                anchors.slice(0, safeAnchorLimit).forEach(anchor => {
+                    if (!anchor || typeof anchor !== 'object') return;
+                    const label = String(anchor.anchor || '').trim();
+                    const references = Array.isArray(anchor.references)
+                        ? anchor.references.map(value => String(value || '').trim()).filter(Boolean)
+                        : [];
+                    const shownReferences = references.slice(0, safeReferenceLimit);
+                    lines.push('  ' + (label ? '“' + label + '”' : 'Reference') + ': ' +
+                        (shownReferences.length ? shownReferences.join('; ') : '[No references listed]') +
+                        (references.length > shownReferences.length
+                            ? ' … +' + (references.length - shownReferences.length) + ' more' : ''));
+                });
+                if (anchors.length > safeAnchorLimit) {
+                    lines.push('  … ' + (anchors.length - safeAnchorLimit) + ' additional anchor phrases not shown.');
+                }
+            });
+            if (entries.length > safeLimit) {
+                lines.push('\n… ' + (entries.length - safeLimit) + ' additional verse groups not shown.');
+            }
+            return lines.join('\n');
+        }
+
         /**
          * Main Application Controller for Expository Sermon Prep
          */
@@ -860,8 +946,8 @@
                 if(packet.passageOutline.sections.length)addDetails('IBS passage outline ('+packet.passageOutline.sections.length+' sections)',packet.passageOutline.sections.map((row,index)=>{let t=(index+1)+'. '+(row.heading||'Untitled section');if(row.verseRange)t+=' ['+row.verseRange+']';if(row.majorIdea)t+='\n'+row.majorIdea;if(row.supportingDetails)t+='\n'+row.supportingDetails;return t;}).join('\n\n'));
                 const mapKeys=Object.keys(packet.verseMaps);if(mapKeys.length)addDetails('Verse maps ('+mapKeys.length+' verses)',mapKeys.map(key=>'Verse '+key+'\n'+JSON.stringify(packet.verseMaps[key],null,2)).join('\n\n'));
                 if(packet.scriptureMarkups.length)addDetails('Visual Bible markup ('+packet.scriptureMarkups.length+' marks)',JSON.stringify(packet.scriptureMarkups,null,2));
-                if(packet.customCrossReferences.length)addDetails('My Cross-References · personal links ('+packet.customCrossReferences.length+')',JSON.stringify(packet.customCrossReferences,null,2));
-                const std=packet.standardCrossReferences;addDetails('Standard cross-references · '+(std.dataset||'source not specified')+' · '+(std.license||'licence not specified'),(std.note?std.note+'\n\n':'')+'Available: '+std.available+'\n\n'+JSON.stringify(std.entries,null,2));
+                if(packet.customCrossReferences.length)addDetails('My Cross-References · personal links ('+packet.customCrossReferences.length+')',formatPersonalCrossReferences(packet.customCrossReferences));
+                const std=packet.standardCrossReferences;addDetails('Standard cross-references · '+(std.dataset||'source not specified')+' · '+(std.license||'licence not specified'),formatStandardCrossReferences(std));
                 if(packet.selectedVerses.length)addDetails('Selected verses',packet.selectedVerses.join('\n'));
                 const importedAt=packet.exportedAt?new Date(packet.exportedAt):null;addDetails('Transfer details','Exported: '+(importedAt&&!Number.isNaN(importedAt.getTime())?importedAt.toLocaleString():'date not recorded')+'\nSource updated: '+(packet.sourceUpdatedAt||'not recorded')+'\nFormat: '+packet.format+' v'+packet.version);
             }

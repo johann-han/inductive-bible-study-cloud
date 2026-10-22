@@ -1837,7 +1837,9 @@ Answer the current question in light of the active stage and the available sourc
                     }).slice(0, 4) : [];
                 const verseMapMatches = rangeValid && packet.verseMaps && typeof packet.verseMaps === 'object'
                     ? Object.entries(packet.verseMaps)
-                        .filter(([verse]) => Number(verse) >= parsedRange.start && Number(verse) <= parsedRange.end)
+                        .filter(([verse, entry]) => Number(verse) >= parsedRange.start && Number(verse) <= parsedRange.end &&
+                            entry && ['verseText', 'context', 'keyWords', 'wordStudies', 'meaningSummary', 'translationComparison', 'response', 'crossReferences']
+                                .some(field => typeof entry[field] === 'string' && entry[field].trim()))
                         .sort((a, b) => Number(a[0]) - Number(b[0]))
                         .slice(0, 8) : [];
                 const markupMatches = rangeValid && Array.isArray(packet.scriptureMarkups)
@@ -1915,6 +1917,7 @@ Answer the current question in light of the active stage and the available sourc
                 };
 
                 const displayedReference = reference || '[No text reference recorded]';
+                addSection('Sermon claim under review · homiletical point', String(item.statement || '').trim() || '[No homiletical point statement recorded]');
                 addSection('Textual basis · Kerygma point reference', displayedReference);
                 addSection('Review status', reviewStatus + '. Automatic links below are candidates based on explicit or overlapping verse references only; they do not prove that the sermon point correctly interprets the passage.');
 
@@ -1948,7 +1951,7 @@ Answer the current question in light of the active stage and the available sourc
                     noteEntries.forEach((entry, index) => {
                         if (noteCards[index]) {
                             const content = noteCards[index].querySelector('div.whitespace-pre-wrap');
-                            if (content) content.textContent = entry.text;
+                            if (content) content.textContent = String(entry.text).slice(0, 1100) + (entry.text.length > 1100 ? ' [truncated excerpt]' : '');
                         }
                     });
 

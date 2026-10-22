@@ -1774,6 +1774,240 @@ Answer the current question in light of the active stage and the available sourc
                 }
             }
 
+            parseOutlineTraceRange(reference, defaultChapter) {
+                const text = typeof reference === 'string' ? reference.trim() : '';
+                if (!text) return null;
+                let match = text.match(/\b(\d{1,3})\s*:\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?/);
+                let chapter = Number(defaultChapter) || null;
+                let start = null;
+                let end = null;
+                if (match) {
+                    chapter = Number(match[1]);
+                    start = Number(match[2]);
+                    end = match[3] ? Number(match[3]) : start;
+                } else {
+                    match = text.match(/\b(?:vv?\.?|verses?)\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?/i);
+                    if (!match && /^\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?\s*$/.test(text)) {
+                        match = text.match(/^\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?\s*$/);
+                    }
+                    if (!match) return null;
+                    start = Number(match[1]);
+                    end = match[2] ? Number(match[2]) : start;
+                }
+                if (!chapter || !start || !end || start < 1 || end < start || end > 250) return null;
+                return { chapter, start, end };
+            }
+
+            outlineTraceRangesOverlap(a, b) {
+                return Boolean(a && b && a.chapter === b.chapter && a.start <= b.end && b.start <= a.end);
+            }
+
+            outlineTraceNotesForRange(notes, range, defaultChapter) {
+                const blocks = String(notes || '').split(/\n\s*\n/).map(block => block.trim()).filter(Boolean);
+                const overlapsExplicitRef = block => {
+                    const pattern = /\b(\d{1,3})\s*:\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?|\b(?:vv?\.?|verses?)\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?/gi;
+                    let match;
+                    while ((match = pattern.exec(block))) {
+                        const chapter = match[1] ? Number(match[1]) : Number(defaultChapter);
+                        const start = Number(match[1] ? match[2] : match[4]);
+                        const end = Number(match[1] ? (match[3] || match[2]) : (match[5] || match[4]));
+                        if (this.outlineTraceRangesOverlap(range, { chapter, start, end })) return true;
+                    }
+                    return false;
+                };
+                return blocks.filter(overlapsExplicitRef).slice(0, 3);
+            }
+
+            renderOutlineEvidenceTrace(item) {
+                const sermon = this.getCurrentSermon();
+                const packet = sermon && sermon.inductiveStudySource;
+                const studyRef = packet && packet.studyReference ? packet.studyReference : {};
+                const studyChapter = Number(studyRef.chapter);
+                const reference = String(item.reference || '').trim();
+                const parsedRange = this.parseOutlineTraceRange(reference, studyChapter);
+                const bookPrefix = reference.match(/^(.+?)\s+\d{1,3}\s*:/);
+                const bookMismatch = Boolean(bookPrefix && studyRef.book &&
+                    bookPrefix[1].trim().toLowerCase() !== String(studyRef.book).trim().toLowerCase());
+                const rangeValid = Boolean(packet && parsedRange && parsedRange.chapter === studyChapter && !bookMismatch);
+
+                const outlineMatches = rangeValid && packet.passageOutline && Array.isArray(packet.passageOutline.sections)
+                    ? packet.passageOutline.sections.filter(sourceRow => {
+                        const sourceRange = this.parseOutlineTraceRange(sourceRow.verseRange, studyChapter);
+                        return this.outlineTraceRangesOverlap(parsedRange, sourceRange);
+                    }).slice(0, 4) : [];
+                const verseMapMatches = rangeValid && packet.verseMaps && typeof packet.verseMaps === 'object'
+                    ? Object.entries(packet.verseMaps)
+                        .filter(([verse]) => Number(verse) >= parsedRange.start && Number(verse) <= parsedRange.end)
+                        .sort((a, b) => Number(a[0]) - Number(b[0]))
+                        .slice(0, 8) : [];
+                const markupMatches = rangeValid && Array.isArray(packet.scriptureMarkups)
+                    ? packet.scriptureMarkups.filter(mark => Number(mark.verse) >= parsedRange.start && Number(mark.verse) <= parsedRange.end).slice(0, 8) : [];
+                const observeMatches = rangeValid ? this.outlineTraceNotesForRange(packet.sections && packet.sections.observe, parsedRange, studyChapter) : [];
+                const interpretMatches = rangeValid ? this.outlineTraceNotesForRange(packet.sections && packet.sections.interpret, parsedRange, studyChapter) : [];
+                const customRefs = rangeValid && Array.isArray(packet.customCrossReferences)
+                    ? packet.customCrossReferences.filter(ref => ref.source && ref.source.book === studyRef.book &&
+                        Number(ref.source.chapter) === parsedRange.chapter &&
+                        Number(ref.source.verse) >= parsedRange.start && Number(ref.source.verse) <= parsedRange.end).slice(0, 8) : [];
+                const standardRefs = rangeValid && packet.standardCrossReferences && Array.isArray(packet.standardCrossReferences.entries)
+                    ? packet.standardCrossReferences.entries.filter(entry => Number(entry.verse) >= parsedRange.start && Number(entry.verse) <= parsedRange.end).slice(0, 5) : [];
+
+                const candidateCount = outlineMatches.length + verseMapMatches.length + markupMatches.length +
+                    observeMatches.length + interpretMatches.length + customRefs.length + standardRefs.length;
+                let reviewStatus = 'Needs a verse reference';
+                if (!packet) reviewStatus = 'No IBS source attached';
+                else if (!reference) reviewStatus = 'Needs a verse reference';
+                else if (!parsedRange || bookMismatch || parsedRange.chapter !== studyChapter) reviewStatus = 'Check verse reference';
+                else if (candidateCount) reviewStatus = 'Potential links found — verify fit';
+                else reviewStatus = 'Needs review — no direct range matches';
+
+                const details = document.createElement('details');
+                details.className = 'outline-evidence-trace rounded-lg border border-teal-200 bg-white';
+                details.dataset.outlineEvidenceId = String(item.id);
+                const summary = document.createElement('summary');
+                summary.className = 'cursor-pointer select-none px-3 py-2 text-xs font-semibold text-teal-800 hover:bg-teal-50';
+                summary.textContent = 'Evidence traceability · ' + reviewStatus;
+                details.appendChild(summary);
+
+                const body = document.createElement('div');
+                body.className = 'space-y-3 border-t border-teal-100 px-3 py-3 text-xs text-slate-700';
+                const addSection = (title, text) => {
+                    const section = document.createElement('section');
+                    section.className = 'space-y-1';
+                    const heading = document.createElement('h4');
+                    heading.className = 'font-semibold text-slate-800';
+                    heading.textContent = title;
+                    section.appendChild(heading);
+                    const content = document.createElement('div');
+                    content.className = 'whitespace-pre-wrap break-words leading-relaxed';
+                    content.textContent = text || '';
+                    section.appendChild(content);
+                    body.appendChild(section);
+                    return section;
+                };
+                const addEntries = (title, entries, formatter, emptyText) => {
+                    const section = document.createElement('section');
+                    section.className = 'space-y-2';
+                    const heading = document.createElement('h4');
+                    heading.className = 'font-semibold text-slate-800';
+                    heading.textContent = title;
+                    section.appendChild(heading);
+                    if (!entries.length) {
+                        const empty = document.createElement('p');
+                        empty.className = 'text-slate-500';
+                        empty.textContent = emptyText;
+                        section.appendChild(empty);
+                    } else {
+                        entries.forEach((entry, index) => {
+                            const card = document.createElement('div');
+                            card.className = 'rounded-md border border-slate-200 bg-slate-50 p-2';
+                            const label = document.createElement('div');
+                            label.className = 'mb-1 font-medium text-slate-700';
+                            label.textContent = (index + 1) + '. ' + formatter(entry);
+                            card.appendChild(label);
+                            const data = document.createElement('div');
+                            data.className = 'whitespace-pre-wrap break-words leading-relaxed text-slate-600';
+                            data.textContent = entry._traceDetails || '';
+                            card.appendChild(data);
+                            section.appendChild(card);
+                        });
+                    }
+                    body.appendChild(section);
+                };
+
+                const displayedReference = reference || '[No text reference recorded]';
+                addSection('Textual basis · Kerygma point reference', displayedReference);
+                addSection('Review status', reviewStatus + '. Automatic links below are candidates based on explicit or overlapping verse references only; they do not prove that the sermon point correctly interprets the passage.');
+
+                if (!packet) {
+                    addSection('IBS source evidence', 'No imported IBS source packet is attached to this sermon. The point can still be reviewed against its biblical text, but IBS-to-sermon traceability is unavailable until a source packet is imported.');
+                } else if (!rangeValid) {
+                    addSection('IBS source evidence', bookMismatch
+                        ? 'The point reference appears to name a different Bible book from the imported study (' + (studyRef.display || 'study reference not recorded') + ').'
+                        : 'Enter a verse or verse range from the imported study chapter (for example, 2:1–4 or vv. 1–4) to find candidate evidence. References outside the imported study chapter are not matched automatically.');
+                } else {
+                    addEntries('IBS passage divisions · overlapping verse ranges', outlineMatches, row => row.heading || 'Untitled passage section',
+                        'No imported passage-outline division has an overlapping verse range. This does not mean the point is unsupported; review the source manually.');
+                    outlineMatches.forEach((row, index) => {
+                        const data = [];
+                        if (row.verseRange) data.push('Source reference: ' + row.verseRange);
+                        if (row.majorIdea) data.push('Major idea: ' + row.majorIdea);
+                        if (row.supportingDetails) data.push('Supporting details: ' + row.supportingDetails);
+                        const card = body.querySelectorAll('section')[body.querySelectorAll('section').length - 1]?.querySelectorAll('div.rounded-md')[index];
+                        if (card) {
+                            const detailNode = card.querySelector('div.whitespace-pre-wrap');
+                            if (detailNode) detailNode.textContent = data.join('\n');
+                        }
+                    });
+
+                    const noteEntries = [
+                        ...observeMatches.map(text => ({stage: 'IBS Observe', text})),
+                        ...interpretMatches.map(text => ({stage: 'IBS Interpretation', text}))
+                    ];
+                    addEntries('IBS note blocks · explicit verse references', noteEntries, entry => entry.stage, 'No note block with an explicit overlapping verse reference was found automatically. Relevant notes may still exist; inspect the complete imported IBS source.');
+                    const noteCards = body.querySelectorAll('section')[body.querySelectorAll('section').length - 1]?.querySelectorAll('div.rounded-md') || [];
+                    noteEntries.forEach((entry, index) => {
+                        if (noteCards[index]) {
+                            const content = noteCards[index].querySelector('div.whitespace-pre-wrap');
+                            if (content) content.textContent = entry.text;
+                        }
+                    });
+
+                    const mapEntries = verseMapMatches.map(([verse, entry]) => ({
+                        verse,
+                        _traceDetails: [
+                            entry.verseText ? 'Text: ' + entry.verseText : '',
+                            entry.keyWords ? 'Key words: ' + entry.keyWords : '',
+                            entry.wordStudies ? 'Word studies: ' + entry.wordStudies : '',
+                            entry.meaningSummary ? 'Meaning summary: ' + entry.meaningSummary : '',
+                            entry.context ? 'Context: ' + entry.context : ''
+                        ].filter(Boolean).join('\n')
+                    })).filter(entry => entry._traceDetails);
+                    addEntries('IBS verse maps and word studies · verses in this range', mapEntries, entry => 'Verse ' + entry.verse,
+                        'No verse-map or word-study entries were found for this range.');
+
+                    const markEntries = markupMatches.map(mark => ({
+                        ...mark,
+                        _traceDetails: 'Verse ' + mark.verse + ' · ' + mark.type + ' · ' + (mark.translation || packet.translation || '') + '\n' + (mark.quote || '')
+                    }));
+                    addEntries('IBS Scripture observations · visual marks in this range', markEntries, mark => 'Verse ' + mark.verse + ' · ' + mark.type,
+                        'No visual Scripture markups were recorded for these verses.');
+
+                    const crossEntries = customRefs.map(ref => ({
+                        _traceDetails: (ref.source.book || '') + ' ' + ref.source.chapter + ':' + ref.source.verse + ' → ' +
+                            (ref.target.book || '') + ' ' + ref.target.chapter +
+                            (ref.target.startVerse ? ':' + ref.target.startVerse + (ref.target.endVerse && ref.target.endVerse !== ref.target.startVerse ? '–' + ref.target.endVerse : '') : '')
+                            + (ref.relation ? '\nRelation: ' + ref.relation : '') + (ref.note ? '\nNote: ' + ref.note : '')
+                    }));
+                    const standardEntries = standardRefs.map(entry => ({
+                        _traceDetails: (entry.anchors || []).slice(0, 3).map(anchor =>
+                            (anchor.anchor || 'Reference') + ': ' + (anchor.references || []).slice(0, 8).join(', ')
+                        ).join('\n')
+                    }));
+                    addEntries('IBS cross-references · entries from this verse range',
+                        [...crossEntries, ...standardEntries].slice(0, 8),
+                        (_, index) => index < crossEntries.length ? 'Personal cross-reference' : 'Standard cross-reference',
+                        'No imported cross-reference entries were recorded for these verses.');
+
+                    if (parsedRange.end - parsedRange.start >= 8) {
+                        addSection('Coverage note', 'This range is broad. Only the first eight verse-map and Scripture-markup entries are shown here; inspect the full IBS source panel for remaining evidence.');
+                    }
+                }
+
+                const notes = String(item.notes || '').trim();
+                addSection('Kerygma point explanation · sermon notes', notes || 'No explanation has been recorded in this point’s Notes field yet. Add a short explanation of how the cited verses support the point. These sermon notes are not treated as verified IBS findings.');
+                const provenance = document.createElement('p');
+                provenance.className = 'border-t border-slate-200 pt-2 text-[11px] text-slate-500';
+                provenance.textContent = 'Source provenance: IBS content above is shown as imported evidence. Verse-range overlap is a navigation aid, not proof of interpretation. Kerygma point notes are shown separately and are not independently verified. Review the link between evidence and claim before preaching.';
+                body.appendChild(provenance);
+                details.appendChild(body);
+                return details;
+            }
+
+            refreshOutlineEvidenceTrace(item) {
+                const oldTrace = document.querySelector('[data-outline-evidence-id="' + String(item.id) + '"]');
+                if (oldTrace) oldTrace.replaceWith(this.renderOutlineEvidenceTrace(item));
+            }
+
             renderOutline() {
                 const container = document.getElementById('outline-container');
                 const s = this.getCurrentSermon();
@@ -1809,6 +2043,7 @@ Answer the current question in light of the active stage and the available sourc
                             <textarea onchange="sermonApp.updateOutlineItem(${item.id}, 'notes', this.value)" placeholder="Sub-points, cross-references, or explanation..." class="w-full h-16 p-2 border border-slate-300 rounded text-xs">${item.notes || ''}</textarea>
                         </div>
                     `;
+                    row.appendChild(this.renderOutlineEvidenceTrace(item));
                     container.appendChild(row);
                 });
                 this.renderIcons();
@@ -1835,6 +2070,7 @@ Answer the current question in light of the active stage and the available sourc
                 if (item) {
                     item[key] = val;
                     this.saveToStorage();
+                    if (['reference', 'statement', 'notes'].includes(key)) this.refreshOutlineEvidenceTrace(item);
                 }
             }
 

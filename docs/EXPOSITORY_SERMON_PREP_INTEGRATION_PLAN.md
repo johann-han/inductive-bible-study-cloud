@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, and Manuscript / Notes are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; feature-branch and main-branch CI passed. The evidence panels keep Kerygma sermon drafts distinct from imported IBS evidence, use bounded text-only rendering, preserve open state, refresh on edits and do not write source/sermon data. The user reported that the live Manuscript / Notes panel looks good on 22 October 2026; the exact Render deployment SHA and all live regression checks have not been independently verified by the assistant. Paragraph-by-paragraph claim traceability is proposed in PR #41 and is not yet merged.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, and paragraph-level manuscript claims are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; and PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`. The latest PR #41 feature-head GitHub Actions run passed on `a30678212b25b6a06c74348b73c9a9b70ce11f80`; post-merge main CI and Render deployment have not been independently verified. The user’s screenshot shows the current Kerygma interface with the Romans 2 packet and original “Peace in the Storm” sermon visible, but it predates PR #41’s merge and does not verify the new paragraph traceability feature live.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -386,19 +386,20 @@ Post-merge check still required:
 - At merge time, the Browser connector stopped responding during the live check. GitHub verifies the merge and passing CI, not Render deployment. Do not claim live success until this check is explicitly completed.
 - The user subsequently reported that the panel “looks good” on 22 October 2026. Record this as user-observed visual confirmation; the exact Render SHA and the entire live data-preservation/regression checklist remain independently unverified.
 
-### Paragraph-by-paragraph manuscript claim traceability — PR #41 open (22 October 2026)
+### Paragraph-by-paragraph manuscript claim traceability (PR #41 merged, 22 October 2026)
 
 PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/41  
-Branch: \`feat/manuscript-claim-traceability\`. The feature is not merged. GitHub Actions **Kerygma source-aware AI checks** must pass on the final PR head before considering merge.
+Merged by squash commit `a2244e047371fcd5cdc1ffac19008f7538d7ad86` on `main`. The latest PR-head GitHub Actions run passed on `a30678212b25b6a06c74348b73c9a9b70ce11f80`: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39766139364. Post-merge main CI and Render deployment have not been independently verified.
 
-Implementation in the current PR:
-- Extends the existing read-only Manuscript / Notes evidence panel with a **Paragraph-by-paragraph / claim-level traceability** review aid; it does not add a second editor or overwrite any sermon field.
+Implementation:
+- Extends the existing read-only Manuscript / Notes evidence panel with a **Paragraph-by-paragraph / claim-level traceability** review aid. It does not add a second editor or overwrite any sermon field.
 - Splits Markdown manuscript content into paragraph blocks and treats headings as section labels. Common Introduction, Exposition / outline, Application / response and Conclusion headings receive simple labels; unfamiliar headings remain explicitly unclassified.
-- Detects canonical full-book references and unprefixed chapter/verse or verse-only references. Candidate homiletical-outline and imported IBS passage-division links are shown only when the detected reference belongs to the imported book/chapter and overlaps the target verse range.
-- Flags possible missing passage links, different-book/chapter references, theological claims, factual/historical details, quotations/attributions and application/response claims for human review. A missing automatic match is not evidence that the claim is false or unsupported.
-- Caps analysis at the first 60,000 manuscript characters, shows at most 30 paragraph blocks and bounds each displayed excerpt to 420 characters. The renderer uses DOM text nodes and does not access localStorage, write to storage, alter the manuscript, or mutate the imported IBS packet.
-- Adds a dynamic Romans 2 fixture test for section labels, reference-to-outline and reference-to-division overlap, wrong-book rejection, review flags, immutability and display bounds. Existing outline compilation, manuscript editing, AI-draft confirmation and the other evidence panels must continue to pass the regression suite.
-- Deployment remains unverified for this feature because it is not merged. If PR #41 passes CI and is approved for merge, then verify Render and manually check the Romans 2 packet plus the original “Peace in the Storm” sermon before claiming live success.
+- Detects canonical full-book references and unprefixed chapter/verse or verse-only references. Candidate homiletical-outline and imported IBS passage-division links are suggested only when the reference belongs to the imported book/chapter and verse ranges overlap.
+- Flags possible missing passage links, different-book/chapter references, theological claims, factual/historical details, quotations/attributions and application/response claims for human review. A missing automatic match is not evidence that a claim is false or unsupported.
+- Caps analysis at the first 60,000 manuscript characters, shows at most 30 paragraph blocks, and bounds each displayed excerpt to 420 characters. The renderer uses DOM text nodes and does not access localStorage, write to storage, alter the manuscript, or mutate the imported IBS packet.
+- Adds a Romans 2 fixture test for section labels, reference-to-outline and reference-to-division overlap, wrong-book rejection, review flags, immutability and display bounds. Existing outline compilation, manuscript editing, AI-draft confirmation and other evidence panels are covered by the regression suite.
+- Manual deployment check remains required: confirm Render serves `a2244e047371fcd5cdc1ffac19008f7538d7ad86` or a descendant, then inspect the Manuscript / Notes evidence panel on the existing Romans 2 sermon. Confirm paragraph analysis appears, candidate references are appropriate, and opening/refreshing the panel leaves the manuscript and source packet unchanged. Confirm the original “Peace in the Storm” sermon, four IBS stages, source sections, and outline/AI drafting actions still work.
+- The screenshot supplied by the user on 22 October shows the pre-merge application’s Romans 2 source sections and the sample sermon still in the Vault; it does not verify the merged paragraph-level feature.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

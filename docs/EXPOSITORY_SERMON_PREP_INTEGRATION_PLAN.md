@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, and paragraph-level manuscript claims are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; and PR #43 (readable cross-reference panels) at `7e36f69b829a3d7718e6586ddb271ec5ca228124`. On 22 October 2026 the user confirmed paragraph traceability is live and screenshots exposed raw JSON in personal and standard cross-reference panels. PR #43 feature-head CI passed; the readable-panel fix is now merged, but its post-merge CI and new Render deployment have not been independently verified.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, and paragraph-level manuscript claims are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; and PR #43 (readable cross-reference panels) at `7e36f69b829a3d7718e6586ddb271ec5ca228124`. On 22 October 2026 the user confirmed live that paragraph-level manuscript traceability is deployed and subsequently verified the personal and standard cross-reference panels now display correctly as readable lists. The PR #43 feature-head CI passed; user screenshot confirms its live UI behavior.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -414,7 +414,17 @@ Implementation:
 - Display caps limit personal links to 100, standard verse groups to 60, anchor phrases per verse to 12, and references per anchor to 12; omitted items are reported rather than dumping an unbounded structure.
 - The existing DOM `textContent` rendering is retained. The formatters do not mutate `inductiveStudySource`, write browser storage, call AI, or change import/export structure. Verse maps and scripture-markup panels are outside the scope of this specific fix.
 - Regression coverage verifies personal reference formatting, relationship/note fields, grouped standard references, bounding, absence of raw-JSON formatting in these two panels, and inline script/test syntax. Feature-head CI run 63 passed.
-- Post-merge manual verification: after Render deploys `7e36f69b829a3d7718e6586ddb271ec5ca228124` or its descendant, inspect the existing Romans 2 packet. Confirm personal links such as Romans 2:14 → Ephesians 2:12 appear as readable source/target references and standard references show verse/anchor rows; confirm the four IBS stages, other evidence sections and “Peace in the Storm” remain intact. The Browser connector’s tab context returned an RPC error in earlier checks, so obtain a fresh visual confirmation if access remains unavailable.
+- Post-merge manual verification: **completed by user screenshot on 22 October 2026.** The visible Romans 2 Source Inductive Study panel shows the personal link `Romans 2:14 → Ephesians 2:12` with its relationship label, and the standard cross-references appear grouped by verse and anchor phrase rather than as raw JSON. The screenshot also shows the imported Romans 2 packet and both sermons in the Vault, including the original “Peace in the Storm.” The user explicitly confirmed: “The cross-reference panels are correct.” This verifies the visible behavior on the live page; it does not independently verify every hidden source field or browser-storage invariant.
+
+### Live verification — readable cross-reference panels (22 October 2026)
+
+The user supplied a fresh screenshot after PR #43 merged and explicitly confirmed that the cross-reference panels are correct. It shows:
+- Personal links formatted as a readable source → target reference (`Romans 2:14 → Ephesians 2:12`), with `Relationship: theme` underneath.
+- Standard cross-references grouped by verse and anchor phrase, including inline reference lists and a compact `+N more` indication for long lists.
+- The Romans 2 · KJV source packet is still visible, alongside both `Sermon on Romans 2` and `Peace in the Storm` in the Sermon Vault.
+- No raw JSON in either of the two corrected cross-reference panels.
+
+Treat the display fix as deployed and visually verified. Do not redo this check unless later code changes affect the source panel. This confirmation is from the user's live screenshot; no claim is made that every imported source field was byte-for-byte checked.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

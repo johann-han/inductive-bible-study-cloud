@@ -632,7 +632,7 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.ok(html.includes("'Claim ' + claim.claimIndex + ' (candidate proposition from source sentence ' + claim.index + '): ' + claim.proposition"), 'only distilled propositions receive claim numbers');
   assert.ok(html.includes("? 'Context — ' + claim.note"), 'context sentences are labelled without sentence numbers');
   assert.ok(html.includes("'Not distilled — ' + claim.note"), 'unresolved sentences are labelled without sentence numbers');
-  assert.ok(!html.includes("'Sentence ' + claim.index + ' · '), 'non-claim sentences must not appear numbered');
+  assert.ok(!html.includes("'Sentence ' + claim.index + ' · '"), 'non-claim sentences must not appear numbered');
 
   const greeting = extractProposition('Good morning, beloved congregation.');
   assert.equal(greeting.kind, 'context');

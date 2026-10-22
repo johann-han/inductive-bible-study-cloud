@@ -379,7 +379,7 @@
         <div class="border-b border-slate-200 bg-slate-50 p-3">
             <p class="text-xs leading-relaxed text-slate-600">Ask for guidance, clarification, a review, or help deciding what to do next. Kerygma sends your question and relevant sermon/source excerpts to the configured AI provider. Replies are suggestions for you to evaluate; this chat never edits the sermon or imported study automatically.</p>
             <div class="mt-2 flex flex-wrap gap-2">
-                <button type="button" onclick="sermonApp.setKerygmaGuidePrompt('Guide me through this step. Ask me useful questions rather than doing all the work for me.')" class="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">Guide this step</button>
+                <button id="kerygma-guide-stage-prompt" type="button" onclick="sermonApp.setKerygmaGuidePrompt('Guide me through this step. Ask me useful questions rather than doing all the work for me.')" class="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"><span id="kerygma-guide-stage-prompt-label">Guide me through Text &amp; Exegesis</span></button>
                 <button type="button" onclick="sermonApp.setKerygmaGuidePrompt('Review my current work for faithfulness to the passage, logic, missing evidence, and theological risks. Separate observations from suggestions.')" class="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">Review my work</button>
                 <button type="button" onclick="sermonApp.setKerygmaGuidePrompt('What is a sensible next step, and why?')" class="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">What next?</button>
                 <button type="button" onclick="sermonApp.setKerygmaGuidePrompt('Give me 5 additional, non-repetitive questions about the current passage and active study stage. Build on the IBS notes and our conversation so far. Format the response as one continuous numbered list from 1 to 5. Put each verse reference, question, and a brief Why it matters rationale inside the SAME numbered list item. Do not insert separate paragraphs between list items, and do not restart numbering. Do not answer all the questions for me.')" class="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">More questions</button>
@@ -1011,11 +1011,14 @@
 
             updateKerygmaGuideContextLabel() {
                 const label = document.getElementById('kerygma-guide-context');
-                if (!label) return;
-                const sermon = this.getCurrentSermon();
                 const stage = this.getKerygmaGuideStage();
-                label.textContent = (sermon && sermon.title ? sermon.title : 'Current sermon') + ' · ' + stage.label +
-                    (sermon && sermon.inductiveStudySource ? ' · IBS source attached' : '');
+                const sermon = this.getCurrentSermon();
+                if (label) {
+                    label.textContent = (sermon && sermon.title ? sermon.title : 'Current sermon') + ' · ' + stage.label +
+                        (sermon && sermon.inductiveStudySource ? ' · IBS source attached' : '');
+                }
+                const stagePromptLabel = document.getElementById('kerygma-guide-stage-prompt-label');
+                if (stagePromptLabel) stagePromptLabel.textContent = 'Guide me through ' + stage.label;
             }
 
             toggleKerygmaGuide() {

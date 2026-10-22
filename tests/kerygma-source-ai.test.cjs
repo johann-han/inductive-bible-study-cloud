@@ -407,6 +407,112 @@ test('Manuscript evidence trace is read-only and keeps Kerygma draft separate fr
   assert.ok(method.includes('No imported IBS source packet is attached.'));
 });
 
+test('paragraph-level manuscript trace links explicit Romans 2 references and flags claims for human review', () => {
+  const extractMethod = (name, nextName) => {
+    const startMarker = '            ' + name + '(';
+    const endMarker = '            ' + nextName + '(';
+    const start = html.indexOf(startMarker);
+    const end = html.indexOf(endMarker, start);
+    assert.ok(start >= 0 && end > start, 'expected class method ' + name);
+    const methodSource = html.slice(start, end).trim();
+    const functionSource = methodSource.replace(new RegExp('^' + name + '\\('), 'function ' + name + '(');
+    return vm.runInNewContext('(' + functionSource + ')');
+  };
+
+  const analyze = extractMethod('analyzeManuscriptClaimParagraphs', 'renderManuscriptEvidenceTrace');
+  const parseRange = extractMethod('parseOutlineTraceRange', 'outlineTraceRangesOverlap');
+  const rangesOverlap = extractMethod('outlineTraceRangesOverlap', 'outlineTraceNotesForRange');
+  const context = { parseOutlineTraceRange: parseRange, outlineTraceRangesOverlap: rangesOverlap };
+
+  const packet = {
+    studyReference: { book: 'Romans', chapter: 2, displayReference: 'Romans 2' },
+    sections: {
+      interpret: 'Paul exposes the inconsistency of judging others while doing the same things.',
+      doctrine: 'God judges impartially according to truth.',
+      discipleship: 'Repentance begins with honest self-examination.'
+    },
+    passageOutline: {
+      sections: [
+        { verseRange: '2:1-4', heading: 'Judgment according to truth' },
+        { verseRange: '2:5-11', heading: 'God shows no partiality' }
+      ]
+    }
+  };
+  const outline = [
+    { index: 1, statement: 'Judgment according to truth', reference: '2:1-4', notes: '' },
+    { index: 2, statement: 'No partiality with God', reference: '2:5-11', notes: '' }
+  ];
+  const manuscript = [
+    '# Romans 2 Sermon',
+    '',
+    '## Introduction',
+    '',
+    'People often condemn others before examining their own actions.',
+    '',
+    '## Exposition: Romans 2:1–4',
+    '',
+    'Paul warns the person who judges others while doing the same things (Romans 2:1–4).',
+    '',
+    'John 2:1–4 belongs to a different passage and must not be linked automatically to Romans 2.',
+    '',
+    '## Application',
+    '',
+    'We should examine ourselves and repent before judging other people.',
+    '',
+    '## Historical note',
+    '',
+    'The Roman census happened around AD 50, according to historical accounts.',
+    '',
+    'Jesus said “...” in this section.'
+  ].join('\n');
+
+  const packetBefore = JSON.stringify(packet);
+  const manuscriptBefore = manuscript;
+  const result = analyze.call(context, manuscript, outline, packet);
+  assert.equal(result.totalCount, 6, 'headings are section labels, not paragraph claims');
+  assert.equal(result.rows.length, 6);
+  assert.equal(result.omittedCount, 0);
+  assert.equal(result.inputTruncated, false);
+
+  const introduction = result.rows.find(row => row.excerpt.includes('People often condemn'));
+  assert.equal(introduction.section, 'Introduction');
+  assert.ok(introduction.flags.some(flag => flag.includes('No explicit passage reference detected')));
+
+  const exposition = result.rows.find(row => row.excerpt.includes('Paul warns the person'));
+  assert.equal(exposition.section, 'Exposition / outline');
+  assert.equal(exposition.outlineLinks.length, 1);
+  assert.equal(exposition.outlineLinks[0].index, 1);
+  assert.equal(exposition.divisionLinks.length, 1);
+  assert.ok(exposition.references.some(reference =>
+    reference.text.toLowerCase().includes('romans 2:1') && reference.matchesPassage));
+
+  const otherBook = result.rows.find(row => row.excerpt.includes('John 2:1'));
+  assert.equal(otherBook.passageRanges.length, 0, 'a different book must not create an automatic Romans 2 link');
+  assert.ok(otherBook.flags.some(flag => flag.includes('does not clearly match the imported book/chapter')));
+
+  const application = result.rows.find(row => row.excerpt.includes('We should examine'));
+  assert.equal(application.section, 'Application / response');
+  assert.ok(application.flags.some(flag => flag.includes('IBS Discipleship')));
+
+  const historical = result.rows.find(row => row.excerpt.includes('Roman census'));
+  assert.ok(historical.flags.some(flag => flag.includes('factual / historical detail')));
+
+  const quotation = result.rows.find(row => row.excerpt.includes('Jesus said'));
+  assert.ok(quotation.flags.some(flag => flag.includes('theological claim')));
+  assert.ok(quotation.flags.some(flag => flag.includes('Quotation or attribution')));
+
+  assert.equal(manuscript, manuscriptBefore);
+  assert.equal(JSON.stringify(packet), packetBefore, 'analysis must not mutate imported IBS data');
+
+  const manyParagraphs = Array.from({ length: 35 }, (_, index) =>
+    'Paragraph sample ' + (index + 1) + ' includes a claim that needs review.').join('\n\n');
+  const bounded = analyze.call(context, manyParagraphs, outline, packet);
+  assert.equal(bounded.totalCount, 35);
+  assert.equal(bounded.rows.length, 30, 'only the first 30 paragraph blocks are rendered');
+  assert.equal(bounded.omittedCount, 5);
+  assert.ok(bounded.rows.every(row => row.excerpt.length <= 440), 'display excerpts stay bounded');
+});
+
 test('Manuscript evidence trace refreshes without altering outline compilation or AI overwrite safeguards', () => {
   assert.ok(html.includes('this.renderManuscriptEvidenceTrace();\n            }\n\n            updateMeta() {'),
     'refresh on sermon load');

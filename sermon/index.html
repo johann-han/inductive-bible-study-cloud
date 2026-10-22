@@ -1784,6 +1784,192 @@ Answer the current question in light of the active stage and the available sourc
                 }
             }
 
+            analyzeManuscriptClaimParagraphs(manuscript, outlinePoints, packet) {
+                const source = String(manuscript || '');
+                const analysisSource = source.slice(0, 60000);
+                const maxClaimReviewBlocks = 30;
+                const maxClaimExcerptCharacters = 420;
+                const studyRef = packet && packet.studyReference ? packet.studyReference : {};
+                const studyBook = String(studyRef.book || '').trim();
+                const chapterNumber = Number(studyRef.chapter);
+                const normalizeBook = value => {
+                    const key = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (key === 'psalm') return 'psalms';
+                    if (key === 'songofsongs' || key === 'canticles') return 'songofsolomon';
+                    return key;
+                };
+                const classifySection = heading => {
+                    const value = String(heading || '').toLowerCase();
+                    if (/\b(introduction|opening|hook|setting the scene)\b/.test(value)) return 'Introduction';
+                    if (/\b(application|response|discipleship|for believers|for seekers|putting it into practice)\b/.test(value)) return 'Application / response';
+                    if (/\b(conclusion|closing|invitation|final thoughts?|call to action)\b/.test(value)) return 'Conclusion';
+                    if (/\b(exposition|exegesis|outline|point\s*\d|movement|verse|interpretation|text study)\b/.test(value)) return 'Exposition / outline';
+                    return heading ? 'Unlabelled section — ' + String(heading).trim().slice(0, 70) : 'Unlabelled section';
+                };
+
+                const blocks = [];
+                let activeSection = 'Unlabelled section';
+                let blockLines = [];
+                const flushBlock = () => {
+                    const blockText = blockLines.join(' ').replace(/\s+/g, ' ').trim();
+                    if (blockText) blocks.push({ section: activeSection, text: blockText });
+                    blockLines = [];
+                };
+                analysisSource.split(/\r?\n/).forEach(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed || /^([-*_])\1{2,}\s*$/.test(trimmed)) {
+                        flushBlock();
+                        return;
+                    }
+                    const heading = trimmed.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+                    if (heading) {
+                        flushBlock();
+                        activeSection = classifySection(heading[1]);
+                        return;
+                    }
+                    blockLines.push(trimmed);
+                });
+                flushBlock();
+
+                const bibleBookNames = [
+                    'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy', 'Joshua', 'Judges', 'Ruth',
+                    '1 Samuel', '2 Samuel', '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra',
+                    'Nehemiah', 'Esther', 'Job', 'Psalms', 'Psalm', 'Proverbs', 'Ecclesiastes',
+                    'Song of Solomon', 'Song of Songs', 'Canticles', 'Isaiah', 'Jeremiah', 'Lamentations',
+                    'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos', 'Obadiah', 'Jonah', 'Micah', 'Nahum',
+                    'Habakkuk', 'Zephaniah', 'Haggai', 'Zechariah', 'Malachi', 'Matthew', 'Mark', 'Luke',
+                    'John', 'Acts', 'Romans', '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians',
+                    'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy',
+                    '2 Timothy', 'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter', '2 Peter',
+                    '1 John', '2 John', '3 John', 'Jude', 'Revelation'
+                ];
+                const escapedBookNames = bibleBookNames.slice().sort((a, b) => b.length - a.length).join('|');
+                const studyBookKey = normalizeBook(studyBook);
+
+                const getReferenceAnalysis = blockText => {
+                    const references = [];
+                    const occupiedSpans = [];
+                    const passageRanges = [];
+                    if (!blockText || references.length >= 12) return { references, passageRanges };
+
+                    const bookReferencePattern = new RegExp('\\b(' + escapedBookNames + ')\\s+(\\d{1,3})\\s*:\\s*(\\d{1,3})(?:\\s*[-–—]\\s*(\\d{1,3}))?', 'gi');
+                    let match;
+                    while ((match = bookReferencePattern.exec(blockText)) && references.length < 12) {
+                        const end = bookReferencePattern.lastIndex;
+                        const rangeText = match[2] + ':' + match[3] + (match[4] ? '-' + match[4] : '');
+                        const parsed = this.parseOutlineTraceRange(rangeText, chapterNumber);
+                        const matchesPassage = Boolean(packet && studyBookKey &&
+                            normalizeBook(match[1]) === studyBookKey && parsed &&
+                            parsed.chapter === chapterNumber);
+                        references.push({
+                            text: match[0],
+                            matchesPassage,
+                            range: matchesPassage ? parsed : null
+                        });
+                        occupiedSpans.push({ start: match.index, end });
+                        if (matchesPassage) passageRanges.push(parsed);
+                    }
+
+                    const unprefixedReferencePattern = /\b(\d{1,3})\s*:\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?|\b(?:vv?\.?|verses?)\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?/gi;
+                    while ((match = unprefixedReferencePattern.exec(blockText)) && references.length < 12) {
+                        if (occupiedSpans.some(span => match.index >= span.start && match.index < span.end)) continue;
+                        const rawReference = match[0].trim();
+                        const precedingText = blockText.slice(Math.max(0, match.index - 18), match.index);
+                        const abbreviatedBookPrefix = precedingText.match(/\b[A-Za-z][A-Za-z.'’]{0,9}\.\s*$/);
+                        if (abbreviatedBookPrefix) {
+                            references.push({ text: abbreviatedBookPrefix[0].trim() + ' ' + rawReference, matchesPassage: false, range: null });
+                            continue;
+                        }
+                        const parsed = this.parseOutlineTraceRange(rawReference, chapterNumber);
+                        const matchesPassage = Boolean(packet && parsed && chapterNumber && parsed.chapter === chapterNumber);
+                        references.push({
+                            text: rawReference,
+                            matchesPassage,
+                            range: matchesPassage ? parsed : null
+                        });
+                        if (matchesPassage) passageRanges.push(parsed);
+                    }
+                    return { references, passageRanges };
+                };
+
+                const getValidOutlineRange = reference => {
+                    const referenceText = String(reference || '').trim();
+                    const parsed = this.parseOutlineTraceRange(referenceText, chapterNumber);
+                    const bookPrefix = referenceText.match(/^(.+?)\s+\d{1,3}\s*:/);
+                    const bookMatches = !bookPrefix || normalizeBook(bookPrefix[1]) === studyBookKey;
+                    return packet && parsed && chapterNumber && parsed.chapter === chapterNumber && bookMatches ? parsed : null;
+                };
+
+                const allRows = blocks.map((block, blockIndex) => {
+                    const referenceAnalysis = getReferenceAnalysis(block.text);
+                    const references = referenceAnalysis.references;
+                    const passageRanges = referenceAnalysis.passageRanges;
+                    const outlineLinks = (Array.isArray(outlinePoints) ? outlinePoints : []).filter(point => {
+                        const pointRange = getValidOutlineRange(point.reference);
+                        return pointRange && passageRanges.some(range => this.outlineTraceRangesOverlap(range, pointRange));
+                    }).slice(0, 3).map(point => ({
+                        index: point.index,
+                        label: 'Point ' + point.index + ': ' + (point.statement || '[statement missing]') +
+                            ' (' + (point.reference || '[verse reference missing]') + ')'
+                    }));
+                    const sourceDivisions = packet && packet.passageOutline && Array.isArray(packet.passageOutline.sections)
+                        ? packet.passageOutline.sections : [];
+                    const divisionLinks = sourceDivisions.filter(row => {
+                        const sourceRange = this.parseOutlineTraceRange(row && row.verseRange, chapterNumber);
+                        return sourceRange && chapterNumber && sourceRange.chapter === chapterNumber &&
+                            passageRanges.some(range => this.outlineTraceRangesOverlap(range, sourceRange));
+                    }).slice(0, 3).map(row => ({
+                        label: (row.verseRange || '[verse range missing]') + ' — ' +
+                            (row.heading || row.majorIdea || '[division title missing]')
+                    }));
+
+                    const flags = [];
+                    if (!packet) flags.push('No imported IBS packet; source links require manual review');
+                    if (!references.length) {
+                        flags.push('No explicit passage reference detected; verify the paragraph connection to the passage and outline');
+                    } else if (!passageRanges.length) {
+                        flags.push('Cited reference does not clearly match the imported book/chapter; verify it manually');
+                    } else if (!outlineLinks.length) {
+                        flags.push('No overlapping outline point found for the detected passage range; review the fit');
+                    }
+                    if (/\b(God|Jesus|Christ|Lord|Holy Spirit|Spirit|salvation|sin|faith|grace|redemption|gospel|righteousness|justification|judgment|divine|doctrine|repentance)\b/i.test(block.text)) {
+                        flags.push('Possible theological claim — compare with IBS Doctrine and the passage');
+                    }
+                    if (/\b(?:1[5-9]\d{2}|20\d{2}|A\.?D\.?|B\.?C\.?|historically|historian|archaeolog\w*|research (?:shows|suggests)|studies show|scholars? (?:say|argue|agree)|traditionally|Roman empire|Roman law)\b/i.test(block.text)) {
+                        flags.push('Possible factual / historical detail — verify a reliable source or citation');
+                    }
+                    if (/[“”‘’"]/.test(block.text) || /\b(?:said|says|according to|quoted|quotation)\b/i.test(block.text)) {
+                        flags.push('Quotation or attribution — verify exact wording and source');
+                    }
+                    if (/\b(?:should|must|ought to|respond|repent|forgive|obey|trust|follow|apply|application|let us|today)\b/i.test(block.text) ||
+                        /application|response|discipleship/i.test(block.section)) {
+                        flags.push('Application / response claim — compare with IBS Discipleship and the sermon aim');
+                    }
+
+                    return {
+                        index: blockIndex + 1,
+                        section: block.section,
+                        excerpt: block.text.slice(0, maxClaimExcerptCharacters) +
+                            (block.text.length > maxClaimExcerptCharacters ? ' … [excerpt trimmed]' : ''),
+                        references: references.slice(0, 5).map(reference => ({
+                            text: reference.text,
+                            matchesPassage: reference.matchesPassage
+                        })),
+                        passageRanges,
+                        outlineLinks,
+                        divisionLinks,
+                        flags
+                    };
+                }).slice(0, maxClaimReviewBlocks);
+
+                return {
+                    rows: allRows,
+                    totalCount: blocks.length,
+                    omittedCount: Math.max(0, blocks.length - allRows.length),
+                    inputTruncated: source.length > analysisSource.length
+                };
+            }
+
             renderManuscriptEvidenceTrace() {
                 const container = document.getElementById('manuscript-evidence-trace');
                 if (!container) return;
@@ -1953,6 +2139,33 @@ Answer the current question in light of the active stage and the available sourc
                         ).join('; ');
                     },
                     'No outline points are available for candidate-link review.', 12);
+
+                const paragraphReview = this.analyzeManuscriptClaimParagraphs(manuscript, outlinePoints, packet);
+                const coverageText = manuscript
+                    ? 'Analyzed ' + paragraphReview.rows.length + ' of ' + paragraphReview.totalCount +
+                        ' paragraph blocks for review. ' +
+                        (paragraphReview.omittedCount ? paragraphReview.omittedCount + ' additional blocks are not shown.' : '') +
+                        (paragraphReview.inputTruncated ? ' Analysis is capped at the first 60,000 characters.' : '')
+                    : 'No manuscript text is available to analyze.';
+                addSection('Paragraph trace coverage', coverageText,
+                    'No saved manuscript paragraphs were found.', 1200);
+                addEntries('Paragraph-by-paragraph / claim-level traceability · heuristic review', paragraphReview.rows,
+                    row => 'Paragraph ' + row.index + ' · ' + row.section +
+                        '\nDraft excerpt: ' + row.excerpt +
+                        '\nPassage reference(s): ' + (row.references.length
+                            ? row.references.map(reference => reference.text + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                            : 'No explicit passage reference detected') +
+                        '\nCandidate outline link(s): ' + (row.outlineLinks.length
+                            ? row.outlineLinks.map(link => link.label).join('; ')
+                            : row.passageRanges.length ? 'No overlapping outline point found' : 'No automatic outline link suggested') +
+                        '\nCandidate IBS passage division(s): ' + (row.divisionLinks.length
+                            ? row.divisionLinks.map(link => link.label).join('; ')
+                            : row.passageRanges.length ? 'No overlapping IBS passage division found' : 'No reference-based division link suggested') +
+                        '\nReview flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags found; human review is still required.'),
+                    'No manuscript paragraph blocks were available for analysis.', 30);
+                addSection('How to use paragraph traceability',
+                    'A candidate outline or IBS division link is shown only when an explicit passage reference overlaps its verse range. The tool does not infer theological support from similar wording. Compare each paragraph with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare application paragraphs with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
+                    'Paragraph-level matches are not available.', 1800);
 
                 const sourceNotesPresent = Boolean(String(sourceSections.interpret || '').trim() || String(sourceSections.doctrine || '').trim());
                 const sourceDivisionPresent = sourceDivisions.length > 0;

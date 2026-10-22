@@ -2483,11 +2483,17 @@ Answer the current question in light of the active stage and the available sourc
                         'needs-research': 'Needs research',
                         'requires-revision': 'Requires revision'
                     };
+                    const claimReviewStatusCache = this.loadClaimReviewStatuses();
+                    const readReviewStatus = (paragraphIndex, claim) => {
+                        const key = this.makeClaimReviewKey(paragraphIndex, claim);
+                        const sermonStatuses = claimReviewStatusCache[String(sermon.id)];
+                        const status = sermonStatuses && typeof sermonStatuses === 'object' ? sermonStatuses[key] : '';
+                        return Object.prototype.hasOwnProperty.call(statusLabels, status) ? status : 'not-reviewed';
+                    };
                     const refreshStatusSummary = () => {
                         const counts = { 'not-reviewed': 0, reviewed: 0, 'needs-research': 0, 'requires-revision': 0 };
                         allClaims.forEach(item => {
-                            const key = this.makeClaimReviewKey(item.row.index, item.claim);
-                            const status = this.getClaimReviewStatus(sermon.id, key);
+                            const status = readReviewStatus(item.row.index, item.claim);
                             if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
                         });
                         statusSummary.textContent = 'Review progress — Reviewed: ' + counts.reviewed +
@@ -2589,7 +2595,7 @@ Answer the current question in light of the active stage and the available sourc
                                     option.textContent = text;
                                     select.appendChild(option);
                                 });
-                                let lastSavedStatus = this.getClaimReviewStatus(sermon.id, claimReviewKey);
+                                let lastSavedStatus = readReviewStatus(row.index, claim);
                                 select.value = lastSavedStatus;
                                 label.appendChild(select);
                                 controls.appendChild(label);
@@ -2597,12 +2603,16 @@ Answer the current question in light of the active stage and the available sourc
                                 const saveIndicator = document.createElement('span');
                                 saveIndicator.className = 'text-slate-500';
                                 saveIndicator.setAttribute('aria-live', 'polite');
-                                saveIndicator.textContent = 'Status stored separately from sermon text';
+                                saveIndicator.textContent = 'Saved separately from sermon text when changed';
                                 controls.appendChild(saveIndicator);
 
                                 select.addEventListener('change', () => {
                                     const nextStatus = select.value;
                                     if (this.saveClaimReviewStatus(sermon.id, claimReviewKey, nextStatus)) {
+                                        if (!claimReviewStatusCache[String(sermon.id)] || typeof claimReviewStatusCache[String(sermon.id)] !== 'object') {
+                                            claimReviewStatusCache[String(sermon.id)] = {};
+                                        }
+                                        claimReviewStatusCache[String(sermon.id)][claimReviewKey] = nextStatus;
                                         lastSavedStatus = nextStatus;
                                         saveIndicator.textContent = 'Saved separately';
                                         saveIndicator.className = 'text-emerald-700';

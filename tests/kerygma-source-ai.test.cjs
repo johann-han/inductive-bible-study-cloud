@@ -334,6 +334,7 @@ test('Big Idea evidence trace presents IBS interpretation and doctrine separatel
     'Big Idea / Proposition:',
     'Sermon Aim:',
     'Review status',
+    'IBS packet identity',
     'IBS Interpretation · source notes',
     'IBS Doctrine · source guardrails',
     'IBS passage outline · imported text divisions',
@@ -346,7 +347,9 @@ test('Big Idea evidence trace presents IBS interpretation and doctrine separatel
   assert.ok(html.includes('Needs review — no Interpretation or Doctrine notes recorded'));
   assert.ok(html.includes('No imported IBS source packet is attached.'));
   assert.ok(html.includes('It does not automatically verify that the Big Idea follows from the evidence.'));
-  assert.ok(html.includes('content.textContent = String(text || \'\').trim() || emptyText || \'[No content recorded]\';'));
+  assert.ok(html.includes("const fullText = String(text || '').trim();"));
+  assert.ok(html.includes('fullText.slice(0, 6000)'));
+  assert.ok(html.includes('[Excerpt truncated; the complete imported source remains unchanged.]'));
 
   const start = html.indexOf('renderBigIdeaEvidenceTrace() {');
   const end = html.indexOf('parseOutlineTraceRange(reference, defaultChapter) {', start);

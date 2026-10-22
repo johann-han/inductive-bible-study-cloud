@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five tabs, More Questions/More Insights, stage-labelled Guide action, and stage-separated chat are merged into `main`. The user confirmed the stage separator is visible, but the Guide panel overlaps the top workflow tab row and obscures “Manuscript / Notes.” Follow-up branch `fix/kerygma-panel-clear-workflow-tabs` moves the panel top below the tab row and bounds its height to the remaining viewport while preserving its width and resize behavior. Regression tests and PR are pending. Sermon/source data remain untouched.
+Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five tabs, More Questions/More Insights, stage-labelled Guide action, stage-separated chat, and the panel/tab-overlap fix are merged into `main`. PR #32 merged at `0d7d21a97de9e319e88d31d503d1012d0c6d54ea`; both feature-branch CI and main-branch CI passed. The Guide panel is now anchored below the workflow tabs (`top-32`) and height-bounded to `calc(100vh - 13rem)`, preserving its 760px desktop width and horizontal resizing. Live Render verification remains pending. Sermon/source data remain untouched.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -316,6 +316,12 @@ The follow-up:
 - Preserve `width:min(94vw,760px)`, min/max width and `resize:horizontal`.
 - Add regression assertions that the panel starts below the tab row, is screen-bounded, and preserves its useful width.
 - Do not alter the Guide chat rendering, stage separators, messages, sermon fields or IBS source. Merge only after CI passes; after Render deploys from `main`, confirm all five tab labels are fully visible with the Guide open.
+
+### Kerygma Guide panel/tab overlap fix (22 October 2026)
+
+Merged in PR #32 at `0d7d21a97de9e319e88d31d503d1012d0c6d54ea`. CI passed on feature commit `ee6f02c755e450f206bfb1e8729d192d9585236d` and main merge commit `0d7d21a97de9e319e88d31d503d1012d0c6d54ea`.
+
+The user’s screenshot showed the floating Guide panel covering the “Manuscript / Notes” workflow tab. The fix anchors the panel at `top-32` and caps height at `calc(100vh - 13rem)`, leaving the tab row visible while preserving panel width, horizontal resizing, stage separators, and message history. A regression test confirms the top anchor, height cap, and width. Once Render deploys this main commit, refresh with Ctrl+F5 and verify all five workflow tab labels remain fully visible while the Guide panel is open.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

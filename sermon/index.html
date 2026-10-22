@@ -2523,8 +2523,10 @@ Answer the current question in light of the active stage and the available sourc
                         '\nSentence analysis (' + row.claims.length + ' shown of ' + row.totalClaims + ' sentences; ' + row.derivedClaimCount + ' propositions distilled):\n' +
                         (row.claims.length ? row.claims.map(claim =>
                             '  ' + (claim.kind === 'claim'
-                                ? 'Claim ' + claim.claimIndex + ' (candidate proposition from sentence ' + claim.index + '): ' + claim.proposition
-                                : 'Sentence ' + claim.index + ' · ' + (claim.kind === 'context' ? 'Context — ' : 'No proposition distilled — ') + claim.note) +
+                                ? 'Claim ' + claim.claimIndex + ' (candidate proposition from source sentence ' + claim.index + '): ' + claim.proposition
+                                : claim.kind === 'context'
+                                    ? 'Context — ' + claim.note
+                                    : 'Not distilled — ' + claim.note) +
                             (claim.kind === 'context' ? '' :
                                 '\n    Reference(s): ' + (claim.references.length
                                     ? claim.references.map(reference => reference.text +

@@ -358,7 +358,11 @@ test('Illustrations and Application trace keeps Kerygma drafts distinct from IBS
   assert.ok(!method.includes('.inductiveStudySource ='), 'rendering evidence must not mutate the imported packet');
   assert.ok(!method.includes('innerHTML'), 'imported source material must be rendered as text');
   assert.ok(method.includes('details.open = wasOpen;'), 'keep the panel expanded during edits');
-  assert.ok(html.includes('this.renderApplicationEvidenceTrace();\n            }\n\n            switchTab(tabKey)'), 'refresh evidence when form fields change');
+  const updateMetaStart = html.indexOf('            updateMeta() {');
+  const updateMetaEnd = html.indexOf('            switchTab(tabKey)', updateMetaStart);
+  assert.ok(updateMetaStart >= 0 && updateMetaEnd > updateMetaStart, 'expected the existing updateMeta form-save method');
+  const updateMetaSource = html.slice(updateMetaStart, updateMetaEnd);
+  assert.ok(updateMetaSource.includes('this.renderApplicationEvidenceTrace();'), 'refresh application evidence when fields change');
   assert.ok(html.includes('this.renderIllustrations();\n                    this.renderApplicationEvidenceTrace();'), 'refresh after AI-generated applications are inserted');
   assert.ok(html.includes('this.saveToStorage();\n                this.renderIllustrations();\n                this.renderApplicationEvidenceTrace();'), 'refresh after adding/removing illustrations');
 });

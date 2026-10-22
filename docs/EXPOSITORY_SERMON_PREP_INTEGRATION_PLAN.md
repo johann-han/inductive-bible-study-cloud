@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, the More Questions click-handler fix, and stage-labelled Guide quick action are merged into `main`. PR #28 merged at `3926863c1f13d4bdfb4d964b43667394fb53c225`; CI passed on both the feature branch and main merge commit. The first Guide quick action now displays “Guide me through [active stage]” for each of the five tabs; its underlying prompt remains “Guide me through this step.” Live Render verification of the dynamic label is pending. Sermon/source data remain untouched.
+Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, the More Questions click-handler fix, and stage-labelled Guide quick action are merged into `main`. PR #28 merged at `3926863c1f13d4bdfb4d964b43667394fb53c225`; CI passed on both the feature branch and main merge commit. The first Guide action label dynamically names the active stage. The latest requested improvement is in progress on `feat/kerygma-stage-separated-chat`: clearly distinguish messages from different workflow stages in the stacked conversation using stage separators and stage labels on every message, while keeping visual separators out of AI history. Tests, PR and CI are pending. Sermon/source data remain untouched.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -291,6 +291,19 @@ Expected labels:
 - Manuscript / Notes — “Guide me through Manuscript / Notes”
 
 The click handler still fills the existing input with “Guide me through this step. Ask me useful questions rather than doing all the work for me.” This is intentional: the button identifies the stage, while the prompt remains reusable and its active stage comes from the current tab. A regression test checks all stage mappings, the dynamic label updater and preserved generic prompt. CI passed and the PR is merged. After Render deploys from `main`, switch through all five tabs with the Guide open and confirm the label updates each time.
+
+### Stage-separated Kerygma Guide conversation (22 October 2026)
+
+Current branch: `feat/kerygma-stage-separated-chat` (not yet merged).
+The user notes that all five Kerygma stages appear in one continuous chat stack, making it unclear which answers belong to which stage.
+
+Changes in progress:
+- On each actual stage transition, add a strong visual divider such as **STEP 2 · BIG IDEA & PROPOSITION** plus a short note that new messages below relate to this stage. Do not add a divider when the user clicks the already-active tab.
+- Label every user and assistant message with the stage where it was asked/answered, so the earlier chat remains intelligible when the user moves on and back.
+- Store the stage label alongside real conversation history so recent prior exchanges are presented to the model with their originating stage. Visual divider objects are only in `guideMessages`, not `guideHistory`, and must never be sent as AI messages.
+- Capture the stage at the time of an AI request so a response remains labelled with the stage of the request, even if the user changes tabs while waiting.
+- Keep a single chat and preserve existing messages on stage changes; do not clear chat history, sermon content, or imported IBS data.
+- Test all five stage names, transition-only separator insertion, accessible separator semantics, stage-labelled bubbles and the exclusion of divider markers from AI history. After passing CI and merging via PR, verify on Render by switching through all five tabs with chat open.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

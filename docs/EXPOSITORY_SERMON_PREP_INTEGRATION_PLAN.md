@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, and sentence-level claim review are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`; PR #46 at `a920ae4c892556eea81d89735b23661185e9b292`; and PR #48 at `6c969efbc4cd5aef86dbe84387df7edba92fa0fa`. The user visually confirmed section-reference inheritance, sentence-level traceability and readable cross-reference panels. A focused display request to remove parent paragraph excerpts is being implemented in PR #50; individual sentence claims and their evidence links will remain visible.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, and sentence-level claim review are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`; PR #46 at `a920ae4c892556eea81d89735b23661185e9b292`; PR #48 at `6c969efbc4cd5aef86dbe84387df7edba92fa0fa`; and PR #50 (removal of parent paragraph excerpts) at `7e5675bffe6fbb6522145ec2e74dd1446becd30f`. The user visually confirmed the sentence-level traceability display and requested removal of all parent paragraph excerpts; the display-only change passed CI and is merged. Sentence-level claims and their evidence links remain visible.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -453,17 +453,19 @@ Implementation:
 - Romans 2 regression coverage verifies multiple claims within one paragraph, sentence vs paragraph-context vs section-heading citation provenance, candidate links, wrong-book non-inheritance, abbreviation-safe splitting, output bounds and source/manuscript immutability. GitHub Actions feature-head run 69 passed after two test-only assertion corrections.
 - Post-merge check: verify Render serves `6c969efbc4cd5aef86dbe84387df7edba92fa0fa` or its descendant. In the live Romans 2 Manuscript / Notes panel, confirm sentence-level rows display beneath each paragraph, references show whether they belong to the sentence, paragraph context or heading, and candidate links/flags are sensible. Confirm saved manuscript, imported packet, readable cross-reference panels and “Peace in the Storm” remain intact. Do not describe this enhancement as live until this check is completed.
 
-### Remove parent paragraph excerpts from sentence-level traceability — PR #50 in progress (22 October 2026)
+### Remove parent paragraph excerpts from sentence-level traceability (PR #50 merged, 22 October 2026)
 
-User feedback from the live Romans 2 screenshot: the new sentence-level review looks good, but the repeated **Paragraph excerpt** text is redundant and clutters the panel. The user explicitly requested removing all paragraph excerpts.
+PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/50
+Merged by squash commit `7e5675bffe6fbb6522145ec2e74dd1446becd30f` on `main`. GitHub Actions **Kerygma source-aware AI checks** passed on feature-head commit `2f7e2ea67dc92900c4185ba98e5262ec3e045666` in run 71: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39810920804.
 
-Feature branch: `fix/remove-parent-paragraph-excerpts`.
+User feedback: the live sentence-level traceability display looked good, but repeated parent paragraph excerpts were cluttering the view. The user asked: “Remove all the paragraph excerpts.”
 
 Implementation:
-- Removes only the `Paragraph excerpt: …` line from each parent paragraph row in the traceability display.
-- Retains paragraph number and section label, paragraph/heading reference context, individual sentence claims, sentence-level references and provenance, candidate outline/IBS division links, review flags, and output-bound counters.
-- The internal paragraph excerpt field remains available to the analyzer/tests for identifying and bounding review blocks, but it is no longer rendered. No saved manuscript or imported IBS data is changed.
-- Adds regression assertions that the parent excerpt is not rendered and sentence claims/paragraph reference context remain present. GitHub Actions and merge pending.
+- Removes the parent `Paragraph excerpt: …` line from each traceability entry.
+- Retains paragraph number and section label, paragraph/heading reference context, individual sentence claims, sentence-level reference provenance, candidate outline and IBS division links, review flags, and coverage counts.
+- The analyzer’s internal excerpt field remains available for bounded review/test identification but is no longer rendered. No saved manuscript or imported IBS packet is changed.
+- Regression tests assert the parent excerpt line is absent from the UI renderer while sentence-level claim text and paragraph-reference context remain present.
+- The user should refresh Kerygma with Ctrl+F5 to load the merged display change. The code is merged and CI passed; do not claim the live panel has updated until a refreshed page or new user screenshot confirms it.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

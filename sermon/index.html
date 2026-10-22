@@ -2396,7 +2396,6 @@ Answer the current question in light of the active stage and the available sourc
                     'No saved manuscript paragraphs were found.', 1200);
                 addEntries('Paragraph-by-paragraph / sentence-level claim traceability · heuristic review', paragraphReview.rows,
                     row => 'Paragraph ' + row.index + ' · ' + row.section +
-                        '\nParagraph excerpt: ' + row.excerpt +
                         '\nParagraph reference(s): ' + (row.references.length
                             ? row.references.map(reference => reference.text + (reference.source === 'section heading' ? ' [from section heading]' : '') + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
                             : 'No paragraph or section-heading reference detected') +

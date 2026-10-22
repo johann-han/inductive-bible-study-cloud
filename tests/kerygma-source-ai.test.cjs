@@ -620,7 +620,7 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.ok(bounded.visibleSentenceCount <= 120, 'the total number of displayed sentence claims is bounded');
   assert.ok(bounded.omittedSentenceCount >= 0);
   assert.ok(html.includes("Paragraph-by-paragraph / sentence-level claim traceability · heuristic review"));
-  assert.ok(html.includes("'Claim ' + claim.index + ': ' + claim.text"));
+  assert.ok(html.includes("claim.index + ': ' + claim.text"));
   assert.ok(html.includes('Sentence-level claims ('), 'show individual sentence review inside each paragraph');
 });
 

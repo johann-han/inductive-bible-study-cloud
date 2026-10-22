@@ -2164,7 +2164,9 @@ Answer the current question in light of the active stage and the available sourc
                     const sentenceTexts = this.splitManuscriptClaimSentences(block.text);
                     const sentencesAllowed = Math.max(0, Math.min(maxClaimsPerParagraph, maxSentenceClaims - sentenceClaimsShown));
                     const visibleSentenceTexts = sentenceTexts.slice(0, sentencesAllowed);
+                    let nextClaimIndex = 0;
                     const sentenceClaims = visibleSentenceTexts.map((sentenceText, sentenceIndex) => {
+                        const claimAnalysis = this.extractManuscriptClaimProposition(sentenceText);
                         const sentenceAnalysis = getReferenceAnalysis(sentenceText);
                         let claimReferences = sentenceAnalysis.references.map(reference => ({
                             ...reference,
@@ -2207,38 +2209,48 @@ Answer the current question in light of the active stage and the available sourc
                         }));
 
                         const claimFlags = [];
-                        if (!packet) {
-                            claimFlags.push('No imported IBS packet; check this claim manually');
-                        } else if (!claimReferences.length) {
-                            claimFlags.push('No sentence or inherited passage reference detected');
-                        } else if (!claimPassageRanges.length) {
-                            claimFlags.push('Reference does not clearly match the imported book/chapter');
-                        }
-                        if (inheritedFrom === 'paragraph context') {
-                            claimFlags.push('Reference is inherited from the paragraph context; confirm that it supports this sentence');
-                        } else if (inheritedFrom === 'section heading') {
-                            claimFlags.push('Reference is inherited from the section heading; confirm this sentence belongs within that verse range');
-                        }
-                        if (claimPassageRanges.length && !claimOutlineLinks.length) {
-                            claimFlags.push('No overlapping outline point found for this sentence reference');
-                        }
-                        if (/\b(God|Jesus|Christ|Lord|Holy Spirit|Spirit|salvation|sin|faith|grace|redemption|gospel|righteousness|justification|judgment|divine|doctrine|repentance)\b/i.test(sentenceText)) {
-                            claimFlags.push('Possible theological claim — compare with IBS Doctrine and the passage');
-                        }
-                        if (/\b(?:1[5-9]\d{2}|20\d{2}|A\.?D\.?|B\.?C\.?|historically|historian|archaeolog\w*|research (?:shows|suggests)|studies show|scholars? (?:say|argue|agree)|traditionally|Roman empire|Roman law)\b/i.test(sentenceText)) {
-                            claimFlags.push('Possible factual / historical detail — verify a reliable source or citation');
-                        }
-                        if (/[“”‘’"]/.test(sentenceText) || /\b(?:said|says|according to|quoted|quotation)\b/i.test(sentenceText)) {
-                            claimFlags.push('Quotation or attribution — verify exact wording and source');
-                        }
-                        if (/\b(?:should|must|ought to|respond|repent|forgive|obey|trust|follow|apply|application|let us|today)\b/i.test(sentenceText) ||
-                            /application|response|discipleship/i.test(block.section)) {
-                            claimFlags.push('Application / response claim — compare with IBS Discipleship and the sermon aim');
+                        if (claimAnalysis.kind === 'context') {
+                            // Greetings, directions and transitions are not treated as claims.
+                        } else {
+                            if (claimAnalysis.kind === 'unresolved' || claimAnalysis.kind === 'quotation') {
+                                claimFlags.push(claimAnalysis.note);
+                            }
+                            if (!packet) {
+                                claimFlags.push('No imported IBS packet; check this candidate claim manually');
+                            } else if (!claimReferences.length) {
+                                claimFlags.push('No sentence or inherited passage reference detected');
+                            } else if (!claimPassageRanges.length) {
+                                claimFlags.push('Reference does not clearly match the imported book/chapter');
+                            }
+                            if (inheritedFrom === 'paragraph context') {
+                                claimFlags.push('Reference is inherited from the paragraph context; confirm that it supports this proposition');
+                            } else if (inheritedFrom === 'section heading') {
+                                claimFlags.push('Reference is inherited from the section heading; confirm this proposition belongs within that verse range');
+                            }
+                            if (claimPassageRanges.length && !claimOutlineLinks.length) {
+                                claimFlags.push('No overlapping outline point found for this proposition reference');
+                            }
+                            if (/\b(God|Jesus|Christ|Lord|Holy Spirit|Spirit|salvation|sin|faith|grace|redemption|gospel|righteousness|justification|judgment|divine|doctrine|repentance)\b/i.test(claimAnalysis.proposition || sentenceText)) {
+                                claimFlags.push('Possible theological claim — compare with IBS Doctrine and the passage');
+                            }
+                            if (/\b(?:1[5-9]\d{2}|20\d{2}|A\.?D\.?|B\.?C\.?|historically|historian|archaeolog\w*|research (?:shows|suggests)|studies show|scholars? (?:say|argue|agree)|traditionally|Roman empire|Roman law)\b/i.test(claimAnalysis.proposition || sentenceText)) {
+                                claimFlags.push('Possible factual / historical detail — verify a reliable source or citation');
+                            }
+                            if (/[“”‘’"]/.test(sentenceText) || /\b(?:said|says|according to|quoted|quotation)\b/i.test(sentenceText)) {
+                                claimFlags.push('Quotation or attribution — verify exact wording and source');
+                            }
+                            if (/\b(?:should|must|ought to|respond|repent|forgive|obey|trust|follow|apply|application|let us|today)\b/i.test(claimAnalysis.proposition || sentenceText) ||
+                                /application|response|discipleship/i.test(block.section)) {
+                                claimFlags.push('Application / response claim — compare with IBS Discipleship and the sermon aim');
+                            }
                         }
 
                         return {
                             index: sentenceIndex + 1,
-                            text: sentenceText.slice(0, 320) + (sentenceText.length > 320 ? ' … [claim excerpt trimmed]' : ''),
+                            claimIndex: claimAnalysis.kind === 'claim' ? ++nextClaimIndex : null,
+                            kind: claimAnalysis.kind,
+                            proposition: claimAnalysis.proposition,
+                            note: claimAnalysis.note,
                             references: claimReferences.slice(0, 4).map(reference => ({
                                 text: reference.text,
                                 matchesPassage: reference.matchesPassage,
@@ -2294,18 +2306,24 @@ Answer the current question in light of the active stage and the available sourc
                         flags,
                         claims: sentenceClaims,
                         totalClaims: sentenceTexts.length,
+                        derivedClaimCount: nextClaimIndex,
+                        nonClaimCount: sentenceClaims.length - nextClaimIndex,
                         omittedClaims: Math.max(0, sentenceTexts.length - sentenceClaims.length)
                     };
                 });
 
                 const totalSentenceCount = allRows.reduce((total, row) => total + row.totalClaims, 0);
                 const omittedSentenceCount = allRows.reduce((total, row) => total + row.omittedClaims, 0);
+                const derivedClaimCount = allRows.reduce((total, row) => total + row.derivedClaimCount, 0);
+                const nonClaimSentenceCount = allRows.reduce((total, row) => total + row.nonClaimCount, 0);
                 return {
                     rows: allRows,
                     totalCount: blocks.length,
                     omittedCount: Math.max(0, blocks.length - allRows.length),
                     totalSentenceCount,
                     visibleSentenceCount: sentenceClaimsShown,
+                    derivedClaimCount,
+                    nonClaimSentenceCount,
                     omittedSentenceCount,
                     inputTruncated: source.length > analysisSource.length
                 };

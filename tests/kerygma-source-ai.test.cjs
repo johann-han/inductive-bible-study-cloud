@@ -737,6 +737,116 @@ test('claim-review controls appear only for candidate propositions and explain t
     'status controls should identify only distilled candidate claims');
 });
 
+test('claim review queue gathers only needs-research and requires-revision propositions across sermons', () => {
+  const extractMethod = (name, nextName) => {
+    const startMarker = '            ' + name + '(';
+    const endMarker = '            ' + nextName + '(';
+    const start = html.indexOf(startMarker);
+    const end = html.indexOf(endMarker, start);
+    assert.ok(start >= 0 && end > start, 'expected class method ' + name);
+    const source = html.slice(start, end).trim().replace(new RegExp('^' + name + '\\('), 'function ' + name + '(');
+    return vm.runInNewContext('(' + source + ')');
+  };
+  const buildQueue = extractMethod('buildClaimReviewQueue', 'openClaimReviewDashboard');
+  const makeKey = (paragraphIndex, claim) => 'p' + paragraphIndex + '-s' + claim.index + '-' +
+    String(claim.proposition).toLowerCase().replace(/\\s+/g, '-');
+  const sampleRows = {
+    'sermon-1': { rows: [
+      { index: 1, claims: [
+        { kind: 'claim', claimIndex: 1, index: 1, proposition: 'First proposition', references: [{ text: 'Romans 2:1', source: 'paragraph' }], outlineLinks: [{ label: 'Point 1' }], divisionLinks: [{ label: '2:1-4' }], flags: ['Check theology'] },
+        { kind: 'claim', claimIndex: 2, index: 2, proposition: 'Second proposition', references: [], outlineLinks: [], divisionLinks: [], flags: [] },
+        { kind: 'context', claimIndex: null, index: 3, proposition: '', references: [], outlineLinks: [], divisionLinks: [], flags: [] }
+      ] }
+    ] },
+    'sermon-2': { rows: [
+      { index: 2, claims: [
+        { kind: 'claim', claimIndex: 1, index: 1, proposition: 'Third proposition', references: [], outlineLinks: [], divisionLinks: [], flags: ['Verify source'] }
+      ] }
+    ] },
+    'sermon-3': { rows: [] }
+  };
+  const statuses = {
+    'sermon-1': {
+      [makeKey(1, sampleRows['sermon-1'].rows[0].claims[0])]: 'needs-research',
+      [makeKey(1, sampleRows['sermon-1'].rows[0].claims[1])]: 'reviewed'
+    },
+    'sermon-2': {
+      [makeKey(2, sampleRows['sermon-2'].rows[0].claims[0])]: 'requires-revision'
+    }
+  };
+  const context = {
+    sermons: [
+      { id: 'sermon-1', title: 'Romans Exposition', passage: 'Romans 2:1–4', manuscript: 'saved manuscript one', outline: [{ statement: 'Point', reference: '2:1-4' }], inductiveStudySource: { studyReference: { book: 'Romans', chapter: 2 } } },
+      { id: 'sermon-2', title: 'Second Sermon', passage: 'John 3:16', manuscript: 'saved manuscript two', outline: [], inductiveStudySource: null },
+      { id: 'sermon-3', title: 'Empty Sermon', passage: '', manuscript: '', outline: [] }
+    ],
+    loadClaimReviewStatuses() { return statuses; },
+    makeClaimReviewKey: makeKey,
+    analyzeManuscriptClaimParagraphs(manuscript) {
+      const sermon = this.sermons.find(item => item.manuscript === manuscript);
+      return {
+        ...sampleRows[sermon.id],
+        omittedCount: sermon.id === 'sermon-1' ? 2 : 0,
+        omittedSentenceCount: sermon.id === 'sermon-1' ? 3 : 0
+      };
+    }
+  };
+  const sermonsBefore = JSON.stringify(context.sermons);
+  const queue = buildQueue.call(context);
+
+  assert.equal(queue.scannedSermons, 3);
+  assert.equal(queue.omittedSermons, 0);
+  assert.equal(queue.omittedParagraphBlocks, 2);
+  assert.equal(queue.omittedSentenceItems, 3);
+  assert.equal(queue.items.length, 2);
+  assert.equal(queue.counts['needs-research'], 1);
+  assert.equal(queue.counts['requires-revision'], 1);
+  assert.equal(queue.counts.reviewed, 1);
+  assert.equal(queue.counts['not-reviewed'], 0);
+  assert.deepEqual(Array.from(queue.items, item => [item.sermonId, item.status]), [
+    ['sermon-1', 'needs-research'],
+    ['sermon-2', 'requires-revision']
+  ]);
+  assert.equal(queue.items[0].proposition, 'First proposition');
+  assert.equal(queue.items[0].references[0].text, 'Romans 2:1');
+  assert.deepEqual(Array.from(queue.items[0].outlineLinks, link => link.label), ['Point 1']);
+  assert.deepEqual(Array.from(queue.items[0].flags), ['Check theology']);
+  assert.equal(JSON.stringify(context.sermons), sermonsBefore, 'queue building must not mutate saved sermons');
+  const limitedQueue = buildQueue.call(context, 1, 1);
+  assert.equal(limitedQueue.scannedSermons, 1);
+  assert.equal(limitedQueue.omittedSermons, 2, 'scan bounds must report unscanned sermons');
+  assert.equal(limitedQueue.items.length, 1);
+  assert.equal(limitedQueue.omittedItems, 0, 'only one flagged item exists in the first scanned sermon');
+  assert.ok(html.includes('Claim review queue'));
+  assert.ok(html.includes('openClaimReviewItem(item.sermonId, item.reviewKey)'));
+  assert.ok(html.includes("this.switchTab('manuscript')"));
+  assert.ok(html.includes("id = 'claim-review-item-' + claimReviewKey"));
+  assert.ok(html.includes('No propositions need action right now'));
+  assert.ok(html.includes('Open claim in sermon'));
+});
+
+test('claim review queue and navigation remain bounded and use a separate status store', () => {
+  assert.ok(html.includes('buildClaimReviewQueue(sermonLimit = 100, itemLimit = 100)'));
+  assert.ok(html.includes('Math.min(100, Number(sermonLimit) || 100)'));
+  assert.ok(html.includes('Math.min(100, Number(itemLimit) || 100)'));
+  assert.ok(html.includes('omittedParagraphBlocks += Number(analysis.omittedCount) || 0'));
+  assert.ok(html.includes('this queue is not an exhaustive check of omitted text'));
+  assert.ok(html.includes("status !== 'needs-research' && status !== 'requires-revision'"));
+  assert.ok(html.includes("this.loadClaimReviewStatuses()"));
+  assert.ok(html.includes("this.makeClaimReviewKey(row.index, claim)"));
+  assert.ok(html.includes("this.claimReviewStorageKey()"));
+  assert.ok(!html.includes("localStorage.setItem('kerygma_sermons', JSON.stringify(this.sermons))\\n                const queue"));
+  const dashboardStart = html.indexOf('openClaimReviewDashboard() {');
+  const dashboardEnd = html.indexOf('openClaimReviewItem(sermonId, reviewKey) {', dashboardStart);
+  assert.ok(dashboardStart >= 0 && dashboardEnd > dashboardStart);
+  const dashboardSource = html.slice(dashboardStart, dashboardEnd);
+  assert.ok(!dashboardSource.includes('saveToStorage('), 'opening the queue must not write sermon data');
+  assert.ok(!dashboardSource.includes('.manuscript ='), 'opening the queue must not edit manuscript text');
+  assert.ok(!dashboardSource.includes('.inductiveStudySource ='), 'opening the queue must not mutate the IBS packet');
+  assert.ok(dashboardSource.includes("modal.setAttribute('role', 'dialog')"));
+  assert.ok(dashboardSource.includes("modal.setAttribute('aria-modal', 'true')"));
+});
+
 test('Manuscript evidence trace refreshes without altering outline compilation or AI overwrite safeguards', () => {
   assert.ok(html.includes('this.renderManuscriptEvidenceTrace();\n            }\n\n            updateMeta() {'),
     'refresh on sermon load');

@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching across all five tabs, More Questions/More Insights, labelled/stage-separated Guide chat, Markdown list formatting, and the panel/tab-overlap fix are merged into `main`. The user confirmed the Guide panel layout is much better. The next improvement is in progress on `feat/kerygma-outline-evidence-traceability`: give each homiletical point an expandable, source-aware evidence trace showing its verse reference, potential overlapping IBS passage divisions, explicit-reference Observe/Interpretation note blocks, verse maps/word studies, markups, and cross-references. The view clearly distinguishes candidate overlaps from verified interpretive support, shows the point's Kerygma notes separately, updates when its ref/notes change, and does not mutate sermon/source data. Regression tests and PR/CI remain pending.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching across all five tabs, More Questions/More Insights, labelled/stage-separated Guide chat, Markdown list formatting, panel/tab-overlap fix, and Homiletical Outline evidence traceability are merged into `main`. PR #34 merged at `326504cca2f4bee6ba983bf0fc939797ba54295c`; source-aware CI passed on the feature commit and main merge commit. Each homiletical point now has a collapsed Evidence traceability panel showing the claim/reference, imported verse text when available, candidate overlapping IBS passage divisions, explicitly verse-referenced Observe/Interpretation note blocks, verse maps, markups and cross-references, plus review status. Source overlaps are explicitly not represented as proof of interpretive support. The panel uses text rendering and bounded excerpts and does not mutate sermon/IBS source data. Live Render verification of the new panel remains pending.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -325,7 +325,7 @@ The user’s screenshot showed the floating Guide panel covering the “Manuscri
 
 ### Homiletical Outline evidence traceability (22 October 2026)
 
-Current branch: `feat/kerygma-outline-evidence-traceability` (not yet merged).
+Merged in PR #34 at `326504cca2f4bee6ba983bf0fc939797ba54295c`. CI passed on feature commit `4b67c26f989faceff10383ef36a4ae7b57354bf6` and main merge commit `326504cca2f4bee6ba983bf0fc939797ba54295c`. Live Render verification remains pending.
 The next improvement connects each Kerygma main point to supplied IBS evidence without implying that simple overlap proves the claim is true.
 
 Implementation:
@@ -336,7 +336,7 @@ Implementation:
 - Use status language such as “Potential links found — verify fit”, “Needs review — no direct range matches”, “Check verse reference”, and “No IBS source attached”. State clearly that range overlap is a navigation aid and does not prove interpretive support.
 - Build the evidence display with DOM `textContent`, not HTML insertion, and bound excerpt size to avoid unbounded cards. Refresh the trace when point reference, statement, or notes are edited.
 - Do not change the five existing AI generation workflows, guide conversation, import/export, source packet, or sermon records.
-- Tests exercise reference parsing/range overlap and assert evidence categories, uncertainty/provenance, safe text rendering and refresh behavior. Run CI and merge via PR only when checks pass; live test should expand traces for Romans 2:1–4 and a second point, confirming source references and review status without altering fields.
+- Tests exercise reference parsing/range overlap and assert evidence categories, uncertainty/provenance, safe text rendering and refresh behavior; both feature and main CI passed. After Render deploys from `main`, live-test by expanding the trace for Romans 2:1–4 and one later point. Confirm that the candidate source references and status make sense and that the sermon/IBS fields remain unchanged.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

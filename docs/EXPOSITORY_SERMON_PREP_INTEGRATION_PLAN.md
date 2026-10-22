@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, distinct proposition extraction, and claim-only numbering are merged into `main`. PRs #38, #40, #41, #43, #44, #45, #46, #48, #50, #52, #54 and #56 are merged; links and SHAs are recorded below. On 22 October 2026 the user confirmed claim-only numbering is live. The next enhancement—per-proposition review statuses (Reviewed, Needs research, Requires revision)—is being implemented in PR #57 with persistence separate from sermon and imported IBS data.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, distinct proposition extraction, claim-only numbering, and persistent claim-review statuses are merged into `main`. PR #38, #40, #41, #43, #44, #45, #46, #48, #50, #52, #54, #56 and #57 are merged; key links/SHAs are recorded below. The user confirmed claim-only numbering is live. PR #57 adds separate per-proposition review states and passed GitHub Actions run 80; live Render confirmation of the new status controls and refresh-persistence remains pending.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -499,20 +499,18 @@ Implementation:
 - Regression checks assert only distilled propositions are numbered, context and undistilled items are unnumbered, and the old `Sentence N` label is absent. The initial run exposed a missing quote in a test assertion; that test was fixed, and run 76 passed.
 - Post-merge manual verification: **completed by user on 22 October 2026.** The user confirmed: “It's good.” Treat claim-only numbering as live and visually verified. Only extracted candidate propositions should be numbered; context and undistilled items use unnumbered labels. The user’s confirmation completes the live UI check for this change.
 
-### Persistent per-proposition review statuses — PR #57 in progress (22 October 2026)
+### Persistent per-proposition review statuses (PR #57 merged, 22 October 2026)
 
-Goal: allow the preacher to mark each **distilled candidate proposition** as `Not reviewed`, `Reviewed`, `Needs research`, or `Requires revision`, without editing the manuscript or changing imported IBS source evidence.
+PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/57
+Merged by squash commit `bb9cb66bed9d5150df9ed8ae48f3a0cf9e9bd5f5` on `main`. GitHub Actions **Kerygma source-aware AI checks** passed on final PR-head commit `af12520783166a1dec5005588f55159a67b67ece` in run 80: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39830415073. The merged application and tests are verified in `main`; live Render verification is pending.
 
-Feature branch: `feat/persistent-claim-review-statuses`.
-
-Implementation in progress:
-- The Manuscript / Notes traceability view adds a selector beneath each extracted candidate proposition only. Greeting/context and undistilled sentence rows do not receive review controls.
-- The status selector is stored separately under the dedicated browser key `kerygma_claim_review_status_v1`. The schema is keyed by sermon ID, then by a deterministic review key derived from paragraph index, source sentence index and normalized proposition text. Statuses are isolated by sermon and change when the proposition text changes, to avoid carrying review decisions onto different claims.
-- Supported states are `not-reviewed`, `reviewed`, `needs-research`, and `requires-revision`; invalid states are rejected. Existing saved status is restored after a failed write, and the UI indicates when persistence succeeds or fails.
-- Review progress counts only currently displayed propositions (the traceability view has existing paragraph/sentence output limits).
-- This feature does not write to `kerygma_sermons`, change sermon/manuscript fields, mutate `inductiveStudySource`, or alter JSON import/export. Review state remains separate from the sermon and imported IBS packet. The renderer still uses DOM text nodes rather than interpreting manuscript/source text as HTML.
-- Tests cover default status, per-sermon isolation, each state transition, invalid status rejection, stable keys, changed-proposition key invalidation, context/non-claim exclusion, and no writes to `kerygma_sermons`. Direct fixture checks and inline JS/test syntax passed; GitHub Actions CI and merge are pending.
-- After CI passes and the PR is merged, visually check the status selector on the live Romans 2 manuscript. Change one proposition to `Needs research`, refresh, and verify that selection persists while manuscript text, IBS source panels, the readable cross-references, and “Peace in the Storm” remain intact. Do not call the feature live until this check is confirmed.
+Implementation:
+- In the Manuscript / Notes claim traceability panel, each extracted candidate proposition has a selector with four states: `Not reviewed`, `Reviewed`, `Needs research`, and `Requires revision`. Context and undistilled sentence entries do not get review controls.
+- Review decisions are stored in a separate browser key, `kerygma_claim_review_status_v1`, keyed by sermon ID and a deterministic claim key (paragraph location, source-sentence location and normalized-proposition hash). The same claim retains its decision after refresh; different sermons and changed proposition text do not silently share a status.
+- Invalid states are rejected. Failed writes restore the last saved selection and display a persistence warning. The summary counts review states among the propositions currently displayed, respecting traceability output bounds.
+- Review status writes do not touch `kerygma_sermons`, manuscript fields or `inductiveStudySource`. The rendering method contains no direct browser-storage access and does not call `saveToStorage`; it invokes a separate helper only in response to a user changing a claim’s selector. Existing DOM text-node rendering is retained.
+- Regression tests cover initial status, per-sermon isolation, valid state changes, rejection of invalid state, dedicated-key-only writes, stable review keys, changed-proposition invalidation, and exclusion of context/non-claims. GitHub Actions run 80 passed.
+- Live acceptance remains required: after Render deploys `bb9cb66bed9d5150df9ed8ae48f3a0cf9e9bd5f5` or a descendant, open the Romans 2 manuscript. Set one extracted proposition to `Needs research`, refresh, and confirm that status persists. Confirm sentence/claim wording remains unchanged, the imported IBS packet and readable cross-reference panels remain intact, and `Peace in the Storm` stays in the Vault. Do not describe this feature as live until the selector and refresh persistence are visually confirmed.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

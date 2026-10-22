@@ -2470,7 +2470,8 @@ Answer the current question in light of the active stage and the available sourc
 
                     const safeRows = Array.isArray(entries) ? entries.slice(0, limit) : [];
                     const allClaims = safeRows.flatMap(row => (Array.isArray(row.claims) ? row.claims : [])
-                        .filter(claim => claim && claim.kind === 'claim'));
+                        .filter(claim => claim && claim.kind === 'claim')
+                        .map(claim => ({ row, claim })));
                     const statusSummary = document.createElement('p');
                     statusSummary.className = 'text-slate-600';
                     statusSummary.setAttribute('aria-live', 'polite');
@@ -2484,8 +2485,8 @@ Answer the current question in light of the active stage and the available sourc
                     };
                     const refreshStatusSummary = () => {
                         const counts = { 'not-reviewed': 0, reviewed: 0, 'needs-research': 0, 'requires-revision': 0 };
-                        allClaims.forEach(claim => {
-                            const key = this.makeClaimReviewKey(claim.paragraphIndex, claim);
+                        allClaims.forEach(item => {
+                            const key = this.makeClaimReviewKey(item.row.index, item.claim);
                             const status = this.getClaimReviewStatus(sermon.id, key);
                             if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
                         });
@@ -2574,7 +2575,6 @@ Answer the current question in light of the active stage and the available sourc
 
                             if (claim.kind === 'claim') {
                                 const claimReviewKey = this.makeClaimReviewKey(row.index, claim);
-                                claim.paragraphIndex = row.index;
                                 const controls = document.createElement('div');
                                 controls.className = 'mt-1 flex flex-wrap items-center gap-2 rounded-md bg-slate-50 px-2 py-2';
                                 const label = document.createElement('label');
@@ -2589,8 +2589,8 @@ Answer the current question in light of the active stage and the available sourc
                                     option.textContent = text;
                                     select.appendChild(option);
                                 });
-                                const previousStatus = this.getClaimReviewStatus(sermon.id, claimReviewKey);
-                                select.value = previousStatus;
+                                let lastSavedStatus = this.getClaimReviewStatus(sermon.id, claimReviewKey);
+                                select.value = lastSavedStatus;
                                 label.appendChild(select);
                                 controls.appendChild(label);
 
@@ -2603,11 +2603,12 @@ Answer the current question in light of the active stage and the available sourc
                                 select.addEventListener('change', () => {
                                     const nextStatus = select.value;
                                     if (this.saveClaimReviewStatus(sermon.id, claimReviewKey, nextStatus)) {
+                                        lastSavedStatus = nextStatus;
                                         saveIndicator.textContent = 'Saved separately';
                                         saveIndicator.className = 'text-emerald-700';
                                         refreshStatusSummary();
                                     } else {
-                                        select.value = previousStatus;
+                                        select.value = lastSavedStatus;
                                         saveIndicator.textContent = 'Could not save in this browser; previous status restored';
                                         saveIndicator.className = 'text-rose-700';
                                     }

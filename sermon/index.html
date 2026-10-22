@@ -1842,6 +1842,12 @@ Answer the current question in light of the active stage and the available sourc
                                 .some(field => typeof entry[field] === 'string' && entry[field].trim()))
                         .sort((a, b) => Number(a[0]) - Number(b[0]))
                         .slice(0, 8) : [];
+                const passageTextMatches = rangeValid && packet.passageTextIncluded && typeof packet.passageText === 'string'
+                    ? packet.passageText.split(/\r?\n/).map(line => {
+                        const match = line.trim().match(/^(?:verse\s*)?(\d{1,3})\s*[.)\]:-]?\s+(.+)$/i);
+                        return match ? { verse: Number(match[1]), text: match[2].trim() } : null;
+                    }).filter(row => row && row.verse >= parsedRange.start && row.verse <= parsedRange.end)
+                        .slice(0, 8) : [];
                 const markupMatches = rangeValid && Array.isArray(packet.scriptureMarkups)
                     ? packet.scriptureMarkups.filter(mark => Number(mark.verse) >= parsedRange.start && Number(mark.verse) <= parsedRange.end).slice(0, 8) : [];
                 const observeMatches = rangeValid ? this.outlineTraceNotesForRange(packet.sections && packet.sections.observe, parsedRange, studyChapter) : [];
@@ -1928,6 +1934,15 @@ Answer the current question in light of the active stage and the available sourc
                         ? 'The point reference appears to name a different Bible book from the imported study (' + (studyRef.display || 'study reference not recorded') + ').'
                         : 'Enter a verse or verse range from the imported study chapter (for example, 2:1–4 or vv. 1–4) to find candidate evidence. References outside the imported study chapter are not matched automatically.');
                 } else {
+                    addEntries('Passage text · imported wording', passageTextMatches, row => 'Verse ' + row.verse,
+                        'No verse-numbered text lines were available in the imported packet for this range. Check the Scripture Text field for the reading in use.');
+                    passageTextMatches.forEach((entry, index) => {
+                        const section = body.querySelectorAll('section')[body.querySelectorAll('section').length - 1];
+                        const card = section && section.querySelectorAll('div.rounded-md')[index];
+                        const content = card && card.querySelector('div.whitespace-pre-wrap');
+                        if (content) content.textContent = entry.text.slice(0, 900) + (entry.text.length > 900 ? ' [truncated]' : '');
+                    });
+
                     addEntries('IBS passage divisions · overlapping verse ranges', outlineMatches, row => row.heading || 'Untitled passage section',
                         'No imported passage-outline division has an overlapping verse range. This does not mean the point is unsupported; review the source manually.');
                     outlineMatches.forEach((row, index) => {

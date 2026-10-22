@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching across all five tabs, More Questions/More Insights, labelled/stage-separated Guide chat, Markdown list formatting, panel/tab-overlap fix, Homiletical Outline evidence traceability, and Big Idea & Proposition evidence traceability are merged into `main`. The user confirmed the Homiletical Outline traceability works live. PR #36 merged at `348528c8482c31b1337ebe36f1b20e6b1a41ed33`; source-aware CI passed on both the feature branch and main merge commit. The Big Idea evidence panel shows the current Kerygma subject, complement, Big Idea and aim separately from imported IBS Interpretation/Doctrine notes, packet identity, passage divisions, selected verses, verse maps and cross-references. It labels the connection as requiring human review, safely renders text, bounds excerpts, preserves expansion while editing, and performs no source/sermon writes. Live Render verification of the Big Idea panel remains pending.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching on all tabs, More Questions/More Insights, stage-labelled/stage-separated Guide chat, panel overlap fix, and evidence traceability for Homiletical Outline and Big Idea & Proposition are merged into `main`. The user confirmed Homiletical Outline traceability works and said the Big Idea panel looks good. The next feature is in progress on `feat/kerygma-application-evidence-traceability`: show the current Kerygma applications and illustrations distinctly from imported IBS Doctrine and Discipleship notes, with status when notes are absent, passage divisions, selected verses, verse maps and cross-references. The view uses bounded text-only rendering and preserves expanded state, refreshes on edits/AI brainstorming, and performs no source/sermon writes. Tests, PR and CI pending.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -353,6 +353,21 @@ Expected contents:
 - Existing prompt generation, AI behavior, outline traceability, import/export and chat remain unchanged.
 
 A regression test checks the panel, source categories, status wording, safe bounded text rendering, preserving open state, and absence of any storage/source mutation in the rendering method. Feature and main CI passed. After Render deploys, test the Romans 2 study by expanding the trace; verify that the Big Idea, subject/complement, Interpretation and Doctrine notes are clearly separate and the existing sermon fields remain untouched.
+
+### Illustrations & Application evidence traceability (22 October 2026)
+
+Current branch: `feat/kerygma-application-evidence-traceability` (not yet merged).
+This follows the Big Idea traceability feature and connects the application stage to the imported IBS stages that should constrain response: Doctrine and Discipleship.
+
+Implementation:
+- Add a collapsed **Evidence traceability · Illustrations & Application** panel after the existing Illustration and Contextual Application cards.
+- Show current Kerygma context, applications for seekers/non-believers, believers/growing Christians and suffering/weary hearers, plus the currently saved illustration/analogy pool.
+- Show IBS Doctrine separately as theological guardrails and IBS Discipleship separately as lived response/formation. Report clearly when the packet or either source section is absent.
+- Add supporting context from the imported packet identity, passage divisions, selected verses, bounded populated verse maps/word studies, and user-created/standard cross-references.
+- Include an explicit provenance caveat: current records do not tag each illustration individually as user-written or AI-generated. Kerygma application and illustration fields are draft content and must not be mistaken for imported IBS source findings. Source overlap is contextual evidence, not proof that the application is faithful or illustration factual.
+- Render imported material via `textContent`, bound note and entry excerpts, preserve the open/closed state as current fields refresh, and avoid any writes in the trace renderer.
+- Refresh after loading a sermon, editing application fields, adding/editing/removing an illustration, and accepting AI brainstorm output. Existing AI brainstorm behavior, source packet, imports/exports, Big Idea/Outline traceability, and other workflows remain unchanged.
+- Regression tests verify each source/application category, missing-source statuses, the provenance caveat, bounded text, preservation of open state, no mutation/storage calls in the renderer, and refresh hooks. Merge only after CI passes. After Render deploys from `main`, open the panel on Romans 2 and confirm IBS Doctrine/Discipleship notes are distinct from the saved applications and illustrations, with no sermon/source data changed by opening it.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

@@ -1785,6 +1785,8 @@ Answer the current question in light of the active stage and the available sourc
                 const counts = { 'not-reviewed': 0, reviewed: 0, 'needs-research': 0, 'requires-revision': 0 };
                 const items = [];
                 let omittedItems = 0;
+                let omittedParagraphBlocks = 0;
+                let omittedSentenceItems = 0;
 
                 scanSermons.forEach(sermon => {
                     if (!sermon || !String(sermon.manuscript || '').trim()) return;
@@ -1800,6 +1802,8 @@ Answer the current question in light of the active stage and the available sourc
                         outlinePoints,
                         sermon.inductiveStudySource || null
                     );
+                    omittedParagraphBlocks += Number(analysis.omittedCount) || 0;
+                    omittedSentenceItems += Number(analysis.omittedSentenceCount) || 0;
                     const sermonStatuses = storedStatuses[String(sermon.id)] && typeof storedStatuses[String(sermon.id)] === 'object'
                         ? storedStatuses[String(sermon.id)] : {};
 
@@ -1841,6 +1845,8 @@ Answer the current question in light of the active stage and the available sourc
                     counts,
                     scannedSermons: scanSermons.length,
                     omittedSermons: Math.max(0, sermons.length - scanSermons.length),
+                    omittedParagraphBlocks,
+                    omittedSentenceItems,
                     omittedItems
                 };
             }
@@ -1987,11 +1993,16 @@ Answer the current question in light of the active stage and the available sourc
                     listWrap.appendChild(list);
                 }
 
-                if (dashboard.omittedItems || dashboard.omittedSermons) {
+                if (dashboard.omittedItems || dashboard.omittedSermons || dashboard.omittedParagraphBlocks || dashboard.omittedSentenceItems) {
                     const limited = document.createElement('p');
-                    limited.className = 'mt-3 text-[11px] text-slate-500';
-                    limited.textContent = (dashboard.omittedItems ? dashboard.omittedItems + ' additional flagged propositions not shown. ' : '') +
-                        (dashboard.omittedSermons ? dashboard.omittedSermons + ' additional sermons were not scanned.' : '');
+                    limited.className = 'mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900';
+                    const notices = [];
+                    if (dashboard.omittedItems) notices.push(dashboard.omittedItems + ' additional flagged propositions exceed the queue display limit.');
+                    if (dashboard.omittedSermons) notices.push(dashboard.omittedSermons + ' additional sermons were not scanned.');
+                    if (dashboard.omittedParagraphBlocks || dashboard.omittedSentenceItems) {
+                        notices.push('The analyzer omitted ' + dashboard.omittedParagraphBlocks + ' paragraph blocks and ' + dashboard.omittedSentenceItems + ' sentence items because of its existing per-manuscript limits. Review long manuscripts directly; this queue is not an exhaustive check of omitted text.');
+                    }
+                    limited.textContent = notices.join(' ');
                     listWrap.appendChild(limited);
                 }
 

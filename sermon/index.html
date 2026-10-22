@@ -1805,7 +1805,10 @@ Answer the current question in light of the active stage and the available sourc
                     section.appendChild(heading);
                     const content = document.createElement('div');
                     content.className = 'whitespace-pre-wrap break-words leading-relaxed';
-                    content.textContent = String(text || '').trim() || emptyText || '[No content recorded]';
+                    const fullText = String(text || '').trim();
+                    content.textContent = fullText
+                        ? fullText.slice(0, 6000) + (fullText.length > 6000 ? '\n[Excerpt truncated; the complete imported source remains unchanged.]' : '')
+                        : emptyText || '[No content recorded]';
                     section.appendChild(content);
                     body.appendChild(section);
                 };
@@ -1866,6 +1869,13 @@ Answer the current question in light of the active stage and the available sourc
                 if (!packet) {
                     addSection('IBS source evidence', '', 'No imported IBS source packet is attached. Big Idea traceability is unavailable until you import a study packet.');
                 } else {
+                    const studyReference = packet.studyReference && packet.studyReference.display || 'Not recorded';
+                    addSection('IBS packet identity',
+                        'Study reference: ' + studyReference +
+                        '\nSermon passage: ' + (packet.sermonPassage || 'Not recorded') +
+                        '\nTranslation: ' + (packet.translation || 'Not recorded') +
+                        '\nSource updated: ' + (packet.sourceUpdatedAt || 'Not recorded'),
+                        'Study reference metadata was not recorded in the imported packet.');
                     addSection('IBS Interpretation · source notes', packet.sections && packet.sections.interpret, 'The imported packet contains no Interpretation notes.');
                     addSection('IBS Doctrine · source guardrails', packet.sections && packet.sections.doctrine, 'The imported packet contains no Doctrine notes.');
 

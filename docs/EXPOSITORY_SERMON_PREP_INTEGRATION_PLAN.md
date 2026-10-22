@@ -369,6 +369,23 @@ Implementation:
 - Refresh after loading a sermon, editing application fields, adding/editing/removing an illustration, and accepting AI brainstorm output. Existing AI brainstorm behavior, source packet, imports/exports, Big Idea/Outline traceability, and other workflows remain unchanged.
 - Regression tests verify each source/application category, missing-source statuses, the provenance caveat, bounded text, preservation of open state, no mutation/storage calls in the renderer, and refresh hooks; both feature and main CI passed. After Render deploys from `main`, open the panel on Romans 2 and confirm IBS Doctrine/Discipleship notes are distinct from the saved applications and illustrations, with no sermon/source data changed by opening it.
 
+### Manuscript / Notes evidence traceability (22 October 2026)
+
+Current feature branch: `feat/kerygma-manuscript-evidence-traceability`.
+
+Implementation in review:
+- Add a collapsed, read-only **Evidence traceability · Manuscript / Notes** panel within the existing Manuscript / Notes tab, immediately before the manuscript editor. The editor, AI Draft Full Manuscript button and Auto-Generate from Outline button are retained.
+- Display the current saved Kerygma manuscript, Big Idea and aim separately from its outline points; show imported IBS Interpretation and Doctrine separately from Kerygma application drafts and imported IBS Discipleship notes.
+- Include imported passage divisions as potential contextual links, packet identity, a bounded review checklist, and review statuses for absent manuscripts, missing IBS packet, missing Big Idea/aim or missing outline.
+- Matching is not presented as proof of support. The panel asks the user to examine unsupported assertions, verse-to-claim fit, doctrinal warrants, application fit, quotations and factual claims. It does not automatically classify individual assertions as theologically correct or supported.
+- Source/manuscript excerpts and list counts are bounded and rendered with DOM text nodes. The view does not write storage, edit manuscript fields or mutate the imported packet. Its open/closed state is preserved when refreshed.
+- Regression tests cover the category/provenance labels, no-write/no-mutation behavior, bounded rendering, refresh paths, and preservation of the current outline-compilation and AI overwrite-confirmation flows.
+
+Verification gates:
+1. Run `node --check server.js` and `node --test tests/kerygma-source-ai.test.cjs` locally or via GitHub Actions on the feature branch.
+2. Open a PR against `main`; only merge after the relevant GitHub Actions run passes.
+3. Confirm Render deploys the merged `main` SHA, then manually test the panel with the existing Romans 2 imported packet. Verify the current manuscript remains character-for-character unchanged when the panel is opened/refreshed, the existing “Peace in the Storm” sample sermon is intact, and all four IBS stages plus the manuscript/AI/outline actions still work. Live Render verification is separate from CI and remains pending until explicitly confirmed.
+
 ### Phase 6 — Optional direct integration (not part of the initial build)
 
 Only consider shared backend synchronization after JSON integration proves useful and the Kerygma hosting/repository is confirmed.

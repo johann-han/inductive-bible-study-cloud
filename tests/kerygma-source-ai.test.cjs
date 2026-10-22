@@ -310,6 +310,9 @@ test('homiletical points show candidate IBS evidence with provenance and review 
     'IBS cross-references · entries from this verse range',
     'Kerygma point explanation · sermon notes'
   ]) assert.ok(html.includes(label), `missing evidence traceability section: ${label}`);
+  assert.ok(html.includes('Passage text · imported wording'));
+  assert.ok(html.includes('Sermon claim under review · homiletical point'));
+  assert.ok(html.includes("filter(([verse, entry]) => Number(verse) >= parsedRange.start && Number(verse) <= parsedRange.end &&"));
   assert.ok(html.includes('Potential links found — verify fit'));
   assert.ok(html.includes('they do not prove that the sermon point correctly interprets the passage'));
   assert.ok(html.includes('Source provenance: IBS content above is shown as imported evidence.'));

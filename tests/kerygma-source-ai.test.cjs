@@ -247,6 +247,26 @@ test('Kerygma Guide quick action names the active workflow stage', () => {
   assert.ok(html.includes("sermonApp.setKerygmaGuidePrompt('Guide me through this step. Ask me useful questions rather than doing all the work for me.')"));
 });
 
+test('Kerygma Guide visually separates conversations by active workflow stage', () => {
+  assert.ok(html.includes("const previousStage = this.getKerygmaGuideStage();"));
+  assert.ok(html.includes("if (previousStage.label !== nextStage.label && Array.isArray(this.guideMessages))"));
+  assert.ok(html.includes("role: 'stage',\n                        stage: nextStage.label"));
+  assert.ok(html.includes("separator.setAttribute('role', 'separator')"));
+  assert.ok(html.includes("separator.setAttribute('aria-label', 'New study stage: ' + message.stage)"));
+  for (const marker of [
+    "'Text & Exegesis': 'STEP 1'",
+    "'Big Idea & Proposition': 'STEP 2'",
+    "'Homiletical Outline': 'STEP 3'",
+    "'Illustrations & Application': 'STEP 4'",
+    "'Manuscript / Notes': 'STEP 5'"
+  ]) assert.ok(html.includes(marker), `missing stage separator label: ${marker}`);
+  assert.ok(html.includes("label.textContent = speaker + ' · ' + (message.stage || 'Text & Exegesis')"));
+  assert.ok(html.includes("this.guideMessages.push({ role: 'user', stage: requestedStage.label, content: question });"));
+  assert.ok(html.includes("this.guideHistory.push({ role: 'user', stage: requestedStage.label, content: question });"));
+  assert.ok(html.includes("'[' + (message.stage || 'stage unspecified') + '] '"));
+  assert.ok(!html.includes("this.guideHistory.push({ role: 'stage'"), 'visual dividers must not be added to the AI conversation history');
+});
+
 test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable', () => {
   assert.ok(html.includes('width:min(94vw,760px)'));
   assert.ok(html.includes('min-width:min(94vw,380px)'));

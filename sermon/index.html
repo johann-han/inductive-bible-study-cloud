@@ -1876,7 +1876,7 @@ Answer the current question in light of the active stage and the available sourc
 
                 const contextPatterns = [
                     /^(?:good (?:morning|afternoon|evening|day)\b|welcome\b|thank you\b|amen\b)/i,
-                    /^(?:let us|let's|open your bibles|please turn|today, we turn (?:our )?(?:hearts and minds )?to\b|as we (?:begin|close|turn to|delve into)\b|we will (?:read|look at|turn to)\b)/i,
+                    /^(?:let us|let's|open your bibles|please turn|today, we turn (?:our )?(?:hearts and minds )?to\b|as we (?:begin|close|turn to)\b|we will (?:read|look at|turn to)\b)/i,
                     /^(?:this opening statement|this introductory statement|this sentence|this paragraph|as we (?:reflect|close|begin)|today, we (?:will|are going to) (?:read|look at|examine|turn to)\b)/i
                 ];
                 if (contextPatterns.some(pattern => pattern.test(source))) {
@@ -1920,6 +1920,10 @@ Answer the current question in light of the active stage and the available sourc
                     const issue = clean(match[1]).replace(/^the hypocrisy of judging others while being guilty of the same sins$/i,
                         'hypocrisy in judging others while committing the same sins');
                     return { kind: 'claim', proposition: 'The passage addresses ' + issue.replace(/^the\s+/i, '') + '.', note: 'Candidate proposition distilled from the sentence; verify that it preserves the author’s meaning.' };
+                }
+                match = source.match(/^(?:the apostle\s+)?Paul\b.*?\baddresses a universal truth\s*:\s*when we judge others, we often condemn ourselves because we are guilty of the same faults\.?$/i);
+                if (match) {
+                    return { kind: 'claim', proposition: 'Judging others while guilty of the same faults can lead to self-condemnation.', note: 'Candidate proposition distilled from the sentence; verify its meaning against the passage.' };
                 }
 
                 match = source.match(/^(?:in verses?\s+[\d–—-]+,?\s*)?(?:the apostle\s+)?Paul\s+(?:begins by (?:saying|stating)|states|says|teaches|argues|explains|emphasizes|contrasts|describes|reveals|indicates|asserts|writes|reminds us|highlights|demonstrates|shows)\s+(?:that\s+)?(.+)$/i);

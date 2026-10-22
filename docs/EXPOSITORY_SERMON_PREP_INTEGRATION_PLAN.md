@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma JSON import/export, source-aware AI workflows, safe Markdown guide formatting, stage-specific coaching for all five Kerygma tabs, More Questions/More Insights, and the More Questions click-handler fix are merged into `main`. The user confirmed the two quick options work on Romans 2. PR #26 added distinct coaching instructions for Big Idea & Proposition, Homiletical Outline, Illustrations & Application, and Manuscript / Notes; it merged at `3d229462e3203440ad022962a3ad46926f78d4c5`, and the main-branch `Kerygma source-aware AI checks` workflow passed. Live Render testing of the new coaching in the four tabs remains pending. Sermon/source data remain untouched. Final theological review remains pending.
+Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, and the More Questions click-handler fix are merged into `main`. PR #26 merged stage-specific coaching at `3d229462e3203440ad022962a3ad46926f78d4c5`, with main CI passed. The user's latest refinement is in progress on `feat/kerygma-stage-labeled-guide-prompt`: make the first quick-action button display the active workflow name (for example, “Guide me through Text & Exegesis” or “Guide me through Homiletical Outline”), while keeping its actual prompt “Guide me through this step” so the action follows the currently selected tab. Tests and a PR are pending. Live Render confirmation of stage-specific coaching and this dynamic label remains pending. Sermon/source data remain untouched.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -278,6 +278,19 @@ The Text & Exegesis Guide already has detailed coaching directions, but the othe
 - **Manuscript / Notes:** review alignment between passage, Big Idea, objective, outline, applications, illustrations and manuscript; flag unsupported claims, gaps and mismatches while preserving user approval and the read-only source packet.
 
 Existing Exegesis guidance, source-context selection, server/provider behavior, five content-generation prompts, the guide's 900-token budget, safe Markdown rendering, and the user's sermon records are unchanged. New regression coverage checks stage-to-profile mappings and the presence of each distinct coaching contract. CI has passed and the PR is merged. After Render deploys from `main`, test one Guide prompt on each of the four tabs with the imported Romans 2 study. Confirm each reply fits its stage and leaves sermon fields/source notes unchanged.
+
+### Dynamic Guide quick-action label (22 October 2026)
+
+Current branch: `feat/kerygma-stage-labeled-guide-prompt` (not yet merged).
+The Guide panel's first quick-action button previously said only “Guide this step,” which could be ambiguous when the user switches between tabs. The button now has a stage label element and `updateKerygmaGuideContextLabel()` updates it from `getKerygmaGuideStage()` each time the selected sermon or workflow tab changes.
+Expected labels:
+- Text & Exegesis — “Guide me through Text & Exegesis”
+- Big Idea & Proposition — “Guide me through Big Idea & Proposition”
+- Homiletical Outline — “Guide me through Homiletical Outline”
+- Illustrations & Application — “Guide me through Illustrations & Application”
+- Manuscript / Notes — “Guide me through Manuscript / Notes”
+
+The click handler still fills the existing input with “Guide me through this step. Ask me useful questions rather than doing all the work for me.” This is intentional: the button identifies the stage, while the prompt remains reusable and its active stage comes from the current tab. A regression test checks all stage mappings, the dynamic label updater and preserved generic prompt. CI and PR review remain pending. After Render deploys from `main`, switch through all five tabs with the Guide open and confirm the label updates each time.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

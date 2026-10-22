@@ -2386,28 +2386,40 @@ Answer the current question in light of the active stage and the available sourc
                 const paragraphReview = this.analyzeManuscriptClaimParagraphs(manuscript, outlinePoints, packet);
                 const coverageText = manuscript
                     ? 'Analyzed ' + paragraphReview.rows.length + ' of ' + paragraphReview.totalCount +
-                        ' paragraph blocks for review. ' +
-                        (paragraphReview.omittedCount ? paragraphReview.omittedCount + ' additional blocks are not shown.' : '') +
-                        (paragraphReview.inputTruncated ? ' Analysis is capped at the first 60,000 characters.' : '')
+                        ' paragraph blocks; ' + paragraphReview.visibleSentenceCount + ' sentence claims shown of ' +
+                        paragraphReview.totalSentenceCount + ' in the displayed blocks. ' +
+                        (paragraphReview.omittedCount ? paragraphReview.omittedCount + ' additional paragraph blocks are not shown. ' : '') +
+                        (paragraphReview.omittedSentenceCount ? paragraphReview.omittedSentenceCount + ' sentence claims are omitted by the display cap. ' : '') +
+                        (paragraphReview.inputTruncated ? 'Analysis is capped at the first 60,000 characters.' : '')
                     : 'No manuscript text is available to analyze.';
                 addSection('Paragraph trace coverage', coverageText,
                     'No saved manuscript paragraphs were found.', 1200);
-                addEntries('Paragraph-by-paragraph / claim-level traceability · heuristic review', paragraphReview.rows,
+                addEntries('Paragraph-by-paragraph / sentence-level claim traceability · heuristic review', paragraphReview.rows,
                     row => 'Paragraph ' + row.index + ' · ' + row.section +
-                        '\nDraft excerpt: ' + row.excerpt +
-                        '\nPassage reference(s): ' + (row.references.length
+                        '\nParagraph excerpt: ' + row.excerpt +
+                        '\nParagraph reference(s): ' + (row.references.length
                             ? row.references.map(reference => reference.text + (reference.source === 'section heading' ? ' [from section heading]' : '') + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
-                            : 'No explicit passage reference detected') +
-                        '\nCandidate outline link(s): ' + (row.outlineLinks.length
-                            ? row.outlineLinks.map(link => link.label).join('; ')
-                            : row.passageRanges.length ? 'No overlapping outline point found' : 'No automatic outline link suggested') +
-                        '\nCandidate IBS passage division(s): ' + (row.divisionLinks.length
-                            ? row.divisionLinks.map(link => link.label).join('; ')
-                            : row.passageRanges.length ? 'No overlapping IBS passage division found' : 'No reference-based division link suggested') +
-                        '\nReview flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags found; human review is still required.'),
+                            : 'No paragraph or section-heading reference detected') +
+                        '\nSentence-level claims (' + row.claims.length + ' shown of ' + row.totalClaims + '):\n' +
+                        (row.claims.length ? row.claims.map(claim =>
+                            '  Claim ' + claim.index + ': ' + claim.text +
+                            '\n    Reference(s): ' + (claim.references.length
+                                ? claim.references.map(reference => reference.text +
+                                    (reference.source === 'section heading' ? ' [from section heading]' :
+                                        reference.source === 'paragraph context' ? ' [from paragraph context]' : '') +
+                                    (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                                : 'No sentence or inherited passage reference detected') +
+                            '\n    Candidate outline: ' + (claim.outlineLinks.length
+                                ? claim.outlineLinks.map(link => link.label).join('; ') : 'No candidate outline link') +
+                            '\n    Candidate IBS division: ' + (claim.divisionLinks.length
+                                ? claim.divisionLinks.map(link => link.label).join('; ') : 'No candidate IBS division') +
+                            '\n    Review flags: ' + (claim.flags.length ? claim.flags.join('; ') : 'No heuristic flags; human review is still required.')
+                        ).join('\n\n') : 'No sentences separated for review.') +
+                        (row.omittedClaims ? '\n  ' + row.omittedClaims + ' additional sentence claims not shown in this paragraph.' : '') +
+                        '\nParagraph-level review flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags; human review is still required.'),
                     'No manuscript paragraph blocks were available for analysis.', 30);
                 addSection('How to use paragraph traceability',
-                    'A candidate outline or IBS division link is shown only when a passage reference found in the paragraph, or inherited from its Markdown section heading when the paragraph has no citation of its own, overlaps the target verse range. Inherited heading references are labelled and must be checked to confirm the paragraph belongs within that section. The tool does not infer theological support from similar wording. Compare each paragraph with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare application paragraphs with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
+                    'A candidate outline or IBS division link is shown only when a passage reference found in the paragraph, or inherited from its Markdown section heading when the paragraph has no citation of its own, overlaps the target verse range. Inherited heading references are labelled and must be checked to confirm the paragraph belongs within that section. Each paragraph is also split conservatively into sentence-level claims. A sentence’s own citation takes precedence; where absent, the analyzer labels any reference inherited from the paragraph context or section heading. Reference overlap is only a candidate link, not proof that a sentence is supported. Sentence splitting is heuristic and abbreviations, quoted text and complex punctuation should still be checked. Compare claims with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare applications with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
                     'Paragraph-level matches are not available.', 1800);
 
                 const sourceNotesPresent = Boolean(String(sourceSections.interpret || '').trim() || String(sourceSections.doctrine || '').trim());

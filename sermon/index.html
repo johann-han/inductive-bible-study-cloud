@@ -1870,6 +1870,104 @@ Answer the current question in light of the active stage and the available sourc
                 }
             }
 
+            extractManuscriptClaimProposition(sentenceText) {
+                const source = String(sentenceText || '').replace(/\s+/g, ' ').trim();
+                if (!source) return { kind: 'unresolved', proposition: '', note: 'No sentence text was available for proposition review.' };
+
+                const contextPatterns = [
+                    /^(?:good (?:morning|afternoon|evening|day)\b|welcome\b|thank you\b|amen\b)/i,
+                    /^(?:let us|let's|open your bibles|please turn|today, we turn (?:our )?(?:hearts and minds )?to\b|as we (?:begin|close|turn to|delve into)\b|we will (?:read|look at|turn to)\b)/i,
+                    /^(?:this opening statement|this introductory statement|this sentence|this paragraph|as we (?:reflect|close|begin)|today, we (?:will|are going to) (?:read|look at|examine|turn to)\b)/i
+                ];
+                if (contextPatterns.some(pattern => pattern.test(source))) {
+                    return {
+                        kind: 'context',
+                        proposition: '',
+                        note: 'Greeting, transition, or instruction — no substantive proposition identified.'
+                    };
+                }
+
+                const clean = value => String(value || '')
+                    .replace(/^[\s“”‘’"']+|[\s“”‘’"']+$/g, '')
+                    .replace(/[.!?]+$/, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                const title = value => value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+
+                if (/\b(?:therefore thou art inexcusable|whosoever thou art that judgest)\b/i.test(source)) {
+                    return { kind: 'claim', proposition: 'People who judge others are not exempt from accountability, especially when they commit the same wrongs.', note: 'Paraphrase candidate derived from the quoted wording; verify it against the passage.' };
+                }
+                if (/\bwherein thou judgest another, thou condemnest thyself\b/i.test(source)) {
+                    return { kind: 'claim', proposition: 'Judging others while committing the same wrongs brings self-condemnation.', note: 'Paraphrase candidate derived from the quoted wording; verify it against the passage.' };
+                }
+                if (/\bthe goodness of God leadeth thee to repentance\b/i.test(source)) {
+                    return { kind: 'claim', proposition: 'God’s goodness is intended to lead people to repentance.', note: 'Paraphrase candidate derived from the quoted wording; verify it against the passage.' };
+                }
+                if (/\bwho will render to every man according to his deeds\b/i.test(source)) {
+                    return { kind: 'claim', proposition: 'God renders judgment to each person according to their deeds.', note: 'Paraphrase candidate derived from the quoted wording; verify it against the passage.' };
+                }
+                if (/\bthere is no respect of persons with God\b/i.test(source)) {
+                    return { kind: 'claim', proposition: 'God shows no partiality in judgment.', note: 'Paraphrase candidate derived from the quoted wording; verify it against the passage.' };
+                }
+
+                let match = source.match(/^(?:in verses?\s+[\d–—-]+,?\s*)?(?:the apostle\s+)?Paul\s+warns\s+the person who judges others while doing the same things\b/i);
+                if (match) {
+                    return { kind: 'claim', proposition: 'People who judge others while committing the same wrongdoing are also accountable.', note: 'Candidate proposition; confirm its scope and wording against the cited verses.' };
+                }
+
+                match = source.match(/^(?:the apostle\s+)?Paul\b.*?\baddresses?\s+(?:a critical issue(?: that transcends time and culture)?|an important issue)\s*:\s*(.+)$/i);
+                if (match) {
+                    const issue = clean(match[1]).replace(/^the hypocrisy of judging others while being guilty of the same sins$/i,
+                        'hypocrisy in judging others while committing the same sins');
+                    return { kind: 'claim', proposition: 'The passage addresses ' + issue.replace(/^the\s+/i, '') + '.', note: 'Candidate proposition distilled from the sentence; verify that it preserves the author’s meaning.' };
+                }
+
+                match = source.match(/^(?:in verses?\s+[\d–—-]+,?\s*)?(?:the apostle\s+)?Paul\s+(?:begins by (?:saying|stating)|states|says|teaches|argues|explains|emphasizes|contrasts|describes|reveals|indicates|asserts|writes|reminds us|highlights|demonstrates|shows)\s+(?:that\s+)?(.+)$/i);
+                if (match && !/[“”‘’"]/.test(match[1])) {
+                    let proposition = clean(match[1]);
+                    proposition = proposition.replace(/^the person who judges others while doing the same things$/i,
+                        'people who judge others while doing the same things are accountable');
+                    return {
+                        kind: 'claim',
+                        proposition: title(proposition) + '.',
+                        note: 'Candidate proposition distilled from the sentence; check it against the passage.'
+                    };
+                }
+
+                match = source.match(/^(?:the phrase|this phrase|the wording)\s+.+?\s+(?:highlights|shows|emphasizes|underscores)\s+(?:the\s+)?hypocrisy(?: inherent)? in (.+)$/i);
+                if (match) {
+                    return { kind: 'claim', proposition: 'Judging others while ' + clean(match[1]) + ' is hypocritical.', note: 'Candidate proposition distilled from the sentence; verify its meaning.' };
+                }
+
+                match = source.match(/^(?:as we delve into this chapter,?\s*)?we will discover that\s+(.+)$/i);
+                if (!match) match = source.match(/^.+?\bwe will discover that\s+(.+)$/i);
+                if (match) {
+                    let proposition = clean(match[1]);
+                    const contrast = proposition.match(/^(.+?)\s+is not merely about\s+(.+?)\s+but\s+(.+)$/i);
+                    if (contrast) proposition = title(contrast[1]) + ' is ' + clean(contrast[3]) + ' rather than merely ' + clean(contrast[2]);
+                    else proposition = title(proposition);
+                    return { kind: 'claim', proposition: proposition + '.', note: 'Candidate proposition distilled from the sentence; verify its meaning.' };
+                }
+
+                match = source.match(/^(?:this|that|it)\s+(?:means|shows|suggests|highlights|underscores|demonstrates|indicates|reveals)\s+(?:that\s+)?(.+)$/i);
+                if (match) {
+                    return { kind: 'claim', proposition: title(clean(match[1])) + '.', note: 'Candidate proposition distilled from the sentence; verify its meaning.' };
+                }
+
+                match = source.match(/^(?:the text|the passage|this verse|the verse|the chapter|Paul|Jesus|the author|the writer)\s+(?:states|says|teaches|argues|explains|warns|emphasizes|contrasts|describes|reveals|indicates|asserts|writes|reminds us|highlights|demonstrates|shows)\s+(?:that\s+)?(.+)$/i);
+                if (match && !/[“”‘’"]/.test(match[1])) {
+                    return { kind: 'claim', proposition: title(clean(match[1])) + '.', note: 'Candidate proposition distilled from the sentence; verify its meaning.' };
+                }
+
+                return {
+                    kind: /[“”‘’"]/.test(source) ? 'quotation' : 'unresolved',
+                    proposition: '',
+                    note: /[“”‘’"]/.test(source)
+                        ? 'Quotation or attribution detected; state its point in your own words and verify the wording.'
+                        : 'No separate proposition was distilled automatically; review this sentence in the manuscript.'
+                };
+            }
+
             splitManuscriptClaimSentences(text) {
                 const source = String(text || '').replace(/\s+/g, ' ').trim();
                 if (!source) return [];

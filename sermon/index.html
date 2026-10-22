@@ -2267,7 +2267,7 @@ Answer the current question in light of the active stage and the available sourc
                     row => 'Paragraph ' + row.index + ' · ' + row.section +
                         '\nDraft excerpt: ' + row.excerpt +
                         '\nPassage reference(s): ' + (row.references.length
-                            ? row.references.map(reference => reference.text + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                            ? row.references.map(reference => reference.text + (reference.source === 'section heading' ? ' [from section heading]' : '') + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
                             : 'No explicit passage reference detected') +
                         '\nCandidate outline link(s): ' + (row.outlineLinks.length
                             ? row.outlineLinks.map(link => link.label).join('; ')
@@ -2278,7 +2278,7 @@ Answer the current question in light of the active stage and the available sourc
                         '\nReview flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags found; human review is still required.'),
                     'No manuscript paragraph blocks were available for analysis.', 30);
                 addSection('How to use paragraph traceability',
-                    'A candidate outline or IBS division link is shown only when an explicit passage reference overlaps its verse range. The tool does not infer theological support from similar wording. Compare each paragraph with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare application paragraphs with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
+                    'A candidate outline or IBS division link is shown only when a passage reference found in the paragraph, or inherited from its Markdown section heading when the paragraph has no citation of its own, overlaps the target verse range. Inherited heading references are labelled and must be checked to confirm the paragraph belongs within that section. The tool does not infer theological support from similar wording. Compare each paragraph with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare application paragraphs with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
                     'Paragraph-level matches are not available.', 1800);
 
                 const sourceNotesPresent = Boolean(String(sourceSections.interpret || '').trim() || String(sourceSections.doctrine || '').trim());

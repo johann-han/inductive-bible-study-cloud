@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, and distinct proposition extraction are merged or under feature development. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`; PR #46 at `a920ae4c892556eea81d89735b23661185e9b292`; PR #48 at `6c969efbc4cd5aef86dbe84387df7edba92fa0fa`; and PR #50 at `7e5675bffe6fbb6522145ec2e74dd1446becd30f`. On 22 October 2026 the user requested that a “Claim” be more than a repetition of the original sentence. PR #52 adds conservative proposition extraction and context classification; source sentence wording is no longer echoed as a pretend claim.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, and distinct proposition extraction are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`; PR #46 at `a920ae4c892556eea81d89735b23661185e9b292`; PR #48 at `6c969efbc4cd5aef86dbe84387df7edba92fa0fa`; PR #50 at `7e5675bffe6fbb6522145ec2e74dd1446becd30f`; and PR #52 (distinct proposition extraction) at `b86b29c874c02346ca21453091b11d8fdc5ce988`. GitHub Actions CI run 73 passed on the final PR #52 head. Live Render confirmation of the proposition-extraction display is pending.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -467,20 +467,22 @@ Implementation:
 - Regression tests assert the parent excerpt line is absent from the UI renderer while sentence-level claim text and paragraph-reference context remain present.
 - The user should refresh Kerygma with Ctrl+F5 to load the merged display change. The code is merged and CI passed; do not claim the live panel has updated until a refreshed page or new user screenshot confirms it.
 
-### Distinct proposition extraction in sentence-level traceability — PR #52 in progress (22 October 2026)
+### Distinct proposition extraction in sentence-level traceability (PR #52 merged, 22 October 2026)
 
-User feedback: the sentence-level traceability display looked good, but “The Claim does not express any claim except a repetition of what was in the Excerpt.” The analyzer was labelling each sentence as a claim and echoing the sentence text instead of identifying a proposition.
+PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/52
+Merged by squash commit `b86b29c874c02346ca21453091b11d8fdc5ce988` on `main`. GitHub Actions **Kerygma source-aware AI checks** passed on final feature-head commit `f1dcf5910677cfe20489a200307f8ceb18b69376` in run 73: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39813878180. Live Render confirmation for the new display has not yet been supplied.
 
-Feature branch: `feat/distinct-manuscript-claim-propositions`.
+User feedback: the prior “Claim” field repeated the source sentence rather than identifying an asserted proposition.
 
-Implementation in progress:
-- Adds a conservative `extractManuscriptClaimProposition` pass. For supported patterns, it derives a concise candidate proposition from the sentence (e.g. a sentence about Paul addressing the hypocrisy of judging others while committing the same sins becomes a separate proposition about that hypocrisy). A few familiar Romans 2 quotation phrasings are paraphrased conservatively with an explicit check-against-passage note.
-- Greetings, directions and transitions such as `Good morning, beloved congregation` or `Today, we turn our hearts and minds to Romans 2` are labelled as context, not claims.
-- If a sentence cannot be safely distilled, the UI reports that no separate proposition was extracted and asks the user to review the sentence in the manuscript. It does **not** repeat the sentence verbatim and relabel it as a claim.
-- Derived propositions are labelled as candidates, retain the source sentence index, and carry forward explicit/paragraph/heading reference provenance, candidate outline/IBS links, and review flags. Source sentence content stays in the manuscript editor and is not duplicated in the traceability display.
-- Coverage counts distinguish candidate propositions from context or undistilled sentence items. Existing 60,000-character, 30-paragraph, 8-per-paragraph and 120-total sentence output limits remain.
-- Regression coverage checks greeting/context classification, proposition extraction distinct from source wording, safe handling of an undistilled sentence, a Romans 2 quotation paraphrase, reference inheritance, wrong-book non-inheritance, abbreviation-safe splitting, and source/manuscript immutability.
-- Direct fixture checks and inline script/test-file syntax checks passed during development. PR #52 and GitHub Actions CI are pending. After merge, verify the live Romans 2 traceability view; do not claim that the new proposition display is deployed until a refreshed live page confirms it.
+Implementation:
+- Adds a conservative `extractManuscriptClaimProposition` pass. Where known sentence forms can be distilled, the display shows a distinct candidate proposition rather than echoing the source sentence.
+- Greetings, directions and transitions (for example, `Good morning, beloved congregation` and `Today, we turn our hearts and minds to Romans 2`) are labelled as context, not claims.
+- Recognized Romans 2 quote forms receive cautious paraphrase candidates, explicitly labelled for verification against the passage.
+- If a sentence cannot be safely distilled, the display states that no separate proposition was extracted and points the user to the sentence in the manuscript. It does not repeat the sentence verbatim as a pretend claim.
+- Derived propositions retain their source sentence index and carry candidate Bible-reference provenance, candidate outline/IBS links, and review flags. The source sentence is not duplicated in the traceability display; the saved manuscript remains the source of record.
+- Coverage counts distinguish candidate propositions from context or undistilled sentence items. Output limits, heading/paragraph reference inheritance and wrong-book non-inheritance remain in place.
+- Regression tests cover greetings/transitions, distinct propositions from the Romans 2 introduction, quoted wording, unresolved fallback, inherited references, abbreviations, bounded output, and no mutation of manuscript/source packet. Inline JS and test-file syntax checks plus GitHub Actions run 73 passed.
+- After Render deploys this commit or a descendant, confirm the live Romans 2 traceability panel shows concise derived propositions for recognizable assertions, classifies greetings/transitions as context, and labels undistilled sentences without repeating them as claims. Confirm reference provenance remains clear and existing source data, cross-reference lists and “Peace in the Storm” remain intact.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

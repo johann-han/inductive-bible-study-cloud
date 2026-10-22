@@ -219,6 +219,22 @@ test('Text and Exegesis guide acts as a critical interpreter and builds on IBS w
   assert.ok(html.includes('const stage = this.getKerygmaGuideStage();'));
   assert.ok(html.includes('if (stage.profile === \'exegesis\') {'));
 });
+test('Kerygma Guide coaches Big Idea, Outline, Applications, and Manuscript stages distinctly', () => {
+  assert.ok(html.includes('BIG IDEA & PROPOSITION — FROM EXEGESIS TO ONE CENTRAL CLAIM'));
+  assert.ok(html.includes('Distinguish the exegetical idea in the ancient text from the homiletical proposition communicated to contemporary hearers.'));
+  assert.ok(html.includes('HOMILETICAL OUTLINE — STRUCTURE FROM THE TEXT'));
+  assert.ok(html.includes('Do not treat them as interchangeable or assume the number of textual divisions dictates the number of sermon points.'));
+  assert.ok(html.includes('ILLUSTRATIONS & APPLICATION — TEXT-GROUNDED AND AUDIENCE-AWARE'));
+  assert.ok(html.includes('Never imply that suffering proves divine punishment or that people earn salvation through works.'));
+  assert.ok(html.includes('MANUSCRIPT / NOTES — COHERENT EXPOSITION FROM APPROVED DECISIONS'));
+  assert.ok(html.includes('Do not assume a generated draft is approved just because it is present in a field.'));
+  assert.ok(html.includes('bigidea: { label: \'Big Idea & Proposition\', profile: \'bigIdea\' }'));
+  assert.ok(html.includes('outline: { label: \'Homiletical Outline\', profile: \'outline\' }'));
+  assert.ok(html.includes('illustrations: { label: \'Illustrations & Application\', profile: \'applications\' }'));
+  assert.ok(html.includes('manuscript: { label: \'Manuscript / Notes\', profile: \'manuscript\' }'));
+  assert.ok(html.includes('Never automatically change title, Bible text, notes, Big Idea, outline, applications, manuscript, or the imported IBS source.'));
+});
+
 test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable', () => {
   assert.ok(html.includes('width:min(94vw,760px)'));
   assert.ok(html.includes('min-width:min(94vw,380px)'));

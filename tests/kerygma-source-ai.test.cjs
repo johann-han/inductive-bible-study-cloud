@@ -248,7 +248,7 @@ test('Kerygma Guide quick action names the active workflow stage', () => {
 });
 
 test('Kerygma Guide panel starts below the workflow tab labels', () => {
-  const panel = html.match(/<section id="kerygma-guide-panel"[\\s\\S]*?>/);
+  const panel = html.match(/<section id="kerygma-guide-panel"[\s\S]*?>/);
   assert.ok(panel, 'expected the Guide panel');
   assert.ok(panel[0].includes('fixed top-32 right-5'));
   assert.ok(panel[0].includes('max-height:calc(100vh - 13rem)'));

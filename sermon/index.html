@@ -2460,6 +2460,189 @@ Answer the current question in light of the active stage and the available sourc
                     body.appendChild(section);
                 };
 
+                const addClaimReviewEntries = (title, entries, emptyText, limit = 30) => {
+                    const section = document.createElement('section');
+                    section.className = 'space-y-2';
+                    const heading = document.createElement('h4');
+                    heading.className = 'font-semibold text-slate-800';
+                    heading.textContent = title;
+                    section.appendChild(heading);
+
+                    const safeRows = Array.isArray(entries) ? entries.slice(0, limit) : [];
+                    const allClaims = safeRows.flatMap(row => (Array.isArray(row.claims) ? row.claims : [])
+                        .filter(claim => claim && claim.kind === 'claim'));
+                    const statusSummary = document.createElement('p');
+                    statusSummary.className = 'text-slate-600';
+                    statusSummary.setAttribute('aria-live', 'polite');
+                    section.appendChild(statusSummary);
+
+                    const statusLabels = {
+                        'not-reviewed': 'Not reviewed',
+                        'reviewed': 'Reviewed',
+                        'needs-research': 'Needs research',
+                        'requires-revision': 'Requires revision'
+                    };
+                    const refreshStatusSummary = () => {
+                        const counts = { 'not-reviewed': 0, reviewed: 0, 'needs-research': 0, 'requires-revision': 0 };
+                        allClaims.forEach(claim => {
+                            const key = this.makeClaimReviewKey(claim.paragraphIndex, claim);
+                            const status = this.getClaimReviewStatus(sermon.id, key);
+                            if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
+                        });
+                        statusSummary.textContent = 'Review progress — Reviewed: ' + counts.reviewed +
+                            ' · Needs research: ' + counts['needs-research'] +
+                            ' · Requires revision: ' + counts['requires-revision'] +
+                            ' · Not reviewed: ' + counts['not-reviewed'];
+                    };
+
+                    if (!safeRows.length) {
+                        const empty = document.createElement('p');
+                        empty.textContent = emptyText;
+                        section.appendChild(empty);
+                        body.appendChild(section);
+                        return;
+                    }
+
+                    const list = document.createElement('ul');
+                    list.className = 'list-disc pl-5 space-y-3';
+                    safeRows.forEach(row => {
+                        const paragraphItem = document.createElement('li');
+                        paragraphItem.className = 'space-y-1 break-words';
+                        const paragraphHeading = document.createElement('div');
+                        paragraphHeading.className = 'font-semibold text-slate-800';
+                        paragraphHeading.textContent = 'Paragraph ' + row.index + ' · ' + row.section;
+                        paragraphItem.appendChild(paragraphHeading);
+
+                        const paragraphReferences = document.createElement('div');
+                        paragraphReferences.className = 'whitespace-pre-wrap';
+                        paragraphReferences.textContent = 'Paragraph reference(s): ' + (row.references && row.references.length
+                            ? row.references.map(reference => reference.text +
+                                (reference.source === 'section heading' ? ' [from section heading]' : '') +
+                                (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                            : 'No paragraph or section-heading reference detected');
+                        paragraphItem.appendChild(paragraphReferences);
+
+                        const analysisSummary = document.createElement('div');
+                        analysisSummary.className = 'text-slate-600';
+                        analysisSummary.textContent = 'Sentence analysis (' + row.claims.length + ' shown of ' + row.totalClaims +
+                            ' sentences; ' + row.derivedClaimCount + ' propositions distilled):';
+                        paragraphItem.appendChild(analysisSummary);
+
+                        const sentenceList = document.createElement('ul');
+                        sentenceList.className = 'ml-2 space-y-2';
+                        (Array.isArray(row.claims) ? row.claims : []).forEach(claim => {
+                            const sentenceItem = document.createElement('li');
+                            sentenceItem.className = 'space-y-1';
+                            const sentenceLabel = document.createElement('div');
+                            sentenceLabel.className = claim.kind === 'claim' ? 'font-medium text-slate-800' : 'text-slate-600';
+                            sentenceLabel.textContent = claim.kind === 'claim'
+                                ? 'Claim ' + claim.claimIndex + ' (candidate proposition from source sentence ' + claim.index + '): ' + claim.proposition
+                                : claim.kind === 'context'
+                                    ? 'Context — ' + claim.note
+                                    : 'Not distilled — ' + claim.note;
+                            sentenceItem.appendChild(sentenceLabel);
+
+                            if (claim.kind !== 'context') {
+                                const references = document.createElement('div');
+                                references.className = 'whitespace-pre-wrap';
+                                references.textContent = 'Reference(s): ' + (claim.references && claim.references.length
+                                    ? claim.references.map(reference => reference.text +
+                                        (reference.source === 'section heading' ? ' [from section heading]' :
+                                            reference.source === 'paragraph context' ? ' [from paragraph context]' : '') +
+                                        (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                                    : 'No sentence or inherited passage reference detected');
+                                sentenceItem.appendChild(references);
+
+                                const outlineLinks = document.createElement('div');
+                                outlineLinks.className = 'whitespace-pre-wrap';
+                                outlineLinks.textContent = 'Candidate outline: ' + (claim.outlineLinks && claim.outlineLinks.length
+                                    ? claim.outlineLinks.map(link => link.label).join('; ') : 'No candidate outline link');
+                                sentenceItem.appendChild(outlineLinks);
+
+                                const divisionLinks = document.createElement('div');
+                                divisionLinks.className = 'whitespace-pre-wrap';
+                                divisionLinks.textContent = 'Candidate IBS division: ' + (claim.divisionLinks && claim.divisionLinks.length
+                                    ? claim.divisionLinks.map(link => link.label).join('; ') : 'No candidate IBS division');
+                                sentenceItem.appendChild(divisionLinks);
+
+                                const reviewFlags = document.createElement('div');
+                                reviewFlags.className = 'whitespace-pre-wrap text-slate-600';
+                                reviewFlags.textContent = 'Review flags: ' + (claim.flags && claim.flags.length
+                                    ? claim.flags.join('; ') : 'No heuristic flags; human review is still required.');
+                                sentenceItem.appendChild(reviewFlags);
+                            }
+
+                            if (claim.kind === 'claim') {
+                                const claimReviewKey = this.makeClaimReviewKey(row.index, claim);
+                                claim.paragraphIndex = row.index;
+                                const controls = document.createElement('div');
+                                controls.className = 'mt-1 flex flex-wrap items-center gap-2 rounded-md bg-slate-50 px-2 py-2';
+                                const label = document.createElement('label');
+                                label.className = 'font-medium text-slate-700';
+                                label.textContent = 'Review status';
+                                const select = document.createElement('select');
+                                select.className = 'rounded border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500';
+                                select.setAttribute('aria-label', 'Review status for paragraph ' + row.index + ', claim ' + claim.claimIndex);
+                                Object.entries(statusLabels).forEach(([value, text]) => {
+                                    const option = document.createElement('option');
+                                    option.value = value;
+                                    option.textContent = text;
+                                    select.appendChild(option);
+                                });
+                                const previousStatus = this.getClaimReviewStatus(sermon.id, claimReviewKey);
+                                select.value = previousStatus;
+                                label.appendChild(select);
+                                controls.appendChild(label);
+
+                                const saveIndicator = document.createElement('span');
+                                saveIndicator.className = 'text-slate-500';
+                                saveIndicator.setAttribute('aria-live', 'polite');
+                                saveIndicator.textContent = 'Saved separately from sermon text';
+                                controls.appendChild(saveIndicator);
+
+                                select.addEventListener('change', () => {
+                                    const nextStatus = select.value;
+                                    if (this.saveClaimReviewStatus(sermon.id, claimReviewKey, nextStatus)) {
+                                        saveIndicator.textContent = 'Saved separately';
+                                        saveIndicator.className = 'text-emerald-700';
+                                        refreshStatusSummary();
+                                    } else {
+                                        select.value = previousStatus;
+                                        saveIndicator.textContent = 'Could not save in this browser; previous status restored';
+                                        saveIndicator.className = 'text-rose-700';
+                                    }
+                                });
+                                sentenceItem.appendChild(controls);
+                            }
+
+                            sentenceList.appendChild(sentenceItem);
+                        });
+                        paragraphItem.appendChild(sentenceList);
+
+                        if (row.omittedClaims) {
+                            const omitted = document.createElement('div');
+                            omitted.className = 'text-slate-500';
+                            omitted.textContent = row.omittedClaims + ' additional sentence items not shown in this paragraph.';
+                            paragraphItem.appendChild(omitted);
+                        }
+                        if (row.flags && row.flags.length) {
+                            const flags = document.createElement('div');
+                            flags.className = 'whitespace-pre-wrap text-slate-600';
+                            flags.textContent = 'Paragraph-level review flags: ' + row.flags.join('; ');
+                            paragraphItem.appendChild(flags);
+                        }
+                        list.appendChild(paragraphItem);
+                    });
+                    if (entries.length > safeRows.length) {
+                        const more = document.createElement('li');
+                        more.textContent = (entries.length - safeRows.length) + ' additional paragraph entries not shown.';
+                        list.appendChild(more);
+                    }
+                    section.appendChild(list);
+                    body.appendChild(section);
+                    refreshStatusSummary();
+                };
+
                 const outline = Array.isArray(sermon.outline) ? sermon.outline : [];
                 const outlinePoints = outline.map((point, index) => ({
                     index: index + 1,
@@ -2572,34 +2755,9 @@ Answer the current question in light of the active stage and the available sourc
                     : 'No manuscript text is available to analyze.';
                 addSection('Paragraph trace coverage', coverageText,
                     'No saved manuscript paragraphs were found.', 1200);
-                addEntries('Paragraph-by-paragraph / distinct-proposition traceability · heuristic review', paragraphReview.rows,
-                    row => 'Paragraph ' + row.index + ' · ' + row.section +
-                        '\nParagraph reference(s): ' + (row.references.length
-                            ? row.references.map(reference => reference.text + (reference.source === 'section heading' ? ' [from section heading]' : '') + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
-                            : 'No paragraph or section-heading reference detected') +
-                        '\nSentence analysis (' + row.claims.length + ' shown of ' + row.totalClaims + ' sentences; ' + row.derivedClaimCount + ' propositions distilled):\n' +
-                        (row.claims.length ? row.claims.map(claim =>
-                            '  ' + (claim.kind === 'claim'
-                                ? 'Claim ' + claim.claimIndex + ' (candidate proposition from source sentence ' + claim.index + '): ' + claim.proposition
-                                : claim.kind === 'context'
-                                    ? 'Context — ' + claim.note
-                                    : 'Not distilled — ' + claim.note) +
-                            (claim.kind === 'context' ? '' :
-                                '\n    Reference(s): ' + (claim.references.length
-                                    ? claim.references.map(reference => reference.text +
-                                        (reference.source === 'section heading' ? ' [from section heading]' :
-                                            reference.source === 'paragraph context' ? ' [from paragraph context]' : '') +
-                                        (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
-                                    : 'No sentence or inherited passage reference detected') +
-                                '\n    Candidate outline: ' + (claim.outlineLinks.length
-                                    ? claim.outlineLinks.map(link => link.label).join('; ') : 'No candidate outline link') +
-                                '\n    Candidate IBS division: ' + (claim.divisionLinks.length
-                                    ? claim.divisionLinks.map(link => link.label).join('; ') : 'No candidate IBS division') +
-                                '\n    Review flags: ' + (claim.flags.length ? claim.flags.join('; ') : 'No heuristic flags; human review is still required.'))
-                        ).join('\n\n') : 'No sentences available for review.') +
-                        (row.omittedClaims ? '\n  ' + row.omittedClaims + ' additional sentence items not shown in this paragraph.' : '') +
-                        '\nParagraph-level review flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags; human review is still required.'),
-                    'No manuscript paragraph blocks were available for analysis.', 30);
+                addClaimReviewEntries('Claim review workflow · candidate propositions only', paragraphReview.rows,
+                    'No candidate propositions are available for review.', 30);
+
                 addSection('How to use paragraph traceability',
                     'A candidate outline or IBS division link is shown only when a passage reference found in the paragraph, or inherited from its Markdown section heading when the paragraph has no citation of its own, overlaps the target verse range. Inherited heading references are labelled and must be checked to confirm the paragraph belongs within that section. Each paragraph is split conservatively into sentence items, but not every sentence is treated as a claim. Greetings, instructions and transitions are labelled as context; quoted wording or sentences that cannot be safely distilled are flagged without repeating them as a pretend claim. Where possible, a concise candidate proposition is extracted and linked back to its sentence number. The original sentence remains in the manuscript for review. A sentence’s own citation takes precedence; otherwise references may be inherited from the paragraph context or section heading and are labelled accordingly. Reference overlap is only a candidate link, not proof that a proposition is supported. Sentence splitting and proposition extraction are heuristic and must be checked. Compare claims with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare applications with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
                     'Paragraph-level matches are not available.', 1800);

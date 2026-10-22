@@ -322,6 +322,43 @@ test('homiletical points show candidate IBS evidence with provenance and review 
   assert.ok(html.includes("else if (!parsedRange || bookMismatch || parsedRange.chapter !== studyChapter) reviewStatus = 'Check verse reference'"));
 });
 
+test('Big Idea evidence trace presents IBS interpretation and doctrine separately from the sermon claim', () => {
+  assert.ok(html.includes('id="big-idea-evidence-trace"'));
+  assert.ok(html.includes('this.renderBigIdeaEvidenceTrace();'));
+  assert.ok(html.includes("details.className = 'rounded-lg border border-indigo-200 bg-white';"));
+  assert.ok(html.includes('Evidence traceability · Big Idea & Proposition'));
+  for (const label of [
+    'Current sermon claim · Kerygma fields',
+    'Exegetical Subject:',
+    'Exegetical Complement:',
+    'Big Idea / Proposition:',
+    'Sermon Aim:',
+    'Review status',
+    'IBS Interpretation · source notes',
+    'IBS Doctrine · source guardrails',
+    'IBS passage outline · imported text divisions',
+    'IBS selected verses',
+    'IBS verse maps and word studies · source excerpts',
+    'IBS personal cross-references · user-created',
+    'IBS standard cross-references · imported source'
+  ]) assert.ok(html.includes(label), `missing Big Idea evidence field/category: ${label}`);
+  assert.ok(html.includes('Source evidence available — verify the connection'));
+  assert.ok(html.includes('Needs review — no Interpretation or Doctrine notes recorded'));
+  assert.ok(html.includes('No imported IBS source packet is attached.'));
+  assert.ok(html.includes('It does not automatically verify that the Big Idea follows from the evidence.'));
+  assert.ok(html.includes('content.textContent = String(text || \'\').trim() || emptyText || \'[No content recorded]\';'));
+
+  const start = html.indexOf('renderBigIdeaEvidenceTrace() {');
+  const end = html.indexOf('parseOutlineTraceRange(reference, defaultChapter) {', start);
+  assert.ok(start >= 0 && end > start, 'expected the Big Idea evidence view method');
+  const method = html.slice(start, end);
+  assert.ok(!method.includes('saveToStorage('), 'evidence rendering must not write sermon/source data');
+  assert.ok(!method.includes('.inductiveStudySource ='), 'evidence rendering must not mutate the imported packet');
+  assert.ok(!method.includes('innerHTML'), 'imported evidence must be displayed as text, not HTML');
+  assert.ok(method.includes('container.replaceChildren();'));
+  assert.ok(method.includes('details.open = wasOpen;'), 'keep the evidence panel expanded while fields refresh');
+});
+
 test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable', () => {
   assert.ok(html.includes('width:min(94vw,760px)'));
   assert.ok(html.includes('min-width:min(94vw,380px)'));

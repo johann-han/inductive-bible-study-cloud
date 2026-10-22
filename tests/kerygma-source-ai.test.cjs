@@ -247,6 +247,14 @@ test('Kerygma Guide quick action names the active workflow stage', () => {
   assert.ok(html.includes("sermonApp.setKerygmaGuidePrompt('Guide me through this step. Ask me useful questions rather than doing all the work for me.')"));
 });
 
+test('Kerygma Guide panel starts below the workflow tab labels', () => {
+  const panel = html.match(/<section id="kerygma-guide-panel"[\\s\\S]*?>/);
+  assert.ok(panel, 'expected the Guide panel');
+  assert.ok(panel[0].includes('fixed top-32 right-5'));
+  assert.ok(panel[0].includes('max-height:calc(100vh - 13rem)'));
+  assert.ok(panel[0].includes('width:min(94vw,760px)'), 'preserve the useful panel width');
+});
+
 test('Kerygma Guide visually separates conversations by active workflow stage', () => {
   assert.ok(html.includes("const previousStage = this.getKerygmaGuideStage();"));
   assert.ok(html.includes("if (previousStage.label !== nextStage.label && Array.isArray(this.guideMessages))"));
@@ -272,6 +280,9 @@ test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable',
   assert.ok(html.includes('min-width:min(94vw,380px)'));
   assert.ok(html.includes('max-width:94vw'));
   assert.ok(html.includes('resize:horizontal'));
+  assert.ok(html.includes('fixed top-32 right-5 z-40 flex flex-col'));
+  assert.ok(html.includes('max-height:calc(100vh - 13rem)'));
+  assert.ok(!html.includes('fixed bottom-20 right-5 z-40 flex max-h-[84vh]'), 'panel must no longer rise over the workflow-tab row');
 });
 
 test('the guide-only response limit is bounded server-side for Gemini and OpenRouter', () => {

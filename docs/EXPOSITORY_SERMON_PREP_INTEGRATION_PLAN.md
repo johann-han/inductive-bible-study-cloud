@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, and readable cross-reference panels are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; and PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`. The user visually confirmed paragraph traceability and readable cross-reference panels on 22 October 2026. The next incremental enhancement—inherit passage citations from Markdown section headings for paragraphs without their own citation—is being tested in PR #46.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, and section-heading reference inheritance are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`; and PR #46 at `a920ae4c892556eea81d89735b23661185e9b292`. The user visually confirmed paragraph traceability and readable cross-reference panels on 22 October 2026. PR #46 feature-head CI passed; post-merge CI and deployment of heading-reference inheritance remain to be verified.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -426,19 +426,18 @@ The user supplied a fresh screenshot after PR #43 merged and explicitly confirme
 
 Treat the display fix as deployed and visually verified. Do not redo this check unless later code changes affect the source panel. This confirmation is from the user's live screenshot; no claim is made that every imported source field was byte-for-byte checked.
 
-### Section-heading reference inheritance for manuscript traceability — PR #46 in progress (22 October 2026)
+### Section-heading reference inheritance for manuscript traceability (PR #46 merged, 22 October 2026)
 
-Why: in the Romans 2 manuscript, a numbered exposition heading can cite a passage range such as `Romans 2:1–4`, while the paragraphs below do not repeat that reference. The original analyzer checked only paragraph text and would therefore flag some in-section paragraphs as having no passage reference even though their section heading supplied context.
+PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/46
+Merged by squash commit `a920ae4c892556eea81d89735b23661185e9b292` on `main`. GitHub Actions **Kerygma source-aware AI checks** passed on the final PR head in run 65: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39773914300. Post-merge main CI and Render deployment for this enhancement remain to be verified.
 
-Feature branch: `feat/manuscript-section-reference-inheritance`. This change extends the existing paragraph-level traceability renderer; it does not change the saved manuscript.
-
-Implementation in progress:
-- Track the current Markdown heading along with each paragraph block. Numbered/Roman-numeral outline headings such as `I. Judgment of Others ...` are classified as **Exposition / outline**, unless an earlier specific rule identifies the heading as Introduction, Application or Conclusion.
-- If a paragraph contains no Bible reference of its own, check the current section heading for a canonical book/chapter/verse-range citation. Where present, add it as a candidate reference with `source: section heading` and allow overlap matching to suggest sermon-outline and imported IBS passage divisions.
-- If the paragraph already cites a reference, do not inherit the heading reference. This avoids assigning Romans 2 links to a paragraph that explicitly cites another book such as John 2.
-- The UI labels inherited references `[from section heading]` and adds a review flag asking the user to confirm that paragraph belongs within that heading’s cited range. Inherited context does not prove theological support.
-- Tests cover a heading-only Romans 2:1–4 reference, successful candidate links to the matching outline/IBS division, the visible provenance label, numbered heading classification, no citation inheritance when a paragraph explicitly cites John 2, bounded outputs, and unchanged manuscript/source objects.
-- PR #46 CI and merge are pending. After merge, use the live Romans 2 manuscript to ensure the paragraph analyzer displays inherited verse ranges transparently and existing outline/AI safeguards remain intact.
+Implementation:
+- Tracks the current Markdown heading alongside each paragraph block. Numbered/Roman-numeral outline headings such as `I. Judgment of Others ...` are classified as **Exposition / outline**, unless a more specific heading class (Introduction, Application, Conclusion) applies.
+- If a paragraph has no Bible reference of its own, checks the active section heading for an explicit canonical book/chapter/verse-range citation. That citation may supply candidate links to overlapping sermon-outline points and imported IBS passage divisions.
+- If the paragraph already cites a reference, it does not inherit the heading citation. This prevents a paragraph that explicitly mentions a different book (e.g. John 2) from being linked automatically to Romans 2.
+- Inherited citations display as `[from section heading]` and add a review flag asking the preacher to confirm that the paragraph belongs within that range. This remains a heuristic review aid; it does not prove that a claim is supported or theologically correct.
+- Regression coverage includes an uncited Romans 2 paragraph inheriting `Romans 2:1–4` from a numbered heading, candidate links to the matching outline/IBS division, visible provenance label, numbered heading classification, and refusal to inherit that heading reference for an explicit John 2 citation. Direct fixture checks, inline JavaScript parsing and the GitHub Actions feature-head suite passed.
+- Before calling this live, confirm Render serves `a920ae4c892556eea81d89735b23661185e9b292` or a descendant. In the live Romans 2 Manuscript / Notes panel, confirm inherited references are explicitly labelled, candidate links match verse ranges, an explicit out-of-book citation does not acquire the enclosing Romans link, and manuscript/source data remain unchanged. Keep the previously verified readable cross-reference panels and the original “Peace in the Storm” sermon intact.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

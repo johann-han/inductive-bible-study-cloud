@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching across all five tabs, More Questions/More Insights, labelled/stage-separated Guide chat, Markdown list formatting, panel/tab-overlap fix, and Homiletical Outline evidence traceability are merged into `main`. PR #34 merged at `326504cca2f4bee6ba983bf0fc939797ba54295c`, and its CI passed. The user confirmed the Homiletical Outline traceability works live. The next feature is in progress on `feat/kerygma-big-idea-evidence-traceability`: an expandable Big Idea & Proposition evidence panel showing current sermon fields alongside the imported IBS Interpretation and Doctrine notes, passage divisions, selected verses, verse maps/word studies, and cross-references. It keeps source evidence distinct from the sermon claim, clearly says the connection is for human review rather than automatically verified, uses text-only rendering, bounds excerpts, preserves the expanded state while editing, and performs no writes. Tests/PR/CI pending.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching across all five tabs, More Questions/More Insights, labelled/stage-separated Guide chat, Markdown list formatting, panel/tab-overlap fix, Homiletical Outline evidence traceability, and Big Idea & Proposition evidence traceability are merged into `main`. The user confirmed the Homiletical Outline traceability works live. PR #36 merged at `348528c8482c31b1337ebe36f1b20e6b1a41ed33`; source-aware CI passed on both the feature branch and main merge commit. The Big Idea evidence panel shows the current Kerygma subject, complement, Big Idea and aim separately from imported IBS Interpretation/Doctrine notes, packet identity, passage divisions, selected verses, verse maps and cross-references. It labels the connection as requiring human review, safely renders text, bounds excerpts, preserves expansion while editing, and performs no source/sermon writes. Live Render verification of the Big Idea panel remains pending.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -340,7 +340,7 @@ Implementation:
 
 ### Big Idea & Proposition evidence traceability (22 October 2026)
 
-Current branch: `feat/kerygma-big-idea-evidence-traceability` (not yet merged).
+Merged in PR #36 at `348528c8482c31b1337ebe36f1b20e6b1a41ed33`. CI passed on feature commit `8206d1c02553615686928c6d8d087ac9cc80bf90` and main merge commit `348528c8482c31b1337ebe36f1b20e6b1a41ed33`. Live Render verification remains pending.
 The user confirmed the Homiletical Outline evidence panel works and agreed to continue traceability at the preceding stage. This feature places the current Kerygma exegetical subject, exegetical complement, Big Idea/proposition and sermon aim beside the imported IBS evidence that should inform review of the central claim.
 
 Expected contents:
@@ -352,7 +352,7 @@ Expected contents:
 - All imported content rendered through `textContent`, excerpts bounded, and current open/closed state preserved while form fields change. The view makes no writes to sermon fields or source data.
 - Existing prompt generation, AI behavior, outline traceability, import/export and chat remain unchanged.
 
-A regression test checks the panel, source categories, status wording, safe text rendering, preserving open state, and absence of any storage/source mutation in the rendering method. After CI/PR merge and Render deployment, test the Romans 2 study by expanding the trace; verify that the Big Idea, subject/complement, Interpretation and Doctrine notes are clearly separate and the existing sermon fields remain untouched.
+A regression test checks the panel, source categories, status wording, safe bounded text rendering, preserving open state, and absence of any storage/source mutation in the rendering method. Feature and main CI passed. After Render deploys, test the Romans 2 study by expanding the trace; verify that the Big Idea, subject/complement, Interpretation and Doctrine notes are clearly separate and the existing sermon fields remain untouched.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

@@ -1870,6 +1870,31 @@ Answer the current question in light of the active stage and the available sourc
                 }
             }
 
+            splitManuscriptClaimSentences(text) {
+                const source = String(text || '').replace(/\s+/g, ' ').trim();
+                if (!source) return [];
+
+                const protectedPeriod = '\uE000';
+                const abbreviations = /\b(?:Mr|Mrs|Ms|Mx|Dr|Prof|Rev|Fr|St|Jr|Sr|vs|etc|cf|v|vv|ch|chs|No|Vol|Nos)\.|(?:e\.g|i\.e|A\.D|B\.C|U\.S|U\.K)\./gi;
+                const protectedText = source
+                    .replace(abbreviations, match => match.replace(/\./g, protectedPeriod))
+                    .replace(/\b(?:[A-Z]\.){1,4}/g, match => match.replace(/\./g, protectedPeriod));
+                const sentences = [];
+                const boundary = /[.!?…]+(?:["'”’)\]]*)\s+(?=[A-Z0-9“"'‘(\[])/g;
+                let lastIndex = 0;
+                let match;
+                while ((match = boundary.exec(protectedText))) {
+                    const sentence = protectedText.slice(lastIndex, boundary.lastIndex)
+                        .replace(/\s+/g, ' ').trim().replaceAll(protectedPeriod, '.');
+                    if (sentence) sentences.push(sentence);
+                    lastIndex = boundary.lastIndex;
+                }
+                const finalSentence = protectedText.slice(lastIndex)
+                    .replace(/\s+/g, ' ').trim().replaceAll(protectedPeriod, '.');
+                if (finalSentence) sentences.push(finalSentence);
+                return sentences;
+            }
+
             analyzeManuscriptClaimParagraphs(manuscript, outlinePoints, packet) {
                 const source = String(manuscript || '');
                 const analysisSource = source.slice(0, 60000);
@@ -1989,7 +2014,11 @@ Answer the current question in light of the active stage and the available sourc
                     return packet && parsed && chapterNumber && parsed.chapter === chapterNumber && bookMatches ? parsed : null;
                 };
 
-                const allRows = blocks.map((block, blockIndex) => {
+                const maxClaimsPerParagraph = 8;
+                const maxSentenceClaims = 120;
+                let sentenceClaimsShown = 0;
+                const blocksToReview = blocks.slice(0, maxClaimReviewBlocks);
+                const allRows = blocksToReview.map((block, blockIndex) => {
                     const referenceAnalysis = getReferenceAnalysis(block.text);
                     const references = referenceAnalysis.references.map(reference => ({
                         ...reference,
@@ -1997,12 +2026,14 @@ Answer the current question in light of the active stage and the available sourc
                     }));
                     const passageRanges = referenceAnalysis.passageRanges.slice();
                     let headingReferenceInherited = false;
+                    const headingAnalysis = block.heading
+                        ? getReferenceAnalysis(block.heading)
+                        : { references: [], passageRanges: [] };
 
                     // Inherit an explicit section-heading reference only when the paragraph
                     // has no reference of its own. A paragraph citing another book/chapter
                     // must not be linked automatically to its enclosing heading's passage.
                     if (!references.length && block.heading) {
-                        const headingAnalysis = getReferenceAnalysis(block.heading);
                         headingAnalysis.references.forEach(reference => {
                             references.push({ ...reference, source: 'section heading' });
                         });
@@ -2031,6 +2062,96 @@ Answer the current question in light of the active stage and the available sourc
                         label: (row.verseRange || '[verse range missing]') + ' — ' +
                             (row.heading || row.majorIdea || '[division title missing]')
                     }));
+
+                    const sentenceTexts = this.splitManuscriptClaimSentences(block.text);
+                    const sentencesAllowed = Math.max(0, Math.min(maxClaimsPerParagraph, maxSentenceClaims - sentenceClaimsShown));
+                    const visibleSentenceTexts = sentenceTexts.slice(0, sentencesAllowed);
+                    const sentenceClaims = visibleSentenceTexts.map((sentenceText, sentenceIndex) => {
+                        const sentenceAnalysis = getReferenceAnalysis(sentenceText);
+                        let claimReferences = sentenceAnalysis.references.map(reference => ({
+                            ...reference,
+                            source: 'sentence'
+                        }));
+                        let claimPassageRanges = sentenceAnalysis.passageRanges.slice();
+                        let inheritedFrom = '';
+
+                        if (!claimReferences.length && referenceAnalysis.references.length) {
+                            claimReferences = referenceAnalysis.references.map(reference => ({
+                                ...reference,
+                                source: 'paragraph context'
+                            }));
+                            claimPassageRanges = referenceAnalysis.passageRanges.slice();
+                            inheritedFrom = 'paragraph context';
+                        } else if (!claimReferences.length && headingAnalysis.references.length) {
+                            claimReferences = headingAnalysis.references.map(reference => ({
+                                ...reference,
+                                source: 'section heading'
+                            }));
+                            claimPassageRanges = headingAnalysis.passageRanges.slice();
+                            inheritedFrom = 'section heading';
+                        }
+
+                        const claimOutlineLinks = (Array.isArray(outlinePoints) ? outlinePoints : []).filter(point => {
+                            const pointRange = getValidOutlineRange(point.reference);
+                            return pointRange && claimPassageRanges.some(range => this.outlineTraceRangesOverlap(range, pointRange));
+                        }).slice(0, 2).map(point => ({
+                            index: point.index,
+                            label: 'Point ' + point.index + ': ' + (point.statement || '[statement missing]') +
+                                ' (' + (point.reference || '[verse reference missing]') + ')'
+                        }));
+                        const claimDivisionLinks = sourceDivisions.filter(row => {
+                            const sourceRange = this.parseOutlineTraceRange(row && row.verseRange, chapterNumber);
+                            return sourceRange && chapterNumber && sourceRange.chapter === chapterNumber &&
+                                claimPassageRanges.some(range => this.outlineTraceRangesOverlap(range, sourceRange));
+                        }).slice(0, 2).map(row => ({
+                            label: (row.verseRange || '[verse range missing]') + ' — ' +
+                                (row.heading || row.majorIdea || '[division title missing]')
+                        }));
+
+                        const claimFlags = [];
+                        if (!packet) {
+                            claimFlags.push('No imported IBS packet; check this claim manually');
+                        } else if (!claimReferences.length) {
+                            claimFlags.push('No sentence or inherited passage reference detected');
+                        } else if (!claimPassageRanges.length) {
+                            claimFlags.push('Reference does not clearly match the imported book/chapter');
+                        }
+                        if (inheritedFrom === 'paragraph context') {
+                            claimFlags.push('Reference is inherited from the paragraph context; confirm that it supports this sentence');
+                        } else if (inheritedFrom === 'section heading') {
+                            claimFlags.push('Reference is inherited from the section heading; confirm this sentence belongs within that verse range');
+                        }
+                        if (claimPassageRanges.length && !claimOutlineLinks.length) {
+                            claimFlags.push('No overlapping outline point found for this sentence reference');
+                        }
+                        if (/\b(God|Jesus|Christ|Lord|Holy Spirit|Spirit|salvation|sin|faith|grace|redemption|gospel|righteousness|justification|judgment|divine|doctrine|repentance)\b/i.test(sentenceText)) {
+                            claimFlags.push('Possible theological claim — compare with IBS Doctrine and the passage');
+                        }
+                        if (/\b(?:1[5-9]\d{2}|20\d{2}|A\.?D\.?|B\.?C\.?|historically|historian|archaeolog\w*|research (?:shows|suggests)|studies show|scholars? (?:say|argue|agree)|traditionally|Roman empire|Roman law)\b/i.test(sentenceText)) {
+                            claimFlags.push('Possible factual / historical detail — verify a reliable source or citation');
+                        }
+                        if (/[“”‘’"]/.test(sentenceText) || /\b(?:said|says|according to|quoted|quotation)\b/i.test(sentenceText)) {
+                            claimFlags.push('Quotation or attribution — verify exact wording and source');
+                        }
+                        if (/\b(?:should|must|ought to|respond|repent|forgive|obey|trust|follow|apply|application|let us|today)\b/i.test(sentenceText) ||
+                            /application|response|discipleship/i.test(block.section)) {
+                            claimFlags.push('Application / response claim — compare with IBS Discipleship and the sermon aim');
+                        }
+
+                        return {
+                            index: sentenceIndex + 1,
+                            text: sentenceText.slice(0, 320) + (sentenceText.length > 320 ? ' … [claim excerpt trimmed]' : ''),
+                            references: claimReferences.slice(0, 4).map(reference => ({
+                                text: reference.text,
+                                matchesPassage: reference.matchesPassage,
+                                source: reference.source || 'sentence'
+                            })),
+                            outlineLinks: claimOutlineLinks,
+                            divisionLinks: claimDivisionLinks,
+                            flags: claimFlags.slice(0, 6)
+                        };
+                    });
+                    sentenceClaimsShown += sentenceClaims.length;
 
                     const flags = [];
                     if (!packet) flags.push('No imported IBS packet; source links require manual review');
@@ -2072,14 +2193,22 @@ Answer the current question in light of the active stage and the available sourc
                         passageRanges,
                         outlineLinks,
                         divisionLinks,
-                        flags
+                        flags,
+                        claims: sentenceClaims,
+                        totalClaims: sentenceTexts.length,
+                        omittedClaims: Math.max(0, sentenceTexts.length - sentenceClaims.length)
                     };
-                }).slice(0, maxClaimReviewBlocks);
+                });
 
+                const totalSentenceCount = allRows.reduce((total, row) => total + row.totalClaims, 0);
+                const omittedSentenceCount = allRows.reduce((total, row) => total + row.omittedClaims, 0);
                 return {
                     rows: allRows,
                     totalCount: blocks.length,
                     omittedCount: Math.max(0, blocks.length - allRows.length),
+                    totalSentenceCount,
+                    visibleSentenceCount: sentenceClaimsShown,
+                    omittedSentenceCount,
                     inputTruncated: source.length > analysisSource.length
                 };
             }
@@ -2257,28 +2386,40 @@ Answer the current question in light of the active stage and the available sourc
                 const paragraphReview = this.analyzeManuscriptClaimParagraphs(manuscript, outlinePoints, packet);
                 const coverageText = manuscript
                     ? 'Analyzed ' + paragraphReview.rows.length + ' of ' + paragraphReview.totalCount +
-                        ' paragraph blocks for review. ' +
-                        (paragraphReview.omittedCount ? paragraphReview.omittedCount + ' additional blocks are not shown.' : '') +
-                        (paragraphReview.inputTruncated ? ' Analysis is capped at the first 60,000 characters.' : '')
+                        ' paragraph blocks; ' + paragraphReview.visibleSentenceCount + ' sentence claims shown of ' +
+                        paragraphReview.totalSentenceCount + ' in the displayed blocks. ' +
+                        (paragraphReview.omittedCount ? paragraphReview.omittedCount + ' additional paragraph blocks are not shown. ' : '') +
+                        (paragraphReview.omittedSentenceCount ? paragraphReview.omittedSentenceCount + ' sentence claims are omitted by the display cap. ' : '') +
+                        (paragraphReview.inputTruncated ? 'Analysis is capped at the first 60,000 characters.' : '')
                     : 'No manuscript text is available to analyze.';
                 addSection('Paragraph trace coverage', coverageText,
                     'No saved manuscript paragraphs were found.', 1200);
-                addEntries('Paragraph-by-paragraph / claim-level traceability · heuristic review', paragraphReview.rows,
+                addEntries('Paragraph-by-paragraph / sentence-level claim traceability · heuristic review', paragraphReview.rows,
                     row => 'Paragraph ' + row.index + ' · ' + row.section +
-                        '\nDraft excerpt: ' + row.excerpt +
-                        '\nPassage reference(s): ' + (row.references.length
+                        '\nParagraph excerpt: ' + row.excerpt +
+                        '\nParagraph reference(s): ' + (row.references.length
                             ? row.references.map(reference => reference.text + (reference.source === 'section heading' ? ' [from section heading]' : '') + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
-                            : 'No explicit passage reference detected') +
-                        '\nCandidate outline link(s): ' + (row.outlineLinks.length
-                            ? row.outlineLinks.map(link => link.label).join('; ')
-                            : row.passageRanges.length ? 'No overlapping outline point found' : 'No automatic outline link suggested') +
-                        '\nCandidate IBS passage division(s): ' + (row.divisionLinks.length
-                            ? row.divisionLinks.map(link => link.label).join('; ')
-                            : row.passageRanges.length ? 'No overlapping IBS passage division found' : 'No reference-based division link suggested') +
-                        '\nReview flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags found; human review is still required.'),
+                            : 'No paragraph or section-heading reference detected') +
+                        '\nSentence-level claims (' + row.claims.length + ' shown of ' + row.totalClaims + '):\n' +
+                        (row.claims.length ? row.claims.map(claim =>
+                            '  Claim ' + claim.index + ': ' + claim.text +
+                            '\n    Reference(s): ' + (claim.references.length
+                                ? claim.references.map(reference => reference.text +
+                                    (reference.source === 'section heading' ? ' [from section heading]' :
+                                        reference.source === 'paragraph context' ? ' [from paragraph context]' : '') +
+                                    (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                                : 'No sentence or inherited passage reference detected') +
+                            '\n    Candidate outline: ' + (claim.outlineLinks.length
+                                ? claim.outlineLinks.map(link => link.label).join('; ') : 'No candidate outline link') +
+                            '\n    Candidate IBS division: ' + (claim.divisionLinks.length
+                                ? claim.divisionLinks.map(link => link.label).join('; ') : 'No candidate IBS division') +
+                            '\n    Review flags: ' + (claim.flags.length ? claim.flags.join('; ') : 'No heuristic flags; human review is still required.')
+                        ).join('\n\n') : 'No sentences separated for review.') +
+                        (row.omittedClaims ? '\n  ' + row.omittedClaims + ' additional sentence claims not shown in this paragraph.' : '') +
+                        '\nParagraph-level review flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags; human review is still required.'),
                     'No manuscript paragraph blocks were available for analysis.', 30);
                 addSection('How to use paragraph traceability',
-                    'A candidate outline or IBS division link is shown only when a passage reference found in the paragraph, or inherited from its Markdown section heading when the paragraph has no citation of its own, overlaps the target verse range. Inherited heading references are labelled and must be checked to confirm the paragraph belongs within that section. The tool does not infer theological support from similar wording. Compare each paragraph with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare application paragraphs with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
+                    'A candidate outline or IBS division link is shown only when a passage reference found in the paragraph, or inherited from its Markdown section heading when the paragraph has no citation of its own, overlaps the target verse range. Inherited heading references are labelled and must be checked to confirm the paragraph belongs within that section. Each paragraph is also split conservatively into sentence-level claims. A sentence’s own citation takes precedence; where absent, the analyzer labels any reference inherited from the paragraph context or section heading. Reference overlap is only a candidate link, not proof that a sentence is supported. Sentence splitting is heuristic and abbreviations, quoted text and complex punctuation should still be checked. Compare claims with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare applications with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
                     'Paragraph-level matches are not available.', 1800);
 
                 const sourceNotesPresent = Boolean(String(sourceSections.interpret || '').trim() || String(sourceSections.doctrine || '').trim());

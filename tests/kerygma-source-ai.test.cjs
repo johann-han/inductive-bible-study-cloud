@@ -477,10 +477,11 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
     return vm.runInNewContext('(' + functionSource + ')');
   };
 
+  const splitSentences = extractMethod('splitManuscriptClaimSentences', 'analyzeManuscriptClaimParagraphs');
   const analyze = extractMethod('analyzeManuscriptClaimParagraphs', 'renderManuscriptEvidenceTrace');
   const parseRange = extractMethod('parseOutlineTraceRange', 'outlineTraceRangesOverlap');
   const rangesOverlap = extractMethod('outlineTraceRangesOverlap', 'outlineTraceNotesForRange');
-  const context = { parseOutlineTraceRange: parseRange, outlineTraceRangesOverlap: rangesOverlap };
+  const context = { splitManuscriptClaimSentences: splitSentences, parseOutlineTraceRange: parseRange, outlineTraceRangesOverlap: rangesOverlap };
 
   const packet = {
     studyReference: { book: 'Romans', chapter: 2, displayReference: 'Romans 2' },
@@ -513,7 +514,9 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
     '',
     'Paul warns the person who judges others while doing the same things (Romans 2:1–4).',
     '',
-    'This related paragraph belongs to the heading above but does not repeat a Bible reference.',
+    'This related paragraph belongs to the heading above but does not repeat a Bible reference. Its second sentence must be assessed separately.',
+    '',
+    'Paul adds one thought. He explains it in Romans 2:2.',
     '',
     'John 2:1–4 belongs to a different passage and must not be linked automatically to Romans 2.',
     '',
@@ -531,8 +534,11 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   const packetBefore = JSON.stringify(packet);
   const manuscriptBefore = manuscript;
   const result = analyze.call(context, manuscript, outline, packet);
-  assert.equal(result.totalCount, 7, 'headings are section labels, not paragraph claims');
-  assert.equal(result.rows.length, 7);
+  assert.equal(result.totalCount, 8, 'headings are section labels, not paragraph claims');
+  assert.equal(result.rows.length, 8);
+  assert.equal(result.totalSentenceCount, 10, 'count sentence-level claims across the displayed paragraph blocks');
+  assert.equal(result.visibleSentenceCount, 10);
+  assert.equal(result.omittedSentenceCount, 0);
   assert.equal(result.omittedCount, 0);
   assert.equal(result.inputTruncated, false);
 
@@ -559,6 +565,26 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.equal(inherited.outlineLinks.length, 1, 'section heading reference should link this paragraph to the matching outline point');
   assert.equal(inherited.divisionLinks.length, 1, 'section heading reference should link this paragraph to the matching IBS division');
   assert.ok(inherited.flags.some(flag => flag.includes('inherited from the section heading')));
+  assert.equal(inherited.claims.length, 2, 'paragraph sentences are assessed separately');
+  assert.ok(inherited.claims.every(claim => claim.references.some(reference => reference.source === 'section heading')));
+  assert.ok(inherited.claims.every(claim => claim.flags.some(flag => flag.includes('inherited from the section heading'))));
+  assert.ok(inherited.claims[0].text.includes('does not repeat a Bible reference'));
+  assert.ok(inherited.claims[1].text.includes('second sentence'));
+  assert.ok(inherited.claims.every(claim => claim.outlineLinks.length === 1 && claim.divisionLinks.length === 1));
+
+  const paragraphContext = result.rows.find(row => row.excerpt.startsWith('Paul adds one thought'));
+  assert.equal(paragraphContext.claims.length, 2);
+  assert.ok(paragraphContext.claims[0].references.some(reference => reference.source === 'paragraph context'));
+  assert.ok(paragraphContext.claims[0].flags.some(flag => flag.includes('inherited from the paragraph context')));
+  assert.ok(paragraphContext.claims[1].references.some(reference => reference.source === 'sentence' && reference.text.includes('Romans 2:2')));
+
+  const splitSample = 'Dr. Paul uses e.g. a teaching example. Romans 2:1–4 establishes the passage. In vv. 5–8, he adds another claim. A.D. 50 is a historical date.';
+  assert.deepEqual(Array.from(splitSentences(splitSample)), [
+    'Dr. Paul uses e.g. a teaching example.',
+    'Romans 2:1–4 establishes the passage.',
+    'In vv. 5–8, he adds another claim.',
+    'A.D. 50 is a historical date.'
+  ], 'common abbreviations and Bible verse punctuation must not create spurious claims');
   assert.ok(html.includes("reference.source === 'section heading' ? ' [from section heading]' : ''"),
     'the UI must label an inherited heading reference');
   assert.ok(html.includes('when the paragraph has no citation of its own'),
@@ -591,6 +617,11 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.equal(bounded.rows.length, 30, 'only the first 30 paragraph blocks are rendered');
   assert.equal(bounded.omittedCount, 5);
   assert.ok(bounded.rows.every(row => row.excerpt.length <= 440), 'display excerpts stay bounded');
+  assert.ok(bounded.visibleSentenceCount <= 120, 'the total number of displayed sentence claims is bounded');
+  assert.ok(bounded.omittedSentenceCount >= 0);
+  assert.ok(html.includes("Paragraph-by-paragraph / sentence-level claim traceability · heuristic review"));
+  assert.ok(html.includes("claim.index + ': ' + claim.text"));
+  assert.ok(html.includes('Sentence-level claims ('), 'show individual sentence review inside each paragraph');
 });
 
 test('Manuscript evidence trace refreshes without altering outline compilation or AI overwrite safeguards', () => {

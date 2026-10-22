@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five tabs, More Questions/More Insights, stage-labelled Guide action, stage-separated chat, and the panel/tab-overlap fix are merged into `main`. PR #32 merged at `0d7d21a97de9e319e88d31d503d1012d0c6d54ea`; both feature-branch CI and main-branch CI passed. The Guide panel is now anchored below the workflow tabs (`top-32`) and height-bounded to `calc(100vh - 13rem)`, preserving its 760px desktop width and horizontal resizing. Live Render verification remains pending. Sermon/source data remain untouched.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching across all five tabs, More Questions/More Insights, labelled/stage-separated Guide chat, Markdown list formatting, and the panel/tab-overlap fix are merged into `main`. The user confirmed the Guide panel layout is much better. The next improvement is in progress on `feat/kerygma-outline-evidence-traceability`: give each homiletical point an expandable, source-aware evidence trace showing its verse reference, potential overlapping IBS passage divisions, explicit-reference Observe/Interpretation note blocks, verse maps/word studies, markups, and cross-references. The view clearly distinguishes candidate overlaps from verified interpretive support, shows the point's Kerygma notes separately, updates when its ref/notes change, and does not mutate sermon/source data. Regression tests and PR/CI remain pending.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -322,6 +322,21 @@ The follow-up:
 Merged in PR #32 at `0d7d21a97de9e319e88d31d503d1012d0c6d54ea`. CI passed on feature commit `ee6f02c755e450f206bfb1e8729d192d9585236d` and main merge commit `0d7d21a97de9e319e88d31d503d1012d0c6d54ea`.
 
 The user’s screenshot showed the floating Guide panel covering the “Manuscript / Notes” workflow tab. The fix anchors the panel at `top-32` and caps height at `calc(100vh - 13rem)`, leaving the tab row visible while preserving panel width, horizontal resizing, stage separators, and message history. A regression test confirms the top anchor, height cap, and width. Once Render deploys this main commit, refresh with Ctrl+F5 and verify all five workflow tab labels remain fully visible while the Guide panel is open.
+
+### Homiletical Outline evidence traceability (22 October 2026)
+
+Current branch: `feat/kerygma-outline-evidence-traceability` (not yet merged).
+The next improvement connects each Kerygma main point to supplied IBS evidence without implying that simple overlap proves the claim is true.
+
+Implementation:
+- Each homiletical point gets a collapsed “Evidence traceability” panel that identifies the point's textual reference and a human-review status.
+- Parse references such as `Romans 2:1–4`, `2:5`, `vv. 17–29`, and a bare verse/range relative to the imported study chapter.
+- List candidate IBS passage-outline sections whose verse ranges overlap, plus Observe/Interpretation blocks with explicit verse references, verse-map/word-study entries, Scripture markups, and personal/standard cross-references from the selected range.
+- Display the current Kerygma point notes separately as the sermon explanation, not as an independently verified source finding.
+- Use status language such as “Potential links found — verify fit”, “Needs review — no direct range matches”, “Check verse reference”, and “No IBS source attached”. State clearly that range overlap is a navigation aid and does not prove interpretive support.
+- Build the evidence display with DOM `textContent`, not HTML insertion, and bound excerpt size to avoid unbounded cards. Refresh the trace when point reference, statement, or notes are edited.
+- Do not change the five existing AI generation workflows, guide conversation, import/export, source packet, or sermon records.
+- Tests exercise reference parsing/range overlap and assert evidence categories, uncertainty/provenance, safe text rendering and refresh behavior. Run CI and merge via PR only when checks pass; live test should expand traces for Romans 2:1–4 and a second point, confirming source references and review status without altering fields.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

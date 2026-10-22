@@ -275,6 +275,53 @@ test('Kerygma Guide visually separates conversations by active workflow stage', 
   assert.ok(!html.includes("this.guideHistory.push({ role: 'stage'"), 'visual dividers must not be added to the AI conversation history');
 });
 
+test('outline evidence tracing parses verse references and checks range overlap', () => {
+  const parseStart = html.indexOf('            parseOutlineTraceRange(reference, defaultChapter) {');
+  const overlapStart = html.indexOf('            outlineTraceRangesOverlap(a, b) {', parseStart);
+  const noteStart = html.indexOf('            outlineTraceNotesForRange(notes, range, defaultChapter) {', overlapStart);
+  assert.ok(parseStart >= 0 && overlapStart > parseStart && noteStart > overlapStart);
+  const parseSource = html.slice(parseStart, overlapStart).trim().replace(/^parseOutlineTraceRange/, 'function parseOutlineTraceRange');
+  const overlapEnd = html.indexOf('            renderOutlineEvidenceTrace(item) {', noteStart);
+  const overlapSource = html.slice(overlapStart, noteStart).trim().replace(/^outlineTraceRangesOverlap/, 'function outlineTraceRangesOverlap');
+  assert.ok(overlapEnd > noteStart);
+  const sandbox = {};
+  vm.runInNewContext(parseSource + '\n' + overlapSource + '\nthis.helpers = { parseOutlineTraceRange, outlineTraceRangesOverlap };', sandbox);
+  const parse = (reference, chapter = 2) => JSON.parse(JSON.stringify(sandbox.helpers.parseOutlineTraceRange(reference, chapter)));
+  assert.deepEqual(parse('Romans 2:1-4'), { chapter: 2, start: 1, end: 4 });
+  assert.deepEqual(parse('vv. 17–29'), { chapter: 2, start: 17, end: 29 });
+  assert.deepEqual(parse('2:5'), { chapter: 2, start: 5, end: 5 });
+  assert.equal(parse('no verse reference'), null);
+  const overlap = sandbox.helpers.outlineTraceRangesOverlap;
+  assert.equal(overlap({ chapter: 2, start: 1, end: 4 }, { chapter: 2, start: 3, end: 6 }), true);
+  assert.equal(overlap({ chapter: 2, start: 1, end: 4 }, { chapter: 2, start: 5, end: 8 }), false);
+  assert.equal(overlap({ chapter: 2, start: 1, end: 4 }, { chapter: 3, start: 1, end: 4 }), false);
+});
+
+test('homiletical points show candidate IBS evidence with provenance and review status', () => {
+  assert.ok(html.includes("row.appendChild(this.renderOutlineEvidenceTrace(item));"));
+  assert.ok(html.includes("details.className = 'outline-evidence-trace rounded-lg border border-teal-200 bg-white';"));
+  for (const label of [
+    'Textual basis · Kerygma point reference',
+    'Review status',
+    'IBS passage divisions · overlapping verse ranges',
+    'IBS note blocks · explicit verse references',
+    'IBS verse maps and word studies · verses in this range',
+    'IBS Scripture observations · visual marks in this range',
+    'IBS cross-references · entries from this verse range',
+    'Kerygma point explanation · sermon notes'
+  ]) assert.ok(html.includes(label), `missing evidence traceability section: ${label}`);
+  assert.ok(html.includes('Passage text · imported wording'));
+  assert.ok(html.includes('Sermon claim under review · homiletical point'));
+  assert.ok(html.includes("filter(([verse, entry]) => Number(verse) >= parsedRange.start && Number(verse) <= parsedRange.end &&"));
+  assert.ok(html.includes('Potential links found — verify fit'));
+  assert.ok(html.includes('they do not prove that the sermon point correctly interprets the passage'));
+  assert.ok(html.includes('Source provenance: IBS content above is shown as imported evidence.'));
+  assert.ok(html.includes("content.textContent = text || '';"), 'imported evidence must be rendered as text, not HTML');
+  assert.ok(html.includes("this.refreshOutlineEvidenceTrace(item)"), 'evidence view should refresh when point fields change');
+  assert.ok(html.includes("if (!packet) reviewStatus = 'No IBS source attached'"));
+  assert.ok(html.includes("else if (!parsedRange || bookMismatch || parsedRange.chapter !== studyChapter) reviewStatus = 'Check verse reference'"));
+});
+
 test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable', () => {
   assert.ok(html.includes('width:min(94vw,760px)'));
   assert.ok(html.includes('min-width:min(94vw,380px)'));

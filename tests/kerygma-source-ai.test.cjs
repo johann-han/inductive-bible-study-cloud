@@ -664,6 +664,79 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.ok(html.includes("'\\nParagraph reference(s): '"), 'paragraph reference context remains available without the paragraph excerpt');
 });
 
+test('claim review decisions persist per sermon outside saved manuscript data', () => {
+  const storageStart = html.indexOf('            claimReviewStorageKey() {');
+  const storageEnd = html.indexOf('            saveToStorage() {', storageStart);
+  assert.ok(storageStart >= 0 && storageEnd > storageStart, 'expected isolated claim-review storage methods');
+  const storageMethods = html.slice(storageStart, storageEnd);
+  const store = new Map([['kerygma_sermons', '[{"id":"sermon-1","manuscript":"unchanged"}]']]);
+  const reads = [];
+  const writes = [];
+  const fakeStorage = {
+    getItem(key) {
+      reads.push(key);
+      return store.has(key) ? store.get(key) : null;
+    },
+    setItem(key, value) {
+      writes.push(key);
+      store.set(key, String(value));
+    }
+  };
+  const sandbox = { localStorage: fakeStorage };
+  vm.runInNewContext(
+    'this.reviewMethods = ({\n' + storageMethods + '\n});',
+    sandbox
+  );
+  const service = sandbox.reviewMethods;
+
+  assert.equal(service.claimReviewStorageKey(), 'kerygma_claim_review_status_v1');
+  assert.equal(service.getClaimReviewStatus('sermon-1', 'claim-key'), 'not-reviewed');
+  assert.equal(service.saveClaimReviewStatus('sermon-1', 'claim-key', 'reviewed'), true);
+  assert.equal(service.getClaimReviewStatus('sermon-1', 'claim-key'), 'reviewed');
+  assert.equal(service.getClaimReviewStatus('sermon-2', 'claim-key'), 'not-reviewed', 'statuses are isolated by sermon');
+  assert.equal(service.saveClaimReviewStatus('sermon-1', 'claim-key', 'needs-research'), true);
+  assert.equal(service.getClaimReviewStatus('sermon-1', 'claim-key'), 'needs-research');
+  assert.equal(service.saveClaimReviewStatus('sermon-1', 'claim-key', 'requires-revision'), true);
+  assert.equal(service.getClaimReviewStatus('sermon-1', 'claim-key'), 'requires-revision');
+  assert.equal(service.saveClaimReviewStatus('sermon-1', 'claim-key', 'unsupported-value'), false);
+  assert.equal(service.saveClaimReviewStatus('', 'claim-key', 'reviewed'), false);
+
+  assert.deepEqual(Array.from(new Set(writes)), ['kerygma_claim_review_status_v1']);
+  assert.equal(store.get('kerygma_sermons'), '[{"id":"sermon-1","manuscript":"unchanged"}]',
+    'review statuses must not rewrite the saved sermon record');
+  const saved = JSON.parse(store.get('kerygma_claim_review_status_v1'));
+  assert.equal(saved['sermon-1']['claim-key'], 'requires-revision');
+  assert.ok(reads.includes('kerygma_claim_review_status_v1'));
+
+  const claim = { kind: 'claim', index: 3, proposition: 'God judges impartially according to truth.' };
+  const keyA = service.makeClaimReviewKey(4, claim);
+  const keyB = service.makeClaimReviewKey(4, { ...claim });
+  const keyDifferentParagraph = service.makeClaimReviewKey(5, claim);
+  const keyDifferentProposition = service.makeClaimReviewKey(4, { ...claim, proposition: 'God shows no partiality.' });
+  assert.equal(keyA, keyB, 'the same claim should retain its key after refresh');
+  assert.notEqual(keyA, keyDifferentParagraph, 'claim keys must include paragraph location');
+  assert.notEqual(keyA, keyDifferentProposition, 'edited propositions must not inherit an unrelated decision');
+  assert.equal(service.makeClaimReviewKey(4, { kind: 'context', index: 1, proposition: '' }), '',
+    'only extracted candidate propositions receive review keys');
+  assert.ok(!storageMethods.includes("localStorage.setItem('kerygma_sermons'"),
+    'claim-review persistence must use its dedicated storage key');
+});
+
+test('claim-review controls appear only for candidate propositions and explain their separate storage', () => {
+  assert.ok(html.includes("addClaimReviewEntries('Claim review workflow · candidate propositions only'"));
+  for (const status of ['Not reviewed', 'Reviewed', 'Needs research', 'Requires revision']) {
+    assert.ok(html.includes("'" + status + "'") || html.includes("'" + status.toLowerCase().replace(/\s+/g, '-') + "'"),
+      'missing claim review status: ' + status);
+  }
+  assert.ok(html.includes("select.setAttribute('aria-label', 'Review status for paragraph ' + row.index + ', claim ' + claim.claimIndex)"));
+  assert.ok(html.includes("this.saveClaimReviewStatus(sermon.id, claimReviewKey, nextStatus)"));
+  assert.ok(html.includes("Status stored separately from sermon text"));
+  assert.ok(html.includes('this.makeClaimReviewKey(row.index, claim)'));
+  assert.ok(html.includes("this.claimReviewStorageKey()"));
+  assert.ok(!html.includes("select.setAttribute('aria-label', 'Review status for paragraph ' + row.index + ', claim ' + claim.index)"),
+    'status controls should identify only distilled candidate claims');
+});
+
 test('Manuscript evidence trace refreshes without altering outline compilation or AI overwrite safeguards', () => {
   assert.ok(html.includes('this.renderManuscriptEvidenceTrace();\n            }\n\n            updateMeta() {'),
     'refresh on sermon load');

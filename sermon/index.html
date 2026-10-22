@@ -1794,6 +1794,7 @@ Answer the current question in light of the active stage and the available sourc
                 if (!sermon) return;
                 const packet = sermon.inductiveStudySource || null;
                 const manuscript = String(sermon.manuscript || '').trim();
+                const manuscriptReferences = this.parseOutlineTraceRange(sermon.passage || '', Number(packet && packet.studyReference && packet.studyReference.chapter));
                 const details = document.createElement('details');
                 details.className = 'rounded-lg border border-sky-200 bg-white';
                 details.open = wasOpen;
@@ -1923,6 +1924,58 @@ Answer the current question in light of the active stage and the available sourc
                             .filter(Boolean).join('\n'),
                         'Imported packet identity is incomplete.', 1500);
                 }
+
+
+                const studyRef = packet && packet.studyReference ? packet.studyReference : {};
+                const chapterNumber = Number(studyRef.chapter);
+                const candidateDivisionLinks = outlinePoints.map(point => {
+                    const parsed = this.parseOutlineTraceRange(point.reference, chapterNumber);
+                    const prefix = point.reference.match(/^(.+?)\\s+\\d{1,3}\\s*:/);
+                    const bookMismatch = Boolean(prefix && studyRef.book &&
+                        prefix[1].trim().toLowerCase() !== String(studyRef.book).trim().toLowerCase());
+                    const valid = Boolean(packet && parsed && parsed.chapter === chapterNumber && !bookMismatch);
+                    const matches = valid && packet.passageOutline && Array.isArray(packet.passageOutline.sections)
+                        ? packet.passageOutline.sections.filter(sourceRow => {
+                            const sourceRange = this.parseOutlineTraceRange(sourceRow.verseRange, chapterNumber);
+                            return sourceRange && this.outlineTraceRangesOverlap(parsed, sourceRange);
+                        }).slice(0, 3) : [];
+                    return { point, valid, matches };
+                });
+                addEntries('Potential IBS passage-division links for each outline point · review fit, not proof',
+                    candidateDivisionLinks,
+                    link => {
+                        const point = link.point;
+                        const target = 'Point ' + point.index + ' (' + (point.reference || 'reference missing') + '): ' + (point.statement || 'statement missing');
+                        if (!packet) return target + ' → no imported IBS packet';
+                        if (!link.valid) return target + ' → needs review: verse range missing/invalid or outside the imported study passage';
+                        if (!link.matches.length) return target + ' → needs review: no overlapping IBS passage division found';
+                        return target + ' → candidate division(s): ' + link.matches.map(row =>
+                            (row.verseRange || 'range not recorded') + ' ' + (row.heading || row.majorIdea || '')
+                        ).join('; ');
+                    },
+                    'No outline points are available for candidate-link review.', 12);
+
+                const sourceNotesPresent = Boolean(String(sourceSections.interpret || '').trim() || String(sourceSections.doctrine || '').trim());
+                const sourceDivisionPresent = sourceDivisions.length > 0;
+                const outlineLinkCount = candidateDivisionLinks.filter(link => link.valid && link.matches.length).length;
+                const claimReviewStatus = !manuscript
+                    ? 'No manuscript text to review yet'
+                    : !packet
+                        ? 'Unsupported / source-check required: no IBS packet is attached for comparison'
+                        : !currentBigIdea || !currentAim
+                            ? 'Missing link: approve the Big Idea and sermon aim'
+                            : !outlinePoints.length
+                                ? 'Missing link: no outline points connect the manuscript to verse-level structure'
+                                : !sourceNotesPresent
+                                    ? 'Missing link: imported Interpretation and Doctrine notes are empty'
+                                    : !sourceDivisionPresent
+                                        ? 'Missing link: imported passage divisions are absent'
+                                        : outlineLinkCount < outlinePoints.length
+                                            ? 'Potential unsupported links: one or more outline points lack an overlapping IBS division'
+                                            : 'Potential links found — verify every claim against the passage and IBS evidence';
+                addSection('Claim / evidence review status · heuristic only',
+                    claimReviewStatus,
+                    'Needs review — manuscript content is absent.', 1500);
 
                 const checklist = document.createElement('section');
                 checklist.className = 'space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3';

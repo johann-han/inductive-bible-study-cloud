@@ -1,7 +1,7 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma JSON import/export, source-aware AI workflows, safe Markdown guide formatting, stage-specific Text & Exegesis coaching, More Questions/More Insights, and the More Questions click-handler fix are merged into `main`. The user confirmed both quick options work on Romans 2; their last screenshot showed five non-repetitive questions and relevant verse-specific insights. The current branch `feat/kerygma-stage-specific-coaching` extends the Guide's stage-specific instruction to Big Idea & Proposition, Homiletical Outline, Illustrations & Application, and Manuscript / Notes. It adds regression tests and must pass CI before a PR is merged. Sermon/source data remain untouched. Final theological review remains pending.
-Last reviewed: 21 October 2026.
+Document status: IBS→Kerygma JSON import/export, source-aware AI workflows, safe Markdown guide formatting, stage-specific coaching for all five Kerygma tabs, More Questions/More Insights, and the More Questions click-handler fix are merged into `main`. The user confirmed the two quick options work on Romans 2. PR #26 added distinct coaching instructions for Big Idea & Proposition, Homiletical Outline, Illustrations & Application, and Manuscript / Notes; it merged at `3d229462e3203440ad022962a3ad46926f78d4c5`, and the main-branch `Kerygma source-aware AI checks` workflow passed. Live Render testing of the new coaching in the four tabs remains pending. Sermon/source data remain untouched. Final theological review remains pending.
+Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
 ## 1. Executive decision
@@ -270,14 +270,14 @@ PR #21 merged the continuous-list prompt wording. The subsequent bug report reve
 
 ### Stage-specific coaching for all Kerygma tabs (22 October 2026)
 
-Current branch: `feat/kerygma-stage-specific-coaching` (not yet merged).
+Merged in PR #26 at `3d229462e3203440ad022962a3ad46926f78d4c5`. The source-aware AI workflow passed on both feature commit `b9be7768301a93aa28ce9008b3d9990b0c12dffb` and main merge commit `3d229462e3203440ad022962a3ad46926f78d4c5`. Live Render testing of these four stage-specific coaching paths remains pending.
 The Text & Exegesis Guide already has detailed coaching directions, but the other four tabs were receiving only generic active-stage guidance. This change adds separate guidance for:
 - **Big Idea & Proposition:** use the established Interpretation/Doctrine notes and current exegetical subject/complement; distinguish the original exegetical idea from the contemporary homiletical proposition; keep one text-traceable central claim.
 - **Homiletical Outline:** use the IBS passage divisions as evidence, not as a pre-made sermon outline; check the Big Idea, verse ranges, logical progression, distinct points and textual support.
 - **Illustrations & Application:** build on Doctrine/Discipleship and the current Big Idea/outline; check each illustration's fit and each audience-specific application for textual grounding and pastoral/theological safety.
 - **Manuscript / Notes:** review alignment between passage, Big Idea, objective, outline, applications, illustrations and manuscript; flag unsupported claims, gaps and mismatches while preserving user approval and the read-only source packet.
 
-Existing Exegesis guidance, source-context selection, server/provider behavior, five content-generation prompts, the guide's 900-token budget, safe Markdown rendering, and the user's sermon records are unchanged. New regression coverage checks stage-to-profile mappings and the presence of each distinct coaching contract. Run CI on this branch; only open/merge a PR after checks pass. After Render deploys from `main`, test one Guide prompt on each of the four tabs with the imported Romans 2 study.
+Existing Exegesis guidance, source-context selection, server/provider behavior, five content-generation prompts, the guide's 900-token budget, safe Markdown rendering, and the user's sermon records are unchanged. New regression coverage checks stage-to-profile mappings and the presence of each distinct coaching contract. CI has passed and the PR is merged. After Render deploys from `main`, test one Guide prompt on each of the four tabs with the imported Romans 2 study. Confirm each reply fits its stage and leaves sermon fields/source notes unchanged.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

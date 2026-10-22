@@ -235,6 +235,18 @@ test('Kerygma Guide coaches Big Idea, Outline, Applications, and Manuscript stag
   assert.ok(html.includes('Never automatically change title, Bible text, notes, Big Idea, outline, applications, manuscript, or the imported IBS source.'));
 });
 
+test('Kerygma Guide quick action names the active workflow stage', () => {
+  assert.ok(html.includes('id="kerygma-guide-stage-prompt-label">Guide me through Text &amp; Exegesis</span>'));
+  assert.ok(html.includes("stagePromptLabel.textContent = 'Guide me through ' + stage.label;"));
+  assert.ok(html.includes("this.updateKerygmaGuideContextLabel();\n                document.querySelectorAll('.tab-view')"));
+  assert.ok(html.includes("passage: { label: 'Text & Exegesis', profile: 'exegesis' }"));
+  assert.ok(html.includes("bigidea: { label: 'Big Idea & Proposition', profile: 'bigIdea' }"));
+  assert.ok(html.includes("outline: { label: 'Homiletical Outline', profile: 'outline' }"));
+  assert.ok(html.includes("illustrations: { label: 'Illustrations & Application', profile: 'applications' }"));
+  assert.ok(html.includes("manuscript: { label: 'Manuscript / Notes', profile: 'manuscript' }"));
+  assert.ok(html.includes("sermonApp.setKerygmaGuidePrompt('Guide me through this step. Ask me useful questions rather than doing all the work for me.')"));
+});
+
 test('Kerygma Guide panel is wider, screen-bounded, and horizontally resizable', () => {
   assert.ok(html.includes('width:min(94vw,760px)'));
   assert.ok(html.includes('min-width:min(94vw,380px)'));

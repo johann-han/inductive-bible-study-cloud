@@ -322,6 +322,47 @@ test('homiletical points show candidate IBS evidence with provenance and review 
   assert.ok(html.includes("else if (!parsedRange || bookMismatch || parsedRange.chapter !== studyChapter) reviewStatus = 'Check verse reference'"));
 });
 
+test('Illustrations and Application trace keeps Kerygma drafts distinct from IBS Doctrine and Discipleship', () => {
+  assert.ok(html.includes('id="application-evidence-trace"'));
+  assert.ok(html.includes("this.renderApplicationEvidenceTrace();"));
+  assert.ok(html.includes("details.className = 'rounded-lg border border-emerald-200 bg-white';"));
+  assert.ok(html.includes('Evidence traceability · Illustrations & Application'));
+  for (const label of [
+    'Current Kerygma context',
+    'Kerygma application draft · seekers / non-believers',
+    'Kerygma application draft · believers / growing Christians',
+    'Kerygma application draft · suffering / weary hearers',
+    'Kerygma illustrations & analogies · saved draft content',
+    'Review status',
+    'IBS Doctrine · theological guardrails',
+    'IBS Discipleship · lived response and formation',
+    'IBS passage divisions · source context',
+    'IBS selected verses · study emphasis',
+    'IBS verse maps & word studies · contextual evidence',
+    'IBS personal cross-references · user-created',
+    'IBS standard cross-references · imported source'
+  ]) assert.ok(html.includes(label), 'missing application evidence category: ' + label);
+  assert.ok(html.includes('Doctrine and Discipleship source notes available — review application fit'));
+  assert.ok(html.includes('Needs review — no Doctrine or Discipleship notes recorded'));
+  assert.ok(html.includes('No imported IBS source packet is attached.'));
+  assert.ok(html.includes('The current record does not tag each illustration as user-written or AI-generated'));
+  assert.ok(html.includes('Source overlap is context, not proof that an application is faithful or that an illustration is factually accurate.'));
+  assert.ok(html.includes('fullText.slice(0, 6000)'));
+  assert.ok(html.includes('fullText.slice(0, 1400)'));
+
+  const start = html.indexOf('renderApplicationEvidenceTrace() {');
+  const end = html.indexOf('renderBigIdeaEvidenceTrace() {', start);
+  assert.ok(start >= 0 && end > start, 'expected the application evidence view method');
+  const method = html.slice(start, end);
+  assert.ok(!method.includes('saveToStorage('), 'rendering evidence must not write sermon/source data');
+  assert.ok(!method.includes('.inductiveStudySource ='), 'rendering evidence must not mutate the imported packet');
+  assert.ok(!method.includes('innerHTML'), 'imported source material must be rendered as text');
+  assert.ok(method.includes('details.open = wasOpen;'), 'keep the panel expanded during edits');
+  assert.ok(html.includes('this.renderApplicationEvidenceTrace();\n            }\n\n            switchTab(tabKey)'), 'refresh evidence when form fields change');
+  assert.ok(html.includes('this.renderIllustrations();\n                    this.renderApplicationEvidenceTrace();'), 'refresh after AI-generated applications are inserted');
+  assert.ok(html.includes('this.saveToStorage();\n                this.renderIllustrations();\n                this.renderApplicationEvidenceTrace();'), 'refresh after adding/removing illustrations');
+});
+
 test('Big Idea evidence trace presents IBS interpretation and doctrine separately from the sermon claim', () => {
   assert.ok(html.includes('id="big-idea-evidence-trace"'));
   assert.ok(html.includes('this.renderBigIdeaEvidenceTrace();'));

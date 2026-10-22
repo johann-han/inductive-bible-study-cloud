@@ -1889,16 +1889,18 @@ Answer the current question in light of the active stage and the available sourc
                     if (/\b(introduction|opening|hook|setting the scene)\b/.test(value)) return 'Introduction';
                     if (/\b(application|response|discipleship|for believers|for seekers|putting it into practice)\b/.test(value)) return 'Application / response';
                     if (/\b(conclusion|closing|invitation|final thoughts?|call to action)\b/.test(value)) return 'Conclusion';
+                    if (/^(?:[ivxlcdm]+[.)]|\d+[.)])\s+/.test(value)) return 'Exposition / outline';
                     if (/\b(exposition|exegesis|outline|point\s*\d|movement|verse|interpretation|text study)\b/.test(value)) return 'Exposition / outline';
                     return heading ? 'Unlabelled section — ' + String(heading).trim().slice(0, 70) : 'Unlabelled section';
                 };
 
                 const blocks = [];
                 let activeSection = 'Unlabelled section';
+                let activeHeading = '';
                 let blockLines = [];
                 const flushBlock = () => {
                     const blockText = blockLines.join(' ').replace(/\s+/g, ' ').trim();
-                    if (blockText) blocks.push({ section: activeSection, text: blockText });
+                    if (blockText) blocks.push({ section: activeSection, heading: activeHeading, text: blockText });
                     blockLines = [];
                 };
                 analysisSource.split(/\r?\n/).forEach(line => {
@@ -1910,7 +1912,8 @@ Answer the current question in light of the active stage and the available sourc
                     const heading = trimmed.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
                     if (heading) {
                         flushBlock();
-                        activeSection = classifySection(heading[1]);
+                        activeHeading = heading[1].trim();
+                        activeSection = classifySection(activeHeading);
                         return;
                     }
                     blockLines.push(trimmed);
@@ -1988,8 +1991,28 @@ Answer the current question in light of the active stage and the available sourc
 
                 const allRows = blocks.map((block, blockIndex) => {
                     const referenceAnalysis = getReferenceAnalysis(block.text);
-                    const references = referenceAnalysis.references;
-                    const passageRanges = referenceAnalysis.passageRanges;
+                    const references = referenceAnalysis.references.map(reference => ({
+                        ...reference,
+                        source: 'paragraph'
+                    }));
+                    const passageRanges = referenceAnalysis.passageRanges.slice();
+                    let headingReferenceInherited = false;
+
+                    // Inherit an explicit section-heading reference only when the paragraph
+                    // has no reference of its own. A paragraph citing another book/chapter
+                    // must not be linked automatically to its enclosing heading's passage.
+                    if (!references.length && block.heading) {
+                        const headingAnalysis = getReferenceAnalysis(block.heading);
+                        headingAnalysis.references.forEach(reference => {
+                            references.push({ ...reference, source: 'section heading' });
+                        });
+                        headingAnalysis.passageRanges.forEach(range => {
+                            if (!passageRanges.some(existing => this.outlineTraceRangesOverlap(existing, range))) {
+                                passageRanges.push(range);
+                            }
+                        });
+                        headingReferenceInherited = headingAnalysis.references.length > 0;
+                    }
                     const outlineLinks = (Array.isArray(outlinePoints) ? outlinePoints : []).filter(point => {
                         const pointRange = getValidOutlineRange(point.reference);
                         return pointRange && passageRanges.some(range => this.outlineTraceRangesOverlap(range, pointRange));
@@ -2013,7 +2036,10 @@ Answer the current question in light of the active stage and the available sourc
                     if (!packet) flags.push('No imported IBS packet; source links require manual review');
                     if (!references.length) {
                         flags.push('No explicit passage reference detected; verify the paragraph connection to the passage and outline');
-                    } else if (!passageRanges.length) {
+                    } else if (headingReferenceInherited) {
+                        flags.push('Passage reference inherited from the section heading — confirm this paragraph belongs within that verse range');
+                    }
+                    if (references.length && !passageRanges.length) {
                         flags.push('Cited reference does not clearly match the imported book/chapter; verify it manually');
                     } else if (!outlineLinks.length) {
                         flags.push('No overlapping outline point found for the detected passage range; review the fit');
@@ -2039,8 +2065,10 @@ Answer the current question in light of the active stage and the available sourc
                             (block.text.length > maxClaimExcerptCharacters ? ' … [excerpt trimmed]' : ''),
                         references: references.slice(0, 5).map(reference => ({
                             text: reference.text,
-                            matchesPassage: reference.matchesPassage
+                            matchesPassage: reference.matchesPassage,
+                            source: reference.source || 'paragraph'
                         })),
+                        headingReferenceInherited,
                         passageRanges,
                         outlineLinks,
                         divisionLinks,
@@ -2239,7 +2267,7 @@ Answer the current question in light of the active stage and the available sourc
                     row => 'Paragraph ' + row.index + ' · ' + row.section +
                         '\nDraft excerpt: ' + row.excerpt +
                         '\nPassage reference(s): ' + (row.references.length
-                            ? row.references.map(reference => reference.text + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                            ? row.references.map(reference => reference.text + (reference.source === 'section heading' ? ' [from section heading]' : '') + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
                             : 'No explicit passage reference detected') +
                         '\nCandidate outline link(s): ' + (row.outlineLinks.length
                             ? row.outlineLinks.map(link => link.label).join('; ')
@@ -2250,7 +2278,7 @@ Answer the current question in light of the active stage and the available sourc
                         '\nReview flags: ' + (row.flags.length ? row.flags.join('; ') : 'No heuristic flags found; human review is still required.'),
                     'No manuscript paragraph blocks were available for analysis.', 30);
                 addSection('How to use paragraph traceability',
-                    'A candidate outline or IBS division link is shown only when an explicit passage reference overlaps its verse range. The tool does not infer theological support from similar wording. Compare each paragraph with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare application paragraphs with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
+                    'A candidate outline or IBS division link is shown only when a passage reference found in the paragraph, or inherited from its Markdown section heading when the paragraph has no citation of its own, overlaps the target verse range. Inherited heading references are labelled and must be checked to confirm the paragraph belongs within that section. The tool does not infer theological support from similar wording. Compare each paragraph with the approved Big Idea, sermon aim, IBS Interpretation and Doctrine; compare application paragraphs with IBS Discipleship. Historical details, quotations and theological claims still require human verification. Missing automatic links are prompts for review, not proof that a claim is unsupported.',
                     'Paragraph-level matches are not available.', 1800);
 
                 const sourceNotesPresent = Boolean(String(sourceSections.interpret || '').trim() || String(sourceSections.doctrine || '').trim());

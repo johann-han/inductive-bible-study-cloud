@@ -507,9 +507,13 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
     '',
     'People often condemn others before examining their own actions.',
     '',
-    '## Exposition: Romans 2:1–4',
+    '## Exposition',
+    '',
+    '### I. Judgment of Others Leads to Self-Condemnation (Romans 2:1–4)',
     '',
     'Paul warns the person who judges others while doing the same things (Romans 2:1–4).',
+    '',
+    'This related paragraph belongs to the heading above but does not repeat a Bible reference.',
     '',
     'John 2:1–4 belongs to a different passage and must not be linked automatically to Romans 2.',
     '',
@@ -527,8 +531,8 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   const packetBefore = JSON.stringify(packet);
   const manuscriptBefore = manuscript;
   const result = analyze.call(context, manuscript, outline, packet);
-  assert.equal(result.totalCount, 6, 'headings are section labels, not paragraph claims');
-  assert.equal(result.rows.length, 6);
+  assert.equal(result.totalCount, 7, 'headings are section labels, not paragraph claims');
+  assert.equal(result.rows.length, 7);
   assert.equal(result.omittedCount, 0);
   assert.equal(result.inputTruncated, false);
 
@@ -542,10 +546,28 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.equal(exposition.outlineLinks[0].index, 1);
   assert.equal(exposition.divisionLinks.length, 1);
   assert.ok(exposition.references.some(reference =>
-    reference.text.toLowerCase().includes('romans 2:1') && reference.matchesPassage));
+    reference.text.toLowerCase().includes('romans 2:1') && reference.matchesPassage &&
+    reference.source === 'paragraph'));
+
+  const inherited = result.rows.find(row => row.excerpt.includes('does not repeat a Bible reference'));
+  assert.equal(inherited.section, 'Exposition / outline', 'Roman-numeral outline headings are classified as exposition');
+  assert.equal(inherited.headingReferenceInherited, true);
+  assert.ok(inherited.references.some(reference =>
+    reference.source === 'section heading' &&
+    reference.text.includes('Romans 2:1') && reference.matchesPassage));
+  assert.equal(inherited.passageRanges.length, 1);
+  assert.equal(inherited.outlineLinks.length, 1, 'section heading reference should link this paragraph to the matching outline point');
+  assert.equal(inherited.divisionLinks.length, 1, 'section heading reference should link this paragraph to the matching IBS division');
+  assert.ok(inherited.flags.some(flag => flag.includes('inherited from the section heading')));
+  assert.ok(html.includes("reference.source === 'section heading' ? ' [from section heading]' : ''"),
+    'the UI must label an inherited heading reference');
+  assert.ok(html.includes('when the paragraph has no citation of its own'),
+    'help text must explain the inheritance rule');
 
   const otherBook = result.rows.find(row => row.excerpt.includes('John 2:1'));
   assert.equal(otherBook.passageRanges.length, 0, 'a different book must not create an automatic Romans 2 link');
+  assert.equal(otherBook.headingReferenceInherited, false, 'an explicit different-book citation must not inherit the section heading range');
+  assert.ok(otherBook.references.every(reference => reference.source === 'paragraph'));
   assert.ok(otherBook.flags.some(flag => flag.includes('does not clearly match the imported book/chapter')));
 
   const application = result.rows.find(row => row.excerpt.includes('We should examine'));

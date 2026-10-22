@@ -536,8 +536,8 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   const result = analyze.call(context, manuscript, outline, packet);
   assert.equal(result.totalCount, 8, 'headings are section labels, not paragraph claims');
   assert.equal(result.rows.length, 8);
-  assert.equal(result.totalSentenceCount, 9, 'count sentence-level claims across the displayed paragraph blocks');
-  assert.equal(result.visibleSentenceCount, 9);
+  assert.equal(result.totalSentenceCount, 10, 'count sentence-level claims across the displayed paragraph blocks');
+  assert.equal(result.visibleSentenceCount, 10);
   assert.equal(result.omittedSentenceCount, 0);
   assert.equal(result.omittedCount, 0);
   assert.equal(result.inputTruncated, false);

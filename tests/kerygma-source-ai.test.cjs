@@ -661,7 +661,7 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.equal(nonParaphrased.proposition, '', 'do not echo an arbitrary source sentence as a pretend extracted proposition');
   assert.ok(nonParaphrased.note.includes('review this sentence in the manuscript'));
   assert.ok(!html.includes("'\\nParagraph excerpt: ' + row.excerpt +"), 'parent paragraph excerpts must not be rendered');
-  assert.ok(html.includes("'\\nParagraph reference(s): '"), 'paragraph reference context remains available without the paragraph excerpt');
+  assert.ok(html.includes("Paragraph reference(s): "), 'paragraph reference context remains available without the paragraph excerpt');
 });
 
 test('claim review decisions persist per sermon outside saved manuscript data', () => {

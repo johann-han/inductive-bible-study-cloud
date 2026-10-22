@@ -1791,7 +1791,6 @@ Answer the current question in light of the active stage and the available sourc
                 const maxClaimExcerptCharacters = 420;
                 const studyRef = packet && packet.studyReference ? packet.studyReference : {};
                 const studyBook = String(studyRef.book || '').trim();
-                const studyBookKey = normalizeBook(studyBook);
                 const chapterNumber = Number(studyRef.chapter);
                 const normalizeBook = value => {
                     const key = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');

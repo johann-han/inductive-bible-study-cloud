@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, the More Questions click-handler fix, and stage-labelled Guide quick action are merged into `main`. PR #28 merged at `3926863c1f13d4bdfb4d964b43667394fb53c225`; CI passed on both the feature branch and main merge commit. The first Guide action label dynamically names the active stage. The latest requested improvement is in progress on `feat/kerygma-stage-separated-chat`: clearly distinguish messages from different workflow stages in the stacked conversation using stage separators and stage labels on every message, while keeping visual separators out of AI history. Tests, PR and CI are pending. Sermon/source data remain untouched.
+Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, the More Questions click-handler fix, stage-labelled Guide action, and stage-separated chat are merged into `main`. PR #30 merged at `cfe8a6830721b2e685bdcf8e7b506c94d058b6f5`; CI passed on both the feature branch and main merge commit. The chat now inserts an accessible STEP divider when the user changes workflow stages and labels each message with the stage it belongs to. Visual dividers do not enter AI history, while recent exchanges carry their original stage labels for continuity. Live Render verification of the separators and labels remains pending. Sermon/source data remain untouched.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -294,7 +294,7 @@ The click handler still fills the existing input with “Guide me through this s
 
 ### Stage-separated Kerygma Guide conversation (22 October 2026)
 
-Current branch: `feat/kerygma-stage-separated-chat` (not yet merged).
+Merged in PR #30 at `cfe8a6830721b2e685bdcf8e7b506c94d058b6f5`; CI passed on feature commit `5a9841a81a11b66fa03da82ede0f945e1caaab4e` and main merge commit `cfe8a6830721b2e685bdcf8e7b506c94d058b6f5`. Live Render verification remains pending.
 The user notes that all five Kerygma stages appear in one continuous chat stack, making it unclear which answers belong to which stage.
 
 Changes in progress:
@@ -303,7 +303,7 @@ Changes in progress:
 - Store the stage label alongside real conversation history so recent prior exchanges are presented to the model with their originating stage. Visual divider objects are only in `guideMessages`, not `guideHistory`, and must never be sent as AI messages.
 - Capture the stage at the time of an AI request so a response remains labelled with the stage of the request, even if the user changes tabs while waiting.
 - Keep a single chat and preserve existing messages on stage changes; do not clear chat history, sermon content, or imported IBS data.
-- Test all five stage names, transition-only separator insertion, accessible separator semantics, stage-labelled bubbles and the exclusion of divider markers from AI history. After passing CI and merging via PR, verify on Render by switching through all five tabs with chat open.
+- Test all five stage names, transition-only separator insertion, accessible separator semantics, stage-labelled bubbles and the exclusion of divider markers from AI history. CI passed and the PR is merged. Verify on Render after the main-branch deploy by switching through all five tabs with chat open and checking that each group divider and message-stage label appears correctly.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

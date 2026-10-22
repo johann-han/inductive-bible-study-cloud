@@ -333,6 +333,7 @@
 
                 <!-- STEP 5: MANUSCRIPT & NOTES -->
                 <section id="view-manuscript" class="tab-view hidden space-y-6 max-w-5xl mx-auto">
+                    <div id="manuscript-evidence-trace" class="space-y-0"></div>
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-200 pb-3 gap-3">
                             <h2 class="text-lg font-bold text-slate-800">Full Manuscript / Preaching Notes</h2>
@@ -1725,6 +1726,7 @@ Answer the current question in light of the active stage and the available sourc
                 this.renderInductiveStudySource();
                 this.renderBigIdeaEvidenceTrace();
                 this.renderApplicationEvidenceTrace();
+                this.renderManuscriptEvidenceTrace();
             }
 
             updateMeta() {
@@ -1749,6 +1751,7 @@ Answer the current question in light of the active stage and the available sourc
                 this.renderSermonList();
                 this.renderBigIdeaEvidenceTrace();
                 this.renderApplicationEvidenceTrace();
+                this.renderManuscriptEvidenceTrace();
             }
 
             switchTab(tabKey) {
@@ -1779,6 +1782,177 @@ Answer the current question in light of the active stage and the available sourc
                     activeTab.classList.remove('border-transparent', 'text-slate-500');
                     activeTab.classList.add('border-brand-500', 'text-brand-600');
                 }
+            }
+
+            renderManuscriptEvidenceTrace() {
+                const container = document.getElementById('manuscript-evidence-trace');
+                if (!container) return;
+                const wasOpen = Boolean(container.querySelector('details') && container.querySelector('details').open);
+                container.replaceChildren();
+
+                const sermon = this.getCurrentSermon();
+                if (!sermon) return;
+                const packet = sermon.inductiveStudySource || null;
+                const manuscript = String(sermon.manuscript || '').trim();
+                const details = document.createElement('details');
+                details.className = 'rounded-lg border border-sky-200 bg-white';
+                details.open = wasOpen;
+
+                const summary = document.createElement('summary');
+                summary.className = 'cursor-pointer select-none px-4 py-3 text-sm font-semibold text-sky-900 hover:bg-sky-50';
+                summary.textContent = 'Evidence traceability · Manuscript / Notes';
+                details.appendChild(summary);
+
+                const body = document.createElement('div');
+                body.className = 'space-y-3 border-t border-sky-100 px-4 py-4 text-xs text-slate-700';
+
+                const addSection = (title, value, emptyText, limit = 5000) => {
+                    const section = document.createElement('section');
+                    section.className = 'space-y-1';
+                    const heading = document.createElement('h4');
+                    heading.className = 'font-semibold text-slate-800';
+                    heading.textContent = title;
+                    section.appendChild(heading);
+                    const content = document.createElement('div');
+                    content.className = 'whitespace-pre-wrap break-words leading-relaxed';
+                    const fullText = String(value || '').trim();
+                    content.textContent = fullText
+                        ? fullText.slice(0, limit) + (fullText.length > limit ? '\n[Excerpt truncated; the complete saved content remains unchanged.]' : '')
+                        : emptyText || '[No content recorded]';
+                    section.appendChild(content);
+                    body.appendChild(section);
+                };
+
+                const addEntries = (title, entries, formatEntry, emptyText, limit = 8) => {
+                    const section = document.createElement('section');
+                    section.className = 'space-y-1';
+                    const heading = document.createElement('h4');
+                    heading.className = 'font-semibold text-slate-800';
+                    heading.textContent = title;
+                    section.appendChild(heading);
+                    const list = document.createElement('ul');
+                    list.className = 'list-disc pl-5 space-y-1';
+                    const safeEntries = Array.isArray(entries) ? entries.slice(0, limit) : [];
+                    if (safeEntries.length) {
+                        safeEntries.forEach(entry => {
+                            const row = document.createElement('li');
+                            row.className = 'whitespace-pre-wrap break-words';
+                            row.textContent = String(formatEntry(entry) || '').slice(0, 900);
+                            list.appendChild(row);
+                        });
+                        if (entries.length > safeEntries.length) {
+                            const more = document.createElement('li');
+                            more.textContent = (entries.length - safeEntries.length) + ' additional entries not shown.';
+                            list.appendChild(more);
+                        }
+                    } else {
+                        const row = document.createElement('li');
+                        row.textContent = emptyText;
+                        list.appendChild(row);
+                    }
+                    section.appendChild(list);
+                    body.appendChild(section);
+                };
+
+                const outline = Array.isArray(sermon.outline) ? sermon.outline : [];
+                const outlinePoints = outline.map((point, index) => ({
+                    index: index + 1,
+                    statement: String(point && point.statement || '').trim(),
+                    reference: String(point && point.reference || '').trim(),
+                    notes: String(point && point.notes || '').trim()
+                }));
+                const missingOutlineLinks = outlinePoints.filter(point => !point.reference || !point.statement);
+                const currentAim = String(sermon.aim || '').trim();
+                const currentBigIdea = String(sermon.bigIdea || '').trim();
+
+                let reviewStatus = 'Needs review — no manuscript content recorded';
+                if (manuscript) {
+                    if (!packet) reviewStatus = 'Needs review — no imported IBS source packet is attached';
+                    else if (!currentBigIdea || !currentAim) reviewStatus = 'Needs review — approved Big Idea or sermon aim is missing';
+                    else if (!outlinePoints.length) reviewStatus = 'Needs review — no homiletical outline points are recorded';
+                    else if (missingOutlineLinks.length) reviewStatus = 'Potential links available — some outline points lack a statement or verse reference';
+                    else reviewStatus = 'Potential connections identified — human review required';
+                }
+
+                addSection('Review status', reviewStatus, 'Needs review — manuscript content is absent', 1200);
+                addSection('Current Kerygma manuscript · saved user/AI-edited draft',
+                    manuscript, 'No manuscript text is saved yet. Writing here and the existing Auto-Generate / AI Draft buttons remain unchanged.', 5000);
+                addSection('Approved Big Idea · Kerygma field', currentBigIdea,
+                    'Needs review — enter or approve a Big Idea before treating the manuscript as aligned.');
+                addSection('Sermon aim · Kerygma field', currentAim,
+                    'Needs review — enter or approve a sermon aim before treating the manuscript as aligned.');
+
+                addEntries('Homiletical outline points · candidate manuscript structure', outlinePoints,
+                    point => 'Point ' + point.index + ': ' + (point.statement || '[statement missing]') +
+                        ' · Text: ' + (point.reference || '[verse reference missing]') +
+                        (point.notes ? ' · Notes: ' + point.notes : ''),
+                    'No outline points are recorded. Compare the manuscript structure with the sermon outline.', 12);
+
+                const sourceSections = packet && packet.sections && typeof packet.sections === 'object' ? packet.sections : {};
+                addSection('IBS Interpretation · imported source evidence',
+                    sourceSections.interpret, packet ? 'No Interpretation notes are recorded in the imported packet.' : 'No imported IBS source packet is attached.');
+                addSection('IBS Doctrine · imported theological evidence',
+                    sourceSections.doctrine, packet ? 'No Doctrine notes are recorded in the imported packet.' : 'No imported IBS source packet is attached.');
+
+                const sourceDivisions = packet && packet.passageOutline && Array.isArray(packet.passageOutline.sections)
+                    ? packet.passageOutline.sections : [];
+                addEntries('IBS passage divisions · possible links to outline / manuscript claims', sourceDivisions,
+                    row => (row.verseRange || '[verse range not recorded]') + ' — ' +
+                        (row.heading || row.majorIdea || '[division title not recorded]') +
+                        (row.supportingDetails ? ': ' + (Array.isArray(row.supportingDetails) ? row.supportingDetails.join('; ') : row.supportingDetails) : ''),
+                    packet ? 'No passage divisions are present in the imported packet.' : 'No imported IBS source packet is attached.', 10);
+
+                addSection('Kerygma application drafts · sermon content, not IBS source',
+                    [
+                        sermon.appSeekers ? 'Seekers / non-believers: ' + sermon.appSeekers : '',
+                        sermon.appBelievers ? 'Believers / growing Christians: ' + sermon.appBelievers : '',
+                        sermon.appSuffering ? 'Suffering / weary hearers: ' + sermon.appSuffering : ''
+                    ].filter(Boolean).join('\n\n'),
+                    'No audience-specific application drafts are recorded.');
+
+                addSection('IBS Discipleship · imported response / formation evidence',
+                    sourceSections.discipleship, packet ? 'No Discipleship notes are recorded in the imported packet.' : 'No imported IBS source packet is attached.');
+
+                if (packet) {
+                    const identity = packet.studyReference || {};
+                    addSection('IBS source packet identity',
+                        [identity.displayReference || [identity.book, identity.chapter].filter(Boolean).join(' '),
+                            packet.translation || '',
+                            packet.sourceUpdatedAt ? 'Source updated: ' + packet.sourceUpdatedAt : '',
+                            packet.exportedAt ? 'Packet exported: ' + packet.exportedAt : '']
+                            .filter(Boolean).join('\n'),
+                        'Imported packet identity is incomplete.', 1500);
+                }
+
+                const checklist = document.createElement('section');
+                checklist.className = 'space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3';
+                const checklistHeading = document.createElement('h4');
+                checklistHeading.className = 'font-semibold text-amber-950';
+                checklistHeading.textContent = 'Human review checklist';
+                checklist.appendChild(checklistHeading);
+                const checklistList = document.createElement('ul');
+                checklistList.className = 'list-disc pl-5 space-y-1 text-amber-950';
+                [
+                    'Check that the manuscript’s main claims follow from the passage and the imported IBS Interpretation, not merely from shared wording.',
+                    'Check theological assertions against the IBS Doctrine notes and their scriptural basis.',
+                    'Confirm each outline point and verse reference actually supports the paragraph or claim linked to it.',
+                    'Check every application against the IBS Discipleship evidence and the passage context.',
+                    'Mark unsupported assertions, uncited factual claims, quotations, historical details, and claims that need further research.'
+                ].forEach(text => {
+                    const li = document.createElement('li');
+                    li.textContent = text;
+                    checklistList.appendChild(li);
+                });
+                checklist.appendChild(checklistList);
+                body.appendChild(checklist);
+
+                const provenance = document.createElement('p');
+                provenance.className = 'text-[11px] leading-relaxed text-slate-500';
+                provenance.textContent = 'Provenance and limits: manuscript text is the current Kerygma draft and may contain user edits or AI-generated suggestions. IBS Interpretation, Doctrine, passage divisions and Discipleship are displayed as imported source evidence, separately from sermon content. Links are candidate review aids only; this panel does not determine theological correctness, prove support, or automatically label every assertion as supported/unsupported. Opening or refreshing this panel does not edit the manuscript or imported packet.';
+                body.appendChild(provenance);
+
+                details.appendChild(body);
+                container.appendChild(details);
             }
 
             renderApplicationEvidenceTrace() {

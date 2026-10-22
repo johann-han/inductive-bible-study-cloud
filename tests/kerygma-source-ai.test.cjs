@@ -579,7 +579,7 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.ok(paragraphContext.claims[1].references.some(reference => reference.source === 'sentence' && reference.text.includes('Romans 2:2')));
 
   const splitSample = 'Dr. Paul uses e.g. a teaching example. Romans 2:1–4 establishes the passage. In vv. 5–8, he adds another claim. A.D. 50 is a historical date.';
-  assert.deepEqual(splitSentences(splitSample), [
+  assert.deepEqual(Array.from(splitSentences(splitSample)), [
     'Dr. Paul uses e.g. a teaching example.',
     'Romans 2:1–4 establishes the passage.',
     'In vv. 5–8, he adds another claim.',

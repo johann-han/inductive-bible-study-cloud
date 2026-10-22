@@ -2496,7 +2496,7 @@ Answer the current question in light of the active stage and the available sourc
                             const status = readReviewStatus(item.row.index, item.claim);
                             if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
                         });
-                        statusSummary.textContent = 'Review progress — Reviewed: ' + counts.reviewed +
+                        statusSummary.textContent = 'Review progress for displayed propositions — Reviewed: ' + counts.reviewed +
                             ' · Needs research: ' + counts['needs-research'] +
                             ' · Requires revision: ' + counts['requires-revision'] +
                             ' · Not reviewed: ' + counts['not-reviewed'];

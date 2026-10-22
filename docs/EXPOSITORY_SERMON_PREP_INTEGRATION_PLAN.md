@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: Phases 1–5, OpenRouter support, fuller Kerygma Guide coaching, stage-specific Text & Exegesis coaching, Markdown list numbering, and More Questions/More Insights options are merged into `main`. The More Questions button bug is fixed and merged in PR #24 at `2fa342120e3872cb1143fba26e66ecbad4d956e2`. Root cause: an unescaped nested single-quoted phrase inside the inline `onclick` JavaScript invalidated the handler. The prompt wording is corrected, a regression test compiles the actual handler, and GitHub Actions passed on both PR head `3050016c510b803931433ec51f7fd8726c7e60e8` and the main merge commit. Render deployment/live click verification remains pending. Sermon/source data are untouched. Final theological review remains pending.
+Document status: IBS→Kerygma JSON import/export, source-aware AI workflows, safe Markdown guide formatting, stage-specific Text & Exegesis coaching, More Questions/More Insights, and the More Questions click-handler fix are merged into `main`. The user confirmed both quick options work on Romans 2; their last screenshot showed five non-repetitive questions and relevant verse-specific insights. The current branch `feat/kerygma-stage-specific-coaching` extends the Guide's stage-specific instruction to Big Idea & Proposition, Homiletical Outline, Illustrations & Application, and Manuscript / Notes. It adds regression tests and must pass CI before a PR is merged. Sermon/source data remain untouched. Final theological review remains pending.
 Last reviewed: 21 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -267,6 +267,17 @@ PR #21 merged the continuous-list prompt wording. The subsequent bug report reve
 - Each list item must contain its verse reference, question, and brief “Why it matters” rationale within the same item. Do not put the rationale in a separate paragraph between list items and do not restart numbering.
 - Add a regression assertion for this explicit output contract. Do not change the Markdown renderer or More Insights behavior unless CI reveals a necessary issue.
 - The PR is merged with passing CI. After Render deploys `main`, test More Questions on Romans 2 and confirm items run 1–5 without numbering restarting.
+
+### Stage-specific coaching for all Kerygma tabs (22 October 2026)
+
+Current branch: `feat/kerygma-stage-specific-coaching` (not yet merged).
+The Text & Exegesis Guide already has detailed coaching directions, but the other four tabs were receiving only generic active-stage guidance. This change adds separate guidance for:
+- **Big Idea & Proposition:** use the established Interpretation/Doctrine notes and current exegetical subject/complement; distinguish the original exegetical idea from the contemporary homiletical proposition; keep one text-traceable central claim.
+- **Homiletical Outline:** use the IBS passage divisions as evidence, not as a pre-made sermon outline; check the Big Idea, verse ranges, logical progression, distinct points and textual support.
+- **Illustrations & Application:** build on Doctrine/Discipleship and the current Big Idea/outline; check each illustration's fit and each audience-specific application for textual grounding and pastoral/theological safety.
+- **Manuscript / Notes:** review alignment between passage, Big Idea, objective, outline, applications, illustrations and manuscript; flag unsupported claims, gaps and mismatches while preserving user approval and the read-only source packet.
+
+Existing Exegesis guidance, source-context selection, server/provider behavior, five content-generation prompts, the guide's 900-token budget, safe Markdown rendering, and the user's sermon records are unchanged. New regression coverage checks stage-to-profile mappings and the presence of each distinct coaching contract. Run CI on this branch; only open/merge a PR after checks pass. After Render deploys from `main`, test one Guide prompt on each of the four tabs with the imported Romans 2 study.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

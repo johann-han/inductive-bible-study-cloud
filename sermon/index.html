@@ -1929,9 +1929,44 @@ Answer the current question in light of the active stage and the available sourc
                 } else {
                     const list = document.createElement('ul');
                     list.className = 'space-y-3';
+                    const filterBar = document.createElement('div');
+                    filterBar.className = 'mb-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_12rem]';
+                    const searchInput = document.createElement('input');
+                    searchInput.type = 'search';
+                    searchInput.className = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500';
+                    searchInput.placeholder = 'Search sermon, passage, proposition, or reference';
+                    searchInput.setAttribute('aria-label', 'Search claim review queue');
+                    const statusFilter = document.createElement('select');
+                    statusFilter.className = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500';
+                    statusFilter.setAttribute('aria-label', 'Filter claims by review status');
+                    [
+                        { value: 'all', label: 'All flagged propositions' },
+                        { value: 'needs-research', label: 'Needs research' },
+                        { value: 'requires-revision', label: 'Requires revision' }
+                    ].forEach(choice => {
+                        const option = document.createElement('option');
+                        option.value = choice.value;
+                        option.textContent = choice.label;
+                        statusFilter.appendChild(option);
+                    });
+                    filterBar.append(searchInput, statusFilter);
+                    listWrap.appendChild(filterBar);
+
+                    const resultSummary = document.createElement('p');
+                    resultSummary.className = 'mb-2 text-[11px] text-slate-500';
+                    resultSummary.setAttribute('aria-live', 'polite');
+                    listWrap.appendChild(resultSummary);
+
+                    const noMatches = document.createElement('p');
+                    noMatches.className = 'mb-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-5 text-center text-xs text-slate-600';
+                    noMatches.textContent = 'No matching propositions. Clear the search or choose All flagged propositions.';
+                    noMatches.hidden = true;
+
+                    const queueRows = [];
                     dashboard.items.forEach(item => {
                         const row = document.createElement('li');
                         row.className = 'rounded-lg border border-slate-200 p-3';
+                        queueRows.push({ row, item });
                         const top = document.createElement('div');
                         top.className = 'flex flex-wrap items-start justify-between gap-2';
                         const identity = document.createElement('div');
@@ -1991,6 +2026,18 @@ Answer the current question in light of the active stage and the available sourc
                         list.appendChild(row);
                     });
                     listWrap.appendChild(list);
+                    listWrap.appendChild(noMatches);
+                    const applyFilters = () => {
+                        const visibleItems = this.filterClaimReviewQueueItems(dashboard.items, statusFilter.value, searchInput.value);
+                        queueRows.forEach(({ row, item }) => {
+                            row.hidden = !visibleItems.includes(item);
+                        });
+                        resultSummary.textContent = visibleItems.length + ' of ' + dashboard.items.length + ' flagged propositions shown';
+                        noMatches.hidden = visibleItems.length > 0;
+                    };
+                    searchInput.addEventListener('input', applyFilters);
+                    statusFilter.addEventListener('change', applyFilters);
+                    applyFilters();
                 }
 
                 if (dashboard.omittedItems || dashboard.omittedSermons || dashboard.omittedParagraphBlocks || dashboard.omittedSentenceItems) {
@@ -2028,6 +2075,30 @@ Answer the current question in light of the active stage and the available sourc
                 });
                 document.body.appendChild(modal);
                 closeButton.focus();
+            }
+
+            filterClaimReviewQueueItems(items, statusFilter = 'all', searchText = '') {
+                const safeItems = Array.isArray(items) ? items : [];
+                const status = String(statusFilter || 'all');
+                const query = String(searchText || '').trim().toLowerCase();
+                return safeItems.filter(item => {
+                    if (!item || (status !== 'all' && item.status !== status)) return false;
+                    if (!query) return true;
+                    const readLabels = value => (Array.isArray(value) ? value : [])
+                        .map(entry => typeof entry === 'string' ? entry :
+                            (entry && (entry.text || entry.label) ? (entry.text || entry.label) : ''))
+                        .join(' ');
+                    const searchableText = [
+                        item.sermonTitle,
+                        item.passage,
+                        item.proposition,
+                        readLabels(item.references),
+                        readLabels(item.outlineLinks),
+                        readLabels(item.divisionLinks),
+                        readLabels(item.flags)
+                    ].map(value => String(value || '')).join(' ').toLowerCase();
+                    return searchableText.includes(query);
+                });
             }
 
             openClaimReviewItem(sermonId, reviewKey) {

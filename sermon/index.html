@@ -670,6 +670,7 @@
                 this.guideHistory = [];
                 this.guideMessages = [{
                     role: 'assistant',
+                    stage: 'Text & Exegesis',
                     content: 'I’m your Kerygma Guide & Assistant. I can help you work through the current step, explain the expository method, ask questions about the passage, review your draft, and suggest next steps. I will not change sermon fields or your imported IBS source. What would help you most?'
                 }];
 
@@ -1050,6 +1051,7 @@
                 if (status) status.textContent = '';
                 this.guideMessages = [{
                     role: 'assistant',
+                    stage: this.getKerygmaGuideStage().label,
                     content: 'We’ve switched sermons, so I’ve started a fresh guide conversation. I can help you reason through the text and your draft, but I will not edit any sermon fields or imported source notes.'
                 }];
                 this.renderKerygmaGuideMessages();
@@ -1060,6 +1062,39 @@
                 if (!container) return;
                 container.replaceChildren();
                 (this.guideMessages || []).slice(-30).forEach(message => {
+                    if (message.role === 'stage') {
+                        const separator = document.createElement('div');
+                        separator.className = 'flex items-center gap-2 py-2';
+                        separator.setAttribute('role', 'separator');
+                        separator.setAttribute('aria-label', 'New study stage: ' + message.stage);
+                        const leftRule = document.createElement('div');
+                        leftRule.className = 'h-px flex-1 bg-indigo-200';
+                        const card = document.createElement('div');
+                        card.className = 'max-w-[88%] rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-center';
+                        const order = {
+                            'Text & Exegesis': 'STEP 1',
+                            'Big Idea & Proposition': 'STEP 2',
+                            'Homiletical Outline': 'STEP 3',
+                            'Illustrations & Application': 'STEP 4',
+                            'Manuscript / Notes': 'STEP 5'
+                        }[message.stage] || 'NEW STAGE';
+                        const heading = document.createElement('div');
+                        heading.className = 'text-[10px] font-bold uppercase tracking-wide text-indigo-800';
+                        heading.textContent = order + ' · ' + message.stage;
+                        const description = document.createElement('div');
+                        description.className = 'mt-1 text-[11px] leading-snug text-indigo-700';
+                        description.textContent = 'The conversation below is for this stage. Earlier messages remain labelled with their own stage.';
+                        card.appendChild(heading);
+                        card.appendChild(description);
+                        const rightRule = document.createElement('div');
+                        rightRule.className = 'h-px flex-1 bg-indigo-200';
+                        separator.appendChild(leftRule);
+                        separator.appendChild(card);
+                        separator.appendChild(rightRule);
+                        container.appendChild(separator);
+                        return;
+                    }
+
                     const wrap = document.createElement('div');
                     wrap.className = message.role === 'user' ? 'flex justify-end' : 'flex justify-start';
                     const bubble = document.createElement('div');
@@ -1072,7 +1107,8 @@
                     const label = document.createElement('div');
                     label.className = 'mb-1 text-[10px] font-bold uppercase tracking-wide ' +
                         (message.role === 'user' ? 'text-brand-700' : 'text-slate-500');
-                    label.textContent = message.role === 'user' ? 'You' : (message.kind === 'error' ? 'Unable to respond' : 'Kerygma Guide');
+                    const speaker = message.role === 'user' ? 'You' : (message.kind === 'error' ? 'Unable to respond' : 'Kerygma Guide');
+                    label.textContent = speaker + ' · ' + (message.stage || 'Text & Exegesis');
                     const body = document.createElement('div');
                     body.className = 'guide-markdown';
                     renderKerygmaGuideMarkdown(body, message.content);
@@ -1100,11 +1136,12 @@
                     return;
                 }
                 const requestedSermonId = sermon.id;
+                const requestedStage = this.getKerygmaGuideStage();
                 if (!Array.isArray(this.guideHistory)) this.guideHistory = [];
                 if (!Array.isArray(this.guideMessages)) this.guideMessages = [];
                 this.guideBusy = true;
-                this.guideMessages.push({ role: 'user', content: question });
-                this.guideHistory.push({ role: 'user', content: question });
+                this.guideMessages.push({ role: 'user', stage: requestedStage.label, content: question });
+                this.guideHistory.push({ role: 'user', stage: requestedStage.label, content: question });
                 if (input) input.value = '';
                 if (send) send.disabled = true;
                 if (status) status.textContent = 'Thinking through your question and the current study…';
@@ -1116,7 +1153,7 @@
                     return text.length > limit ? text.slice(0, limit) + ' [excerpt shortened]' : text;
                 };
                 try {
-                    const stage = this.getKerygmaGuideStage();
+                    const stage = requestedStage;
                     const stageGuidance = stage.profile === 'exegesis'
                         ? [
                             'TEXT & EXEGESIS — EXEGETICAL COACHING',
@@ -1203,6 +1240,7 @@
                         inductiveSourceAttached: Boolean(sermon.inductiveStudySource)
                     };
                     const prior = this.guideHistory.slice(0, -1).slice(-6).map(message =>
+                        '[' + (message.stage || 'stage unspecified') + '] ' +
                         (message.role === 'user' ? 'USER' : 'KERYGMA GUIDE') + ': ' + clip(message.content, 1200)
                     ).join('\n\n');
                     const systemPrompt = `You are Kerygma Guide & Assistant, a patient expository preaching coach inside the Kerygma sermon workspace. You are both a guide and an assistant, not merely a content generator.
@@ -1246,9 +1284,9 @@ Answer the current question in light of the active stage and the available sourc
                         if (status) status.textContent = 'A reply for the previous sermon was discarded because you switched sermons. No sermon fields were changed.';
                         return;
                     }
-                    this.guideHistory.push({ role: 'assistant', content: answer });
+                    this.guideHistory.push({ role: 'assistant', stage: requestedStage.label, content: answer });
                     this.guideHistory = this.guideHistory.slice(-12);
-                    this.guideMessages.push({ role: 'assistant', content: answer });
+                    this.guideMessages.push({ role: 'assistant', stage: requestedStage.label, content: answer });
                     this.guideMessages = this.guideMessages.slice(-30);
                     if (status) status.textContent = 'Reply ready. Review it and decide what, if anything, to apply to your sermon.';
                 } catch (error) {
@@ -1259,6 +1297,7 @@ Answer the current question in light of the active stage and the available sourc
                     this.guideHistory.pop();
                     this.guideMessages.push({
                         role: 'assistant',
+                        stage: requestedStage.label,
                         kind: 'error',
                         content: 'I could not get a response from the guide. ' + (error && error.message ? error.message : 'Please check AI Access and try again.')
                     });
@@ -1706,7 +1745,18 @@ Answer the current question in light of the active stage and the available sourc
             }
 
             switchTab(tabKey) {
+                const previousStage = this.getKerygmaGuideStage();
                 this.activeWorkflowTab = tabKey;
+                const nextStage = this.getKerygmaGuideStage();
+                if (previousStage.label !== nextStage.label && Array.isArray(this.guideMessages)) {
+                    this.guideMessages.push({
+                        role: 'stage',
+                        stage: nextStage.label,
+                        content: 'Starting ' + nextStage.label
+                    });
+                    this.guideMessages = this.guideMessages.slice(-30);
+                    this.renderKerygmaGuideMessages();
+                }
                 this.updateKerygmaGuideContextLabel();
                 document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
                 document.getElementById(`view-${tabKey}`).classList.remove('hidden');

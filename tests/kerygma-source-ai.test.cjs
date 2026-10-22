@@ -477,11 +477,12 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
     return vm.runInNewContext('(' + functionSource + ')');
   };
 
+  const extractProposition = extractMethod('extractManuscriptClaimProposition', 'splitManuscriptClaimSentences');
   const splitSentences = extractMethod('splitManuscriptClaimSentences', 'analyzeManuscriptClaimParagraphs');
   const analyze = extractMethod('analyzeManuscriptClaimParagraphs', 'renderManuscriptEvidenceTrace');
   const parseRange = extractMethod('parseOutlineTraceRange', 'outlineTraceRangesOverlap');
   const rangesOverlap = extractMethod('outlineTraceRangesOverlap', 'outlineTraceNotesForRange');
-  const context = { splitManuscriptClaimSentences: splitSentences, parseOutlineTraceRange: parseRange, outlineTraceRangesOverlap: rangesOverlap };
+  const context = { extractManuscriptClaimProposition: extractProposition, splitManuscriptClaimSentences: splitSentences, parseOutlineTraceRange: parseRange, outlineTraceRangesOverlap: rangesOverlap };
 
   const packet = {
     studyReference: { book: 'Romans', chapter: 2, displayReference: 'Romans 2' },
@@ -568,8 +569,11 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.equal(inherited.claims.length, 2, 'paragraph sentences are assessed separately');
   assert.ok(inherited.claims.every(claim => claim.references.some(reference => reference.source === 'section heading')));
   assert.ok(inherited.claims.every(claim => claim.flags.some(flag => flag.includes('inherited from the section heading'))));
-  assert.ok(inherited.claims[0].text.includes('does not repeat a Bible reference'));
-  assert.ok(inherited.claims[1].text.includes('second sentence'));
+  assert.equal(inherited.claims[0].kind, 'unresolved');
+  assert.equal(inherited.claims[0].proposition, '', 'the analyzer must not copy an unparsed sentence and call it a proposition');
+  assert.ok(inherited.claims[0].note.includes('No separate proposition was distilled'));
+  assert.equal(inherited.claims[1].kind, 'unresolved');
+  assert.ok(inherited.claims[1].note.includes('No separate proposition was distilled'));
   assert.ok(inherited.claims.every(claim => claim.outlineLinks.length === 1 && claim.divisionLinks.length === 1));
 
   const paragraphContext = result.rows.find(row => row.excerpt.startsWith('Paul adds one thought'));
@@ -619,9 +623,39 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.ok(bounded.rows.every(row => row.excerpt.length <= 440), 'display excerpts stay bounded');
   assert.ok(bounded.visibleSentenceCount <= 120, 'the total number of displayed sentence claims is bounded');
   assert.ok(bounded.omittedSentenceCount >= 0);
-  assert.ok(html.includes("Paragraph-by-paragraph / sentence-level claim traceability · heuristic review"));
-  assert.ok(html.includes("claim.index + ': ' + claim.text"));
-  assert.ok(html.includes('Sentence-level claims ('), 'show individual sentence review inside each paragraph');
+  assert.ok(html.includes("Paragraph-by-paragraph / distinct-proposition traceability · heuristic review"));
+  assert.ok(html.includes("claim.proposition"));
+  assert.ok(html.includes("extractManuscriptClaimProposition(sentenceText)"));
+  assert.ok(html.includes('candidate propositions distilled from'));
+  assert.ok(!html.includes("claim.index + ': ' + claim.text"), 'raw sentence text must not be presented as an extracted claim');
+  assert.ok(html.includes('Sentence analysis ('), 'show sentence review separate from distilled propositions');
+
+  const greeting = extractProposition('Good morning, beloved congregation.');
+  assert.equal(greeting.kind, 'context');
+  assert.equal(greeting.proposition, '', 'greetings should not be presented as claims');
+
+  const transition = extractProposition('Today, we turn our hearts and minds to the book of Romans, specifically chapter 2.');
+  assert.equal(transition.kind, 'context', 'opening directions should be classified as context');
+  assert.equal(transition.proposition, '');
+
+  const thesisSentence = extractProposition('The Apostle Paul, in this letter, addresses a critical issue that transcends time and culture: the hypocrisy of judging others while being guilty of the same sins.');
+  assert.equal(thesisSentence.kind, 'claim');
+  assert.equal(thesisSentence.proposition, 'The passage addresses hypocrisy in judging others while committing the same sins.');
+  assert.ok(!thesisSentence.proposition.includes('The Apostle Paul, in this letter'));
+
+  const righteousnessSentence = extractProposition('As we delve into this chapter, we will discover that true righteousness is not merely about external adherence to the law but an inward transformation of the heart that leads to genuine obedience.');
+  assert.equal(righteousnessSentence.kind, 'claim');
+  assert.ok(righteousnessSentence.proposition.includes('True righteousness is an inward transformation'));
+  assert.ok(righteousnessSentence.proposition.includes('rather than merely external adherence to the law'));
+
+  const quoteSentence = extractProposition('Paul begins with a strong assertion: “Therefore thou art inexcusable, O man, whosoever thou art that judgest.”');
+  assert.equal(quoteSentence.kind, 'claim');
+  assert.ok(quoteSentence.proposition.includes('People who judge others are not exempt from accountability'));
+
+  const nonParaphrased = extractProposition('People often condemn others before examining their own actions.');
+  assert.equal(nonParaphrased.kind, 'unresolved');
+  assert.equal(nonParaphrased.proposition, '', 'do not echo an arbitrary source sentence as a pretend extracted proposition');
+  assert.ok(nonParaphrased.note.includes('review this sentence in the manuscript'));
   assert.ok(!html.includes("'\\nParagraph excerpt: ' + row.excerpt +"), 'parent paragraph excerpts must not be rendered');
   assert.ok(html.includes("'\\nParagraph reference(s): '"), 'paragraph reference context remains available without the paragraph excerpt');
 });

@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, the More Questions click-handler fix, stage-labelled Guide action, and stage-separated chat are merged into `main`. PR #30 merged at `cfe8a6830721b2e685bdcf8e7b506c94d058b6f5`; CI passed on both the feature branch and main merge commit. The chat now inserts an accessible STEP divider when the user changes workflow stages and labels each message with the stage it belongs to. Visual dividers do not enter AI history, while recent exchanges carry their original stage labels for continuity. Live Render verification of the separators and labels remains pending. Sermon/source data remain untouched.
+Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five tabs, More Questions/More Insights, stage-labelled Guide action, and stage-separated chat are merged into `main`. The user confirmed the stage separator is visible, but the Guide panel overlaps the top workflow tab row and obscures “Manuscript / Notes.” Follow-up branch `fix/kerygma-panel-clear-workflow-tabs` moves the panel top below the tab row and bounds its height to the remaining viewport while preserving its width and resize behavior. Regression tests and PR are pending. Sermon/source data remain untouched.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -304,6 +304,18 @@ Changes in progress:
 - Capture the stage at the time of an AI request so a response remains labelled with the stage of the request, even if the user changes tabs while waiting.
 - Keep a single chat and preserve existing messages on stage changes; do not clear chat history, sermon content, or imported IBS data.
 - Test all five stage names, transition-only separator insertion, accessible separator semantics, stage-labelled bubbles and the exclusion of divider markers from AI history. CI passed and the PR is merged. Verify on Render after the main-branch deploy by switching through all five tabs with chat open and checking that each group divider and message-stage label appears correctly.
+
+### Kerygma Guide panel must not cover workflow-tab labels (22 October 2026)
+
+Current branch: `fix/kerygma-panel-clear-workflow-tabs` (not yet merged).
+The user’s live screenshot shows the Guide panel overlaps the top workflow-tab row and covers the label “Manuscript / Notes.” The panel previously anchored itself to `bottom-20` and could grow to `84vh`, letting its top edge rise over the tabs.
+
+The follow-up:
+- Anchor the panel at `top-32` (8rem, below the top header + workflow tabs) rather than anchoring it only from the bottom.
+- Bound height to `calc(100vh - 13rem)`, leaving the panel within the viewport and above the bottom launcher region.
+- Preserve `width:min(94vw,760px)`, min/max width and `resize:horizontal`.
+- Add regression assertions that the panel starts below the tab row, is screen-bounded, and preserves its useful width.
+- Do not alter the Guide chat rendering, stage separators, messages, sermon fields or IBS source. Merge only after CI passes; after Render deploys from `main`, confirm all five tab labels are fully visible with the Guide open.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

@@ -784,7 +784,11 @@ test('claim review queue gathers only needs-research and requires-revision propo
     makeClaimReviewKey: makeKey,
     analyzeManuscriptClaimParagraphs(manuscript) {
       const sermon = this.sermons.find(item => item.manuscript === manuscript);
-      return sampleRows[sermon.id];
+      return {
+        ...sampleRows[sermon.id],
+        omittedCount: sermon.id === 'sermon-1' ? 2 : 0,
+        omittedSentenceCount: sermon.id === 'sermon-1' ? 3 : 0
+      };
     }
   };
   const sermonsBefore = JSON.stringify(context.sermons);
@@ -792,6 +796,8 @@ test('claim review queue gathers only needs-research and requires-revision propo
 
   assert.equal(queue.scannedSermons, 3);
   assert.equal(queue.omittedSermons, 0);
+  assert.equal(queue.omittedParagraphBlocks, 2);
+  assert.equal(queue.omittedSentenceItems, 3);
   assert.equal(queue.items.length, 2);
   assert.equal(queue.counts['needs-research'], 1);
   assert.equal(queue.counts['requires-revision'], 1);
@@ -806,6 +812,11 @@ test('claim review queue gathers only needs-research and requires-revision propo
   assert.deepEqual(Array.from(queue.items[0].outlineLinks, link => link.label), ['Point 1']);
   assert.deepEqual(Array.from(queue.items[0].flags), ['Check theology']);
   assert.equal(JSON.stringify(context.sermons), sermonsBefore, 'queue building must not mutate saved sermons');
+  const limitedQueue = buildQueue.call(context, 1, 1);
+  assert.equal(limitedQueue.scannedSermons, 1);
+  assert.equal(limitedQueue.omittedSermons, 2, 'scan bounds must report unscanned sermons');
+  assert.equal(limitedQueue.items.length, 1);
+  assert.equal(limitedQueue.omittedItems, 0, 'only one flagged item exists in the first scanned sermon');
   assert.ok(html.includes('Claim review queue'));
   assert.ok(html.includes('openClaimReviewItem(item.sermonId, item.reviewKey)'));
   assert.ok(html.includes("this.switchTab('manuscript')"));
@@ -818,6 +829,8 @@ test('claim review queue and navigation remain bounded and use a separate status
   assert.ok(html.includes('buildClaimReviewQueue(sermonLimit = 100, itemLimit = 100)'));
   assert.ok(html.includes('Math.min(100, Number(sermonLimit) || 100)'));
   assert.ok(html.includes('Math.min(100, Number(itemLimit) || 100)'));
+  assert.ok(html.includes('omittedParagraphBlocks += Number(analysis.omittedCount) || 0'));
+  assert.ok(html.includes('this queue is not an exhaustive check of omitted text'));
   assert.ok(html.includes("status !== 'needs-research' && status !== 'requires-revision'"));
   assert.ok(html.includes("this.loadClaimReviewStatuses()"));
   assert.ok(html.includes("this.makeClaimReviewKey(row.index, claim)"));

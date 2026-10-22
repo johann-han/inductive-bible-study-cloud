@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, and distinct proposition extraction are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`; PR #46 at `a920ae4c892556eea81d89735b23661185e9b292`; PR #48 at `6c969efbc4cd5aef86dbe84387df7edba92fa0fa`; PR #50 at `7e5675bffe6fbb6522145ec2e74dd1446becd30f`; and PR #52 at `b86b29c874c02346ca21453091b11d8fdc5ce988`. The user confirmed the distinct-proposition display, then requested that only extracted candidate propositions be numbered: context and unresolved sentences should not be numbered as if they were claims. PR #54 implements that presentation fix.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, distinct proposition extraction, and claim-only numbering are merged into `main`. PR #38 merged at `618cc4ed83978a540e1140187cc5b6d296a24ca0`; PR #40 at `02c58c05c6d041bbca1bf4a00224c3233f72dfdd`; PR #41 at `a2244e047371fcd5cdc1ffac19008f7538d7ad86`; PR #43 at `7e36f69b829a3d7718e6586ddb271ec5ca228124`; PR #44 at `33d0c6b30d0476cbea5f9a14abafdbbfe28376fd`; PR #45 at `f29e4c6c34e7eba86f7aa2ba2c9d45e02ee0b4c0`; PR #46 at `a920ae4c892556eea81d89735b23661185e9b292`; PR #48 at `6c969efbc4cd5aef86dbe84387df7edba92fa0fa`; PR #50 at `7e5675bffe6fbb6522145ec2e74dd1446becd30f`; PR #52 at `b86b29c874c02346ca21453091b11d8fdc5ce988`; and PR #54 (claim-only numbering) at `cd9a964c944634c9227011e8a01884869a71a1b4`. GitHub Actions run 76 passed on the corrected PR #54 head. Only distilled candidate propositions receive claim numbers; context and unresolved sentences are unnumbered. Live Render confirmation of this final numbering adjustment remains pending.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -484,19 +484,20 @@ Implementation:
 - Regression tests cover greetings/transitions, distinct propositions from the Romans 2 introduction, quoted wording, unresolved fallback, inherited references, abbreviations, bounded output, and no mutation of manuscript/source packet. Inline JS and test-file syntax checks plus GitHub Actions run 73 passed.
 - After Render deploys this commit or a descendant, confirm the live Romans 2 traceability panel shows concise derived propositions for recognizable assertions, classifies greetings/transitions as context, and labels undistilled sentences without repeating them as claims. Confirm reference provenance remains clear and existing source data, cross-reference lists and “Peace in the Storm” remain intact.
 
-### Number only distilled candidate propositions — PR #54 in progress (22 October 2026)
+### Number only distilled candidate propositions (PR #54 merged, 22 October 2026)
 
-User feedback from the live sentence-analysis screenshot: “all the sentences are numbered: Sentence 2 - No Proposition Distilled.” Numbering context and unresolved items makes them look like claims even when no proposition was extracted.
+PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/54
+Merged by squash commit `cd9a964c944634c9227011e8a01884869a71a1b4` on `main`. GitHub Actions **Kerygma source-aware AI checks** passed on final PR head commit `348750ca92f825bbdd3d3bdf136ed9354ed26b63` in run 76: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39816494363.
 
-Feature branch: `fix/number-only-distilled-claims`.
+User feedback: all sentence rows were numbered as `Sentence N`, including unresolved items such as `No proposition distilled`, making them appear like claims.
 
-Implementation in progress:
-- Only successfully distilled candidate propositions receive `Claim N` numbering. Their source sentence number is retained for traceability: `Claim 1 (candidate proposition from source sentence 3): …`.
-- Context sentences display as `Context — …` with no sentence number.
-- Sentences where no separate proposition was distilled display as `Not distilled — …` with no sentence number. Their reference provenance, candidate outline/IBS links, and review flags remain available.
-- Does not change sentence segmentation, proposition extraction, manuscript text, imported IBS packet, or claim/reference analysis. This is a display-label adjustment.
-- Adds regression checks proving the renderer numbers only distilled propositions, labels context and unresolved sentences without numbering, and no longer uses `Sentence N` for non-claim items.
-- PR #54 CI and merge are pending. After merge, refresh live Kerygma and ensure only `Claim N` entries are numbered while context/unresolved entries have clear unnumbered labels.
+Implementation:
+- Only successfully distilled candidate propositions receive `Claim N` numbering. Their source sentence number remains visible as provenance, e.g. `Claim 1 (candidate proposition from source sentence 3): …`.
+- Context sentences display as `Context — …` without numbering.
+- Sentences where no distinct proposition was extracted display as `Not distilled — …` without numbering. Their reference provenance, candidate outline/IBS links and review flags remain visible.
+- No sentence analysis, proposition extraction, manuscript text, imported IBS data, or source/reference link logic changed; this is a display-label change.
+- Regression checks assert only distilled propositions are numbered, context and undistilled items are unnumbered, and the old `Sentence N` label is absent. The initial run exposed a missing quote in a test assertion; that test was fixed, and run 76 passed.
+- Post-merge manual verification: refresh Kerygma with Ctrl+F5 and inspect Romans 2. Confirm only derived propositions are numbered and context/undistilled lines have no sentence number. Do not claim Render is updated until this is visually confirmed.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

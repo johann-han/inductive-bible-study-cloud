@@ -744,7 +744,7 @@ test('claim review queue gathers only needs-research and requires-revision propo
     const start = html.indexOf(startMarker);
     const end = html.indexOf(endMarker, start);
     assert.ok(start >= 0 && end > start, 'expected class method ' + name);
-    const source = html.slice(start, end).trim().replace(new RegExp('^' + name + '\\\\('), 'function ' + name + '(');
+    const source = html.slice(start, end).trim().replace(new RegExp('^' + name + '\\('), 'function ' + name + '(');
     return vm.runInNewContext('(' + source + ')');
   };
   const buildQueue = extractMethod('buildClaimReviewQueue', 'openClaimReviewDashboard');

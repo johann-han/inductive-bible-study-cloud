@@ -53,6 +53,64 @@ test('import validation and safe source rendering remain in place', () => {
   assert.ok(html.includes('pre.textContent=text'));
 });
 
+test('imported cross-reference panels render readable verse references instead of raw JSON', () => {
+  const helperStart = html.indexOf('function formatCrossReferencePoint(point, isSource = false) {');
+  const helperEnd = html.indexOf('        /**\n         * Main Application Controller for Expository Sermon Prep', helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'expected the cross-reference display formatters');
+  const helperSource = html.slice(helperStart, helperEnd);
+  const sandbox = {};
+  vm.runInNewContext(
+    helperSource + '\nthis.formatPersonal = formatPersonalCrossReferences; this.formatStandard = formatStandardCrossReferences;',
+    sandbox
+  );
+
+  const personal = sandbox.formatPersonal([{
+    source: { book: 'Romans', chapter: 2, verse: 14 },
+    target: { book: 'Ephesians', chapter: 2, startVerse: 12, endVerse: 13 },
+    relation: 'theme',
+    note: 'Compare the argument'
+  }]);
+  assert.ok(personal.includes('Romans 2:14 → Ephesians 2:12–13'));
+  assert.ok(personal.includes('Relationship: theme'));
+  assert.ok(personal.includes('Note: Compare the argument'));
+  assert.ok(!personal.includes('"source"') && !personal.includes('"target"'));
+
+  const standard = sandbox.formatStandard({
+    available: true,
+    note: 'TSK-derived cross-reference dataset',
+    entries: [
+      { verse: 1, anchors: [
+        { anchor: 'Therefore', references: ['Rom 1:18-20', 'Rom 3:9'] },
+        { anchor: 'O man', references: ['Rom 2:3', 'Rom 9:20', '1 Cor 7:16'] }
+      ] },
+      { verse: 2, anchors: [{ anchor: 'judgment', references: ['John 5:24'] }] }
+    ]
+  });
+  assert.ok(standard.includes('Availability: Available'));
+  assert.ok(standard.includes('Source note: TSK-derived cross-reference dataset'));
+  assert.ok(standard.includes('Verse 1'));
+  assert.ok(standard.includes('“Therefore”: Rom 1:18-20; Rom 3:9'));
+  assert.ok(standard.includes('“O man”: Rom 2:3; Rom 9:20; 1 Cor 7:16'));
+  assert.ok(standard.includes('Verse 2'));
+  assert.ok(!standard.includes('"anchors"') && !standard.includes('"references"'));
+
+  const bounded = sandbox.formatStandard({
+    available: true,
+    entries: Array.from({ length: 65 }, (_, index) => ({
+      verse: index + 1,
+      anchors: [{ anchor: 'Anchor ' + (index + 1), references: ['John 1:1'] }]
+    }))
+  });
+  assert.ok(bounded.includes('5 additional verse groups not shown.'));
+  assert.ok(!bounded.includes('Verse 61'));
+
+  assert.ok(html.includes("formatPersonalCrossReferences(packet.customCrossReferences)"));
+  assert.ok(html.includes("formatStandardCrossReferences(std)"));
+  assert.ok(!html.includes("if(packet.customCrossReferences.length)addDetails('My Cross-References · personal links ('+packet.customCrossReferences.length+')',JSON.stringify(packet.customCrossReferences,null,2))"));
+  assert.ok(!html.includes("JSON.stringify(std.entries,null,2)"));
+  assert.ok(html.includes('pre.textContent=text'), 'render formatted strings as text, not markup');
+});
+
 test('browser-side Gemini key handling has not returned', () => {
   assert.ok(!html.includes('generativelanguage.googleapis.com'));
   assert.ok(!html.includes('kerygma_gemini_api_key'));

@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, and the More Questions click-handler fix are merged into `main`. PR #26 merged stage-specific coaching at `3d229462e3203440ad022962a3ad46926f78d4c5`, with main CI passed. The user's latest refinement is in progress on `feat/kerygma-stage-labeled-guide-prompt`: make the first quick-action button display the active workflow name (for example, “Guide me through Text & Exegesis” or “Guide me through Homiletical Outline”), while keeping its actual prompt “Guide me through this step” so the action follows the currently selected tab. Tests and a PR are pending. Live Render confirmation of stage-specific coaching and this dynamic label remains pending. Sermon/source data remain untouched.
+Document status: IBS→Kerygma import/export, source-aware AI workflows, safe Markdown formatting, stage-specific coaching across all five Kerygma tabs, More Questions/More Insights, the More Questions click-handler fix, and stage-labelled Guide quick action are merged into `main`. PR #28 merged at `3926863c1f13d4bdfb4d964b43667394fb53c225`; CI passed on both the feature branch and main merge commit. The first Guide quick action now displays “Guide me through [active stage]” for each of the five tabs; its underlying prompt remains “Guide me through this step.” Live Render verification of the dynamic label is pending. Sermon/source data remain untouched.
 Last reviewed: 22 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -281,7 +281,7 @@ Existing Exegesis guidance, source-context selection, server/provider behavior, 
 
 ### Dynamic Guide quick-action label (22 October 2026)
 
-Current branch: `feat/kerygma-stage-labeled-guide-prompt` (not yet merged).
+Merged in PR #28 at `3926863c1f13d4bdfb4d964b43667394fb53c225`; the source-aware AI workflow passed on feature commit `3573690e8e041a81f8d63cca248c7a8630a8164f` and main merge commit `3926863c1f13d4bdfb4d964b43667394fb53c225`. Live Render verification of the label remains pending.
 The Guide panel's first quick-action button previously said only “Guide this step,” which could be ambiguous when the user switches between tabs. The button now has a stage label element and `updateKerygmaGuideContextLabel()` updates it from `getKerygmaGuideStage()` each time the selected sermon or workflow tab changes.
 Expected labels:
 - Text & Exegesis — “Guide me through Text & Exegesis”
@@ -290,7 +290,7 @@ Expected labels:
 - Illustrations & Application — “Guide me through Illustrations & Application”
 - Manuscript / Notes — “Guide me through Manuscript / Notes”
 
-The click handler still fills the existing input with “Guide me through this step. Ask me useful questions rather than doing all the work for me.” This is intentional: the button identifies the stage, while the prompt remains reusable and its active stage comes from the current tab. A regression test checks all stage mappings, the dynamic label updater and preserved generic prompt. CI and PR review remain pending. After Render deploys from `main`, switch through all five tabs with the Guide open and confirm the label updates each time.
+The click handler still fills the existing input with “Guide me through this step. Ask me useful questions rather than doing all the work for me.” This is intentional: the button identifies the stage, while the prompt remains reusable and its active stage comes from the current tab. A regression test checks all stage mappings, the dynamic label updater and preserved generic prompt. CI passed and the PR is merged. After Render deploys from `main`, switch through all five tabs with the Guide open and confirm the label updates each time.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

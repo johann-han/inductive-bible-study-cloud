@@ -623,14 +623,14 @@ test('paragraph-level manuscript trace links explicit Romans 2 references and fl
   assert.ok(bounded.rows.every(row => row.excerpt.length <= 440), 'display excerpts stay bounded');
   assert.ok(bounded.visibleSentenceCount <= 120, 'the total number of displayed sentence claims is bounded');
   assert.ok(bounded.omittedSentenceCount >= 0);
-  assert.ok(html.includes("Paragraph-by-paragraph / distinct-proposition traceability · heuristic review"));
+  assert.ok(html.includes("Claim review workflow · candidate propositions only"));
   assert.ok(html.includes("claim.proposition"));
   assert.ok(html.includes("extractManuscriptClaimProposition(sentenceText)"));
   assert.ok(html.includes('candidate propositions distilled from'));
   assert.ok(!html.includes("claim.index + ': ' + claim.text"), 'raw sentence text must not be presented as an extracted claim');
   assert.ok(html.includes('Sentence analysis ('), 'show sentence review separate from distilled propositions');
   assert.ok(html.includes("'Claim ' + claim.claimIndex + ' (candidate proposition from source sentence ' + claim.index + '): ' + claim.proposition"), 'only distilled propositions receive claim numbers');
-  assert.ok(html.includes("? 'Context — ' + claim.note"), 'context sentences are labelled without sentence numbers');
+  assert.ok(html.includes("'Context — ' + claim.note"), 'context sentences are labelled without sentence numbers');
   assert.ok(html.includes("'Not distilled — ' + claim.note"), 'unresolved sentences are labelled without sentence numbers');
   assert.ok(!html.includes("'Sentence ' + claim.index + ' · '"), 'non-claim sentences must not appear numbered');
 
@@ -730,7 +730,7 @@ test('claim-review controls appear only for candidate propositions and explain t
   }
   assert.ok(html.includes("select.setAttribute('aria-label', 'Review status for paragraph ' + row.index + ', claim ' + claim.claimIndex)"));
   assert.ok(html.includes("this.saveClaimReviewStatus(sermon.id, claimReviewKey, nextStatus)"));
-  assert.ok(html.includes("Status stored separately from sermon text"));
+  assert.ok(html.includes("Saved separately from sermon text when changed"));
   assert.ok(html.includes('this.makeClaimReviewKey(row.index, claim)'));
   assert.ok(html.includes("this.claimReviewStorageKey()"));
   assert.ok(!html.includes("select.setAttribute('aria-label', 'Review status for paragraph ' + row.index + ', claim ' + claim.index)"),

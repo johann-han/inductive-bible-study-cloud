@@ -1707,6 +1707,63 @@ Answer the current question in light of the active stage and the available sourc
                 this.saveToStorage();
             }
 
+            claimReviewStorageKey() {
+                return 'kerygma_claim_review_status_v1';
+            }
+
+            loadClaimReviewStatuses() {
+                try {
+                    const raw = localStorage.getItem(this.claimReviewStorageKey());
+                    if (!raw) return {};
+                    const parsed = JSON.parse(raw);
+                    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+                } catch (error) {
+                    return {};
+                }
+            }
+
+            getClaimReviewStatus(sermonId, reviewKey) {
+                const validStatuses = ['not-reviewed', 'reviewed', 'needs-research', 'requires-revision'];
+                if (!sermonId || !reviewKey) return 'not-reviewed';
+                const allStatuses = this.loadClaimReviewStatuses();
+                const sermonStatuses = allStatuses[String(sermonId)];
+                const status = sermonStatuses && typeof sermonStatuses === 'object'
+                    ? sermonStatuses[String(reviewKey)] : '';
+                return validStatuses.includes(status) ? status : 'not-reviewed';
+            }
+
+            saveClaimReviewStatus(sermonId, reviewKey, status) {
+                const validStatuses = ['not-reviewed', 'reviewed', 'needs-research', 'requires-revision'];
+                if (!sermonId || !reviewKey || String(reviewKey).length > 180 || !validStatuses.includes(status)) {
+                    return false;
+                }
+                try {
+                    const allStatuses = this.loadClaimReviewStatuses();
+                    const key = String(sermonId);
+                    const previous = allStatuses[key] && typeof allStatuses[key] === 'object' && !Array.isArray(allStatuses[key])
+                        ? allStatuses[key] : {};
+                    allStatuses[key] = { ...previous, [String(reviewKey)]: status };
+                    localStorage.setItem(this.claimReviewStorageKey(), JSON.stringify(allStatuses));
+                    return true;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            makeClaimReviewKey(paragraphIndex, claim) {
+                if (!Number.isInteger(Number(paragraphIndex)) || Number(paragraphIndex) < 1 ||
+                    !claim || claim.kind !== 'claim' || !String(claim.proposition || '').trim()) {
+                    return '';
+                }
+                const source = String(claim.proposition).toLowerCase().replace(/\s+/g, ' ').trim();
+                let hash = 2166136261;
+                for (let index = 0; index < source.length; index += 1) {
+                    hash ^= source.charCodeAt(index);
+                    hash = Math.imul(hash, 16777619);
+                }
+                return 'p' + Number(paragraphIndex) + '-s' + Number(claim.index || 0) + '-' + (hash >>> 0).toString(36);
+            }
+
             saveToStorage() {
                 localStorage.setItem('kerygma_sermons', JSON.stringify(this.sermons));
             }

@@ -568,6 +568,13 @@ Additional requirement recorded 23 October 2026: when guiding a reader through a
 
 Verification after deployment: test a passage where a Greek or Hebrew term matters, check the definition against a trustworthy lexicon, ensure contextual meaning is distinguished from the full semantic range, and test a term without available lexical data to confirm the AI acknowledges the limitation.
 
+
+### Bible Reader — Afrikaans translation
+
+Requirement recorded 23 October 2026: add an Afrikaans Bible option to the existing reader without changing the default translation or saved study data. Added Afrikaans 1933/1953 (AFR53) using the Free Use Bible API's AFR1933 translation ID and the existing canonical book-ID map. Chapter content is loaded through the API's simplified chapter endpoint and cached by translation/book/chapter. Strong's word annotations are not inferred for Afrikaans; existing English KJV annotation behavior remains unchanged. The current full-text search service documents KJV and WEB only, so Afrikaans is available for reading, not yet for text search.
+
+Acceptance checks: switch to Afrikaans 1933/1953 and confirm Genesis 1 loads in Afrikaans; navigate to a New Testament chapter; switch back to KJV and confirm Strong's annotations continue to work; confirm notes, bookmarks, verse maps, outlines, cross-references and Kerygma content remain unchanged. Confirm a failed translation request reports the existing chapter-load error rather than showing English text under the Afrikaans label.
+
 ### Bible Reader — full-text verse search
 
 Requirement recorded 23 October 2026: readers must be able to find a verse by remembered words or a phrase without knowing its Bible reference. Added a Search control beside passage navigation. The search dialog accepts a word or phrase, lets the reader choose KJV or WEB, displays matching verse references and text, and opens the selected verse in the existing Bible reader. Navigation updates the active book/chapter/translation, selects and scrolls to the verse, and highlights it briefly. Search results are read-only until a result is selected; this feature does not edit saved study notes or Bible content. Search uses the public Bible API full-text endpoint and reports connection/service errors without clearing existing reader state.

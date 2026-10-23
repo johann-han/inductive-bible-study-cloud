@@ -721,3 +721,8 @@ Phase 4 prompt integration is merged (PR #2); provider support is also merged in
 Keep AI credentials server-side in `GEMINI_API_KEY` or `OPENROUTER_API_KEY`; never place secrets in HTML or chat.
 Keep Gemini credentials server-side in `GEMINI_API_KEY`; never place secrets in HTML or chat.
 5. Phase 4 prompts are already merged. Once provider fallback CI passes and Render deploys, validate AI workflows; only then begin Phase 5 export/provenance work. Keep credentials server-side and never put secrets in HTML or chat.
+
+
+### Bible Reader — unavailable Afrikaans translation removed (23 October 2026)
+
+The Afrikaans 1933/1953 selector and its dedicated AFR53 request path were removed because chapter loading could not be verified in the live app and no dependable, authorised source had been established. The reader retains KJV, ASV, WEB and BBE. This is limited to the translation selector and its fetch branch; saved study notes, annotations, cross-references and other reader functions are not migrated or deleted. If a verified and appropriately licensed Afrikaans source becomes available, it can be added later as a separate, tested feature.

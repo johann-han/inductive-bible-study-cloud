@@ -59,37 +59,52 @@
                 min-height: 100dvh;
             }
             body > header {
+                display: block !important;
                 width: 100%;
-                flex-shrink: 0;
+                height: auto !important;
+                min-height: 0 !important;
+                flex: 0 0 auto !important;
+                overflow: visible;
             }
             body > header > div {
+                width: 100%;
+                max-width: none;
                 padding: 0.5rem 0.75rem;
             }
             body > header > div > div {
-                min-height: 0;
-                height: auto;
-                align-items: flex-start;
-                flex-direction: column;
-                gap: 0.5rem;
+                display: flex !important;
+                min-height: 0 !important;
+                height: auto !important;
+                align-items: stretch !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                gap: 0.65rem;
                 padding: 0.25rem 0;
             }
             body > header > div > div > div:first-child {
+                width: 100%;
                 min-width: 0;
+                justify-content: flex-start;
             }
             body > header > div > div > div:last-child {
                 width: 100%;
-                display: grid;
+                min-width: 0;
+                display: grid !important;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 0.4rem;
                 justify-content: stretch;
             }
             body > header > div > div > div:last-child > a,
             body > header > div > div > div:last-child > button {
+                display: inline-flex;
                 min-width: 0;
+                width: 100%;
+                align-items: center;
                 justify-content: center;
                 white-space: normal;
                 text-align: center;
-                padding: 0.5rem 0.35rem;
+                line-height: 1.25;
+                padding: 0.55rem 0.35rem;
                 font-size: 0.75rem;
             }
             body > .flex-1.flex.overflow-hidden {
@@ -100,14 +115,30 @@
                 overflow: hidden;
             }
             body > .flex-1.flex.overflow-hidden > aside {
+                display: flex;
                 width: 100%;
                 min-width: 0;
                 max-width: 100%;
-                max-height: 34dvh;
+                max-height: 30dvh;
                 flex: 0 0 auto;
                 border-right: 0;
                 border-bottom: 1px solid #e2e8f0;
                 overflow: hidden;
+            }
+            body > .flex-1.flex.overflow-hidden > aside > div:first-child {
+                flex: 0 0 auto;
+                min-height: 2.75rem;
+                padding: 0.65rem 0.9rem;
+            }
+            #claim-review-dashboard-button {
+                min-height: 0;
+                padding: 0.45rem 0.65rem;
+            }
+            #claim-review-dashboard-button > span > span:first-child {
+                font-size: 0.75rem;
+            }
+            #claim-review-dashboard-button > span > span:last-child {
+                font-size: 0.65rem;
             }
             body > .flex-1.flex.overflow-hidden > aside > #sermon-list {
                 min-height: 0;
@@ -124,14 +155,25 @@
                 overflow: hidden;
             }
             #workflow-tabs {
+                display: flex;
+                width: 100%;
                 min-width: 0;
+                max-width: 100%;
                 padding-left: 0.75rem;
                 padding-right: 0.75rem;
-                gap: 0.9rem;
+                gap: 0.75rem;
+                overflow-x: auto;
+                overflow-y: hidden;
                 -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
             }
             #workflow-tabs > button {
-                flex-shrink: 0;
+                flex: 0 0 auto;
+                font-size: 0.75rem;
+                gap: 0.35rem;
+            }
+            #workflow-tabs > button > i {
+                flex: 0 0 auto;
             }
             main > .flex-1,
             main .tab-view,
@@ -151,8 +193,13 @@
                 right: 0.75rem;
                 bottom: max(0.75rem, env(safe-area-inset-bottom));
                 max-width: calc(100vw - 1.5rem);
-                padding: 0.65rem 0.9rem;
-                font-size: 0.75rem;
+                padding: 0.6rem 0.8rem;
+                font-size: 0.7rem;
+            }
+            #kerygma-guide-launcher > i {
+                width: 1rem;
+                height: 1rem;
+                flex: 0 0 auto;
             }
             #kerygma-guide-panel {
                 top: auto !important;

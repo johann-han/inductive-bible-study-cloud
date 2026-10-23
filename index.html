@@ -3458,6 +3458,146 @@ function renderStandardCrossReferenceList() {
         document.getElementById('toggleWorkspaceMobile')?.setAttribute('title', 'Open study notes');
       };
 
+      // Full-text Bible search (independent of the current book/chapter).
+      const bibleSearchModal = document.getElementById('bibleSearchModal');
+      const openBibleSearchBtn = document.getElementById('openBibleSearchBtn');
+      const closeBibleSearchBtn = document.getElementById('closeBibleSearchBtn');
+      const bibleSearchForm = document.getElementById('bibleSearchForm');
+      const bibleSearchInput = document.getElementById('bibleSearchInput');
+      const bibleSearchTranslation = document.getElementById('bibleSearchTranslation');
+      const bibleSearchStatus = document.getElementById('bibleSearchStatus');
+      const bibleSearchResults = document.getElementById('bibleSearchResults');
+      const bibleSearchSubmit = document.getElementById('bibleSearchSubmit');
+
+      const openBibleSearch = () => {
+        if (bibleSearchTranslation) {
+          const current = String(appState.currentTranslation || 'KJV').toLowerCase();
+          if (Array.from(bibleSearchTranslation.options).some(option => option.value === current)) {
+            bibleSearchTranslation.value = current;
+          }
+        }
+        bibleSearchModal?.classList.remove('hidden');
+        window.setTimeout(() => bibleSearchInput?.focus(), 30);
+      };
+      const closeBibleSearch = () => bibleSearchModal?.classList.add('hidden');
+      if (openBibleSearchBtn) openBibleSearchBtn.onclick = openBibleSearch;
+      if (closeBibleSearchBtn) closeBibleSearchBtn.onclick = closeBibleSearch;
+      if (bibleSearchModal) {
+        bibleSearchModal.addEventListener('click', event => {
+          if (event.target === bibleSearchModal) closeBibleSearch();
+        });
+      }
+
+      const parseSearchReference = reference => {
+        const raw = String(reference || '').trim().replace(/\\s+/g, ' ');
+        const match = raw.match(/^(.+?)\\s+(\\d+)[:.](\\d+)(?:[-–].*)?$/);
+        if (!match) return null;
+        const bookName = match[1].replace(/^(I|II|III)\\s+/i, (prefix) => {
+          const roman = prefix.trim().toUpperCase();
+          return ({ I: '1', II: '2', III: '3' })[roman] + ' ';
+        });
+        const book = BIBLE_CANON.find(entry => entry.name.toLowerCase() === bookName.toLowerCase());
+        const chapter = Number(match[2]);
+        const verse = Number(match[3]);
+        if (!book || chapter < 1 || chapter > Number(book.chapters) || verse < 1) return null;
+        return { book: book.name, chapter, verse };
+      };
+
+      const openBibleSearchResult = async result => {
+        const parsed = parseSearchReference(result.reference);
+        if (!parsed) {
+          window.alert('Could not read this verse reference. Please select another result.');
+          return;
+        }
+        const translationCode = String(bibleSearchTranslation?.value || 'kjv').toUpperCase();
+        const translationSelect = document.getElementById('globalTranslationSelect');
+        const option = translationSelect && Array.from(translationSelect.options).find(item => item.value === translationCode);
+        if (option && translationSelect) translationSelect.value = translationCode;
+        saveActiveStudyNote();
+        appState.currentBook = parsed.book;
+        appState.currentChapter = parsed.chapter;
+        appState.activeTab = BIBLE_CANON.find(entry => entry.name === parsed.book)?.testament || appState.activeTab;
+        appState.currentTranslation = option ? option.value : 'KJV';
+        appState.currentTranslationAbbr = option ? (option.dataset.abbr || option.value) : 'KJV';
+        appState.selectedVerses.clear();
+        appState.selectedVerses.add(parsed.book + ' ' + parsed.chapter + ':' + parsed.verse);
+        loadActiveStudyNote();
+        renderChapterPills();
+        renderBooksList();
+        await renderScripture();
+        closeBibleSearch();
+        const target = document.querySelector('#scriptureContainer [data-verse-number="' + parsed.verse + '"]');
+        target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        if (target) {
+          target.classList.add('ring-2', 'ring-amber-400', 'rounded');
+          window.setTimeout(() => target.classList.remove('ring-2', 'ring-amber-400', 'rounded'), 2200);
+        }
+      };
+
+      if (bibleSearchForm) {
+        bibleSearchForm.addEventListener('submit', async event => {
+          event.preventDefault();
+          const query = String(bibleSearchInput?.value || '').trim();
+          if (query.length < 2) {
+            if (bibleSearchStatus) bibleSearchStatus.textContent = 'Enter at least two characters to search.';
+            return;
+          }
+          if (bibleSearchStatus) bibleSearchStatus.textContent = 'Searching the Bible…';
+          if (bibleSearchResults) bibleSearchResults.replaceChildren();
+          if (bibleSearchSubmit) {
+            bibleSearchSubmit.disabled = true;
+            bibleSearchSubmit.textContent = 'Searching…';
+          }
+          try {
+            const translation = String(bibleSearchTranslation?.value || 'kjv').toLowerCase();
+            const url = 'https://bible-api.dws-cloud.com/v1/search?q=' + encodeURIComponent(query) +
+              '&translation=' + encodeURIComponent(translation) + '&limit=30&offset=0';
+            const response = await fetchWithTimeout(url, 12000);
+            if (!response.ok) throw new Error('Bible search service returned ' + response.status + '.');
+            const payload = await response.json();
+            const sourceResults = Array.isArray(payload.verses) ? payload.verses
+              : Array.isArray(payload.results) ? payload.results
+              : Array.isArray(payload.data?.verses) ? payload.data.verses : [];
+            const results = sourceResults.map(item => {
+              const reference = String(item.reference || item.ref || item.referenceText ||
+                (item.bookName && item.chapter && item.verse ? item.bookName + ' ' + item.chapter + ':' + item.verse : '') ||
+                (item.book && item.chapter && item.verse ? item.book + ' ' + item.chapter + ':' + item.verse : '')).trim();
+              return { reference, text: String(item.text || item.content || item.snippet || '').trim() };
+            }).filter(item => item.reference && item.text).slice(0, 30);
+
+            if (!results.length) {
+              if (bibleSearchStatus) bibleSearchStatus.textContent = 'No matching verses found. Try a shorter word or a different phrase.';
+              return;
+            }
+            if (bibleSearchStatus) bibleSearchStatus.textContent =
+              (Number.isFinite(Number(payload.total)) ? Number(payload.total) + ' matching verse(s) found. ' : 'Results found. ') +
+              'Showing ' + results.length + '. Choose a verse to open it.';
+            results.forEach(result => {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'block w-full text-left p-3 rounded-xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50 transition';
+              const reference = document.createElement('span');
+              reference.className = 'block font-bold text-amber-800 text-sm mb-1';
+              reference.textContent = result.reference;
+              const verseText = document.createElement('span');
+              verseText.className = 'block text-sm leading-relaxed text-slate-700';
+              verseText.textContent = result.text;
+              button.append(reference, verseText);
+              button.addEventListener('click', () => openBibleSearchResult(result));
+              bibleSearchResults?.appendChild(button);
+            });
+          } catch (error) {
+            if (bibleSearchStatus) bibleSearchStatus.textContent =
+              'Search could not be completed. ' + (error.message || 'Please check your connection and try again.');
+          } finally {
+            if (bibleSearchSubmit) {
+              bibleSearchSubmit.disabled = false;
+              bibleSearchSubmit.textContent = 'Search';
+            }
+          }
+        });
+      }
+
       // Passage Selector Modal
       const navSelectBtn = document.getElementById('navSelectBtn');
       const activeBookTitle = document.getElementById('activeBookTitle');

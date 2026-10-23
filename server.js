@@ -123,7 +123,7 @@ const mentorLexiconCache = new Map();
 const MENTOR_LEXICON_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function normalizeMentorStrongsId(value) {
-  const match = String(value || '').trim().toUpperCase().match(/^([HG])(\\d{1,5})$/);
+  const match = String(value || '').trim().toUpperCase().match(/^([HG])(\d{1,5})$/);
   return match ? match[1] + match[2].padStart(4, '0') : null;
 }
 
@@ -184,14 +184,14 @@ async function fetchMentorLexicalEntries(context, question) {
       if (candidate && typeof candidate === 'object') addCandidate(candidate.id, candidate.word);
     }
   }
-  const questionIds = String(question || '').match(/\\b[HG]\\d{1,5}\\b/gi) || [];
+  const questionIds = String(question || '').match(/\b[HG]\d{1,5}\b/gi) || [];
   for (const id of questionIds) addCandidate(id);
 
   const questionLower = String(question || '').toLowerCase();
   candidates.sort((a, b) => Number(Boolean(b.word) && questionLower.includes(b.word.toLowerCase())) -
     Number(Boolean(a.word) && questionLower.includes(a.word.toLowerCase())));
   const shouldLookup = Boolean(String(context.passageText || '').trim()) ||
-    /\\b(strong'?s|greek|hebrew|aramaic|original[- ]language|lexicon|word meaning|meaning of|define|definition)\\b/i.test(String(question || ''));
+    /\b(strong'?s|greek|hebrew|aramaic|original[- ]language|lexicon|word meaning|meaning of|define|definition)\b/i.test(String(question || ''));
   if (!shouldLookup) return [];
 
   const entries = await Promise.all(candidates.slice(0, 4).map(fetchMentorLexiconEntry));

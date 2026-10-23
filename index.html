@@ -6370,7 +6370,7 @@ function renderStandardCrossReferenceList() {
       return { book, chapter, verse, section, reference };
     }
 
-    function appendMentorResponseToExistingStudy(answer, context, existingStudy, button) {
+    function appendMentorResponseToExistingStudy(answer, context, existingStudy, button, question) {
       const answerText = String(answer || '').trim();
       if (!existingStudy || !answerText) throw new Error('The existing study or AI response is unavailable.');
       const book = String(existingStudy.book || context?.book || '');
@@ -6393,7 +6393,8 @@ function renderStandardCrossReferenceList() {
       const heading = 'Further AI Study Mentor response — ' + reference + (translation ? ' (' + translation + ')' : '');
       const existingNotes = record.sections[section].replace(/\s+$/, '');
       saveStudyNoteVersionSnapshot(record, { force: true });
-      const addition = heading + '\n\n' + answerText;
+      const questionText = String(question || '').trim();
+      const addition = heading + (questionText ? '\n\nQuestion / request:\n' + questionText : '') + '\n\nAnswer:\n' + answerText;
       record.sections[section] = existingNotes ? existingNotes + '\n\n---\n\n' + addition : addition;
       record.activeSection = section;
       record.updatedAt = new Date().toISOString();
@@ -6422,7 +6423,7 @@ function renderStandardCrossReferenceList() {
       }
     }
 
-    function appendMentorResponseToNotes(answer, context, button) {
+    function appendMentorResponseToNotes(answer, context, button, question) {
       const book = String(context?.book || appState.currentBook || '');
       const chapter = Number(context?.chapter || appState.currentChapter);
       const section = NOTE_SECTION_LABELS[context?.activeStudyTab]
@@ -6475,7 +6476,8 @@ function renderStandardCrossReferenceList() {
       const heading = 'AI Study Mentor — ' + reference + (translation ? ' (' + translation + ')' : '');
       saveStudyNoteVersionSnapshot(record, { force: true });
       const existingNotes = record.sections[section].replace(/\s+$/, '');
-      const addition = heading + '\n\n' + answerText;
+      const questionText = String(question || '').trim();
+      const addition = heading + (questionText ? '\n\nQuestion / request:\n' + questionText : '') + '\n\nAnswer:\n' + answerText;
       record.sections[section] = existingNotes ? existingNotes + '\n\n---\n\n' + addition : addition;
       record.activeSection = section;
       record.updatedAt = new Date().toISOString();
@@ -6682,7 +6684,7 @@ function renderStandardCrossReferenceList() {
               studyButton.addEventListener('click', () => {
                 try {
                   const currentStudy = findExistingAiStudyForContext(answerContext);
-                  if (currentStudy) appendMentorResponseToExistingStudy(answer, answerContext, currentStudy, studyButton);
+                  if (currentStudy) appendMentorResponseToExistingStudy(answer, answerContext, currentStudy, studyButton, question);
                   else {
                     studyButton.textContent = 'Existing study not found';
                     studyButton.disabled = true;
@@ -6697,7 +6699,7 @@ function renderStandardCrossReferenceList() {
               studyButton.classList.add('bg-amber-500', 'hover:bg-amber-400', 'text-slate-950');
               studyButton.addEventListener('click', () => {
                 try {
-                  appendMentorResponseToNotes(answer, answerContext, studyButton);
+                  appendMentorResponseToNotes(answer, answerContext, studyButton, question);
                 } catch (error) {
                   window.alert(error.message || 'Could not add the AI response to your study notes.');
                 }

@@ -568,6 +568,12 @@ Additional requirement recorded 23 October 2026: when guiding a reader through a
 
 Verification after deployment: test a passage where a Greek or Hebrew term matters, check the definition against a trustworthy lexicon, ensure contextual meaning is distinguished from the full semantic range, and test a term without available lexical data to confirm the AI acknowledges the limitation.
 
+### IBS AI Mentor — save the question with the answer
+
+Follow-up improvement recorded 23 October 2026: when an AI Mentor response is added to a study, save the user's submitted question/request immediately before the answer, under explicit “Question / request:” and “Answer:” labels. Apply this to both new-study additions and additions to existing studies, preserving the existing passage heading, note separators, version snapshots, section contents, and cloud-sync behavior. This lets a reader later understand why an AI answer was generated.
+
+Acceptance checks: ask a free-form question, add the response to an existing study, and verify both the exact question and answer appear in order; repeat with a second question; confirm both entries persist after switching sections and refreshing. Also verify a first response added to a study includes its question/request and that no existing notes are overwritten.
+
 ### IBS AI Mentor — ask questions without leaving the active study
 
 Requirement recorded 23 October 2026: readers need a direct, free-form “Ask AI a Question” action in the active study workspace, separate from the guided review action. The question action opens the existing AI Mentor and focuses the question input without navigating away from the study. On narrow/mobile screens, the AI drawer is a bottom sheet rather than a full-screen panel so the active study remains visible above it. The normal AI question flow continues to receive passage, selected-verse, translation, and active-note context; responses can be added to an existing study using the separate append action.

@@ -747,3 +747,8 @@ Darby (DBY) was removed from the reader after live testing showed that its chapt
 Added Young's Literal Translation as the next reader option, using the Free Use Bible API translation ID `engylt` and the existing canonical book-ID map. eBible.org identifies YLT as public domain (https://ebible.org/find/show.php?id=engylt). The loader validates returned verse text and fails explicitly instead of silently substituting another translation. Strong's annotations remain KJV-only. Do not proceed to another translation until live tests pass.
 
 Acceptance checks: load Genesis 1 and a New Testament chapter in YLT; navigate chapters/books; switch back to KJV and confirm Strong's annotations; confirm YLT has no inferred KJV annotations; verify notes, markups, bookmarks, verse maps, cross-references, and Kerygma remain intact. Bible search remains limited to its existing supported translations.
+
+
+### Bible Reader — YLT removed after live chapter-load failure (23 October 2026)
+
+Young's Literal Translation was removed from the selector and its dedicated loader after live testing failed to load Genesis 1. The API source/identifier was not verified sufficiently for reliable use. The removal is limited to the YLT selector and dedicated fetch path; existing translations, KJV Strong's annotations, and saved study data remain unchanged. Do not re-add YLT until a reliable source is independently verified and chapter loading is tested before release.

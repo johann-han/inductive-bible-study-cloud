@@ -735,8 +735,8 @@ Added BSB as the first additional translation, using the Free Use Bible API's do
 Acceptance checks before proceeding to another translation: load Genesis 1 and a New Testament chapter in BSB; switch to KJV and confirm Strong's annotations still work; switch back to BSB and confirm no KJV annotations are carried over; navigate between chapters and books; verify the reader reports a BSB-specific error if the source fails rather than displaying another translation; confirm Bible search remains limited to its already-supported KJV/WEB sources and does not falsely imply BSB search support. Verify notes, bookmarks, verse maps, outlines, cross-references, markups, and Kerygma data remain unchanged.
 
 
-### Bible Reader — Darby Translation added (23 October 2026)
+### Bible Reader — Darby Translation removed (23 October 2026)
 
-Added Darby Translation (DBY) as the second additional reader option. eBible.org identifies the Darby Translation as public domain and lists its canon-only edition (https://ebible.org/find/show.php?id=engDBY). The reader requests one chapter from the Free Use Bible API using the translation ID `engDBY` and the existing canonical book-ID map. The loader validates that the response contains verse text and does not silently substitute a different translation. Strong's annotations remain KJV-only; no annotations are inferred for Darby. Existing translation options and saved study data are unchanged.
+Darby (DBY) was removed from the reader after live testing showed that its chapter source did not load. Do not re-add it until a reliable source and response format have been independently verified. The existing KJV, ASV, WEB, BBE and BSB options and all saved study data remain unchanged.
 
-Acceptance checks before proceeding to another translation: load Genesis 1 and a New Testament chapter in DBY; confirm chapter navigation; switch to KJV and confirm Strong's annotations; confirm DBY has no inferred KJV annotations; confirm failure handling names DBY; verify notes, markups, bookmarks, verse maps, cross-references, and Kerygma remain intact. Search remains limited to its existing supported translations.
+

@@ -475,7 +475,6 @@
         <option value="WEB" data-abbr="WEB">WEB (World English)</option>
         <option value="BBE" data-abbr="BBE">BBE (Basic English)</option>
         <option value="BSB" data-abbr="BSB">BSB (Berean Standard)</option>
-        <option value="YLT" data-abbr="YLT">YLT (Youngs Literal)</option>
       </select>
 
       <button id="toggleStrongsBtn" type="button" aria-pressed="false" title="Turn Strong's tags on or off" class="bg-amber-600 text-slate-950 font-extrabold text-xs px-2.5 py-1.5 rounded-lg border border-amber-500 transition flex items-center space-x-1 active:scale-95">
@@ -1431,38 +1430,6 @@
         throw new Error(`Could not load ${book} ${chapter} in BSB. Check the connection and try again.`);
       }
 
-
-      // Young's Literal Translation is public domain (eBible.org ID: engylt).
-      // Keep Strong's annotations KJV-only; do not infer word offsets for YLT.
-      if ((translation || '').toUpperCase() === 'YLT') {
-        const bookId = HELLOAO_BOOK_IDS[book];
-        if (bookId) {
-          try {
-            const response = await fetchWithTimeout(`https://bible.helloao.org/api/engylt/${bookId}/${chapter}.simple.json`, 7000);
-            if (!response.ok) throw new Error(`YLT chapter request failed (${response.status})`);
-            const data = await response.json();
-            const items = data?.chapter?.content || [];
-            const verses = items
-              .filter(item => item && item.type === 'verse' && Number.isFinite(Number(item.number)))
-              .map(item => ({ number: Number(item.number), text: String(item.text || '').trim() }))
-              .filter(item => item.text.length > 0);
-            if (verses.length) {
-              const verseTexts = verses.map(item => item.text);
-              appState.scriptureSource = 'helloao-engylt';
-              scriptureChapterCache.set(cacheKey, {
-                verses: verseTexts,
-                annotations: appState.currentWordAnnotations,
-                annotationSource: appState.annotationSource,
-                scriptureSource: appState.scriptureSource
-              });
-              return verseTexts.slice();
-            }
-          } catch (error) {
-            console.warn("Young's Literal Translation chapter could not be loaded from the Free Use Bible API.", error);
-          }
-        }
-        throw new Error(`Could not load ${book} ${chapter} in Young's Literal Translation (YLT). Check the connection and try again.`);
-      }
 
       // Existing secondary provider remains for other translations and offline/API fallback.
       try {

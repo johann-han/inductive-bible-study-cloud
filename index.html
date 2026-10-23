@@ -6519,9 +6519,15 @@ function renderStandardCrossReferenceList() {
         const seen = new Set();
         const add = (rawId, rawWord = '') => {
           const id = normalizeStrongsId(rawId);
-          if (!id || seen.has(id)) return;
+          if (!id) return;
+          const word = String(rawWord || '').slice(0, 80);
+          if (seen.has(id)) {
+            const existing = candidates.find(candidate => candidate.id === id);
+            if (existing && !existing.word && word) existing.word = word;
+            return;
+          }
           seen.add(id);
-          candidates.push({ id, word: String(rawWord || '').slice(0, 80) });
+          candidates.push({ id, word });
         };
 
         const questionIds = String(question || '').match(/\b[HG]\d{1,5}\b/gi) || [];

@@ -1433,22 +1433,33 @@
 
 
       // Young's Literal Translation is public domain (eBible.org ID: engylt).
+      // Resolve the API's own translation ID rather than assuming it matches eBible's ID.
       // Keep Strong's annotations KJV-only; do not infer word offsets for YLT.
       if ((translation || '').toUpperCase() === 'YLT') {
         const bookId = HELLOAO_BOOK_IDS[book];
         if (bookId) {
           try {
-            const response = await fetchWithTimeout(`https://bible.helloao.org/api/engylt/${bookId}/${chapter}.simple.json`, 7000);
-            if (!response.ok) throw new Error(`YLT chapter request failed (${response.status})`);
+            const catalogResponse = await fetchWithTimeout('https://bible.helloao.org/api/available_translations.json', 7000);
+            if (!catalogResponse.ok) throw new Error('Bible translation catalogue request failed (' + catalogResponse.status + ')');
+            const catalog = await catalogResponse.json();
+            const available = Array.isArray(catalog && catalog.translations) ? catalog.translations : [];
+            const ylt = available.find(item =>
+              String((item && item.shortName) || '').trim().toUpperCase() === 'YLT' ||
+              String((item && item.id) || '').trim().toUpperCase() === 'YLT' ||
+              /young'?s literal translation/i.test(String((item && (item.englishName || item.name)) || ''))
+            );
+            if (!ylt || !ylt.id) throw new Error("Young's Literal Translation is not listed in the Bible API catalogue.");
+            const response = await fetchWithTimeout('https://bible.helloao.org/api/' + encodeURIComponent(ylt.id) + '/' + bookId + '/' + chapter + '.simple.json', 7000);
+            if (!response.ok) throw new Error('YLT chapter request failed (' + response.status + ')');
             const data = await response.json();
-            const items = data?.chapter?.content || [];
+            const items = (data && data.chapter && data.chapter.content) || [];
             const verses = items
               .filter(item => item && item.type === 'verse' && Number.isFinite(Number(item.number)))
               .map(item => ({ number: Number(item.number), text: String(item.text || '').trim() }))
               .filter(item => item.text.length > 0);
             if (verses.length) {
               const verseTexts = verses.map(item => item.text);
-              appState.scriptureSource = 'helloao-engylt';
+              appState.scriptureSource = 'helloao-ylt';
               scriptureChapterCache.set(cacheKey, {
                 verses: verseTexts,
                 annotations: appState.currentWordAnnotations,
@@ -1457,11 +1468,13 @@
               });
               return verseTexts.slice();
             }
+            throw new Error('The Bible API returned no verse text for this chapter.');
           } catch (error) {
             console.warn("Young's Literal Translation chapter could not be loaded from the Free Use Bible API.", error);
+            throw new Error("Could not load " + book + " " + chapter + " in Young's Literal Translation (YLT): " + (error && error.message ? error.message : 'connection failed'));
           }
         }
-        throw new Error(`Could not load ${book} ${chapter} in Young's Literal Translation (YLT). Check the connection and try again.`);
+        throw new Error("Could not load " + book + " " + chapter + " in Young's Literal Translation (YLT): this book is not mapped to the Bible API.");
       }
 
       // Existing secondary provider remains for other translations and offline/API fallback.

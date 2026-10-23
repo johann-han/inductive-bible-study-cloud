@@ -191,8 +191,8 @@ async function fetchMentorLexicalEntries(context, question) {
   candidates.sort((a, b) => Number(Boolean(b.word) && questionLower.includes(b.word.toLowerCase())) -
     Number(Boolean(a.word) && questionLower.includes(a.word.toLowerCase())));
   const shouldLookup = Boolean(String(context.passageText || '').trim()) &&
-    /\b(analy[sz]e|analysis|interpret|interpretation|study this passage|explain this passage|word|meaning|greek|hebrew|aramaic|strong'?s|original[- ]language|lexicon|keywords|linking words|define|definition)\b/i.test(String(question || '')) ||
-    /\b(strong'?s|greek|hebrew|aramaic|original[- ]language|lexicon|word meaning|meaning of|define|definition)\b/i.test(String(question || ''));
+    /\b(analy[sz]e|analysis|interpret|interpretation|study this passage|explain this passage|word|meaning|greek|hebrew|aramaic|strong'?s|original[- ]language|lexicon|keywords|linking words|what does|mean(?:ing)?|define|definition)\b/i.test(String(question || '')) ||
+    /\b(strong'?s|greek|hebrew|aramaic|original[- ]language|lexicon|word meaning|meaning of|what does|mean(?:ing)?|define|definition)\b/i.test(String(question || ''));
   if (!shouldLookup) return [];
 
   const entries = await Promise.all(candidates.slice(0, 4).map(fetchMentorLexiconEntry));

@@ -6348,6 +6348,58 @@ function renderStandardCrossReferenceList() {
       return { book, chapter, verse, section, reference };
     }
 
+    function appendMentorResponseToExistingStudy(answer, context, existingStudy, button) {
+      const answerText = String(answer || '').trim();
+      if (!existingStudy || !answerText) throw new Error('The existing study or AI response is unavailable.');
+      const book = String(existingStudy.book || context?.book || '');
+      const chapter = Number(existingStudy.chapter || context?.chapter);
+      const section = ['observe', 'interpret', 'doctrine', 'apply'].includes(existingStudy.section) ? existingStudy.section : 'observe';
+      const bookInfo = BIBLE_CANON.find(entry => entry.name === book);
+      if (!bookInfo || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(bookInfo.chapters)) throw new Error('The existing study reference is no longer valid. Please try again.');
+
+      // Re-read the record at click time so concurrent edits are preserved.
+      getStudyRecord(book, chapter);
+      const library = readStudyLibrary();
+      const key = studyRecordKey(book, chapter);
+      const record = library[key];
+      if (!record || !record.sections || typeof record.sections !== 'object') throw new Error('The existing study could not be found. No response was added.');
+      for (const name of ['observe', 'interpret', 'doctrine', 'apply']) record.sections[name] = String(record.sections[name] || '');
+
+      const selectedVerses = Array.isArray(context?.selectedVerses) ? context.selectedVerses.filter(value => typeof value === 'string' && value.trim()) : [];
+      const reference = selectedVerses.length ? selectedVerses.join(', ') : String(existingStudy.reference || (book + ' ' + chapter));
+      const translation = String(context?.translation || '').trim();
+      const heading = 'Further AI Study Mentor response — ' + reference + (translation ? ' (' + translation + ')' : '');
+      const existingNotes = record.sections[section].replace(/\s+$/, '');
+      saveStudyNoteVersionSnapshot(record, { force: true });
+      const addition = heading + '\n\n' + answerText;
+      record.sections[section] = existingNotes ? existingNotes + '\n\n---\n\n' + addition : addition;
+      record.activeSection = section;
+      record.updatedAt = new Date().toISOString();
+      if (!writeStudyLibrary(library)) throw new Error('The response could not be saved. Your existing notes have not been replaced.');
+
+      if (appState.currentBook === book && Number(appState.currentChapter) === chapter) {
+        if (appState.activeNotesSection === section) {
+          const area = document.getElementById('workspaceNoteArea');
+          if (area) {
+            area.value = record.sections[section];
+            updateWorkspaceWordCount(area.value);
+            updateDuplicateAiHeadingControl(area.value);
+            updateWorkspaceVerseStudyNavigator(area.value);
+          }
+        }
+        const status = document.getElementById('noteSaveStatus');
+        if (status) status.textContent = cloudSyncState.user ? 'Follow-up added to existing study · saved locally · syncing…' : 'Follow-up added to existing study · saved locally';
+      }
+      scheduleCloudStudySync();
+      if (button) {
+        button.textContent = 'Added to Existing Study';
+        button.disabled = true;
+        button.classList.remove('bg-amber-500', 'hover:bg-amber-400');
+        button.classList.add('bg-emerald-700', 'text-white', 'opacity-90', 'cursor-default');
+        button.setAttribute('aria-label', 'AI follow-up added to the existing ' + book + ' ' + chapter + ' study');
+      }
+    }
+
     function appendMentorResponseToNotes(answer, context, button) {
       const book = String(context?.book || appState.currentBook || '');
       const chapter = Number(context?.chapter || appState.currentChapter);
@@ -6601,18 +6653,21 @@ function renderStandardCrossReferenceList() {
             if (existingStudy) {
               const existingNotice = document.createElement('p');
               existingNotice.className = 'w-full text-xs text-emerald-200';
-              existingNotice.textContent = 'A saved study for ' + existingStudy.reference + ' already exists in ' + NOTE_SECTION_LABELS[existingStudy.section] + '. This response will not be added to your notes.';
+              existingNotice.textContent = 'A saved study for ' + existingStudy.reference + ' already exists in ' + NOTE_SECTION_LABELS[existingStudy.section] + '. Add this response to that study without replacing its existing notes.';
               responseWrapper.appendChild(existingNotice);
-              studyButton.textContent = 'Open Existing Study';
-              studyButton.classList.add('bg-emerald-700', 'hover:bg-emerald-600', 'text-white');
+              studyButton.textContent = 'Add to Existing Study';
+              studyButton.classList.add('bg-amber-500', 'hover:bg-amber-400', 'text-slate-950');
               studyButton.addEventListener('click', () => {
-                const currentStudy = findExistingAiStudyForContext(answerContext);
-                if (currentStudy) {
-                  openExistingAiStudy(answerContext, currentStudy, studyButton);
-                } else {
-                  studyButton.textContent = 'Existing study not found';
-                  studyButton.disabled = true;
-                  window.alert('The saved study could not be found. No response was added to your notes.');
+                try {
+                  const currentStudy = findExistingAiStudyForContext(answerContext);
+                  if (currentStudy) appendMentorResponseToExistingStudy(answer, answerContext, currentStudy, studyButton);
+                  else {
+                    studyButton.textContent = 'Existing study not found';
+                    studyButton.disabled = true;
+                    window.alert('The saved study could not be found. No response was added to your notes.');
+                  }
+                } catch (error) {
+                  window.alert(error.message || 'Could not add the AI response to the existing study.');
                 }
               });
             } else {

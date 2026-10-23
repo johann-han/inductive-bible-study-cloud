@@ -568,6 +568,12 @@ Additional requirement recorded 23 October 2026: when guiding a reader through a
 
 Verification after deployment: test a passage where a Greek or Hebrew term matters, check the definition against a trustworthy lexicon, ensure contextual meaning is distinguished from the full semantic range, and test a term without available lexical data to confirm the AI acknowledges the limitation.
 
+### IBS AI Mentor — append follow-up responses to existing studies
+
+Requirement recorded 23 October 2026: AI responses and follow-up answers must be addable to a study that already exists. The existing-study response action is now “Add to Existing Study”; it appends a separately headed “Further AI Study Mentor response” to the section containing the matched study. It re-reads the current saved record at click time, snapshots the prior note version, preserves existing text and other sections, updates the local record and schedules cloud sync. The action is only marked complete after the local write succeeds. “Open Existing Study” remains available through the existing study library/navigation.
+
+Acceptance checks: create or open an existing study, ask the AI a follow-up question, append the answer, and confirm both original content and the added answer survive switching sections and refreshing; append a second follow-up; confirm each is separately headed and readable; confirm note version history is retained and cloud sync is scheduled when signed in. Check storage-write failure feedback and ensure no existing note is overwritten.
+
 ### IBS AI Mentor — verified lexical context handoff
 
 Follow-up implementation on feature branch `feat/mentor-lexicon-context`: the reader collects Strong's IDs attached to the currently displayed passage (or selected verses), prioritizes a word mentioned in the user's question, and sends only candidate IDs and word labels to the server. The server retrieves up to four lexical records directly from the STEPBible Brief Lexicons endpoint, validates the response shape, and supplies the returned lemma, transliteration, part of speech when provided, senses/definitions, and source attribution to the AI Mentor. The server does not trust client-supplied definitions. Verified records are cached in memory for 24 hours; unavailable records are omitted rather than replaced with fabricated definitions or demo entries. This is additive and does not modify study notes, Bible text, saved records, or cross-references.

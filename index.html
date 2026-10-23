@@ -474,6 +474,7 @@
         <option value="ASV" data-abbr="ASV">ASV (American Standard)</option>
         <option value="WEB" data-abbr="WEB">WEB (World English)</option>
         <option value="BBE" data-abbr="BBE">BBE (Basic English)</option>
+        <option value="BSB" data-abbr="BSB">BSB (Berean Standard)</option>
       </select>
 
       <button id="toggleStrongsBtn" type="button" aria-pressed="false" title="Turn Strong's tags on or off" class="bg-amber-600 text-slate-950 font-extrabold text-xs px-2.5 py-1.5 rounded-lg border border-amber-500 transition flex items-center space-x-1 active:scale-95">
@@ -1393,6 +1394,40 @@
             console.warn('KJV annotated source unavailable; using the previous Bible text provider.', error);
           }
         }
+      }
+
+      // BSB is loaded from the Free Use Bible API's complete Berean Standard Bible
+      // translation. It intentionally has no Strong's annotations; only KJV uses the
+      // verified word-offset annotation source.
+      if ((translation || '').toUpperCase() === 'BSB') {
+        const bookId = HELLOAO_BOOK_IDS[book];
+        if (bookId) {
+          try {
+            const response = await fetchWithTimeout(`https://bible.helloao.org/api/BSB/${bookId}/${chapter}.simple.json`, 7000);
+            if (!response.ok) throw new Error(`BSB chapter request failed (${response.status})`);
+            const data = await response.json();
+            const items = data?.chapter?.content || [];
+            const verses = items
+              .filter(item => item && item.type === 'verse' && Number.isFinite(Number(item.number)))
+              .map(item => ({ number: Number(item.number), text: String(item.text || '').trim() }))
+              .filter(item => item.text.length > 0);
+            if (verses.length) {
+              const verseTexts = verses.map(item => item.text);
+              appState.scriptureSource = 'helloao-bsb';
+              scriptureChapterCache.set(cacheKey, {
+                verses: verseTexts,
+                annotations: appState.currentWordAnnotations,
+                annotationSource: appState.annotationSource,
+                scriptureSource: appState.scriptureSource
+              });
+              return verseTexts.slice();
+            }
+          } catch (error) {
+            console.warn('BSB chapter could not be loaded from the Free Use Bible API.', error);
+          }
+        }
+        // Do not silently substitute a different translation if BSB is unavailable.
+        throw new Error(`Could not load ${book} ${chapter} in BSB. Check the connection and try again.`);
       }
 
       // Existing secondary provider remains for other translations and offline/API fallback.

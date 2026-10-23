@@ -474,7 +474,6 @@
         <option value="ASV" data-abbr="ASV">ASV (American Standard)</option>
         <option value="WEB" data-abbr="WEB">WEB (World English)</option>
         <option value="BBE" data-abbr="BBE">BBE (Basic English)</option>
-        <option value="AFR1933" data-abbr="AFR53">Afrikaans 1933/1953 (AFR53)</option>
       </select>
 
       <button id="toggleStrongsBtn" type="button" aria-pressed="false" title="Turn Strong's tags on or off" class="bg-amber-600 text-slate-950 font-extrabold text-xs px-2.5 py-1.5 rounded-lg border border-amber-500 transition flex items-center space-x-1 active:scale-95">
@@ -1344,37 +1343,6 @@
       appState.currentWordAnnotations = Object.create(null);
       appState.annotationSource = null;
       appState.scriptureSource = null;
-
-      // Afrikaans 1933/1953 text is served by the Free Use Bible API.
-      // No Strong's annotations are attached to this translation; do not infer them from English.
-      if ((translation || '').toUpperCase() === 'AFR1933') {
-        const bookId = HELLOAO_BOOK_IDS[book];
-        if (bookId) {
-          try {
-            const url = `https://bible.helloao.org/api/AFR53/${bookId}/${chapter}.simple.json`;
-            const response = await fetchWithTimeout(url, 7000);
-            if (!response.ok) throw new Error(`Afrikaans chapter request failed (${response.status})`);
-            const chapterData = await response.json();
-            const items = chapterData?.chapter?.content || [];
-            const verses = items
-              .filter(item => item && item.type === 'verse' && Number.isFinite(Number(item.number)))
-              .map(item => ({ number: Number(item.number), text: String(item.text || '') }));
-            if (verses.length) {
-              appState.scriptureSource = 'helloao-afr1933';
-              const verseTexts = verses.map(v => v.text.trim());
-              scriptureChapterCache.set(cacheKey, {
-                verses: verseTexts,
-                annotations: appState.currentWordAnnotations,
-                annotationSource: null,
-                scriptureSource: appState.scriptureSource
-              });
-              return verseTexts.slice();
-            }
-          } catch (error) {
-            console.warn('Afrikaans Bible source unavailable:', error);
-          }
-        }
-      }
 
       // KJV Strong's tags are supplied by the same source as its verse text.
       // Character offsets therefore remain aligned; no English-word guessing is used.

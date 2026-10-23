@@ -1351,7 +1351,7 @@
         const bookId = HELLOAO_BOOK_IDS[book];
         if (bookId) {
           try {
-            const url = `https://bible.helloao.org/api/AFR1933/${bookId}/${chapter}.simple.json`;
+            const url = `https://bible.helloao.org/api/AFR53/${bookId}/${chapter}.simple.json`;
             const response = await fetchWithTimeout(url, 7000);
             if (!response.ok) throw new Error(`Afrikaans chapter request failed (${response.status})`);
             const chapterData = await response.json();

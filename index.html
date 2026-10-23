@@ -882,7 +882,7 @@
       <form id="bibleSearchForm" class="p-3 sm:p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-2">
         <input id="bibleSearchInput" type="search" minlength="2" required placeholder="e.g. be still and know, love is patient" class="min-w-0 flex-1 bg-white border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:border-amber-600" autocomplete="off" />
         <select id="bibleSearchTranslation" aria-label="Search translation" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
-          <option value="kjv">KJV</option><option value="web">WEB</option><option value="asv">ASV</option><option value="bbe">BBE</option>
+          <option value="kjv">KJV</option><option value="web">WEB</option>
         </select>
         <button id="bibleSearchSubmit" type="submit" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">Search</button>
       </form>
@@ -3560,6 +3560,7 @@ function renderStandardCrossReferenceList() {
               : Array.isArray(payload.data?.verses) ? payload.data.verses : [];
             const results = sourceResults.map(item => {
               const reference = String(item.reference || item.ref || item.referenceText ||
+                (item.book_name && item.chapter && item.verse ? item.book_name + ' ' + item.chapter + ':' + item.verse : '') ||
                 (item.bookName && item.chapter && item.verse ? item.bookName + ' ' + item.chapter + ':' + item.verse : '') ||
                 (item.book && item.chapter && item.verse ? item.book + ' ' + item.chapter + ':' + item.verse : '')).trim();
               return { reference, text: String(item.text || item.content || item.snippet || '').trim() };

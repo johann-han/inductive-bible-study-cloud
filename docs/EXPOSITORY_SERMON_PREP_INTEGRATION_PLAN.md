@@ -726,3 +726,10 @@ Keep Gemini credentials server-side in `GEMINI_API_KEY`; never place secrets in 
 ### Bible Reader — unavailable Afrikaans translation removed (23 October 2026)
 
 The Afrikaans 1933/1953 selector and its dedicated AFR53 request path were removed because chapter loading could not be verified in the live app and no dependable, authorised source had been established. The reader retains KJV, ASV, WEB and BBE. This is limited to the translation selector and its fetch branch; saved study notes, annotations, cross-references and other reader functions are not migrated or deleted. If a verified and appropriately licensed Afrikaans source becomes available, it can be added later as a separate, tested feature.
+
+
+### Bible Reader — Berean Standard Bible added (23 October 2026)
+
+Added BSB as the first additional translation, using the Free Use Bible API's documented `BSB` translation ID and the existing canonical book-ID map. The official Berean Bible terms state that the Berean Standard Bible text is dedicated to the public domain; attribution is appreciated but not required (https://berean.bible/terms.htm). The reader requests one complete chapter at a time and rejects empty or malformed chapter content. BSB does not receive inferred Strong's annotations; the existing KJV-only word annotation path remains unchanged. The existing KJV, ASV, WEB and BBE options and all saved study data remain untouched.
+
+Acceptance checks before proceeding to another translation: load Genesis 1 and a New Testament chapter in BSB; switch to KJV and confirm Strong's annotations still work; switch back to BSB and confirm no KJV annotations are carried over; navigate between chapters and books; verify the reader reports a BSB-specific error if the source fails rather than displaying another translation; confirm Bible search remains limited to its already-supported KJV/WEB sources and does not falsely imply BSB search support. Verify notes, bookmarks, verse maps, outlines, cross-references, markups, and Kerygma data remain unchanged.

@@ -562,6 +562,18 @@ The helper `buildStudyLibrarySearchText(record)` includes all four note stages, 
 
 Live acceptance test: create or use a saved study with a distinctive phrase only in Doctrine notes, search that phrase in Study Library, and verify the correct study appears. Also confirm searches in the other three sections and existing verse-map/outline searches still work, and that the notes themselves remain unchanged.
 
+### IBS AI Mentor — Greek and Hebrew lexical study
+
+Additional requirement recorded 23 October 2026: when guiding a reader through a biblical study, the AI should examine the Greek or Hebrew meaning of a word when the original-language sense is relevant to the question or helps clarify the passage. It should identify the original form/transliteration when known, explain the contextual sense and relevant range of meaning, and use reliable lexicon/source data. Strong's numbers, morphology, and parsing may be used only when actually available and reliable. The AI must not invent lexical definitions, Strong's entries, grammatical details, or citations; rely on etymology alone; confuse a word's possible meanings with its contextual sense; or imply a one-to-one mapping between English and Greek/Hebrew words. If reliable lexical evidence is unavailable, it must say so and avoid false precision. Word studies should support, not replace, contextual interpretation.
+
+Verification after deployment: test a passage where a Greek or Hebrew term matters, check the definition against a trustworthy lexicon, ensure contextual meaning is distinguished from the full semantic range, and test a term without available lexical data to confirm the AI acknowledges the limitation.
+
+### IBS AI Mentor — Keywords and Linking Words analysis
+
+Implementation requirement recorded 23 October 2026: whenever the AI Mentor analyzes a biblical passage, it must explicitly examine **Keywords** and **Linking Words** as part of the textual evidence. Keywords analysis identifies significant repeated words, key terms, meaningful variations and contrasts, and explains their contextual importance without treating every repetition as significant. Linking Words analysis identifies connectors actually present in the supplied text and explains the relationships they signal (such as addition, contrast, reason, result, condition, purpose, sequence, or inference). The AI must not invent words or relationships, and must distinguish direct textual observation from interpretation. Passage-analysis responses should label these two subsections when appropriate and incorporate them concisely in shorter answers.
+
+The first implementation adds this requirement to the shared AI Mentor system prompt in `server.js`; it does not change saved notes, study data, cross-references, or passage text. Follow-up verification should test a passage with repeated key terms and clear connectors (for example, Romans 5:1–5 or Ephesians 2:1–10), confirm both categories are grounded in the supplied translation, and confirm a non-passage question is not forced into an irrelevant word study.
+
 ### Phase 6 — Optional direct integration (not part of the initial build)
 
 Only consider shared backend synchronization after JSON integration proves useful and the Kerygma hosting/repository is confirmed.

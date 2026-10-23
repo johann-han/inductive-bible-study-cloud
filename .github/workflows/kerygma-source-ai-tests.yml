@@ -1,19 +1,21 @@
-name: Kerygma source-aware AI checks
+name: IBS and Kerygma regression checks
 
 on:
   pull_request:
     paths:
+      - "index.html"
       - "sermon/index.html"
       - "server.js"
-      - "tests/kerygma-source-ai.test.cjs"
+      - "tests/*.test.cjs"
       - ".github/workflows/kerygma-source-ai-tests.yml"
   push:
     branches:
       - main
     paths:
+      - "index.html"
       - "sermon/index.html"
       - "server.js"
-      - "tests/kerygma-source-ai.test.cjs"
+      - "tests/*.test.cjs"
       - ".github/workflows/kerygma-source-ai-tests.yml"
   workflow_dispatch:
 
@@ -32,5 +34,5 @@ jobs:
           node-version: 22
       - name: Check server JavaScript syntax
         run: node --check server.js
-      - name: Run Kerygma source-aware prompt regression tests
-        run: node --test tests/kerygma-source-ai.test.cjs
+      - name: Run IBS and Kerygma regression tests
+        run: node --test tests/*.test.cjs

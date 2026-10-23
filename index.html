@@ -4560,6 +4560,28 @@ function renderStandardCrossReferenceList() {
       }
     }
 
+    function buildStudyLibrarySearchText(record) {
+      const study = record && typeof record === 'object' ? record : {};
+      const outline = normalizePassageOutline(study.passageOutline);
+      return [
+        study.book,
+        study.chapter,
+        study.sections?.observe,
+        study.sections?.interpret,
+        study.sections?.doctrine,
+        study.sections?.apply,
+        ...Object.values(normalizeVerseMaps(study.verseMaps))
+          .flatMap(map => VERSE_MAP_FIELDS.map(field => map[field])),
+        outline?.title,
+        ...(outline?.sections || []).flatMap(section => [
+          section.heading,
+          section.verseRange,
+          section.majorIdea,
+          section.supportingDetails
+        ])
+      ].map(value => String(value || '')).join(' ').toLocaleLowerCase();
+    }
+
     function renderStudyLibrary() {
       const list = document.getElementById('studyLibraryList');
       if (!list) return;
@@ -4601,19 +4623,7 @@ function renderStandardCrossReferenceList() {
         return true;
       });
       const entries = query
-        ? coverageFilteredEntries.filter(record => {
-            const searchableText = [
-              record.book,
-              record.chapter,
-              record.sections?.observe,
-              record.sections?.interpret,
-              record.sections?.apply,
-              ...Object.values(normalizeVerseMaps(record.verseMaps)).flatMap(map => VERSE_MAP_FIELDS.map(field => map[field])),
-              normalizePassageOutline(record.passageOutline)?.title,
-              ...((normalizePassageOutline(record.passageOutline)?.sections || []).flatMap(section => [section.heading, section.verseRange, section.majorIdea, section.supportingDetails]))
-            ].map(value => String(value || '')).join(' ').toLocaleLowerCase();
-            return searchableText.includes(query);
-          })
+        ? coverageFilteredEntries.filter(record => buildStudyLibrarySearchText(record).includes(query))
         : coverageFilteredEntries;
       const count = document.getElementById('studyLibraryCount');
       const isFiltered = Boolean(query) || coverageFilter !== 'all';

@@ -193,6 +193,23 @@
     }
 
     /* Let the Study Notes panel expand into a large writing surface on demand. */
+    /* On phones, keep the active study visible while the AI question panel is open. */
+    @media (max-width: 640px) {
+      #aiDrawer {
+        top: auto !important;
+        bottom: 0 !important;
+        height: min(68dvh, 38rem) !important;
+        max-height: 68dvh !important;
+        width: 100% !important;
+        border-left: 0 !important;
+        border-top: 1px solid #334155;
+        border-radius: 1rem 1rem 0 0;
+        z-index: 60 !important;
+      }
+      #aiDrawer #aiChatStream { min-height: 0; }
+      #aiDrawer #aiInput { min-width: 0; font-size: 16px; }
+    }
+
     #workspacePanel.workspace-expanded {
       inset: 0 !important;
       top: 0 !important;
@@ -708,9 +725,14 @@
           </div>
           <button id="groupDuplicateAiHeadingsBtn" type="button" class="hidden self-start text-[11px] font-semibold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg px-3 py-2" title="Group repeated AI verse headings without deleting any response text">Group repeated AI verse headings</button>
           <p id="workspaceStudyPrompt" class="text-xs text-slate-600 bg-slate-100 rounded-lg px-3 py-2 leading-relaxed" aria-live="polite">Observe: What does the passage actually say? Notice repeated words, people, places, commands, contrasts, and connections before explaining their meaning.</p>
-          <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
-            <span>✨ Ask AI to Guide My Active Notes</span>
-          </button>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
+              <span>✨ Ask AI to Guide My Active Notes</span>
+            </button>
+            <button id="askAiQuestionFromStudyBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs py-2 rounded font-bold border border-amber-600 flex items-center justify-center space-x-1 transition shadow-sm">
+              <span>💬 Ask AI a Question</span>
+            </button>
+          </div>
         </div>
       </section>
     </main>
@@ -6721,6 +6743,21 @@ function renderStandardCrossReferenceList() {
           askMentor(button.dataset.prompt || button.textContent);
         });
       });
+      const askQuestionFromStudyBtn = document.getElementById('askAiQuestionFromStudyBtn');
+      if (askQuestionFromStudyBtn) {
+        askQuestionFromStudyBtn.addEventListener('click', () => {
+          const currentContext = getContext();
+          const status = document.getElementById('aiContextStatus');
+          if (status) {
+            const selected = Array.isArray(currentContext.selectedVerses) ? currentContext.selectedVerses : [];
+            status.textContent = 'Context: ' + currentContext.book + ' ' + currentContext.chapter +
+              (selected.length ? ' · ' + selected.join(', ') : '') + ' (' + currentContext.translation + ')';
+          }
+          drawer?.classList.remove('translate-x-full');
+          input.focus();
+        });
+      }
+
       if (reviewNotesBtn) {
         reviewNotesBtn.addEventListener('click', () => {
           const sectionPrompts = {

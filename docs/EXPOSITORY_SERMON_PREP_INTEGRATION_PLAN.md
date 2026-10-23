@@ -568,6 +568,12 @@ Additional requirement recorded 23 October 2026: when guiding a reader through a
 
 Verification after deployment: test a passage where a Greek or Hebrew term matters, check the definition against a trustworthy lexicon, ensure contextual meaning is distinguished from the full semantic range, and test a term without available lexical data to confirm the AI acknowledges the limitation.
 
+### IBS AI Mentor — ask questions without leaving the active study
+
+Requirement recorded 23 October 2026: readers need a direct, free-form “Ask AI a Question” action in the active study workspace, separate from the guided review action. The question action opens the existing AI Mentor and focuses the question input without navigating away from the study. On narrow/mobile screens, the AI drawer is a bottom sheet rather than a full-screen panel so the active study remains visible above it. The normal AI question flow continues to receive passage, selected-verse, translation, and active-note context; responses can be added to an existing study using the separate append action.
+
+Acceptance checks: open a saved study on mobile, tap “Ask AI a Question,” verify the study remains visible and the input receives focus, ask a free-form question about the current passage, and confirm the answer appears in the AI panel without changing the active notes. Then append the answer to the existing study and confirm it remains after refresh. Confirm “Ask AI to Guide My Active Notes” still works separately and the desktop drawer remains usable.
+
 ### IBS AI Mentor — append follow-up responses to existing studies
 
 Requirement recorded 23 October 2026: AI responses and follow-up answers must be addable to a study that already exists. The existing-study response action is now “Add to Existing Study”; it appends a separately headed “Further AI Study Mentor response” to the section containing the matched study. It re-reads the current saved record at click time, snapshots the prior note version, preserves existing text and other sections, updates the local record and schedules cloud sync. The action is only marked complete after the local write succeeds. “Open Existing Study” remains available through the existing study library/navigation.

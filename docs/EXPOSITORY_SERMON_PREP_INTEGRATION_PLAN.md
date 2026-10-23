@@ -556,7 +556,7 @@ Implementation:
 PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/65
 Merge commit: `0abeb471234cb9c311c57cd7dad760015c4f74e4`.
 Post-merge GitHub Actions run 39902957765 passed: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39902957765.
-Live verification after deployment remains pending.
+Live acceptance: **confirmed by the user on 23 October 2026.** The user confirmed Doctrine-only search returns the correct saved study, searches work for all other note stages plus verse maps and passage outlines, and saved study content remains unchanged.
 
 The helper `buildStudyLibrarySearchText(record)` includes all four note stages, including Doctrine, alongside saved verse-map fields and passage-outline content. Previously, the search included Observe, Interpretation and Discipleship notes but skipped Doctrine, so users could not find saved studies using a term that appeared only in Doctrine notes. Regression coverage checks all four stages, saved verse maps, passage-outline text, case-insensitive matching, incomplete records, and that the library renderer uses the tested helper. This is an additive search fix; it does not mutate study data.
 

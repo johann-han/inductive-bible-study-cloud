@@ -1889,7 +1889,8 @@ Answer the current question in light of the active stage and the available sourc
 
                 const summary = document.createElement('div');
                 summary.className = 'grid grid-cols-1 gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3 sm:grid-cols-3';
-                const metric = (label, count, accent) => {
+                const metricCountNodes = {};
+                const metric = (key, label, count, accent) => {
                     const card = document.createElement('div');
                     card.className = 'rounded-md border border-slate-200 bg-white px-3 py-2';
                     const labelEl = document.createElement('p');
@@ -1898,13 +1899,14 @@ Answer the current question in light of the active stage and the available sourc
                     const countEl = document.createElement('p');
                     countEl.className = 'text-xl font-semibold ' + accent;
                     countEl.textContent = String(count);
+                    metricCountNodes[key] = countEl;
                     card.append(labelEl, countEl);
                     return card;
                 };
                 summary.append(
-                    metric('Needs research', dashboard.counts['needs-research'], 'text-amber-700'),
-                    metric('Requires revision', dashboard.counts['requires-revision'], 'text-rose-700'),
-                    metric('Reviewed', dashboard.counts.reviewed, 'text-emerald-700')
+                    metric('needs-research', 'Needs research', dashboard.counts['needs-research'], 'text-amber-700'),
+                    metric('requires-revision', 'Requires revision', dashboard.counts['requires-revision'], 'text-rose-700'),
+                    metric('reviewed', 'Reviewed', dashboard.counts.reviewed, 'text-emerald-700')
                 );
                 panel.appendChild(summary);
 
@@ -1961,6 +1963,11 @@ Answer the current question in light of the active stage and the available sourc
                     noMatches.className = 'mb-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-5 text-center text-xs text-slate-600';
                     noMatches.textContent = 'No matching propositions. Clear the search or choose All flagged propositions.';
                     noMatches.hidden = true;
+                    const queueStatusMessage = document.createElement('p');
+                    queueStatusMessage.className = 'mb-2 text-[11px] text-slate-600';
+                    queueStatusMessage.setAttribute('role', 'status');
+                    queueStatusMessage.setAttribute('aria-live', 'polite');
+                    listWrap.appendChild(queueStatusMessage);
 
                     const queueRows = [];
                     dashboard.items.forEach(item => {
@@ -1978,12 +1985,22 @@ Answer the current question in light of the active stage and the available sourc
                         location.className = 'mt-0.5 text-[11px] text-slate-500';
                         location.textContent = 'Paragraph ' + item.paragraphIndex + ' · source sentence ' + item.sourceSentenceIndex + ' · Claim ' + item.claimIndex;
                         identity.append(sermonTitle, location);
-                        const status = document.createElement('span');
-                        status.className = item.status === 'needs-research'
-                            ? 'rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-900'
-                            : 'rounded-full bg-rose-100 px-2 py-1 text-[10px] font-semibold text-rose-900';
-                        status.textContent = item.status === 'needs-research' ? 'Needs research' : 'Requires revision';
-                        top.append(identity, status);
+                        const statusEditor = document.createElement('select');
+                        statusEditor.className = 'max-w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500';
+                        statusEditor.setAttribute('aria-label', 'Update review status for ' + item.sermonTitle + ', claim ' + item.claimIndex);
+                        [
+                            { value: 'not-reviewed', label: 'Not reviewed' },
+                            { value: 'reviewed', label: 'Reviewed' },
+                            { value: 'needs-research', label: 'Needs research' },
+                            { value: 'requires-revision', label: 'Requires revision' }
+                        ].forEach(choice => {
+                            const option = document.createElement('option');
+                            option.value = choice.value;
+                            option.textContent = choice.label;
+                            statusEditor.appendChild(option);
+                        });
+                        statusEditor.value = item.status;
+                        top.append(identity, statusEditor);
                         row.appendChild(top);
 
                         const proposition = document.createElement('p');
@@ -2017,6 +2034,37 @@ Answer the current question in light of the active stage and the available sourc
                         openButton.type = 'button';
                         openButton.className = 'rounded-md bg-sky-700 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-500';
                         openButton.textContent = 'Open claim in sermon';
+                        statusEditor.addEventListener('change', () => {
+                            const previousStatus = item.status;
+                            const nextStatus = statusEditor.value;
+                            if (nextStatus === previousStatus) return;
+                            if (!this.updateClaimReviewQueueStatus(item, nextStatus)) {
+                                statusEditor.value = previousStatus;
+                                queueStatusMessage.textContent = 'Could not save the review status. The previous status remains unchanged.';
+                                return;
+                            }
+
+                            dashboard.counts[previousStatus] = Math.max(0, (Number(dashboard.counts[previousStatus]) || 0) - 1);
+                            dashboard.counts[nextStatus] = (Number(dashboard.counts[nextStatus]) || 0) + 1;
+                            item.status = nextStatus;
+                            ['needs-research', 'requires-revision', 'reviewed'].forEach(key => {
+                                if (metricCountNodes[key]) metricCountNodes[key].textContent = String(dashboard.counts[key] || 0);
+                            });
+
+                            const statusLabels = {
+                                'not-reviewed': 'Not reviewed',
+                                reviewed: 'Reviewed',
+                                'needs-research': 'Needs research',
+                                'requires-revision': 'Requires revision'
+                            };
+                            if (nextStatus !== 'needs-research' && nextStatus !== 'requires-revision') {
+                                dashboard.items = dashboard.items.filter(candidate => candidate !== item);
+                                queueStatusMessage.textContent = 'Saved as ' + statusLabels[nextStatus] + '. This claim has left the action queue.';
+                            } else {
+                                queueStatusMessage.textContent = 'Saved as ' + statusLabels[nextStatus] + '.';
+                            }
+                            applyFilters();
+                        });
                         openButton.addEventListener('click', () => {
                             modal.remove();
                             this.openClaimReviewItem(item.sermonId, item.reviewKey);
@@ -2033,6 +2081,9 @@ Answer the current question in light of the active stage and the available sourc
                             row.hidden = !visibleItems.includes(item);
                         });
                         resultSummary.textContent = visibleItems.length + ' of ' + dashboard.items.length + ' flagged propositions shown';
+                        noMatches.textContent = dashboard.items.length
+                            ? 'No matching propositions. Clear the search or choose All flagged propositions.'
+                            : 'No propositions need action right now. Claims marked Reviewed or Not reviewed leave this queue.';
                         noMatches.hidden = visibleItems.length > 0;
                     };
                     searchInput.addEventListener('input', applyFilters);
@@ -2075,6 +2126,11 @@ Answer the current question in light of the active stage and the available sourc
                 });
                 document.body.appendChild(modal);
                 closeButton.focus();
+            }
+
+            updateClaimReviewQueueStatus(item, status) {
+                if (!item || !item.sermonId || !item.reviewKey) return false;
+                return this.saveClaimReviewStatus(String(item.sermonId), String(item.reviewKey), status);
             }
 
             filterClaimReviewQueueItems(items, statusFilter = 'all', searchText = '') {

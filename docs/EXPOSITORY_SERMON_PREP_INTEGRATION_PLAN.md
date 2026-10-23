@@ -769,3 +769,8 @@ Validation still required: GitHub Actions regression tests, deploy to Render, th
 ### Kerygma mobile follow-up — header/vault overlap (23 October 2026)
 
 After the first responsive CSS pass, the user tested on a phone and supplied a screenshot showing header actions still overlapping the Sermon Vault and claim-review queue. The follow-up explicitly forces the mobile header container to expand naturally (overriding the fixed desktop header height/flex behavior), makes the action grid occupy its own row, constrains the vault height, and makes the workflow tab strip explicitly horizontally scrollable. The Guide launcher is slightly more compact. No sermon fields, records, local storage, import data, or AI behavior are changed. Re-test live on a phone after deployment; screenshots show the earlier CSS was at least partly active, but this new fix still needs live confirmation.
+
+
+### Kerygma mobile header menu (23 October 2026)
+
+Following mobile screenshots showing the header actions occupying several rows and reducing the reading area, the header actions are grouped in a native accessible `details/summary` dropdown. On phones, a compact Menu control appears beside the Kerygma title and the IBS Workspace, New Sermon, Import Study, API Settings and Export actions are shown only when the menu is opened. On desktop, the menu toggle is hidden and the actions remain inline. Existing button handlers and the single Import Study file input are preserved. This changes presentation only; it does not change sermon data, import behavior, AI workflows, or storage. Validate menu opening, all five actions, import, and desktop layout after deployment.

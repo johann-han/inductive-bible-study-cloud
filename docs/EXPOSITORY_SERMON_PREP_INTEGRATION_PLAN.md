@@ -1,6 +1,6 @@
 # Integration Plan and Handover: Inductive Bible Study Workspace + Expository Sermon Preparation Studio
 
-Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, distinct proposition extraction, claim-only numbering, persistent claim-review statuses, and a cross-sermon claim-review queue are merged into `main`. PRs #38, #40, #41, #43, #44, #45, #46, #48, #50, #52, #54, #56, #57, #58 and #59 are merged; SHAs and links are recorded below. On 22 October 2026 the user confirmed that claim-review statuses persist after testing. PR #59 added the cross-sermon queue and passed GitHub Actions run 83. On 22 October 2026, the user verified the live queue and confirmed, “It is good.” PR #61 added search and review-status filters and merged as `76af0cc5b06bcb422dd100cb8294344fa2c19ffa`; final PR-head GitHub Actions run 84 passed. Live acceptance: **completed by the user on 23 October 2026.** The user confirmed, “Looks good and it works,” after opening Kerygma directly and testing the deployed search/status filters.
+Document status: IBS→Kerygma import/export, provider-backed AI workflows, stage-specific coaching, More Questions/More Insights, stage-separated Guide chat, and evidence traceability for Homiletical Outline, Big Idea & Proposition, Illustrations & Application, Manuscript / Notes, paragraph-level manuscript claims, readable cross-reference panels, section-heading reference inheritance, sentence-level claim review, distinct proposition extraction, claim-only numbering, persistent claim-review statuses, and a cross-sermon claim-review queue with inline review-status updates are merged into `main`. PRs #38, #40, #41, #43, #44, #45, #46, #48, #50, #52, #54, #56, #57, #58 and #59 are merged; SHAs and links are recorded below. On 22 October 2026 the user confirmed that claim-review statuses persist after testing. PR #59 added the cross-sermon queue and passed GitHub Actions run 83. On 22 October 2026, the user verified the live queue and confirmed, “It is good.” PR #61 added search and review-status filters and merged as `76af0cc5b06bcb422dd100cb8294344fa2c19ffa`; final PR-head GitHub Actions run 84 passed. Live acceptance: **completed by the user on 23 October 2026.** The user confirmed, “Looks good and it works,” after opening Kerygma directly and testing the deployed search/status filters. PR #63 added inline queue status updates, merged as `50cfa46f1c14926ab552038d810a6a80fbb2b208`; both PR-head and post-merge GitHub Actions checks passed. Live verification of that new status selector remains pending.
 Last reviewed: 23 October 2026.
 Purpose: preserve decisions and exact next steps if the current chat reaches its maximum length.
 
@@ -535,9 +535,21 @@ Live acceptance: **completed by the user on 23 October 2026.** The user tested t
 
 The search spans sermon title, passage, proposition, reference, outline link, IBS division link and review flags. The status filter offers All flagged propositions, Needs research, and Requires revision. Regression tests cover case-insensitive combined search/status matching and reference search.
 
-### Inline claim status update from the queue (new incremental change)
+### Inline claim status update from the queue (PR #63 merged, 23 October 2026)
 
-The next queue enhancement adds an explicit status selector to each actionable proposition. It writes only to the existing separate `kerygma_claim_review_status_v1` store through `saveClaimReviewStatus`, never to sermon text or `inductiveStudySource`. Changing a claim to Reviewed or Not reviewed removes it from the actionable queue immediately; Needs research and Requires revision remain actionable. The visible summary counts and empty state update in place. The UI reports save failure without pretending the status changed. This feature is on its own feature branch and requires CI plus live verification after deployment.
+PR: https://github.com/johann-han/inductive-bible-study-cloud/pull/63
+Merge commit: `50cfa46f1c14926ab552038d810a6a80fbb2b208`.
+Final PR-head CI passed in run 39900318970: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39900318970. Post-merge CI passed in run 39900377529: https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/39900377529.
+Live verification of the new inline selector remains pending.
+
+Implementation:
+- Adds an explicit status selector to each actionable proposition.
+- Writes only to the existing separate `kerygma_claim_review_status_v1` store through `saveClaimReviewStatus`, never to sermon text or `inductiveStudySource`.
+- Changing a claim to Reviewed or Not reviewed removes it from the actionable queue immediately; Needs research and Requires revision remain actionable.
+- Refreshes the visible summary counts and empty state in place.
+- Reports save failure without pretending the status changed.
+- Tests the save target against the specific sermon ID and stable claim key, failed-save handling and missing-key rejection.
+- After Render deploys this merge or a descendant, test all four statuses, confirm count updates and queue removal for Reviewed/Not reviewed, and verify that the existing search/status filters, Open claim in sermon navigation, imported IBS evidence, cross-reference panels and `Peace in the Storm` remain intact.
 
 ### Phase 6 — Optional direct integration (not part of the initial build)
 

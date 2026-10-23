@@ -3489,10 +3489,10 @@ function renderStandardCrossReferenceList() {
       }
 
       const parseSearchReference = reference => {
-        const raw = String(reference || '').trim().replace(/\\s+/g, ' ');
-        const match = raw.match(/^(.+?)\\s+(\\d+)[:.](\\d+)(?:[-–].*)?$/);
+        const raw = String(reference || '').trim().replace(/\s+/g, ' ');
+        const match = raw.match(/^(.+?)\s+(\d+)[:.](\d+)(?:[-–].*)?$/);
         if (!match) return null;
-        const bookName = match[1].replace(/^(I|II|III)\\s+/i, (prefix) => {
+        const bookName = match[1].replace(/^(I|II|III)\s+/i, (prefix) => {
           const roman = prefix.trim().toUpperCase();
           return ({ I: '1', II: '2', III: '3' })[roman] + ' ';
         });

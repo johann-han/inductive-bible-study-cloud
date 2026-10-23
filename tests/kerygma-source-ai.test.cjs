@@ -748,6 +748,7 @@ test('claim review queue gathers only needs-research and requires-revision propo
     return vm.runInNewContext('(' + source + ')');
   };
   const buildQueue = extractMethod('buildClaimReviewQueue', 'openClaimReviewDashboard');
+  const updateQueueStatus = extractMethod('updateClaimReviewQueueStatus', 'filterClaimReviewQueueItems');
   const filterQueueItems = extractMethod('filterClaimReviewQueueItems', 'openClaimReviewItem');
   const makeKey = (paragraphIndex, claim) => 'p' + paragraphIndex + '-s' + claim.index + '-' +
     String(claim.proposition).toLowerCase().replace(/\\s+/g, '-');
@@ -825,6 +826,10 @@ test('claim review queue gathers only needs-research and requires-revision propo
   assert.ok(html.includes('No propositions need action right now'));
   assert.ok(html.includes('Open claim in sermon'));
   assert.ok(html.includes('Search sermon, passage, proposition, or reference'));
+  assert.ok(html.includes('Update review status for '));
+  assert.ok(html.includes("this.updateClaimReviewQueueStatus(item, nextStatus)"));
+  assert.ok(html.includes('This claim has left the action queue.'));
+  assert.ok(html.includes("metricCountNodes[key].textContent = String(dashboard.counts[key] || 0)"));
   assert.ok(html.includes("this.filterClaimReviewQueueItems(dashboard.items, statusFilter.value, searchInput.value)"));
   assert.ok(html.includes("row.hidden = !visibleItems.includes(item)"));
 
@@ -860,6 +865,25 @@ test('claim review queue gathers only needs-research and requires-revision propo
     ['The judge lacks excuse', 'God gave his Son'],
     'an empty search should leave all flagged items visible'
   );
+
+  const statusWrites = [];
+  const statusContext = {
+    saveClaimReviewStatus(sermonId, reviewKey, status) {
+      statusWrites.push({ sermonId, reviewKey, status });
+      return status !== 'invalid-status';
+    }
+  };
+  const firstQueueItem = { sermonId: 'sermon-1', reviewKey: 'claim-key-1' };
+  assert.equal(updateQueueStatus.call(statusContext, firstQueueItem, 'reviewed'), true);
+  assert.deepEqual(statusWrites[0], {
+    sermonId: 'sermon-1',
+    reviewKey: 'claim-key-1',
+    status: 'reviewed'
+  }, 'queue status updates must target the specific sermon and stable claim key');
+  assert.equal(updateQueueStatus.call(statusContext, firstQueueItem, 'invalid-status'), false,
+    'a failed storage update must be surfaced to the UI');
+  assert.equal(updateQueueStatus.call(statusContext, { sermonId: 'sermon-1' }, 'reviewed'), false,
+    'a missing claim key must never be written');
 });
 
 test('claim review queue and navigation remain bounded and use a separate status store', () => {

@@ -216,7 +216,73 @@
                 max-width: 100%;
             }
         }
-    </style>
+    
+        /* The desktop header keeps its existing inline actions; phones use a compact dropdown. */
+        #kerygma-header-menu {
+            display: contents;
+        }
+        #kerygma-header-menu-toggle {
+            display: none;
+        }
+        @media (max-width: 767px) {
+            body > header > div > div {
+                flex-direction: row !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 0.5rem;
+                position: relative;
+            }
+            body > header > div > div > div:first-child {
+                flex: 1 1 auto;
+            }
+            #kerygma-header-menu {
+                display: block;
+                flex: 0 0 auto;
+                position: static;
+            }
+            #kerygma-header-menu-toggle {
+                display: inline-flex !important;
+                white-space: nowrap;
+            }
+            #kerygma-header-menu[open] #kerygma-header-actions {
+                display: grid !important;
+            }
+            #kerygma-header-actions {
+                display: none !important;
+                position: absolute;
+                z-index: 60;
+                top: calc(100% + 0.5rem);
+                left: 0;
+                right: 0;
+                width: 100%;
+                min-width: 0;
+                padding: 0.65rem;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.5rem;
+                border: 1px solid rgba(251, 191, 36, 0.5);
+                border-radius: 0.75rem;
+                background: #14263d;
+                box-shadow: 0 12px 28px rgba(15, 23, 42, 0.3);
+            }
+            #kerygma-header-actions > a,
+            #kerygma-header-actions > button {
+                display: inline-flex;
+                min-width: 0;
+                width: 100%;
+                min-height: 2.75rem;
+                align-items: center;
+                justify-content: center;
+                white-space: normal;
+                text-align: center;
+                line-height: 1.25;
+                padding: 0.55rem 0.35rem;
+                font-size: 0.75rem;
+            }
+            #kerygma-header-actions > input[type="file"] {
+                display: none;
+            }
+        }
+</style>
 </head>
 <body class="h-full font-sans antialiased text-slate-800 flex flex-col">
 
@@ -233,7 +299,13 @@
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-2 flex-wrap justify-end">
+                <details id="kerygma-header-menu" class="relative">
+                    <summary id="kerygma-header-menu-toggle" aria-label="Open Kerygma menu" class="hidden cursor-pointer list-none items-center justify-center gap-2 rounded-lg border border-amber-400 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                        <i data-lucide="menu" class="h-5 w-5"></i>
+                        <span>Menu</span>
+                    </summary>
+                    <div id="kerygma-header-actions" class="flex items-center space-x-2 flex-wrap justify-end">
+
                     <a href="/" aria-label="Return to Inductive Bible Study Workspace" title="Return to Inductive Bible Study Workspace" class="inline-flex items-center px-3 py-1.5 border border-amber-400 text-xs font-medium rounded-md text-amber-100 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors whitespace-nowrap">
                         <i data-lucide="book-open" class="w-4 h-4 mr-1"></i> IBS Workspace
                     </a>
@@ -250,7 +322,9 @@
                     <button onclick="sermonApp.exportSermon()" class="inline-flex items-center px-3 py-1.5 border border-slate-500 text-xs font-medium rounded-md text-slate-200 hover:bg-brand-600 focus:outline-none transition-colors">
                         <i data-lucide="download" class="w-4 h-4 mr-1"></i> Export
                     </button>
-                </div>
+                
+                    </div>
+                </details>
             </div>
         </div>
     </header>

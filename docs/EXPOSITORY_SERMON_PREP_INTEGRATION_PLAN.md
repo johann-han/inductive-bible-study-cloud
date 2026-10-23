@@ -752,3 +752,8 @@ Acceptance checks: load Genesis 1 and a New Testament chapter in YLT; navigate c
 ### Bible Reader — YLT removed after live chapter-load failure (23 October 2026)
 
 Young's Literal Translation was removed from the selector and its dedicated loader after live testing failed to load Genesis 1. The API source/identifier was not verified sufficiently for reliable use. The removal is limited to the YLT selector and dedicated fetch path; existing translations, KJV Strong's annotations, and saved study data remain unchanged. Do not re-add YLT until a reliable source is independently verified and chapter loading is tested before release.
+
+
+### IBS ↔ Kerygma navigation (23 October 2026)
+
+Added always-visible header navigation in both directions: the IBS header links directly to `/sermon/index.html` (Kerygma Expository Sermon Studio), and Kerygma's header links back to `/` (IBS Workspace). These are ordinary same-origin links and do not alter, export, import, or clear study/sermon data. Validate desktop and mobile visibility and both destinations after deployment.

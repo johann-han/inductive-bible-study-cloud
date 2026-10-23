@@ -562,6 +562,12 @@ The helper `buildStudyLibrarySearchText(record)` includes all four note stages, 
 
 Live acceptance test: create or use a saved study with a distinctive phrase only in Doctrine notes, search that phrase in Study Library, and verify the correct study appears. Also confirm searches in the other three sections and existing verse-map/outline searches still work, and that the notes themselves remain unchanged.
 
+### IBS AI Mentor — Keywords and Linking Words analysis
+
+Implementation requirement recorded 23 October 2026: whenever the AI Mentor analyzes a biblical passage, it must explicitly examine **Keywords** and **Linking Words** as part of the textual evidence. Keywords analysis identifies significant repeated words, key terms, meaningful variations and contrasts, and explains their contextual importance without treating every repetition as significant. Linking Words analysis identifies connectors actually present in the supplied text and explains the relationships they signal (such as addition, contrast, reason, result, condition, purpose, sequence, or inference). The AI must not invent words or relationships, and must distinguish direct textual observation from interpretation. Passage-analysis responses should label these two subsections when appropriate and incorporate them concisely in shorter answers.
+
+The first implementation adds this requirement to the shared AI Mentor system prompt in `server.js`; it does not change saved notes, study data, cross-references, or passage text. Follow-up verification should test a passage with repeated key terms and clear connectors (for example, Romans 5:1–5 or Ephesians 2:1–10), confirm both categories are grounded in the supplied translation, and confirm a non-passage question is not forced into an irrelevant word study.
+
 ### Phase 6 — Optional direct integration (not part of the initial build)
 
 Only consider shared backend synchronization after JSON integration proves useful and the Kerygma hosting/repository is confirmed.

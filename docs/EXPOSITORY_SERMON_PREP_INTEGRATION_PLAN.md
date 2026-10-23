@@ -568,6 +568,12 @@ Additional requirement recorded 23 October 2026: when guiding a reader through a
 
 Verification after deployment: test a passage where a Greek or Hebrew term matters, check the definition against a trustworthy lexicon, ensure contextual meaning is distinguished from the full semantic range, and test a term without available lexical data to confirm the AI acknowledges the limitation.
 
+### Bible Reader — full-text verse search
+
+Requirement recorded 23 October 2026: readers must be able to find a verse by remembered words or a phrase without knowing its Bible reference. Added a Search control beside passage navigation. The search dialog accepts a word or phrase, lets the reader choose KJV or WEB, displays matching verse references and text, and opens the selected verse in the existing Bible reader. Navigation updates the active book/chapter/translation, selects and scrolls to the verse, and highlights it briefly. Search results are read-only until a result is selected; this feature does not edit saved study notes or Bible content. Search uses the public Bible API full-text endpoint and reports connection/service errors without clearing existing reader state.
+
+Acceptance checks: search for a distinctive phrase without a reference; verify results show reference and verse text; select a result and confirm the reader navigates to the correct book/chapter/verse and translation; verify selected verse navigation and Strong's annotations continue to work where supported; try no-result and network-error queries; close/reopen search; confirm saved notes, verse maps, outlines, cross-references and Kerygma data remain unchanged. The public search endpoint documents KJV and WEB; the selector is limited to those supported translations.
+
 ### IBS AI Mentor — save the question with the answer
 
 Follow-up improvement recorded 23 October 2026: when an AI Mentor response is added to a study, save the user's submitted question/request immediately before the answer, under explicit “Question / request:” and “Answer:” labels. Apply this to both new-study additions and additions to existing studies, preserving the existing passage heading, note separators, version snapshots, section contents, and cloud-sync behavior. This lets a reader later understand why an AI answer was generated.

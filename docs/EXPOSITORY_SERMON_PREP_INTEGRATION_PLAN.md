@@ -757,3 +757,10 @@ Young's Literal Translation was removed from the selector and its dedicated load
 ### IBS ↔ Kerygma navigation (23 October 2026)
 
 Added always-visible header navigation in both directions: the IBS header links directly to `/sermon/index.html` (Kerygma Expository Sermon Studio), and Kerygma's header links back to `/` (IBS Workspace). These are ordinary same-origin links and do not alter, export, import, or clear study/sermon data. Validate desktop and mobile visibility and both destinations after deployment.
+
+
+### Kerygma mobile layout correction (23 October 2026)
+
+The user supplied a phone screenshot showing the sermon vault taking most of the viewport, the main editor compressed/cropped, header actions crowding, and the floating Guide & Assistant overlapping the content. A targeted CSS-only responsive adjustment was added in `sermon/index.html`: on narrow screens the header actions wrap into a two-column grid; the sermon vault becomes a full-width, height-limited top section; the main workspace receives the remaining height and full width; workflow tabs remain horizontally scrollable; editor panels are constrained to the viewport; and the Guide launcher/panel are resized and positioned within the mobile viewport. Desktop styling remains the default outside the mobile breakpoint. No sermon data, storage, or AI workflow code is changed.
+
+Validation still required: GitHub Actions regression tests, deploy to Render, then test on an actual phone in portrait and landscape. Confirm navigation across all workflow stages, editing and saving the existing “Peace in the Storm” sermon, opening/closing the Guide, and importing an IBS study without altering existing records.

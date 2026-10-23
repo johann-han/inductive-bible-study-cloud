@@ -1431,36 +1431,32 @@
         throw new Error(`Could not load ${book} ${chapter} in BSB. Check the connection and try again.`);
       }
 
-      // Darby Translation (public domain), loaded as a dedicated complete-Bible source.
+      // Darby Translation (public domain). Use the dedicated Darby endpoint and
+      // normalize its documented { verses: [{ verse, text }] } response.
       // Strong's word offsets are not inferred for this translation.
       if ((translation || '').toUpperCase() === 'DBY') {
-        const bookId = HELLOAO_BOOK_IDS[book];
-        if (bookId) {
-          try {
-            const response = await fetchWithTimeout(`https://bible.helloao.org/api/engDBY/${bookId}/${chapter}.simple.json`, 7000);
-            if (!response.ok) throw new Error(`Darby chapter request failed (${response.status})`);
-            const data = await response.json();
-            const items = data?.chapter?.content || [];
-            const verses = items
-              .filter(item => item && item.type === 'verse' && Number.isFinite(Number(item.number)))
-              .map(item => ({ number: Number(item.number), text: String(item.text || '').trim() }))
-              .filter(item => item.text.length > 0);
-            if (verses.length) {
-              const verseTexts = verses.map(item => item.text);
-              appState.scriptureSource = 'helloao-engDBY';
-              scriptureChapterCache.set(cacheKey, {
-                verses: verseTexts,
-                annotations: appState.currentWordAnnotations,
-                annotationSource: appState.annotationSource,
-                scriptureSource: appState.scriptureSource
-              });
-              return verseTexts.slice();
-            }
-          } catch (error) {
-            console.warn('Darby chapter could not be loaded from the Free Use Bible API.', error);
-          }
+        try {
+          const passage = encodeURIComponent(`${book} ${chapter}`);
+          const response = await fetchWithTimeout(`https://dailybible.ca/api/${passage}?translation=darby`, 7000);
+          if (!response.ok) throw new Error(`Darby chapter request failed (${response.status})`);
+          const data = await response.json();
+          const verses = (Array.isArray(data?.verses) ? data.verses : [])
+            .filter(item => item && Number.isFinite(Number(item.verse)) && String(item.text || '').trim())
+            .sort((a, b) => Number(a.verse) - Number(b.verse));
+          if (!verses.length) throw new Error('Darby response contained no verse text');
+          const verseTexts = verses.map(item => String(item.text).trim());
+          appState.scriptureSource = 'dailybible-darby';
+          scriptureChapterCache.set(cacheKey, {
+            verses: verseTexts,
+            annotations: appState.currentWordAnnotations,
+            annotationSource: appState.annotationSource,
+            scriptureSource: appState.scriptureSource
+          });
+          return verseTexts.slice();
+        } catch (error) {
+          console.warn('Darby chapter could not be loaded from the Darby API.', error);
+          throw new Error(`Could not load ${book} ${chapter} in Darby (DBY). Check the connection and try again.`);
         }
-        throw new Error(`Could not load ${book} ${chapter} in Darby (DBY). Check the connection and try again.`);
       }
 
       // Existing secondary provider remains for other translations and offline/API fallback.

@@ -5413,8 +5413,9 @@ function renderStandardCrossReferenceList() {
       const sectionKeys = ['observe', 'interpret', 'doctrine', 'apply'];
       const incompleteEntries = entries.filter(record => !isDashboardStudyComplete(record));
       const lastActive = readLastActiveStudy();
-      const pointedEntry = lastActive && incompleteEntries.find(record => record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter));
-      const resumeEntry = pointedEntry || (!lastActive ? incompleteEntries[0] : null);
+      const pointerEntry = lastActive && entries.find(record => record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter));
+      const pointedEntry = pointerEntry && !isDashboardStudyComplete(pointerEntry) ? pointerEntry : null;
+      const resumeEntry = pointedEntry || (!pointerEntry ? incompleteEntries[0] : null);
       const sectionNames = [
         { key: 'observe', label: 'Observe', description: 'What does the text say?', color: 'amber' },
         { key: 'interpret', label: 'Interpret', description: 'What does the text mean?', color: 'sky' },
@@ -5548,11 +5549,15 @@ function renderStandardCrossReferenceList() {
         openDashboardStudy(book.name, chapter);
       });
       document.getElementById('dashboardContinueBtn')?.addEventListener('click', () => {
-        const entries = getDashboardStudyEntries().filter(record => !isDashboardStudyComplete(record));
+        const allEntries = getDashboardStudyEntries();
+        const entries = allEntries.filter(record => !isDashboardStudyComplete(record));
         const lastActive = readLastActiveStudy();
-        const resumeEntry = (lastActive && entries.find(record =>
+        const pointerEntry = lastActive && allEntries.find(record =>
           record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter)
-        )) || (!lastActive ? entries[0] : null);
+        );
+        const resumeEntry = pointerEntry
+          ? (isDashboardStudyComplete(pointerEntry) ? null : pointerEntry)
+          : entries[0];
         if (resumeEntry) {
           const section = preferredDashboardStudySection(
             resumeEntry,

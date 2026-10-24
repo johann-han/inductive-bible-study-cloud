@@ -183,7 +183,7 @@ function createDashboardHarness(library, appState, activePointer = null) {
 
   const renderSource = extractFunction(
     '    function renderStudyDashboard() {',
-    '    function setupStudyDashboard() {'
+    '    function setupWorkspacePanelResize() {'
   );
   sandbox.renderStudyDashboard = vm.runInNewContext('(' + renderSource + ')', sandbox);
   return { sandbox, document };

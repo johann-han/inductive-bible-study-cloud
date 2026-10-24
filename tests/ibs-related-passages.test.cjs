@@ -635,3 +635,122 @@ test('AI Study Guide drawer has reliable explicit mobile open and close states',
   assert.doesNotMatch(indexHtml, /drawer\?\.classList\.(?:add|remove)\('translate-x-full'\)/,
     'AI drawer workflows should use the shared state handler rather than partial transform updates');
 });
+
+
+test('Related passage text and inclusion state survive cloud hydration and a local reload', () => {
+  const { sandbox } = makeHarness();
+  const relatedItem = {
+    id: 'related-john-3-16',
+    crossReferenceId: 'xref-related-1',
+    book: 'John',
+    chapter: 3,
+    startVerse: 16,
+    endVerse: 17,
+    translation: 'KJV',
+    verses: [
+      { number: 16, text: 'For God so loved the world.' },
+      { number: 17, text: 'For God sent not his Son to condemn the world.' }
+    ],
+    stage: 'observe',
+    includedInStageNotes: true,
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    createdAt: '2026-10-24T08:20:00.000Z'
+  };
+  const includedBlock = [
+    '[Related passage: John 3:16-17]',
+    'Translation: KJV',
+    'Connection: Shared theme or repeated idea',
+    '16. For God so loved the world.',
+    '17. For God sent not his Son to condemn the world.',
+    'Why it matters: God’s saving purpose.'
+  ].join('\n');
+
+  sandbox.normalizeVerseMaps = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  sandbox.normalizePassageOutline = value => value && typeof value === 'object' ? value : null;
+  sandbox.normalizeStudyNoteVersionHistory = value => Array.isArray(value) ? value : [];
+
+  const cloudHydrationSource = extractFunction(
+    indexHtml,
+    '    function cloudRowToRecord(row) {',
+    '    async function syncCloudStudyLibrary(options = {}) {'
+  );
+  const cloudRowToRecord = vm.runInNewContext('(' + cloudHydrationSource + ')', sandbox);
+  const cloudRow = {
+    book: 'Romans',
+    chapter: 8,
+    sections: {
+      observe: 'Existing study observations.\n\n' + includedBlock,
+      interpret: '',
+      doctrine: '',
+      apply: '',
+      _relatedPassages: [relatedItem],
+      _crossReferences: [{
+        id: 'xref-related-1',
+        source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
+        target: { book: 'John', chapter: 3, startVerse: 16, endVerse: 17 },
+        relation: 'theme',
+        note: 'God’s saving purpose.'
+      }]
+    },
+    active_section: 'observe',
+    updated_at: '2026-10-24T09:00:00.000Z',
+    deleted_at: null
+  };
+
+  const hydrated = cloudRowToRecord(cloudRow);
+  assert.equal(hydrated.relatedPassages.length, 1);
+  assert.equal(hydrated.relatedPassages[0].verses.length, 2);
+  assert.equal(hydrated.relatedPassages[0].verses[0].text, 'For God so loved the world.');
+  assert.equal(hydrated.relatedPassages[0].includedInStageNotes, true);
+  assert.equal(hydrated.relatedPassages[0].stage, 'observe');
+  assert.match(hydrated.sections.observe, /Existing study observations\./);
+  assert.match(hydrated.sections.observe, /\[Related passage: John 3:16-17\]/);
+
+  // Exercise the real localStorage read/write functions with a fresh app context,
+  // sharing only the browser storage backing store to simulate a page reload.
+  const storageBacking = new Map();
+  const localStorage = {
+    getItem: key => storageBacking.has(key) ? storageBacking.get(key) : null,
+    setItem: (key, value) => storageBacking.set(key, String(value))
+  };
+  const storageContext = () => ({
+    localStorage,
+    STUDY_LIBRARY_STORAGE_KEY: 'inductive-study-library-v1',
+    document: new FakeDocument(),
+    console
+  });
+  const storeAppRecord = storageContext();
+  const writeSource = extractFunction(
+    indexHtml,
+    '    function writeStudyLibrary(library) {',
+    '    function studyRecordKey('
+  );
+  const readSource = extractFunction(
+    indexHtml,
+    '    function readStudyLibrary() {',
+    '    function writeStudyLibrary(library) {'
+  );
+  const writeStudyLibrary = vm.runInNewContext('(' + writeSource + ')', storeAppRecord);
+  assert.equal(writeStudyLibrary({ 'Romans::8': hydrated }), true);
+
+  const reloadApp = storageContext();
+  const readStudyLibrary = vm.runInNewContext('(' + readSource + ')', reloadApp);
+  const reloaded = readStudyLibrary()['Romans::8'];
+  const reloadedState = sandbox.getStudyRelatedPassageState(reloaded);
+  assert.equal(reloadedState.entries.length, 1);
+  assert.equal(reloadedState.entries[0].verses[1].text, 'For God sent not his Son to condemn the world.');
+  assert.equal(reloadedState.entries[0].includedInStageNotes, true);
+  assert.match(reloaded.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.match(reloaded.sections.observe, /Why it matters: God’s saving purpose\./);
+
+  // Guard the outgoing half of the cloud-sync round trip as well.
+  const syncSource = extractFunction(
+    indexHtml,
+    '    async function syncCloudStudyLibrary(options = {}) {',
+    '    async function setupCloudSync() {'
+  );
+  assert.match(syncSource, /relatedPassages = normalizeStudyRelatedPassages\(rec\.relatedPassages\)/);
+  assert.match(syncSource, /_relatedPassages: relatedPassages/);
+  assert.match(syncSource, /normalizeStudyRelatedPassages\(remote\.sections\?\._relatedPassages\)/);
+});

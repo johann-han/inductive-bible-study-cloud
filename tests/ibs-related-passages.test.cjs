@@ -571,36 +571,40 @@ test('Resume Observe Study forces the active study panel into view on phones', (
 });
 
 
-test('Phone Notes link opens Notes in the same delegated click that closes the menu', () => {
-  const menuStart = indexHtml.indexOf("if (headerControlsPanel) {");
-  const menuEnd = indexHtml.indexOf("document.addEventListener('keydown'", menuStart);
-  assert.ok(menuStart >= 0 && menuEnd > menuStart, 'header menu click handler should exist');
-  const menuSource = indexHtml.slice(menuStart, menuEnd);
-
-  assert.match(menuSource, /event\.target\.closest\('#toggleWorkspaceMobile'\)/);
-  assert.match(menuSource, /notesButton && window\.innerWidth <= 767/);
-  assert.match(menuSource, /setHeaderMenuOpen\(false\);\s*setWorkspaceOpen\(true\)/,
-    'the delegated handler must close the mobile menu and open Notes together');
-
+test('Phone Notes tap directly opens the panel and closes the phone menu', () => {
   const toggleStart = indexHtml.indexOf('toggleWorkspaceMobile.onclick = event => {');
   const toggleEnd = indexHtml.indexOf('// Strongs Modal Copy to Notes Button', toggleStart);
   assert.ok(toggleStart >= 0 && toggleEnd > toggleStart, 'Notes click handler should be present');
   const toggleSource = indexHtml.slice(toggleStart, toggleEnd);
-  assert.match(toggleSource, /if \(isMobile\) return;/,
-    'mobile Notes clicks must bubble to the delegated header handler');
-  assert.doesNotMatch(toggleSource, /event\.stopPropagation\(\)/,
-    'the mobile Notes click must reach the header menu handler');
+
+  assert.match(toggleSource, /const isMobileLayout = typeof window !== 'undefined' && window\.innerWidth <= 1024/);
+  assert.match(toggleSource, /event\.stopPropagation\(\)/);
+  assert.match(toggleSource, /if \(window\.innerWidth <= 767\) setHeaderMenuOpen\(false\)/);
+  assert.match(toggleSource, /setWorkspaceOpen\(true\)/,
+    'phone/tablet Notes taps should open directly instead of relying on menu bubbling');
+  assert.doesNotMatch(toggleSource, /if \(isMobileLayout\) return;/,
+    'Notes must not return early without opening the panel');
+
+  const openStart = indexHtml.indexOf('function openStudyWorkspacePanel()');
+  const openEnd = indexHtml.indexOf('function clearWorkspacePanelInlinePosition', openStart);
+  assert.ok(openStart >= 0 && openEnd > openStart, 'shared Notes opener should exist');
+  const openSource = indexHtml.slice(openStart, openEnd);
+  assert.match(openSource, /window\.innerWidth <= 1024/);
+  assert.match(openSource, /document\.body\.appendChild\(panel\)/);
+  assert.match(openSource, /panel\.classList\.add\('workspace-mobile-open'\)/);
+
+  assert.match(indexHtml, /#workspacePanel\.workspace-mobile-open\s*\{[\s\S]*?position: fixed !important;[\s\S]*?width: 100vw !important;[\s\S]*?transform: translateX\(0\) !important;[\s\S]*?z-index: 70 !important;/);
+  assert.doesNotMatch(indexHtml, /@media \(max-width: 767px\) \{\s*#workspacePanel\.workspace-mobile-open/,
+    'open-state CSS must not use a narrower breakpoint than the JS phone/tablet state');
 
   assert.doesNotMatch(indexHtml, /workspacePanel\?\.classList\.remove\('translate-x-full'\)/,
     'study workflows should use the shared panel opener instead of partial class changes');
-  assert.match(indexHtml, /openStudyWorkspacePanel\(\);\s*setAIDrawerOpen\(false\)/);
 });
 
-test('PWA shell cache version advances when the mobile Notes interaction changes', () => {
+test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v11'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v12'/);
 });
-
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
   const helperStart = indexHtml.indexOf('function setAIDrawerOpen(open) {');

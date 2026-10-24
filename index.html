@@ -2418,8 +2418,10 @@
       }
 
       // Any already-loaded related text must also exist in a saved inductive stage, not just in this list.
+      let refreshActiveStageEditor = false;
       entries.filter(item => item.verses.length && !item.includedInStageNotes).forEach(item => {
-        includeStudyRelatedPassageInStageNotes(key, item.id, null, { refreshEditor: false });
+        const inserted = includeStudyRelatedPassageInStageNotes(key, item.id, null, { refreshEditor: false });
+        if (inserted && key === studyRecordKey() && appState.activeNotesSection === item.stage) refreshActiveStageEditor = true;
       });
       const refreshedRecord = readStudyLibrary()[key] || record;
       state = getStudyRelatedPassageState(refreshedRecord);
@@ -2431,6 +2433,7 @@
         ? withText + ' of ' + entries.length + ' related passage' + (entries.length === 1 ? '' : 's') + ' included in this study and its stage notes.'
         : 'Related verse text, connection type and explanation will be stored inside this study.';
       renderStudyRelatedPassageList(refreshedRecord, entries);
+      if (refreshActiveStageEditor) loadActiveStudyNote();
 
       entries.filter(item => !item.verses.length && !item.textLoadError).forEach(item => {
         if (document.getElementById('studyRelatedPassageList')?.querySelector('[data-related-load="' + item.id + '"]')) {

@@ -505,8 +505,8 @@ test('selected verse copy action copies the reference, translation, and verse te
   );
   assert.match(copySource, /appState\.selectedVerses\.size !== 1/);
   assert.match(copySource, /appState\.currentTranslationAbbr/);
-  assert.ok(copySource.includes("const match = /^(.*) (\\\\d+):(\\\\d+)$/.exec(selectedKey);"), 'copy handler must parse book chapter and verse');
-  assert.ok(copySource.includes("appState.currentTranslationAbbr + ')\\\\n' + verseText;"), 'copied reference and verse should be separated by a newline');
+  assert.ok(copySource.includes("const match = /^(.*) (\\d+):(\\d+)$/.exec(selectedKey);"), 'copy handler must parse book chapter and verse');
+  assert.ok(copySource.includes("appState.currentTranslationAbbr + ')\\n' + verseText;"), 'copied reference and verse should be separated by a newline');
   assert.match(copySource, /navigator\.clipboard\?\.writeText/);
   assert.match(copySource, /document\.execCommand\('copy'\)/);
   assert.match(indexHtml, /btnCopySelectedVerse'\)\?\.addEventListener\('click', copySelectedVerse\)/);

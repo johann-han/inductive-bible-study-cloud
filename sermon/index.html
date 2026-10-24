@@ -781,15 +781,15 @@
             appendix += section('RELATED PASSAGES INCLUDED IN THE ACTIVE IBS STUDY',
                 relatedPassages.length ? relatedPassages.map(item => {
                     const reference = text(item.reference) || (text(item.book) + ' ' + String(item.chapter || ''));
-                    const verseText = list(item.verses).map(verse => String(verse.number) + '. ' + text(verse.text)).join('\\n');
+                    const verseText = list(item.verses).map(verse => String(verse.number) + '. ' + text(verse.text)).join('\n');
                     return [
                         reference + (text(item.translation) ? ' (' + text(item.translation) + ')' : ''),
                         text(item.stage) ? 'Included in stage: ' + text(item.stage) : '',
                         text(item.relation) ? 'Connection: ' + text(item.relation) : '',
                         verseText,
                         text(item.note) ? 'Why it matters: ' + text(item.note) : ''
-                    ].filter(Boolean).join('\\n');
-                }).join('\\n\\n') : '[No related passage text is included in the imported source packet]');
+                    ].filter(Boolean).join('\n');
+                }).join('\n\n') : '[No related passage text is included in the imported source packet]');
 
             const standard = packet.standardCrossReferences && typeof packet.standardCrossReferences === 'object' ? packet.standardCrossReferences : {};
             const standardEntries = list(standard.entries);
@@ -1257,9 +1257,9 @@
                     'Translation: '+(item.translation || 'Unknown'),
                     'Stage: '+(item.stage || 'observe'),
                     'Connection: '+(item.relation || 'Other connection'),
-                    (item.verses || []).map(verse=>verse.number+'. '+verse.text).join('\\n'),
+                    (item.verses || []).map(verse=>verse.number+'. '+verse.text).join('\n'),
                     item.note ? 'Why it matters: '+item.note : ''
-                ].filter(Boolean).join('\\n')).join('\\n\\n'));
+                ].filter(Boolean).join('\n')).join('\n\n'));
                 const std=packet.standardCrossReferences;addDetails('Standard cross-references · '+(std.dataset||'source not specified')+' · '+(std.license||'licence not specified'),formatStandardCrossReferences(std));
                 if(packet.selectedVerses.length)addDetails('Selected verses',packet.selectedVerses.join('\n'));
                 const importedAt=packet.exportedAt?new Date(packet.exportedAt):null;addDetails('Transfer details','Exported: '+(importedAt&&!Number.isNaN(importedAt.getTime())?importedAt.toLocaleString():'date not recorded')+'\nSource updated: '+(packet.sourceUpdatedAt||'not recorded')+'\nFormat: '+packet.format+' v'+packet.version);
@@ -3712,9 +3712,9 @@ Answer the current question in light of the active stage and the available sourc
                             item.translation ? 'Translation: ' + String(item.translation).slice(0, 40) : '',
                             item.stage ? 'Included in stage: ' + String(item.stage).slice(0, 30) : '',
                             item.relation ? 'Connection: ' + String(item.relation).slice(0, 100) : '',
-                            Array.isArray(item.verses) ? item.verses.map(verse => verse.number + '. ' + String(verse.text || '').slice(0, 1000)).join('\\n') : '',
+                            Array.isArray(item.verses) ? item.verses.map(verse => verse.number + '. ' + String(verse.text || '').slice(0, 1000)).join('\n') : '',
                             item.note ? 'Why it matters: ' + String(item.note).slice(0, 300) : ''
-                        ].filter(Boolean).join('\\n')
+                        ].filter(Boolean).join('\n')
                     })), row => row.reference, 'No related verse text was included in the imported study.', 12);
 
                     addEntries('IBS personal cross-references · user-created', personalRefs.map(ref => ({
@@ -3893,9 +3893,9 @@ Answer the current question in light of the active stage and the available sourc
                             item.translation ? 'Translation: ' + String(item.translation).slice(0, 40) : '',
                             item.stage ? 'Included in stage: ' + String(item.stage).slice(0, 30) : '',
                             item.relation ? 'Connection: ' + String(item.relation).slice(0, 100) : '',
-                            Array.isArray(item.verses) ? item.verses.map(verse => verse.number + '. ' + String(verse.text || '').slice(0, 1000)).join('\\n') : '',
+                            Array.isArray(item.verses) ? item.verses.map(verse => verse.number + '. ' + String(verse.text || '').slice(0, 1000)).join('\n') : '',
                             item.note ? 'Why it matters: ' + String(item.note).slice(0, 300) : ''
-                        ].filter(Boolean).join('\\n')
+                        ].filter(Boolean).join('\n')
                     })), row => row.reference, 'No related verse text was included in the imported study.', 12);
 
                     addEntries('IBS personal cross-references · user-created', personalRefs.map(ref => ({

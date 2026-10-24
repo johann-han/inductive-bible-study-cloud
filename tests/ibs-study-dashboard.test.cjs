@@ -159,7 +159,7 @@ test('dashboard entries include saved study evidence, exclude empty/invalid reco
 
   const entries = sandbox.getDashboardStudyEntries();
   assert.deepEqual(
-    entries.map(record => record.book + ' ' + record.chapter),
+    Array.from(entries, record => record.book + ' ' + record.chapter),
     ['1 Corinthians 7', 'Ephesians 1', 'Romans 1', 'Romans 2']
   );
   assert.equal(JSON.stringify(library), before, 'reading and sorting dashboard entries must not mutate saved records');

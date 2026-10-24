@@ -521,7 +521,7 @@ test('Study panel close clears inline transform so translate-x-full can hide it'
   );
   assert.match(panelWorkflow, /\['display', 'position', 'inset-block', 'right', 'left', 'transform', 'z-index'\]/);
   assert.match(panelWorkflow, /panel\.style\.removeProperty\(property\)/);
-  assert.match(panelWorkflow, /'hidden', 'translate-x-full', 'workspace-expanded',[\\s\S]*?'workspace-mobile-closed'/);
+  assert.match(panelWorkflow, /'hidden', 'translate-x-full', 'workspace-expanded',\s*'workspace-mobile-open', 'workspace-mobile-closed'/);
   assert.doesNotMatch(panelWorkflow, /panel\.style\.transform\s*=\s*'translateX\(0\)'/);
 });
 

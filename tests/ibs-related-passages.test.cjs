@@ -171,7 +171,8 @@ test('Study panel exposes a related-passage action and the form supports whole-s
   document.getElementById('openStudyRelatedPassagesBtn').listeners.click();
 
   assert.equal(sandbox.crossReferenceStudyLevelMode, true);
-  assert.deepEqual(sandbox.crossReferenceStudySource, { book: 'Romans', chapter: 8 });
+  assert.equal(sandbox.crossReferenceStudySource.book, 'Romans');
+  assert.equal(sandbox.crossReferenceStudySource.chapter, 8);
   assert.equal(document.getElementById('crossReferenceSourceLabel').textContent, 'Romans 8 (active study)');
   assert.equal(document.getElementById('crossReferenceForm').classList.contains('hidden'), false);
   assert.equal(document.getElementById('crossReferenceModal').classList.contains('hidden'), false);

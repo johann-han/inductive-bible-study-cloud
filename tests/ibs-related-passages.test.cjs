@@ -765,11 +765,9 @@ test('JSON backup restore retains related verse text and its saved stage-note bl
   sandbox.SCRIPTURE_MARKUP_TYPES = Object.freeze({ observe: 'Observe', repeated: 'Repeated' });
   sandbox.VERSE_MAP_FIELDS = ['verseText', 'translation', 'context', 'keyWords', 'wordStudies', 'translationComparison', 'crossReferences', 'meaningSummary', 'response'];
   sandbox.renderStudyLibrary = () => events.push('render-study-library');
-  sandbox.writeStudyLibrary = value => {
-    for (const key of Object.keys(library)) delete library[key];
-    Object.assign(library, value);
-    return true;
-  };
+  // Keep the harness's normal writer: restore mutates the object returned by
+  // readStudyLibrary, so clearing that same object in a fake writer would erase
+  // the test result instead of persisting it.
 
   const relatedItem = {
     id: 'related-john-3-16',
@@ -838,7 +836,7 @@ test('JSON backup restore retains related verse text and its saved stage-note bl
   });
 
   const restored = library['Romans::8'];
-  assert.ok(restored, 'the study should exist after restore; keys=' + JSON.stringify(Object.keys(library)) + '; sandbox keys=' + JSON.stringify(Object.keys(sandbox.readStudyLibrary())) + '; events=' + JSON.stringify(events));
+  assert.ok(restored, 'the study should exist after restore');
   assert.match(restored.sections.observe, /Existing study observations\./);
   assert.match(restored.sections.observe, /\[Related passage: John 3:16-17\]/);
   assert.match(restored.sections.observe, /16\. For God so loved the world\./);

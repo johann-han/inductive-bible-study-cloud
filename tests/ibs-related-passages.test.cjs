@@ -516,7 +516,7 @@ test('selected verse copy action copies the reference, translation, and verse te
 test('Study panel close clears inline transform so translate-x-full can hide it', () => {
   const panelWorkflow = extractFunction(
     indexHtml,
-    '    function clearWorkspacePanelInlinePosition(panel) {',
+    '    function openStudyWorkspacePanel() {',
     '    function openDashboardStudy('
   );
   assert.match(panelWorkflow, /\['display', 'position', 'inset-block', 'right', 'left', 'transform', 'z-index'\]/);
@@ -528,7 +528,7 @@ test('Study panel close clears inline transform so translate-x-full can hide it'
 test('Study panel never opens the blurred mobile navigation backdrop', () => {
   const panelWorkflow = extractFunction(
     indexHtml,
-    '    function clearWorkspacePanelInlinePosition(panel) {',
+    '    function openStudyWorkspacePanel() {',
     '    function openDashboardStudy('
   );
   assert.match(panelWorkflow, /backdrop\?\.classList\.add\('hidden'\)/);

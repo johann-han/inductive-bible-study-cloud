@@ -4520,6 +4520,16 @@ function renderStandardCrossReferenceList() {
       });
       if (headerControlsPanel) {
         headerControlsPanel.addEventListener('click', event => {
+          const notesButton = event.target.closest('#toggleWorkspaceMobile');
+          if (notesButton && window.innerWidth <= 767) {
+            // The click that closes the phone's menu must also open Notes.
+            // Delegate it here as a fallback in case the button's own handler
+            // is stale or another control handler has already changed state.
+            event.preventDefault();
+            setHeaderMenuOpen(false);
+            setWorkspaceOpen(true);
+            return;
+          }
           if (event.target.closest('button')) setHeaderMenuOpen(false);
         });
         document.getElementById('globalTranslationSelect')?.addEventListener('change', () => setHeaderMenuOpen(false));
@@ -4991,16 +5001,9 @@ function renderStandardCrossReferenceList() {
             !workspacePanel.classList.contains('hidden') &&
             !document.body.classList.contains('reader-fullscreen-mode');
 
-          if (isMobile) {
-            // Handle the mobile Notes action here instead of relying on the
-            // generic header-menu click listener. Close the menu first, then
-            // explicitly open Notes, so it cannot remain behind the dropdown.
-            event.stopPropagation();
-            setHeaderMenuOpen(false);
-            setWorkspaceOpen(true);
-            return;
-          }
-
+          // On phones let the header menu's delegated handler close the menu
+          // and open Notes together. Desktop keeps the usual open/close toggle.
+          if (isMobile) return;
           setWorkspaceOpen(!isOpen);
         };
       }

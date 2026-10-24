@@ -571,24 +571,34 @@ test('Resume Observe Study forces the active study panel into view on phones', (
 });
 
 
-test('Phone Notes link explicitly opens the panel instead of toggling from stale CSS state', () => {
+test('Phone Notes link opens Notes in the same delegated click that closes the menu', () => {
+  const menuStart = indexHtml.indexOf("if (headerControlsPanel) {");
+  const menuEnd = indexHtml.indexOf("document.addEventListener('keydown'", menuStart);
+  assert.ok(menuStart >= 0 && menuEnd > menuStart, 'header menu click handler should exist');
+  const menuSource = indexHtml.slice(menuStart, menuEnd);
+
+  assert.match(menuSource, /event\.target\.closest\('#toggleWorkspaceMobile'\)/);
+  assert.match(menuSource, /notesButton && window\.innerWidth <= 767/);
+  assert.match(menuSource, /setHeaderMenuOpen\(false\);\s*setWorkspaceOpen\(true\)/,
+    'the delegated handler must close the mobile menu and open Notes together');
+
   const toggleStart = indexHtml.indexOf('toggleWorkspaceMobile.onclick = event => {');
   const toggleEnd = indexHtml.indexOf('// Strongs Modal Copy to Notes Button', toggleStart);
   assert.ok(toggleStart >= 0 && toggleEnd > toggleStart, 'Notes click handler should be present');
   const toggleSource = indexHtml.slice(toggleStart, toggleEnd);
-
-  assert.match(toggleSource, /const isMobile = typeof window !== 'undefined' && window\.innerWidth <= 767/);
-  assert.match(toggleSource, /workspacePanel\.getAttribute\('aria-hidden'\) === 'false'/);
-  assert.match(toggleSource, /workspace-mobile-closed/);
-  assert.match(toggleSource, /event\.preventDefault\(\)/);
-  assert.match(toggleSource, /if \(isMobile\)\s*\{[\s\S]*?event\.stopPropagation\(\);[\s\S]*?setHeaderMenuOpen\(false\);[\s\S]*?setWorkspaceOpen\(true\);/,
-    'phone Notes taps must explicitly close the header menu and open the panel in the same handler');
-  assert.doesNotMatch(toggleSource, /setWorkspaceOpen\(isMobile \? true : !isOpen\)/,
-    'do not rely on the generic parent menu handler to finish the mobile open action');
+  assert.match(toggleSource, /if \(isMobile\) return;/,
+    'mobile Notes clicks must bubble to the delegated header handler');
+  assert.doesNotMatch(toggleSource, /event\.stopPropagation\(\)/,
+    'the mobile Notes click must reach the header menu handler');
 
   assert.doesNotMatch(indexHtml, /workspacePanel\?\.classList\.remove\('translate-x-full'\)/,
     'study workflows should use the shared panel opener instead of partial class changes');
   assert.match(indexHtml, /openStudyWorkspacePanel\(\);\s*setAIDrawerOpen\(false\)/);
+});
+
+test('PWA shell cache version advances when the mobile Notes interaction changes', () => {
+  const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v11'/);
 });
 
 

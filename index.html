@@ -547,6 +547,7 @@
     </button>
 
     <div id="headerControlsPanel" class="is-menu-closed flex items-center space-x-1.5 sm:space-x-2">
+      <button id="openDashboardBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1" title="Open your Bible study dashboard">⌂ <span>Dashboard</span></button>
       <button id="openBibleSearchBtn" type="button" title="Search Bible verses by words or phrase" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">🔎 Search</button>
       <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
         <span id="currentPassageLabel" class="truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">Genesis 1</span>
@@ -822,6 +823,74 @@
         </div>
       </section>
     </main>
+
+    <!-- IBS STUDY DASHBOARD -->
+    <div id="studyDashboardModal" class="hidden fixed inset-0 z-[80] bg-slate-950/70 p-2 sm:p-5 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyDashboardTitle">
+      <section class="w-full max-w-5xl max-h-[96dvh] sm:max-h-[92vh] bg-slate-50 rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+        <header class="flex items-center justify-between gap-3 p-4 sm:p-6 bg-slate-900 text-white">
+          <div class="min-w-0">
+            <p class="text-[11px] uppercase tracking-[0.18em] text-amber-300 font-bold">Inductive Bible Study</p>
+            <h2 id="studyDashboardTitle" class="text-xl sm:text-2xl font-bold mt-1">Study Dashboard</h2>
+            <p class="text-sm text-slate-300 mt-1">Resume your study, review your progress, or open a passage.</p>
+          </div>
+          <button id="closeStudyDashboardBtn" type="button" class="shrink-0 rounded-lg px-3 py-2 text-xl text-slate-200 hover:bg-slate-800" aria-label="Close dashboard">&times;</button>
+        </header>
+        <div class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-5">
+          <section class="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Study overview">
+            <article class="rounded-xl border border-slate-200 bg-white p-4">
+              <p class="text-xs font-semibold text-slate-500">Saved passages</p>
+              <p id="dashboardSavedCount" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-white p-4">
+              <p class="text-xs font-semibold text-slate-500">Study sections filled</p>
+              <p id="dashboardSectionsCount" class="text-2xl font-bold text-slate-900 mt-1">0 / 0</p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-white p-4">
+              <p class="text-xs font-semibold text-slate-500">Complete studies</p>
+              <p id="dashboardCompleteCount" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+              <p class="text-[11px] text-slate-500 mt-1">All four stages have notes</p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-white p-4">
+              <p class="text-xs font-semibold text-slate-500">Current passage</p>
+              <p id="dashboardCurrentPassage" class="text-base font-bold text-slate-900 mt-1">Genesis 1</p>
+              <p id="dashboardCurrentTranslation" class="text-[11px] text-slate-500 mt-1">KJV</p>
+            </article>
+          </section>
+          <section class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <article class="lg:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+              <p class="text-xs font-bold uppercase tracking-wider text-amber-800">Pick up where you left off</p>
+              <h3 id="dashboardResumeTitle" class="text-lg font-bold text-slate-900 mt-2">Genesis 1</h3>
+              <p class="text-sm text-slate-600 mt-1">Continue reading in your current translation, with your existing notes and annotations.</p>
+              <div class="flex flex-wrap gap-2 mt-4">
+                <button id="dashboardContinueBtn" type="button" class="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950">Continue reading</button>
+                <button id="dashboardChoosePassageBtn" type="button" class="rounded-lg border border-amber-300 bg-white hover:bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">Choose passage</button>
+              </div>
+            </article>
+            <article class="lg:col-span-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Recently studied passages</h3>
+                  <p class="text-xs text-slate-500 mt-1">Open a saved passage to continue working.</p>
+                </div>
+                <button id="dashboardOpenLibraryBtn" type="button" class="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Study library</button>
+              </div>
+              <div id="dashboardRecentStudies" class="mt-3 space-y-2">
+                <p class="text-sm text-slate-500">Your saved studies will appear here.</p>
+              </div>
+            </article>
+          </section>
+          <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+            <h3 class="text-base font-bold text-slate-900">The four inductive stages</h3>
+            <p class="text-sm text-slate-600 mt-1">Use this overview to spot where you may want to continue your work.</p>
+            <div id="dashboardStageProgress" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4"></div>
+          </section>
+        </div>
+        <footer class="flex flex-wrap items-center justify-between gap-2 p-3 sm:px-6 border-t border-slate-200 bg-white">
+          <span class="text-xs text-slate-500">Your existing study records remain in the Study Library.</span>
+          <button id="dashboardCloseFooterBtn" type="button" class="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm font-bold text-white">Return to Bible reader</button>
+        </footer>
+      </section>
+    </div>
 
     <!-- LOCAL STUDY LIBRARY -->
     <div id="studyLibraryModal" class="hidden fixed inset-0 z-[70] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyLibraryTitle">
@@ -5149,6 +5218,162 @@ function renderStandardCrossReferenceList() {
       });
     }
 
+    function getDashboardStudyEntries() {
+      const library = readStudyLibrary();
+      return Object.values(library)
+        .filter(record => record && record.book && Number(record.chapter) > 0 && (
+          (record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) ||
+          Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 ||
+          hasSavedPassageOutline(record.passageOutline) ||
+          (Array.isArray(record.versionHistory) && record.versionHistory.length > 0)
+        ))
+        .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+    }
+
+    function openDashboardStudy(book, chapter) {
+      const targetBook = BIBLE_CANON.find(item => item.name === book);
+      const targetChapter = Number(chapter);
+      if (!targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return;
+      saveActiveStudyNote();
+      appState.currentBook = targetBook.name;
+      appState.currentChapter = targetChapter;
+      appState.activeTab = targetBook.testament;
+      appState.selectedVerses.clear();
+      const bookSearch = document.getElementById('bookSearchInput');
+      if (bookSearch) bookSearch.value = '';
+      if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();
+      if (typeof renderBooksList === 'function') renderBooksList();
+      if (typeof renderChapterPills === 'function') renderChapterPills();
+      if (typeof renderScripture === 'function') renderScripture();
+      document.getElementById('studyDashboardModal')?.classList.add('hidden');
+    }
+
+    function renderStudyDashboard() {
+      const entries = getDashboardStudyEntries();
+      const sectionKeys = ['observe', 'interpret', 'doctrine', 'apply'];
+      const sectionNames = [
+        { key: 'observe', label: 'Observe', description: 'What does the text say?', color: 'amber' },
+        { key: 'interpret', label: 'Interpret', description: 'What does the text mean?', color: 'sky' },
+        { key: 'doctrine', label: 'Doctrine', description: 'What is taught about God and truth?', color: 'violet' },
+        { key: 'apply', label: 'Discipleship', description: 'How should I respond?', color: 'emerald' }
+      ];
+      const savedCount = document.getElementById('dashboardSavedCount');
+      const sectionsCount = document.getElementById('dashboardSectionsCount');
+      const completeCount = document.getElementById('dashboardCompleteCount');
+      const currentPassage = document.getElementById('dashboardCurrentPassage');
+      const currentTranslation = document.getElementById('dashboardCurrentTranslation');
+      const resumeTitle = document.getElementById('dashboardResumeTitle');
+      const recentList = document.getElementById('dashboardRecentStudies');
+      const progressList = document.getElementById('dashboardStageProgress');
+      const currentLabel = `${appState.currentBook} ${appState.currentChapter}`;
+      const filledSections = entries.reduce((total, record) => total + sectionKeys.filter(key => String(record.sections?.[key] || '').trim()).length, 0);
+      const completedStudies = entries.filter(record => sectionKeys.every(key => String(record.sections?.[key] || '').trim())).length;
+      const possibleSections = entries.length * sectionKeys.length;
+      if (savedCount) savedCount.textContent = String(entries.length);
+      if (sectionsCount) sectionsCount.textContent = `${filledSections} / ${possibleSections}`;
+      if (completeCount) completeCount.textContent = String(completedStudies);
+      if (currentPassage) currentPassage.textContent = currentLabel;
+      if (currentTranslation) currentTranslation.textContent = `Translation: ${appState.currentTranslationAbbr || appState.currentTranslation || 'KJV'}`;
+      if (resumeTitle) resumeTitle.textContent = currentLabel;
+
+      if (recentList) {
+        recentList.replaceChildren();
+        if (!entries.length) {
+          const empty = document.createElement('p');
+          empty.className = 'rounded-lg bg-slate-50 p-4 text-sm text-slate-500';
+          empty.textContent = 'No saved passages yet. Add notes to a passage and they will appear here.';
+          recentList.appendChild(empty);
+        } else {
+          entries.slice(0, 5).forEach(record => {
+            const filled = sectionKeys.filter(key => String(record.sections?.[key] || '').trim()).length;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'w-full rounded-lg border border-slate-200 p-3 text-left hover:border-amber-300 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400';
+            const top = document.createElement('span');
+            top.className = 'flex items-center justify-between gap-2';
+            const title = document.createElement('span');
+            title.className = 'font-semibold text-sm text-slate-900';
+            title.textContent = `${record.book} ${record.chapter}`;
+            const count = document.createElement('span');
+            count.className = 'shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600';
+            count.textContent = `${filled}/4 stages`;
+            top.append(title, count);
+            const details = document.createElement('span');
+            details.className = 'block text-xs text-slate-500 mt-1';
+            const updated = record.updatedAt ? new Date(record.updatedAt) : null;
+            details.textContent = updated && !Number.isNaN(updated.getTime())
+              ? `Updated ${updated.toLocaleDateString()}`
+              : 'Saved study';
+            button.append(top, details);
+            button.addEventListener('click', () => openDashboardStudy(record.book, record.chapter));
+            recentList.appendChild(button);
+          });
+        }
+      }
+
+      if (progressList) {
+        progressList.replaceChildren();
+        sectionNames.forEach(stage => {
+          const count = entries.filter(record => String(record.sections?.[stage.key] || '').trim()).length;
+          const card = document.createElement('article');
+          card.className = 'rounded-lg border border-slate-200 bg-slate-50 p-3';
+          const label = document.createElement('p');
+          label.className = 'font-bold text-sm text-slate-800';
+          label.textContent = stage.label;
+          const description = document.createElement('p');
+          description.className = 'text-xs text-slate-500 mt-1';
+          description.textContent = stage.description;
+          const meter = document.createElement('div');
+          meter.className = 'h-2 rounded-full bg-slate-200 mt-3 overflow-hidden';
+          const fill = document.createElement('div');
+          fill.className = 'h-full rounded-full bg-amber-500';
+          fill.style.width = entries.length ? `${Math.round(count / entries.length * 100)}%` : '0%';
+          meter.appendChild(fill);
+          const summary = document.createElement('p');
+          summary.className = 'text-xs font-semibold text-slate-600 mt-2';
+          summary.textContent = `${count} of ${entries.length} passages`;
+          card.append(label, description, meter, summary);
+          progressList.appendChild(card);
+        });
+      }
+    }
+
+    function setupStudyDashboard() {
+      const modal = document.getElementById('studyDashboardModal');
+      const openButton = document.getElementById('openDashboardBtn');
+      const closeButtons = [
+        document.getElementById('closeStudyDashboardBtn'),
+        document.getElementById('dashboardCloseFooterBtn')
+      ];
+      const close = () => modal?.classList.add('hidden');
+      const open = () => {
+        saveActiveStudyNote();
+        renderStudyDashboard();
+        modal?.classList.remove('hidden');
+      };
+      openButton?.addEventListener('click', open);
+      closeButtons.forEach(button => button?.addEventListener('click', close));
+      modal?.addEventListener('click', event => { if (event.target === modal) close(); });
+      document.getElementById('dashboardContinueBtn')?.addEventListener('click', close);
+      document.getElementById('dashboardChoosePassageBtn')?.addEventListener('click', () => {
+        close();
+        const sidebar = document.getElementById('sidebar');
+        sidebar?.classList.remove('sidebar-collapsed', '-translate-x-full');
+        document.getElementById('mobileBackdrop')?.classList.remove('hidden');
+        document.getElementById('mobileMenuBtn')?.setAttribute('aria-expanded', 'true');
+        document.getElementById('mobileMenuBtn')?.setAttribute('aria-label', 'Close navigation sidebar');
+      });
+      document.getElementById('dashboardOpenLibraryBtn')?.addEventListener('click', () => {
+        close();
+        saveActiveStudyNote();
+        renderStudyLibrary();
+        document.getElementById('studyLibraryModal')?.classList.remove('hidden');
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) close();
+      });
+    }
+
     function setupStudyLibrary() {
       const openButton = document.getElementById('openStudyLibraryBtn');
       const closeButton = document.getElementById('closeStudyLibraryBtn');
@@ -7156,6 +7381,7 @@ function renderStandardCrossReferenceList() {
         setupNotesPersistence();
         setupStudyVersionHistory();
         setupStudyLibrary();
+        setupStudyDashboard();
         setupStudyBackup();
         setupMarkdownExport();
         setupCloudSync();

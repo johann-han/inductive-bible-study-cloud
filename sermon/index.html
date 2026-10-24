@@ -3652,7 +3652,7 @@ Answer the current question in light of the active stage and the available sourc
 
                     const personalRefs = Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences.slice(0, 10) : [];
                     addEntries('IBS personal cross-references · user-created', personalRefs.map(ref => ({
-                        _evidence: (ref.source ? ((ref.source.book || '') + ' ' + ref.source.chapter + (ref.source.verse ? ':' + ref.source.verse : '')) : 'Source reference not recorded') +
+                        _evidence: (ref.source ? ((ref.source.book || '') + ' ' + ref.source.chapter + (ref.source.scope === 'study' ? ' (active study)' : (ref.source.verse ? ':' + ref.source.verse : ''))) : 'Source reference not recorded') +
                             ' → ' + (ref.target ? ((ref.target.book || '') + ' ' + ref.target.chapter + (ref.target.startVerse ? ':' + ref.target.startVerse + (ref.target.endVerse && ref.target.endVerse !== ref.target.startVerse ? '–' + ref.target.endVerse : '') : '')) : 'Target reference not recorded') +
                             (ref.relation ? '\nRelation: ' + String(ref.relation).slice(0, 100) : '') +
                             (ref.note ? '\nNote: ' + String(ref.note).slice(0, 300) : '')
@@ -3821,7 +3821,7 @@ Answer the current question in light of the active stage and the available sourc
 
                     const personalRefs = Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences.slice(0, 12) : [];
                     addEntries('IBS personal cross-references · user-created', personalRefs.map(ref => ({
-                        _evidence: (ref.source ? ((ref.source.book || '') + ' ' + ref.source.chapter + (ref.source.verse ? ':' + ref.source.verse : '')) : 'Source reference not recorded') +
+                        _evidence: (ref.source ? ((ref.source.book || '') + ' ' + ref.source.chapter + (ref.source.scope === 'study' ? ' (active study)' : (ref.source.verse ? ':' + ref.source.verse : ''))) : 'Source reference not recorded') +
                             ' → ' + (ref.target ? ((ref.target.book || '') + ' ' + ref.target.chapter + (ref.target.startVerse ? ':' + ref.target.startVerse + (ref.target.endVerse && ref.target.endVerse !== ref.target.startVerse ? '–' + ref.target.endVerse : '') : '')) : 'Target reference not recorded') +
                             (ref.relation ? '\nRelation: ' + String(ref.relation).slice(0, 100) : '') +
                             (ref.note ? '\nNote: ' + String(ref.note).slice(0, 300) : '')

@@ -2144,7 +2144,7 @@
         })).filter(verse => Number.isInteger(verse.number) && verse.number > 0 && verse.number <= 250 && verse.text.trim()) : [];
         const relation = CROSS_REFERENCE_RELATIONS[item.relation] ? item.relation : 'other';
         normalized.push({
-          id: typeof item.id === 'string' && item.id.length <= 100 ? item.id : 'related-' + book.name.replace(/\\s+/g, '-') + '-' + chapter + '-' + normalized.length,
+          id: typeof item.id === 'string' && item.id.length <= 100 ? item.id : 'related-' + book.name.replace(/\s+/g, '-') + '-' + chapter + '-' + normalized.length,
           crossReferenceId: typeof item.crossReferenceId === 'string' ? item.crossReferenceId.slice(0, 100) : '',
           book: book.name,
           chapter,
@@ -2249,7 +2249,7 @@
         verseItems = (Array.isArray(payload?.verses) ? payload.verses : [])
           .map(entry => ({
             number: Number(entry.verse ?? entry.number),
-            text: String(entry.text || '').trim().replace(/^\\s*\\d+\\s+/, '')
+            text: String(entry.text || '').trim().replace(/^\s*\d+\s+/, '')
           }));
       }
 
@@ -2338,7 +2338,7 @@
         if (item.verses.length) {
           const verseText = document.createElement('blockquote');
           verseText.className = 'border-l-2 border-sky-300 pl-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap';
-          verseText.textContent = item.verses.map(verse => verse.number + '. ' + verse.text).join('\\n');
+          verseText.textContent = item.verses.map(verse => verse.number + '. ' + verse.text).join('\n');
           card.appendChild(verseText);
         } else {
           const load = document.createElement('button');
@@ -2423,7 +2423,7 @@
         if (status) status.textContent = 'This related passage is already included in the active stage notes.';
         return;
       }
-      const body = item.verses.map(verse => verse.number + '. ' + verse.text).join('\\n');
+      const body = item.verses.map(verse => verse.number + '. ' + verse.text).join('\n');
       const block = marker + '\\nConnection: ' + (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other) +
         '\\n' + body + (item.note ? '\\nWhy it matters: ' + item.note : '') + '\\n\\n';
       const prefix = area.value.trim() ? area.value.replace(/\\s*$/, '\\n\\n') : '';

@@ -6164,7 +6164,8 @@ function renderStandardCrossReferenceList() {
       const lastActive = readLastActiveStudy();
       const pointerEntry = lastActive && entries.find(record => record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter));
       const pointedEntry = pointerEntry && !isDashboardStudyComplete(pointerEntry) ? pointerEntry : null;
-      const resumeEntry = pointedEntry || (!pointerEntry ? incompleteEntries[0] : null);
+      // A completed last-opened passage must not hide other unfinished studies.
+      const resumeEntry = pointedEntry || incompleteEntries[0] || null;
       const sectionNames = [
         { key: 'observe', label: 'Observe', description: 'What does the text say?', color: 'amber' },
         { key: 'interpret', label: 'Interpret', description: 'What does the text mean?', color: 'sky' },
@@ -6181,10 +6182,9 @@ function renderStandardCrossReferenceList() {
       const progressList = document.getElementById('dashboardStageProgress');
       const currentLabel = `${appState.currentBook} ${appState.currentChapter}`;
       const resumeLabel = resumeEntry ? resumeEntry.book + ' ' + resumeEntry.chapter : currentLabel;
-      const resumeSection = resumeEntry
-        ? preferredDashboardStudySection(resumeEntry, lastActive && lastActive.book === resumeEntry.book && Number(lastActive.chapter) === Number(resumeEntry.chapter) ? lastActive.section : null)
-        : appState.activeNotesSection;
-      const resumeStage = NOTE_SECTION_LABELS[resumeSection] || 'Observe';
+      // Home's primary resume action always opens the Observation stage of the unfinished study.
+      const resumeSection = 'observe';
+      const resumeStage = NOTE_SECTION_LABELS[resumeSection];
       const resumeStageElement = document.getElementById('dashboardResumeStage');
       const filledSections = entries.reduce((total, record) => total + sectionKeys.filter(key => String(record.sections?.[key] || '').trim()).length, 0);
       const completedStudies = entries.filter(record => sectionKeys.every(key => String(record.sections?.[key] || '').trim())).length;
@@ -6199,7 +6199,7 @@ function renderStandardCrossReferenceList() {
         ? 'Unfinished study · resume at ' + resumeStage + '.'
         : 'Open your current passage or choose a new one.';
       const continueButton = document.getElementById('dashboardContinueBtn');
-      if (continueButton) continueButton.textContent = resumeEntry ? 'Resume ' + resumeStage + ' study' : 'Open current passage';
+      if (continueButton) continueButton.textContent = resumeEntry ? 'Resume Observe Study' : 'Open current passage';
 
       if (recentList) {
         recentList.replaceChildren();
@@ -6376,15 +6376,10 @@ function renderStandardCrossReferenceList() {
         const pointerEntry = lastActive && allEntries.find(record =>
           record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter)
         );
-        const resumeEntry = pointerEntry
-          ? (isDashboardStudyComplete(pointerEntry) ? null : pointerEntry)
-          : entries[0];
+        const unfinishedPointerEntry = pointerEntry && !isDashboardStudyComplete(pointerEntry) ? pointerEntry : null;
+        const resumeEntry = unfinishedPointerEntry || entries[0] || null;
         if (resumeEntry) {
-          const section = preferredDashboardStudySection(
-            resumeEntry,
-            lastActive && lastActive.book === resumeEntry.book && Number(lastActive.chapter) === Number(resumeEntry.chapter) ? lastActive.section : null
-          );
-          openDashboardStudy(resumeEntry.book, resumeEntry.chapter, section, { openStudyPanel: true });
+          openDashboardStudy(resumeEntry.book, resumeEntry.chapter, 'observe', { openStudyPanel: true });
         } else {
           showBibleReader();
         }

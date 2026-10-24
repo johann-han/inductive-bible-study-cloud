@@ -6128,14 +6128,6 @@ function renderStandardCrossReferenceList() {
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
     }
 
-    // Clear temporary inline positioning so the Tailwind slide-in/slide-out classes can work.
-    function clearWorkspacePanelInlinePosition(panel) {
-      if (!panel) return;
-      ['display', 'position', 'inset-block', 'right', 'left', 'transform', 'z-index'].forEach(property => {
-        panel.style.removeProperty(property);
-      });
-    }
-
     function openStudyWorkspacePanel() {
       const panel = document.getElementById('workspacePanel');
       const notesToggle = document.getElementById('toggleWorkspaceMobile');
@@ -6159,6 +6151,14 @@ function renderStandardCrossReferenceList() {
         expandButton.textContent = '⛶';
       }
       updateWorkspaceSectionButtons();
+    }
+
+    // Clear temporary inline positioning so the Tailwind slide-in/slide-out classes can work.
+    function clearWorkspacePanelInlinePosition(panel) {
+      if (!panel) return;
+      ['display', 'position', 'inset-block', 'right', 'left', 'transform', 'z-index'].forEach(property => {
+        panel.style.removeProperty(property);
+      });
     }
 
     function openDashboardStudy(book, chapter, suggestedSection = null, options = {}) {

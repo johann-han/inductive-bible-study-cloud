@@ -852,3 +852,165 @@ test('JSON backup restore retains related verse text and its saved stage-note bl
   assert.ok(events.includes('sync'));
   assert.ok(events.some(event => event.backupStatus && event.backupStatus.startsWith('Restore complete.')));
 });
+
+
+test('Cloud sync round trip preserves related passage verse text and stage inclusion', async () => {
+  const { sandbox: relatedHarness } = makeHarness();
+  const relatedItem = {
+    id: 'related-john-3-16',
+    crossReferenceId: 'xref-related-1',
+    book: 'John',
+    chapter: 3,
+    startVerse: 16,
+    endVerse: 17,
+    translation: 'KJV',
+    verses: [
+      { number: 16, text: 'For God so loved the world.' },
+      { number: 17, text: 'For God sent not his Son to condemn the world.' }
+    ],
+    stage: 'observe',
+    includedInStageNotes: true,
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    createdAt: '2026-10-24T08:20:00.000Z'
+  };
+  const includedBlock = [
+    '[Related passage: John 3:16-17]',
+    'Translation: KJV',
+    'Connection: Shared theme or repeated idea',
+    '16. For God so loved the world.',
+    '17. For God sent not his Son to condemn the world.',
+    'Why it matters: God’s saving purpose.'
+  ].join('\n');
+  const sourceRecord = {
+    book: 'Romans',
+    chapter: 8,
+    sections: {
+      observe: 'Existing study observations.\n\n' + includedBlock,
+      interpret: '',
+      doctrine: '',
+      apply: ''
+    },
+    crossReferences: [{
+      id: 'xref-related-1',
+      source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
+      target: { book: 'John', chapter: 3, startVerse: 16, endVerse: 17 },
+      relation: 'theme',
+      note: 'God’s saving purpose.',
+      createdAt: '2026-10-24T08:20:00.000Z'
+    }],
+    relatedPassages: [relatedItem],
+    scriptureMarkups: [],
+    verseMaps: {},
+    passageOutline: null,
+    versionHistory: [],
+    activeSection: 'observe',
+    updatedAt: '2026-10-24T12:00:00.000Z'
+  };
+
+  let localLibrary = { 'Romans::8': sourceRecord };
+  let tombstones = {};
+  let cloudRows = [];
+  const events = [];
+  const cloudUser = { id: 'sync-roundtrip-user', email: 'test@example.invalid' };
+  const client = {
+    from(table) {
+      assert.equal(table, 'study_records');
+      return {
+        select() {
+          return {
+            async eq(field, value) {
+              assert.equal(field, 'user_id');
+              assert.equal(value, cloudUser.id);
+              return { data: cloudRows.map(row => JSON.parse(JSON.stringify(row))), error: null };
+            }
+          };
+        },
+        async upsert(rows, options) {
+          assert.equal(options.onConflict, 'user_id,book,chapter');
+          for (const incoming of rows) {
+            const key = incoming.book + '::' + Number(incoming.chapter);
+            const index = cloudRows.findIndex(row =>
+              row.user_id === incoming.user_id &&
+              row.book + '::' + Number(row.chapter) === key
+            );
+            const persisted = JSON.parse(JSON.stringify(incoming));
+            if (index >= 0) cloudRows[index] = persisted;
+            else cloudRows.push(persisted);
+          }
+          return { error: null };
+        }
+      };
+    }
+  };
+
+  sandbox = {
+    document: new FakeDocument(),
+    window: { confirm: () => true },
+    appState: {
+      currentBook: 'Romans',
+      currentChapter: 8,
+      activeNotesSection: 'observe',
+      selectedVerses: new Set()
+    },
+    BIBLE_CANON: relatedHarness.BIBLE_CANON,
+    CROSS_REFERENCE_RELATIONS: relatedHarness.CROSS_REFERENCE_RELATIONS,
+    NOTE_SECTION_LABELS: relatedHarness.NOTE_SECTION_LABELS,
+    cloudSyncState: { client, user: cloudUser, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 },
+    saveActiveStudyNote: () => events.push('save-active-note'),
+    migrateAllLegacyLocalNotes: () => events.push('migrate-legacy-notes'),
+    setCloudStatus: (message, tone = 'normal') => events.push({ cloudStatus: message, tone }),
+    readStudyLibrary: () => localLibrary,
+    writeStudyLibrary: value => { localLibrary = JSON.parse(JSON.stringify(value)); return true; },
+    readStudyTombstones: () => tombstones,
+    writeStudyTombstones: value => { tombstones = JSON.parse(JSON.stringify(value)); return true; },
+    studyRecordKey: (book, chapter) => (book && chapter) ? book + '::' + Number(chapter) : 'Romans::8',
+    normalizeStudyRelatedPassages: relatedHarness.normalizeStudyRelatedPassages,
+    normalizeVerseMaps: value => value && typeof value === 'object' && !Array.isArray(value) ? value : {},
+    normalizePassageOutline: value => value && typeof value === 'object' ? value : null,
+    normalizeStudyNoteVersionHistory: value => Array.isArray(value) ? value : [],
+    loadActiveStudyNote: options => events.push(options?.preserveCaret ? 'load-preserve-caret' : 'load-active-note'),
+    renderScripture: () => events.push('render-scripture'),
+    renderStudyLibrary: () => events.push('render-study-library'),
+    scheduleCloudStudySync: () => events.push('schedule-followup-sync'),
+    console
+  };
+  const hydrationSource = extractFunction(
+    indexHtml,
+    '    function cloudRowToRecord(row) {',
+    '    async function syncCloudStudyLibrary(options = {}) {'
+  );
+  sandbox.cloudRowToRecord = vm.runInNewContext('(' + hydrationSource + ')', sandbox);
+  const syncSource = extractFunction(
+    indexHtml,
+    '    async function syncCloudStudyLibrary(options = {}) {',
+    '    async function setupCloudSync() {'
+  );
+  const syncCloudStudyLibrary = vm.runInNewContext('(' + syncSource + ')', sandbox);
+
+  // First direction: local study content is serialized into the cloud row shape.
+  await syncCloudStudyLibrary({ quiet: true });
+  assert.equal(cloudRows.length, 1);
+  const cloudRecord = cloudRows[0];
+  assert.match(cloudRecord.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.equal(cloudRecord.sections._relatedPassages.length, 1);
+  assert.equal(cloudRecord.sections._relatedPassages[0].verses[1].text, 'For God sent not his Son to condemn the world.');
+  assert.equal(cloudRecord.sections._relatedPassages[0].includedInStageNotes, true);
+  assert.equal(cloudRecord.sections._crossReferences[0].source.scope, 'study');
+
+  // Second direction: simulate a fresh device by clearing only the local library,
+  // then fetch and hydrate the cloud row through the same production sync function.
+  localLibrary = {};
+  await syncCloudStudyLibrary({ quiet: true });
+  const restored = localLibrary['Romans::8'];
+  assert.ok(restored, 'remote study should be restored to the empty local library');
+  assert.match(restored.sections.observe, /Existing study observations\./);
+  assert.match(restored.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.equal(restored.relatedPassages.length, 1);
+  assert.equal(restored.relatedPassages[0].verses[0].text, 'For God so loved the world.');
+  assert.equal(restored.relatedPassages[0].verses[1].text, 'For God sent not his Son to condemn the world.');
+  assert.equal(restored.relatedPassages[0].includedInStageNotes, true);
+  assert.equal(restored.relatedPassages[0].stage, 'observe');
+  assert.equal(restored.crossReferences[0].source.scope, 'study');
+  assert.ok(events.filter(event => event === 'save-active-note').length >= 2);
+});

@@ -944,7 +944,7 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
     }
   };
 
-  sandbox = {
+  const syncSandbox = {
     document: new FakeDocument(),
     window: { confirm: () => true },
     appState: {
@@ -980,13 +980,13 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
     '    function cloudRowToRecord(row) {',
     '    async function syncCloudStudyLibrary(options = {}) {'
   );
-  sandbox.cloudRowToRecord = vm.runInNewContext('(' + hydrationSource + ')', sandbox);
+  syncSandbox.cloudRowToRecord = vm.runInNewContext('(' + hydrationSource + ')', syncSandbox);
   const syncSource = extractFunction(
     indexHtml,
     '    async function syncCloudStudyLibrary(options = {}) {',
     '    async function setupCloudSync() {'
   );
-  const syncCloudStudyLibrary = vm.runInNewContext('(' + syncSource + ')', sandbox);
+  const syncCloudStudyLibrary = vm.runInNewContext('(' + syncSource + ')', syncSandbox);
 
   // First direction: local study content is serialized into the cloud row shape.
   await syncCloudStudyLibrary({ quiet: true });

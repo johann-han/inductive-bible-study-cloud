@@ -848,11 +848,12 @@
             <div class="flex items-center justify-between gap-2">
               <div class="min-w-0">
                 <p class="text-[11px] font-bold text-slate-800">Related passages</p>
-                <p class="text-[10px] text-slate-500">Connect other verses to this whole study.</p>
+                <p class="text-[10px] text-slate-500">Verse text and connection notes saved as study material.</p>
               </div>
               <button id="openStudyRelatedPassagesBtn" type="button" class="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100">Add / manage <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-[1rem] justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
             </div>
             <p id="studyRelatedPassageStatus" class="text-[10px] text-slate-500" role="status" aria-live="polite">Related verses are saved with this study.</p>
+            <div id="studyRelatedPassageList" class="space-y-2"></div>
           </section>
           <div id="workspaceNoteFind" class="space-y-1">
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
@@ -2125,17 +2126,449 @@
         : 'View cross-references for this chapter (none saved yet)';
     }
 
+    function normalizeStudyRelatedPassages(value) {
+      if (!Array.isArray(value)) return [];
+      const normalized = [];
+      for (const item of value.slice(0, 100)) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+        const book = BIBLE_CANON.find(entry => entry.name === item.book);
+        const chapter = Number(item.chapter);
+        const startVerse = item.startVerse == null ? null : Number(item.startVerse);
+        const endVerse = item.endVerse == null ? startVerse : (item.endVerse == null ? null : Number(item.endVerse));
+        if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) continue;
+        if (startVerse !== null && (!Number.isInteger(startVerse) || startVerse < 1 || startVerse > 250)) continue;
+        if (endVerse !== null && (!Number.isInteger(endVerse) || endVerse < (startVerse || 1) || endVerse > 250)) continue;
+        const verses = Array.isArray(item.verses) ? item.verses.slice(0, 250).map(verse => ({
+          number: Number(verse?.number),
+          text: String(verse?.text || '').slice(0, 4000)
+        })).filter(verse => Number.isInteger(verse.number) && verse.number > 0 && verse.number <= 250 && verse.text.trim()) : [];
+        const relation = CROSS_REFERENCE_RELATIONS[item.relation] ? item.relation : 'other';
+        normalized.push({
+          id: typeof item.id === 'string' && item.id.length <= 100 ? item.id : 'related-' + book.name.replace(/\s+/g, '-') + '-' + chapter + '-' + normalized.length,
+          crossReferenceId: typeof item.crossReferenceId === 'string' ? item.crossReferenceId.slice(0, 100) : '',
+          book: book.name,
+          chapter,
+          startVerse,
+          endVerse,
+          translation: String(item.translation || 'KJV').slice(0, 40),
+          verses,
+          stage: NOTE_SECTION_LABELS[item.stage] ? item.stage : 'observe',
+          includedInStageNotes: item.includedInStageNotes === true,
+          relation,
+          note: String(item.note || '').slice(0, 2000),
+          createdAt: typeof item.createdAt === 'string' ? item.createdAt.slice(0, 50) : '',
+          textLoadError: item.textLoadError === true
+        });
+      }
+      return normalized;
+    }
+
+    function formatStudyRelatedPassageReference(item) {
+      if (!item) return 'Unknown passage';
+      const base = item.book + ' ' + Number(item.chapter);
+      if (!Number.isInteger(item.startVerse) || item.startVerse < 1) return base;
+      return base + ':' + item.startVerse +
+        (Number.isInteger(item.endVerse) && item.endVerse > item.startVerse ? '-' + item.endVerse : '');
+    }
+
+    function relatedPassageFromCrossReference(ref) {
+      const target = ref?.target;
+      if (!target || !BIBLE_CANON.some(book => book.name === target.book)) return null;
+      const targetChapter = Number(target.chapter);
+      const targetBook = BIBLE_CANON.find(book => book.name === target.book);
+      if (!Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return null;
+      return {
+        id: 'related-' + String(ref.id || Date.now().toString(36)).slice(0, 88),
+        crossReferenceId: String(ref.id || '').slice(0, 100),
+        book: target.book,
+        chapter: targetChapter,
+        startVerse: Number.isInteger(target.startVerse) ? target.startVerse : null,
+        endVerse: Number.isInteger(target.endVerse) ? target.endVerse : (Number.isInteger(target.startVerse) ? target.startVerse : null),
+        translation: String(appState.currentTranslationAbbr || appState.currentTranslation || 'KJV'),
+        verses: [],
+        stage: NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe',
+        includedInStageNotes: false,
+        relation: CROSS_REFERENCE_RELATIONS[ref.relation] ? ref.relation : 'other',
+        note: String(ref.note || '').slice(0, 2000),
+        createdAt: String(ref.createdAt || new Date().toISOString()).slice(0, 50),
+        textLoadError: false
+      };
+    }
+
+    function getStudyRelatedPassageState(record) {
+      const existing = normalizeStudyRelatedPassages(record?.relatedPassages);
+      const knownIds = new Set(existing.map(item => item.crossReferenceId).filter(Boolean));
+      const entries = existing.slice();
+      if (Array.isArray(record?.crossReferences)) {
+        for (const ref of record.crossReferences) {
+          if (ref?.source?.scope !== 'study' || !ref.target || (ref.id && knownIds.has(ref.id))) continue;
+          const item = relatedPassageFromCrossReference(ref);
+          if (!item) continue;
+          entries.push(item);
+          if (item.crossReferenceId) knownIds.add(item.crossReferenceId);
+        }
+      }
+      return {
+        entries,
+        changed: JSON.stringify(entries) !== JSON.stringify(Array.isArray(record?.relatedPassages) ? record.relatedPassages : [])
+      };
+    }
+
+    function saveStudyRelatedPassages(book, chapter, entries) {
+      const library = readStudyLibrary();
+      const key = studyRecordKey(book, chapter);
+      const record = library[key];
+      if (!record) return false;
+      record.relatedPassages = normalizeStudyRelatedPassages(entries);
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) return false;
+      scheduleCloudStudySync();
+      return true;
+    }
+
+    async function fetchStudyRelatedPassageText(item) {
+      const book = BIBLE_CANON.find(entry => entry.name === item?.book);
+      const chapter = Number(item?.chapter);
+      if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) {
+        throw new Error('Choose a valid canonical Bible passage.');
+      }
+      const translation = String(item.translation || 'KJV').toUpperCase();
+      const bookId = HELLOAO_BOOK_IDS[book.name];
+      let verseItems = [];
+
+      if (bookId && ['KJV', 'BSB'].includes(translation)) {
+        const source = translation === 'KJV' ? 'eng_kjv' : 'BSB';
+        const response = await fetchWithTimeout('https://bible.helloao.org/api/' + source + '/' + bookId + '/' + chapter + '.simple.json', 8000);
+        if (!response.ok) throw new Error('The Bible text service returned ' + response.status + '.');
+        const payload = await response.json();
+        verseItems = (payload?.chapter?.content || [])
+          .filter(entry => entry && entry.type === 'verse' && Number.isInteger(Number(entry.number)))
+          .map(entry => ({ number: Number(entry.number), text: String(entry.text || '').trim() }));
+      } else {
+        const response = await fetchWithTimeout('https://bible-api.com/' + encodeURIComponent(book.name + ' ' + chapter) +
+          '?translation=' + encodeURIComponent(translation.toLowerCase()), 8000);
+        if (!response.ok) throw new Error('The Bible text service returned ' + response.status + '.');
+        const payload = await response.json();
+        verseItems = (Array.isArray(payload?.verses) ? payload.verses : [])
+          .map(entry => ({
+            number: Number(entry.verse ?? entry.number),
+            text: String(entry.text || '').trim().replace(/^\s*\d+\s+/, '')
+          }));
+      }
+
+      const start = Number.isInteger(item.startVerse) ? item.startVerse : 1;
+      const end = Number.isInteger(item.endVerse) ? item.endVerse : Math.max(0, ...verseItems.map(entry => entry.number));
+      const verses = verseItems.filter(verse => verse.number >= start && verse.number <= end && verse.text);
+      if (!verses.length) throw new Error('The verse text was not available for ' + formatStudyRelatedPassageReference(item) + '.');
+      return verses;
+    }
+
+    const studyRelatedPassageLoads = new Set();
+
+    async function loadStudyRelatedPassageText(itemId) {
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      if (!record) return;
+      const state = getStudyRelatedPassageState(record);
+      const item = state.entries.find(entry => entry.id === itemId);
+      if (!item) return;
+      const loadKey = key + '::' + itemId;
+      if (studyRelatedPassageLoads.has(loadKey)) return;
+      studyRelatedPassageLoads.add(loadKey);
+      const list = document.getElementById('studyRelatedPassageList');
+      if (list) {
+        const button = list.querySelector('[data-related-load="' + itemId + '"]');
+        if (button) { button.disabled = true; button.textContent = 'Loading verse text…'; }
+      }
+      try {
+        const verses = await fetchStudyRelatedPassageText(item);
+        const latestLibrary = readStudyLibrary();
+        const latestRecord = latestLibrary[key];
+        if (!latestRecord) return;
+        const latestState = getStudyRelatedPassageState(latestRecord);
+        const latestItem = latestState.entries.find(entry => entry.id === itemId);
+        if (!latestItem) return;
+        latestItem.verses = verses;
+        latestItem.textLoadError = false;
+        latestRecord.relatedPassages = normalizeStudyRelatedPassages(latestState.entries);
+        latestRecord.updatedAt = new Date().toISOString();
+        latestLibrary[key] = latestRecord;
+        if (writeStudyLibrary(latestLibrary)) {
+          const tombstones = readStudyTombstones();
+          delete tombstones[key];
+          writeStudyTombstones(tombstones);
+          scheduleCloudStudySync();
+          includeStudyRelatedPassageInStageNotes(key, itemId);
+          if (key === studyRecordKey()) updateStudyRelatedPassageButton();
+        }
+      } catch (error) {
+        const latestLibrary = readStudyLibrary();
+        const latestRecord = latestLibrary[key];
+        if (latestRecord) {
+          const state = getStudyRelatedPassageState(latestRecord);
+          const latestItem = state.entries.find(entry => entry.id === itemId);
+          if (latestItem) {
+            latestItem.textLoadError = true;
+            latestRecord.relatedPassages = normalizeStudyRelatedPassages(state.entries);
+            latestLibrary[key] = latestRecord;
+            writeStudyLibrary(latestLibrary);
+          }
+        }
+        if (key === studyRecordKey()) updateStudyRelatedPassageButton();
+        const status = document.getElementById('studyRelatedPassageStatus');
+        if (status) status.textContent = 'Passage link saved, but its verse text could not be loaded. Retry from the item below.';
+      } finally {
+        studyRelatedPassageLoads.delete(loadKey);
+      }
+    }
+
+    function renderStudyRelatedPassageList(record, entries) {
+      const list = document.getElementById('studyRelatedPassageList');
+      if (!list) return;
+      list.replaceChildren();
+      if (!entries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-[10px] text-slate-500';
+        empty.textContent = 'No related verse text has been added to this study yet.';
+        list.appendChild(empty);
+        return;
+      }
+
+      entries.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'rounded-lg border border-sky-100 bg-sky-50/50 p-2 space-y-1.5';
+        const title = document.createElement('p');
+        title.className = 'text-[11px] font-bold text-slate-900';
+        title.textContent = formatStudyRelatedPassageReference(item) + (item.verses.length ? ' · ' + item.translation : ' · text not loaded');
+        const relation = document.createElement('p');
+        relation.className = 'text-[10px] font-semibold text-sky-800';
+        relation.textContent = CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other;
+        card.append(title, relation);
+
+        if (item.verses.length) {
+          const verseText = document.createElement('blockquote');
+          verseText.className = 'border-l-2 border-sky-300 pl-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap';
+          verseText.textContent = item.verses.map(verse => verse.number + '. ' + verse.text).join('\n');
+          card.appendChild(verseText);
+        } else {
+          const load = document.createElement('button');
+          load.type = 'button';
+          load.dataset.relatedLoad = item.id;
+          load.className = 'text-[10px] font-bold text-sky-800 underline disabled:opacity-50';
+          load.textContent = item.textLoadError ? 'Retry loading verse text' : 'Include verse text in study';
+          load.addEventListener('click', () => loadStudyRelatedPassageText(item.id));
+          card.appendChild(load);
+        }
+
+        if (item.note) {
+          const note = document.createElement('p');
+          note.className = 'text-[10px] text-slate-700 whitespace-pre-wrap';
+          note.textContent = 'Why it matters: ' + item.note;
+          card.appendChild(note);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'flex flex-wrap gap-3 pt-1';
+        if (item.verses.length) {
+          const stageLabel = NOTE_SECTION_LABELS[item.stage] || 'Observe';
+          if (item.includedInStageNotes) {
+            const included = document.createElement('span');
+            included.className = 'text-[10px] font-semibold text-emerald-800';
+            included.textContent = 'Included in ' + stageLabel + ' notes';
+            actions.appendChild(included);
+          }
+          const addToNotes = document.createElement('button');
+          addToNotes.type = 'button';
+          addToNotes.className = 'text-[10px] font-bold text-emerald-800 underline';
+          addToNotes.textContent = item.includedInStageNotes ? 'Add to current stage too' : 'Add text to active stage notes';
+          addToNotes.addEventListener('click', () => includeStudyRelatedPassageInStageNotes(studyRecordKey(), item.id, appState.activeNotesSection));
+          actions.appendChild(addToNotes);
+        }
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'text-[10px] font-semibold text-slate-500 hover:text-red-700';
+        remove.textContent = 'Remove from study';
+        remove.addEventListener('click', () => removeStudyRelatedPassage(item));
+        actions.appendChild(remove);
+        card.appendChild(actions);
+        list.appendChild(card);
+      });
+    }
+
     function updateStudyRelatedPassageButton() {
       const countElement = document.getElementById('studyRelatedPassageCount');
       const status = document.getElementById('studyRelatedPassageStatus');
       const library = readStudyLibrary();
-      const record = library[studyRecordKey(appState.currentBook, appState.currentChapter)];
-      const total = (Array.isArray(record?.crossReferences) ? record.crossReferences : [])
-        .filter(ref => ref?.source?.scope === 'study').length;
-      if (countElement) countElement.textContent = String(total);
-      if (status) status.textContent = total
-        ? total + ' related passage' + (total === 1 ? '' : 's') + ' saved with ' + appState.currentBook + ' ' + appState.currentChapter + '.'
-        : 'Related verses are saved with this study.';
+      const key = studyRecordKey(appState.currentBook, appState.currentChapter);
+      const record = library[key];
+      if (!record) {
+        if (countElement) countElement.textContent = '0';
+        if (status) status.textContent = 'Related verses will be saved inside this study.';
+        renderStudyRelatedPassageList(null, []);
+        return;
+      }
+      let state = getStudyRelatedPassageState(record);
+      let entries = state.entries;
+      if (state.changed) {
+        record.relatedPassages = normalizeStudyRelatedPassages(entries);
+        library[key] = record;
+        if (writeStudyLibrary(library)) scheduleCloudStudySync();
+      }
+
+      // Any already-loaded related text must also exist in a saved inductive stage, not just in this list.
+      let refreshActiveStageEditor = false;
+      entries.filter(item => item.verses.length && !item.includedInStageNotes).forEach(item => {
+        const inserted = includeStudyRelatedPassageInStageNotes(key, item.id, null, { refreshEditor: false });
+        if (inserted && key === studyRecordKey() && appState.activeNotesSection === item.stage) refreshActiveStageEditor = true;
+      });
+      const refreshedRecord = readStudyLibrary()[key] || record;
+      state = getStudyRelatedPassageState(refreshedRecord);
+      entries = state.entries;
+
+      if (countElement) countElement.textContent = String(entries.length);
+      const withText = entries.filter(item => item.verses.length).length;
+      if (status) status.textContent = entries.length
+        ? withText + ' of ' + entries.length + ' related passage' + (entries.length === 1 ? '' : 's') + ' included in this study and its stage notes.'
+        : 'Related verse text, connection type and explanation will be stored inside this study.';
+      renderStudyRelatedPassageList(refreshedRecord, entries);
+      if (refreshActiveStageEditor) loadActiveStudyNote();
+
+      entries.filter(item => !item.verses.length && !item.textLoadError).forEach(item => {
+        if (document.getElementById('studyRelatedPassageList')?.querySelector('[data-related-load="' + item.id + '"]')) {
+          // Existing links are migrated into the study and their verse text is loaded in the background.
+          loadStudyRelatedPassageText(item.id);
+        }
+      });
+    }
+
+    function includeStudyRelatedPassageInStageNotes(studyKey, itemId, stageOverride = null, options = {}) {
+      const key = studyKey || studyRecordKey();
+      const initialLibrary = readStudyLibrary();
+      const initialRecord = initialLibrary[key];
+      if (!initialRecord) return false;
+      let state = getStudyRelatedPassageState(initialRecord);
+      let item = state.entries.find(entry => entry.id === itemId);
+      if (!item || !Array.isArray(item.verses) || !item.verses.length) return false;
+      const stage = NOTE_SECTION_LABELS[stageOverride] ? stageOverride
+        : (NOTE_SECTION_LABELS[item.stage] ? item.stage : 'observe');
+
+      // Capture edits from the open textarea before appending into that same saved stage.
+      if (key === studyRecordKey() && appState.activeNotesSection === stage) saveActiveStudyNote();
+
+      const library = readStudyLibrary();
+      const record = library[key];
+      if (!record) return false;
+      state = getStudyRelatedPassageState(record);
+      item = state.entries.find(entry => entry.id === itemId);
+      if (!item || !item.verses.length) return false;
+      record.sections = { observe: '', interpret: '', doctrine: '', apply: '', ...(record.sections || {}) };
+      const currentNotes = String(record.sections[stage] || '');
+      const reference = formatStudyRelatedPassageReference(item);
+      const marker = '[Related passage: ' + reference + ']';
+      const previouslyIncluded = item.includedInStageNotes === true;
+      const previousStage = item.stage;
+      let changed = false;
+
+      if (!currentNotes.includes(marker)) {
+        const body = item.verses.map(verse => verse.number + '. ' + verse.text).join('\n');
+        const block = marker + '\nTranslation: ' + item.translation +
+          '\nConnection: ' + (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other) +
+          '\n' + body + (item.note ? '\nWhy it matters: ' + item.note : '') + '\n\n';
+        const prefix = currentNotes.trim() ? currentNotes.replace(/\s*$/, '\n\n') : '';
+        saveStudyNoteVersionSnapshot(record);
+        record.sections[stage] = prefix + block;
+        changed = true;
+      }
+      item.stage = stage;
+      item.includedInStageNotes = true;
+      record.relatedPassages = normalizeStudyRelatedPassages(state.entries);
+      if (changed || state.changed || !previouslyIncluded || previousStage !== stage) {
+        record.updatedAt = new Date().toISOString();
+        library[key] = record;
+        if (!writeStudyLibrary(library)) return false;
+        const tombstones = readStudyTombstones();
+        delete tombstones[key];
+        writeStudyTombstones(tombstones);
+        scheduleCloudStudySync();
+      }
+      if (key === studyRecordKey() && options.refreshEditor !== false) {
+        if (appState.activeNotesSection === stage) loadActiveStudyNote();
+        updateStudyRelatedPassageButton();
+        const status = document.getElementById('noteSaveStatus');
+        if (status) status.textContent = 'Related passage text is included in ' + (NOTE_SECTION_LABELS[stage] || 'stage') + ' notes.';
+      }
+      return true;
+    }
+
+    function insertStudyRelatedPassageIntoNotes(item) {
+      if (!item) return false;
+      return includeStudyRelatedPassageInStageNotes(studyRecordKey(), item.id, appState.activeNotesSection);
+    }
+
+    function removeStudyRelatedPassage(item) {
+      if (!item) return;
+      const reference = formatStudyRelatedPassageReference(item);
+      const key = studyRecordKey();
+      const library = readStudyLibrary();
+      const record = library[key];
+      if (!record) return;
+      const state = getStudyRelatedPassageState(record);
+      const remaining = state.entries.filter(entry => entry.id !== item.id);
+      const anotherSamePassage = remaining.some(entry =>
+        formatStudyRelatedPassageReference(entry) === reference && entry.verses.length > 0
+      );
+      if (!window.confirm(anotherSamePassage
+        ? 'Remove this related-passage link? The verse text will remain included because another related entry points to the same passage.'
+        : 'Remove ' + reference + ' from the study? Its related-passage entry, link, and automatically inserted passage block will be removed. Other study notes will be preserved.')) return;
+
+      record.relatedPassages = remaining;
+      const removeIds = new Set([item.crossReferenceId, item.id.startsWith('related-') ? item.id.slice('related-'.length) : ''].filter(Boolean));
+      if (Array.isArray(record.crossReferences)) {
+        record.crossReferences = record.crossReferences.filter(ref => !(
+          ref && ref.source?.scope === 'study' &&
+          (removeIds.has(ref.id) || (
+            ref.target?.book === item.book && Number(ref.target.chapter) === Number(item.chapter) &&
+            Number(ref.target.startVerse || 0) === Number(item.startVerse || 0) &&
+            Number(ref.target.endVerse || 0) === Number(item.endVerse || 0) && ref.relation === item.relation
+          ))
+        ));
+      }
+
+      let notesChanged = false;
+      if (!anotherSamePassage) {
+        const marker = '[Related passage: ' + reference + ']';
+        for (const stage of ['observe', 'interpret', 'doctrine', 'apply']) {
+          const source = String(record.sections?.[stage] || '');
+          let next = source;
+          let position = next.indexOf(marker);
+          while (position >= 0) {
+            const blockEnd = next.indexOf('\n\n', position);
+            const end = blockEnd < 0 ? next.length : blockEnd + 2;
+            const before = next.slice(0, position).replace(/\s+$/, '');
+            const after = next.slice(end).replace(/^\s+/, '');
+            next = [before, after].filter(Boolean).join('\n\n');
+            position = next.indexOf(marker);
+          }
+          if (next !== source) {
+            if (!notesChanged) saveStudyNoteVersionSnapshot(record);
+            notesChanged = true;
+            record.sections[stage] = next;
+          }
+        }
+      }
+
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) return;
+      const tombstones = readStudyTombstones();
+      delete tombstones[key];
+      writeStudyTombstones(tombstones);
+      scheduleCloudStudySync();
+      updateStudyRelatedPassageButton();
+      renderCrossReferenceList();
+      updateChapterCrossReferenceButton();
     }
 
     const STANDARD_CROSS_REFERENCE_TSV_URL = '/api/standard-cross-references';
@@ -2927,14 +3360,22 @@ function renderStandardCrossReferenceList() {
       if (!record || !Array.isArray(record.crossReferences)) return;
       const index = record.crossReferences.findIndex(item => item && item.id === crossReference.id);
       if (index < 0) return;
-      if (!window.confirm('Remove this cross-reference link? The Bible text and study notes will remain unchanged.')) return;
+      const studyLevel = crossReference.source.scope === 'study' || crossReference.source.verse == null;
+      if (!window.confirm(studyLevel
+        ? 'Remove this related passage from the study? Its verse text and connection notes will be removed from the related-passage list; your inductive stage notes remain unchanged.'
+        : 'Remove this cross-reference link? The Bible text and study notes will remain unchanged.')) return;
       record.crossReferences.splice(index, 1);
+      if (studyLevel) {
+        const relatedState = getStudyRelatedPassageState(record);
+        record.relatedPassages = relatedState.entries.filter(item => item.crossReferenceId !== crossReference.id);
+      }
       record.updatedAt = new Date().toISOString();
       library[key] = record;
       if (!writeStudyLibrary(library)) return;
       scheduleCloudStudySync();
       renderCrossReferenceList();
       updateChapterCrossReferenceButton();
+      if (key === studyRecordKey()) updateStudyRelatedPassageButton();
       renderScripture();
       const status = document.getElementById('crossReferenceFormStatus');
       if (status) status.textContent = 'Cross-reference removed.';
@@ -3334,15 +3775,21 @@ function renderStandardCrossReferenceList() {
             : 'That verse link and connection type are already saved for this starting verse.';
           return;
         }
-        refs.push({
+        const newCrossReference = {
           id: 'xref-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
           source: studyLevel
             ? { book: source.book, chapter: source.chapter, verse: null, scope: 'study' }
             : { book: source.book, chapter: source.chapter, verse: source.startVerse },
           target: { book: target.book, chapter: target.chapter, startVerse: target.startVerse, endVerse: target.endVerse },
           relation, note, createdAt: new Date().toISOString()
-        });
+        };
+        refs.push(newCrossReference);
         record.crossReferences = refs;
+        if (studyLevel) {
+          // The reference remains a navigation link, but the passage also becomes first-class study material.
+          const relatedState = getStudyRelatedPassageState(record);
+          record.relatedPassages = normalizeStudyRelatedPassages(relatedState.entries);
+        }
         record.updatedAt = new Date().toISOString();
         library[key] = record;
         if (!writeStudyLibrary(library)) {
@@ -5275,6 +5722,7 @@ function renderStandardCrossReferenceList() {
       const outline = normalizePassageOutline(record?.passageOutline);
       const verseMaps = normalizeVerseMaps(record?.verseMaps);
       const markups = Array.isArray(record?.scriptureMarkups) ? record.scriptureMarkups : [];
+      const relatedPassages = record ? getStudyRelatedPassageState(record).entries : [];
       const dateLabel = generatedAt instanceof Date && !Number.isNaN(generatedAt.getTime()) ? generatedAt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : escape(generatedAt);
       const textSection = (id, title, text) => '<section class="report-section" id="' + id + '"><h2>' + title + '</h2>' + formatStudyReportText(text) + '</section>';
       const outlineHtml = outline ? '<section class="report-section" id="passage-outline"><h2>Passage Outline</h2><h3>' + escape(outline.title || reference + ' Outline') + '</h3>' + (outline.sections.length ? '<ol class="outline-list">' + outline.sections.map((section, index) => '<li class="outline-item"><h3>' + escape(section.heading || 'Outline point ' + (index + 1)) + '</h3>' + (section.verseRange ? '<p class="verse-range"><strong>Verses:</strong> ' + escape(section.verseRange) + '</p>' : '') + (section.majorIdea ? '<h4>Major idea</h4>' + formatStudyReportText(section.majorIdea) : '') + (section.supportingDetails ? '<h4>Supporting details</h4>' + formatStudyReportText(section.supportingDetails) : '') + '</li>').join('') + '</ol>' : '<p class="empty">The outline has a title but no outline points.</p>') + '</section>' : '';
@@ -5282,9 +5730,19 @@ function renderStandardCrossReferenceList() {
       const verseMapHtml = Object.keys(verseMaps).length ? '<section class="report-section" id="verse-mapping"><h2>Verse Mapping and Word Studies</h2>' + Object.entries(verseMaps).sort((a, b) => Number(a[0]) - Number(b[0])).map(([verse, entry]) => '<article class="verse-map"><h3>' + escape(reference + ':' + verse) + '</h3>' + (entry.translation ? '<p class="meta">Translation: ' + escape(entry.translation) + '</p>' : '') + (entry.verseText ? '<blockquote>' + formatStudyReportText(entry.verseText) + '</blockquote>' : '') + VERSE_MAP_CONTENT_FIELDS.map(field => entry[field] && entry[field].trim() ? '<div class="map-field"><h4>' + escape(verseMapLabels[field] || field) + '</h4>' + formatStudyReportText(entry[field]) + '</div>' : '').join('') + '</article>').join('') + '</section>' : '';
       const markupLabels = { observation: 'Observation', repeated: 'Repeated Word', repeatedWord: 'Repeated Word', contrast: 'Contrast', command: 'Command', promise: 'Promise' };
       const markupHtml = markups.length ? '<section class="report-section" id="visual-markup"><h2>Visual Observation Markup</h2><ul class="reference-list">' + markups.map(mark => '<li><strong>' + escape(reference + ':' + mark.verse) + '</strong> — ' + escape(markupLabels[mark.type] || mark.type || 'Observation') + (mark.translation ? ' <span class="meta">(' + escape(mark.translation) + ')</span>' : '') + (mark.quote ? '<blockquote>' + escape(mark.quote) + '</blockquote>' : '') + '</li>').join('') + '</ul></section>' : '';
+      const relatedPassagesHtml = relatedPassages.length
+        ? '<section class="report-section" id="related-passages"><h2>Related Passages Included in This Study</h2>' + relatedPassages.map(item =>
+          '<article class="verse-map"><h3>' + escape(formatStudyRelatedPassageReference(item)) + '</h3>' +
+          '<p class="meta">Translation: ' + escape(item.translation) + '</p>' +
+          '<p class="relation">' + escape(CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other) + '</p>' +
+          item.verses.map(verse => '<p><strong>' + escape(verse.number + '.') + '</strong> ' + escape(verse.text) + '</p>').join('') +
+          (item.note ? '<h4>Why this passage belongs</h4>' + formatStudyReportText(item.note) : '') +
+          '</article>'
+        ).join('') + '</section>'
+        : '';
       const standardHtml = standardDataAvailable ? '<section class="report-section" id="standard-cross-references"><h2>Standard Bible Cross-References</h2>' + (standardRows.length ? standardRows.map(row => '<article class="reference-group"><h3>' + escape(reference + ':' + row.verse) + '</h3>' + row.anchors.map(group => '<div class="anchor-group"><p><strong>Anchor phrase:</strong> “' + escape(group.anchor) + '”</p><p><strong>References:</strong> ' + group.references.map(escape).join('; ') + '</p></div>').join('') + '</article>').join('') : '<p class="empty">The standard dataset lists no cross-references for this chapter.</p>') + '<p class="source-note">Source: <a href="https://github.com/CrossReferences-org/bible-cross-references">CrossReferences-org/bible-cross-references</a>, a Treasury of Scripture Knowledge–derived reference dataset, licensed under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p></section>' : '<section class="report-section" id="standard-cross-references"><h2>Standard Bible Cross-References</h2><p class="empty">The established reference dataset could not be loaded when this report was generated, so standard references have been omitted rather than guessed. Generate the report again when the dataset is available.</p></section>';
       const customHtml = '<section class="report-section" id="my-cross-references"><h2>My Cross-References</h2>' + (customLinks.length ? '<ul class="reference-list">' + customLinks.map(entry => { const ref = entry.crossReference || entry; const source = formatCrossReferenceSource(ref.source); const target = formatCrossReferenceTarget(ref.target); return '<li><p><strong>' + escape(source) + ' → ' + escape(target) + '</strong></p><p class="relation">' + escape(CROSS_REFERENCE_RELATIONS[ref.relation] || CROSS_REFERENCE_RELATIONS.other) + '</p>' + (ref.note ? formatStudyReportText(ref.note) : '') + '</li>'; }).join('') + '</ul>' : '<p class="empty">No user-created cross-reference links involving this chapter were saved.</p>') + '<p class="meta">These are your personal links and explanations, separate from the standard reference dataset above.</p></section>';
-      const contents = [['passage-outline','Passage Outline',!!outline],['observation','Observation',true],['interpretation','Interpretation',true],['doctrine','Doctrine',true],['discipleship','Discipleship',true],['verse-mapping','Verse Mapping and Word Studies',!!verseMapHtml],['visual-markup','Visual Observation Markup',!!markupHtml],['standard-cross-references','Standard Bible Cross-References',true],['my-cross-references','My Cross-References',true]].filter(item => item[2]);
+      const contents = [['passage-outline','Passage Outline',!!outline],['observation','Observation',true],['interpretation','Interpretation',true],['doctrine','Doctrine',true],['discipleship','Discipleship',true],['verse-mapping','Verse Mapping and Word Studies',!!verseMapHtml],['visual-markup','Visual Observation Markup',!!markupHtml],['related-passages','Related Passages Included in This Study',!!relatedPassagesHtml],['standard-cross-references','Standard Bible Cross-References',true],['my-cross-references','My Cross-References',true]].filter(item => item[2]);
       const tocHtml = '<nav class="contents" aria-label="Report contents"><h2>Contents</h2><ol>' + contents.map(item => '<li><a href="#' + item[0] + '">' + item[1] + '</a></li>').join('') + '</ol></nav>';
       return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>' + escape(reference + ' — Inductive Bible Study Report') + '</title>\n<style>' +
         ' :root{color-scheme:light;--ink:#1f2937;--muted:#64748b;--line:#dbe2ea;--accent:#274c77;--paper:#fff;--wash:#f3f6fa}*{box-sizing:border-box}body{margin:0;background:#e8edf3;color:var(--ink);font:16px/1.65 Georgia,"Times New Roman",serif}.paper{max-width:900px;margin:32px auto;padding:58px 66px;background:var(--paper);box-shadow:0 6px 28px #0f172a18}.masthead{border-bottom:3px solid var(--accent);padding-bottom:24px;margin-bottom:28px}.eyebrow{font:700 11px/1.4 Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}h1,h2,h3,h4,.meta,.contents,.screen-actions,.source-note{font-family:Arial,Helvetica,sans-serif}h1{font-size:34px;line-height:1.15;margin:10px 0;color:#14263d}h2{font-size:22px;line-height:1.25;margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line);color:#1c3d5a}h3{font-size:16px;line-height:1.35;margin:16px 0 8px;color:#244664}h4{font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 5px;color:#475569}p{margin:0 0 12px}a{color:#245b89;text-decoration:underline}.meta,.empty,.source-note{font-size:12px;color:var(--muted)}.report-section{margin:30px 0;break-inside:auto}.report-section>h2{break-after:avoid}.contents{padding:18px 22px;background:var(--wash);border:1px solid var(--line);border-radius:8px;margin:24px 0}.contents h2{font-size:15px;border:0;margin:0;padding:0}.contents ol{columns:2;margin:10px 0 0;padding-left:20px}.contents li{break-inside:avoid;padding:2px 0}.outline-list{padding-left:24px}.outline-item{padding:12px 0 8px 4px;break-inside:avoid}.verse-range,.relation{font:600 12px Arial,sans-serif;color:#475569}.verse-map,.reference-group{padding:14px 0;border-bottom:1px solid var(--line);break-inside:avoid}.map-field{margin:12px 0}.anchor-group{padding:8px 12px;margin:8px 0;background:var(--wash);border-left:3px solid #8aa7c4;break-inside:avoid}.reference-list{padding-left:22px}.reference-list>li{padding:6px 0;break-inside:avoid}blockquote{margin:10px 0;padding:10px 15px;border-left:3px solid #8aa7c4;background:var(--wash);font-style:italic}ul,ol{padding-left:24px}li{padding:2px 0}.source-note{border-top:1px solid var(--line);margin-top:18px;padding-top:12px}.report-footer{border-top:1px solid var(--line);margin-top:38px;padding-top:14px}.screen-actions{display:flex;justify-content:flex-end;gap:10px;max-width:900px;margin:18px auto 0;padding:0 10px}.screen-actions button{border:0;border-radius:6px;background:var(--accent);color:#fff;padding:10px 15px;font-weight:700;cursor:pointer}.screen-actions button.secondary{background:#64748b}@media(max-width:700px){.paper{margin:0;padding:28px 22px;box-shadow:none}.screen-actions{margin:10px;justify-content:stretch}.screen-actions button{flex:1}h1{font-size:28px}.contents ol{columns:1}}@page{size:auto;margin:18mm}@media print{body{background:#fff;font-size:11pt;line-height:1.55}.paper{max-width:none;margin:0;padding:0;box-shadow:none}.screen-actions{display:none}.contents{background:#fff}.report-section{margin:22px 0}h1{font-size:26pt}h2{font-size:16pt}h3{font-size:12pt}a{color:inherit;text-decoration:none}.report-section,.verse-map,.reference-group,.outline-item,.anchor-group{break-inside:avoid} }' +
@@ -5296,8 +5754,8 @@ function renderStandardCrossReferenceList() {
         textSection('interpretation','Interpretation',sections.interpret || '') +
         textSection('doctrine','Doctrine',sections.doctrine || '') +
         textSection('discipleship','Discipleship',sections.apply || '') +
-        verseMapHtml + markupHtml + standardHtml + customHtml +
-        '<footer class="report-footer"><p class="meta">Generated by the Inductive Bible Study Workspace. Notes, outlines, word-study entries and personal cross-reference explanations are user-authored study material. References identify related passages but do not reproduce their full text.</p></footer>' +
+        verseMapHtml + markupHtml + relatedPassagesHtml + standardHtml + customHtml +
+        '<footer class="report-footer"><p class="meta">Generated by the Inductive Bible Study Workspace. Notes, outlines, word-study entries and personal cross-reference explanations are user-authored study material. Related-passage verse text, translation, connection type and explanation are included as saved study material.</p></footer>' +
         '</main>\n</body>\n</html>';
     }
 
@@ -5599,7 +6057,8 @@ function renderStandardCrossReferenceList() {
           (record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) ||
           Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 ||
           hasSavedPassageOutline(record.passageOutline) ||
-          (Array.isArray(record.versionHistory) && record.versionHistory.length > 0)
+          (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
+          (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0)
         ))
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
     }
@@ -5975,7 +6434,7 @@ function renderStandardCrossReferenceList() {
       const library = readStudyLibrary();
       const studies = Object.values(library)
         .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
-          ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)))
+          ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline) || (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0)))
         .map(record => ({
           book: String(record.book),
           chapter: Number(record.chapter),
@@ -5986,7 +6445,8 @@ function renderStandardCrossReferenceList() {
             apply: String(record.sections?.apply || '')
           },
           verseMaps: normalizeVerseMaps(record.verseMaps),
-          passageOutline: normalizePassageOutline(record.passageOutline)
+          passageOutline: normalizePassageOutline(record.passageOutline),
+          relatedPassages: getStudyRelatedPassageState(record).entries
         }))
         .sort((a, b) => {
           const aIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
@@ -6036,6 +6496,16 @@ function renderStandardCrossReferenceList() {
         if (passageOutlineMarkdown) parts.push('## Passage Outline', '', passageOutlineMarkdown, '');
         const verseMapMarkdown = formatVerseMapsForMarkdown(record.verseMaps);
         if (verseMapMarkdown) parts.push('## Verse Mapping', '', verseMapMarkdown, '');
+        if (record.relatedPassages.length) {
+          parts.push('## Related Passages Included in This Study', '');
+          record.relatedPassages.forEach(item => {
+            parts.push('### ' + formatStudyRelatedPassageReference(item) + ' (' + item.translation + ')', '');
+            parts.push('Connection: ' + (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other), '');
+            item.verses.forEach(verse => parts.push(verse.number + '. ' + verse.text));
+            if (item.note) parts.push('', 'Why it matters: ' + item.note);
+            parts.push('');
+          });
+        }
       });
 
       const blob = new Blob([parts.join('\n')], { type: 'text/markdown;charset=utf-8' });
@@ -6061,7 +6531,7 @@ function renderStandardCrossReferenceList() {
             ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
             (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
-            (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
+            (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
           ))
         .map(record => ({
           book: String(record.book),
@@ -6087,18 +6557,19 @@ function renderStandardCrossReferenceList() {
           crossReferences: Array.isArray(record.crossReferences) ? record.crossReferences
             .filter(ref => ref && typeof ref.id === 'string' && ref.id.length <= 100 &&
               ref.source && ref.source.book === record.book && Number(ref.source.chapter) === Number(record.chapter) &&
-              Number.isInteger(ref.source.verse) && ref.source.verse > 0 &&
+              ((ref.source.scope === 'study' && ref.source.verse == null) || (Number.isInteger(ref.source.verse) && ref.source.verse > 0)) &&
               ref.target && BIBLE_CANON.some(book => book.name === ref.target.book) &&
               Number.isInteger(ref.target.chapter) && ref.target.chapter > 0 &&
               CROSS_REFERENCE_RELATIONS[ref.relation] && typeof ref.note === 'string' && ref.note.length <= 2000)
             .map(ref => ({
               id: ref.id,
-              source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: Number(ref.source.verse) },
+              source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: ref.source.scope === 'study' ? null : Number(ref.source.verse), ...(ref.source.scope === 'study' ? { scope: 'study' } : {}) },
               target: { book: ref.target.book, chapter: Number(ref.target.chapter),
                 startVerse: Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null,
                 endVerse: Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : null },
               relation: ref.relation, note: String(ref.note || ''), createdAt: String(ref.createdAt || '')
             })) : [],
+          relatedPassages: getStudyRelatedPassageState(record).entries,
           verseMaps: normalizeVerseMaps(record.verseMaps),
           passageOutline: normalizePassageOutline(record.passageOutline),
           activeSection: NOTE_SECTION_LABELS[record.activeSection] ? record.activeSection : 'observe',
@@ -6188,7 +6659,8 @@ function renderStandardCrossReferenceList() {
             const targetEnd = ref?.target?.endVerse;
             if (!ref || typeof ref.id !== 'string' || ref.id.length > 100 ||
                 !ref.source || ref.source.book !== book || Number(ref.source.chapter) !== chapter ||
-                !Number.isInteger(ref.source.verse) || ref.source.verse < 1 || ref.source.verse > 250 ||
+                !((ref.source.scope === 'study' && ref.source.verse == null) ||
+                  (Number.isInteger(ref.source.verse) && ref.source.verse >= 1 && ref.source.verse <= 250)) ||
                 !targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters) ||
                 !CROSS_REFERENCE_RELATIONS[ref.relation] || typeof ref.note !== 'string' || ref.note.length > 2000 ||
                 !((targetStart === null && targetEnd === null) ||
@@ -6199,11 +6671,29 @@ function renderStandardCrossReferenceList() {
           }
           crossReferences = item.crossReferences.map(ref => ({
             id: ref.id,
-            source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: ref.source.verse },
+            source: {
+              book: ref.source.book,
+              chapter: Number(ref.source.chapter),
+              verse: ref.source.scope === 'study' ? null : ref.source.verse,
+              ...(ref.source.scope === 'study' ? { scope: 'study' } : {})
+            },
             target: { book: ref.target.book, chapter: Number(ref.target.chapter), startVerse: ref.target.startVerse, endVerse: ref.target.endVerse },
             relation: ref.relation, note: ref.note, createdAt: typeof ref.createdAt === 'string' ? ref.createdAt : ''
           }));
         }
+        let relatedPassages = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'relatedPassages')) {
+          if (!Array.isArray(item.relatedPassages) || item.relatedPassages.length > 100) {
+            setStudyBackupStatus(`The backup has invalid related-passage study content for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          relatedPassages = normalizeStudyRelatedPassages(item.relatedPassages);
+          if (relatedPassages.length !== item.relatedPassages.length) {
+            setStudyBackupStatus(`The backup has invalid related-passage details for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
         let scriptureMarkups = [];
         if (Object.prototype.hasOwnProperty.call(item, 'scriptureMarkups')) {
           if (!Array.isArray(item.scriptureMarkups) || item.scriptureMarkups.length > 5000) {
@@ -6305,6 +6795,7 @@ function renderStandardCrossReferenceList() {
             sections,
             ...(Object.prototype.hasOwnProperty.call(item, 'scriptureMarkups') ? { scriptureMarkups } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'crossReferences') ? { crossReferences } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'relatedPassages') ? { relatedPassages } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'verseMaps') ? { verseMaps } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'passageOutline') ? { passageOutline } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'versionHistory') ? { versionHistory } : {}),
@@ -6334,6 +6825,10 @@ function renderStandardCrossReferenceList() {
         // Pre-cross-reference backups preserve any links already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'crossReferences')) {
           incoming.crossReferences = Array.isArray(current?.crossReferences) ? current.crossReferences : [];
+        }
+        // Backups created before related verses became study content preserve material already saved locally.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'relatedPassages')) {
+          incoming.relatedPassages = normalizeStudyRelatedPassages(current?.relatedPassages);
         }
         // Backups made before Verse Mapping existed preserve maps already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'verseMaps')) incoming.verseMaps = normalizeVerseMaps(current?.verseMaps);
@@ -6498,6 +6993,7 @@ function renderStandardCrossReferenceList() {
         },
         scriptureMarkups: Array.isArray(row.sections?._scriptureMarkups) ? row.sections._scriptureMarkups : [],
         crossReferences: Array.isArray(row.sections?._crossReferences) ? row.sections._crossReferences : [],
+        relatedPassages: normalizeStudyRelatedPassages(row.sections?._relatedPassages),
         verseMaps: normalizeVerseMaps(row.sections?._verseMaps),
         passageOutline: normalizePassageOutline(row.sections?._passageOutline),
         versionHistory: normalizeStudyNoteVersionHistory(row.sections?._versionHistory),
@@ -6558,7 +7054,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline, versionHistory;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -6569,6 +7065,7 @@ function renderStandardCrossReferenceList() {
             activeSection = 'observe';
             scriptureMarkups = [];
             crossReferences = [];
+            relatedPassages = [];
             verseMaps = {};
             passageOutline = null;
             versionHistory = [];
@@ -6586,10 +7083,11 @@ function renderStandardCrossReferenceList() {
             updatedAt = rec.updatedAt || winner.time || new Date().toISOString();
             scriptureMarkups = Array.isArray(rec.scriptureMarkups) ? rec.scriptureMarkups : [];
             crossReferences = Array.isArray(rec.crossReferences) ? rec.crossReferences : [];
+            relatedPassages = normalizeStudyRelatedPassages(rec.relatedPassages);
             verseMaps = normalizeVerseMaps(rec.verseMaps);
             passageOutline = normalizePassageOutline(rec.passageOutline);
             versionHistory = normalizeStudyNoteVersionHistory(rec.versionHistory);
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline, versionHistory };
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory };
           } else {
             continue;
           }
@@ -6597,7 +7095,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -6615,6 +7113,7 @@ function renderStandardCrossReferenceList() {
               JSON.stringify(Array.isArray(nextRow.sections?._scriptureMarkups) ? nextRow.sections._scriptureMarkups : []) &&
             JSON.stringify(Array.isArray(remote.sections?._crossReferences) ? remote.sections._crossReferences : []) ===
               JSON.stringify(Array.isArray(nextRow.sections?._crossReferences) ? nextRow.sections._crossReferences : []) &&
+            JSON.stringify(normalizeStudyRelatedPassages(remote.sections?._relatedPassages)) === JSON.stringify(normalizeStudyRelatedPassages(nextRow.sections?._relatedPassages)) &&
             JSON.stringify(normalizeVerseMaps(remote.sections?._verseMaps)) === JSON.stringify(normalizeVerseMaps(nextRow.sections?._verseMaps)) &&
             JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline)) &&
             JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory));
@@ -6935,6 +7434,10 @@ function renderStandardCrossReferenceList() {
         verseMaps,
         scriptureMarkups,
         customCrossReferences,
+        relatedPassages: getStudyRelatedPassageState(record).entries.map(item => ({
+          ...item,
+          reference: formatStudyRelatedPassageReference(item)
+        })),
         standardCrossReferences: {
           dataset: 'CrossReferences-org/bible-cross-references (TSK-derived)',
           license: 'CC BY 4.0',

@@ -87,6 +87,7 @@ function makeHarness(selectedVerseValues = []) {
     explanation: 'Explanation or teaching',
     other: 'Other connection'
   });
+  const sandboxTombstones = {};
   const sandbox = {
     document,
     window: { confirm: () => true },
@@ -102,6 +103,7 @@ function makeHarness(selectedVerseValues = []) {
       { name: 'Psalms', testament: 'OT', chapters: 150 }
     ],
     CROSS_REFERENCE_RELATIONS: relations,
+    NOTE_SECTION_LABELS: { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' },
     crossReferenceListFilter: null,
     crossReferenceStudyLevelMode: false,
     crossReferenceStudySource: null,
@@ -112,10 +114,12 @@ function makeHarness(selectedVerseValues = []) {
       Object.entries(value).forEach(([key, item]) => { library[key] = item; });
       return true;
     },
-    studyRecordKey: (book, chapter) => book + '::' + chapter,
-    readStudyTombstones: () => ({}),
-    writeStudyTombstones: () => true,
+    studyRecordKey: (book, chapter) => (book && chapter) ? book + '::' + chapter : 'Romans::8',
+    readStudyTombstones: () => sandboxTombstones,
+    writeStudyTombstones: value => { Object.keys(sandboxTombstones).forEach(key => delete sandboxTombstones[key]); Object.assign(sandboxTombstones, value); return true; },
     scheduleCloudStudySync: () => events.push('sync'),
+    saveStudyNoteVersionSnapshot: savedRecord => { events.push('snapshot'); savedRecord.versionHistory = [...(savedRecord.versionHistory || []), { createdAt: '2026-10-24T08:30:00.000Z' }]; },
+    loadActiveStudyNote: () => events.push('load-active-note'),
     renderCrossReferenceList: () => events.push('render-list'),
     updateChapterCrossReferenceButton: () => events.push('update-chapter-count'),
     updateStudyRelatedPassageButton: () => events.push('update-study-count'),
@@ -155,6 +159,43 @@ function makeHarness(selectedVerseValues = []) {
     '    function setupCrossReferenceWorkflow() {',
     '    function formatAnnotatedScriptureText('
   );
+  const normalizeSource = extractFunction(
+    indexHtml,
+    '    function normalizeStudyRelatedPassages(value) {',
+    '    function formatStudyRelatedPassageReference(item) {'
+  );
+  sandbox.normalizeStudyRelatedPassages = vm.runInNewContext('(' + normalizeSource + ')', sandbox);
+  const legacySource = extractFunction(
+    indexHtml,
+    '    function relatedPassageFromCrossReference(ref) {',
+    '    function getStudyRelatedPassageState(record) {'
+  );
+  sandbox.relatedPassageFromCrossReference = vm.runInNewContext('(' + legacySource + ')', sandbox);
+  const stateSource = extractFunction(
+    indexHtml,
+    '    function getStudyRelatedPassageState(record) {',
+    '    function saveStudyRelatedPassages(book, chapter, entries) {'
+  );
+  sandbox.getStudyRelatedPassageState = vm.runInNewContext('(' + stateSource + ')', sandbox);
+  const referenceFormatSource = extractFunction(
+    indexHtml,
+    '    function formatStudyRelatedPassageReference(item) {',
+    '    function relatedPassageFromCrossReference(ref) {'
+  );
+  sandbox.formatStudyRelatedPassageReference = vm.runInNewContext('(' + referenceFormatSource + ')', sandbox);
+  const includeNotesSource = extractFunction(
+    indexHtml,
+    '    function includeStudyRelatedPassageInStageNotes(studyKey, itemId, stageOverride = null, options = {}) {',
+    '    function insertStudyRelatedPassageIntoNotes(item) {'
+  );
+  sandbox.includeStudyRelatedPassageInStageNotes = vm.runInNewContext('(' + includeNotesSource + ')', sandbox);
+  const removeRelatedSource = extractFunction(
+    indexHtml,
+    '    function removeStudyRelatedPassage(item) {',
+    '    const STANDARD_CROSS_REFERENCE_TSV_URL'
+  );
+  sandbox.removeStudyRelatedPassage = vm.runInNewContext('(' + removeRelatedSource + ')', sandbox);
+
   sandbox.setupCrossReferenceWorkflow = vm.runInNewContext('(' + workflowSource + ')', sandbox);
   sandbox.setupCrossReferenceWorkflow();
 
@@ -195,6 +236,11 @@ test('Saving a related verse attaches it to the active study, with relation and 
   assert.equal(library['Romans::8'], record);
   assert.equal(record.sections.observe, 'Existing study observations');
   assert.equal(record.crossReferences.length, 1);
+  assert.equal(record.relatedPassages.length, 1);
+  assert.equal(record.relatedPassages[0].book, 'John');
+  assert.equal(record.relatedPassages[0].chapter, 3);
+  assert.equal(record.relatedPassages[0].stage, 'observe');
+  assert.equal(record.relatedPassages[0].verses.length, 0, 'verse text is populated asynchronously from the Bible source');
   const saved = record.crossReferences[0];
   assert.equal(saved.source.book, 'Romans');
   assert.equal(saved.source.chapter, 8);
@@ -253,6 +299,197 @@ test('Existing verse-to-verse linking still saves a verse source without study s
 test('Study-level related links are included in IBS exports and retained by Kerygma import', () => {
   assert.match(indexHtml, /const studyLevelSource = ref\?\.source\?\.scope === 'study' && ref\.source\.verse == null/);
   assert.match(indexHtml, /source: \{[\s\S]*?scope: 'study'[\s\S]*?\}/);
+  assert.match(indexHtml, /relatedPassagesHtml/);
+  assert.match(indexHtml, /relatedPassages: getStudyRelatedPassageState\(record\)\.entries\.map/);
+  assert.match(indexHtml, /_relatedPassages: relatedPassages/);
   assert.match(kerygmaHtml, /if\(value\.scope==='study'&&value\.verse==null\)return\{book:refBook,chapter:refChapter,verse:null,scope:'study'\}/);
   assert.match(kerygmaHtml, /ref\.source\.scope === 'study' \? ' \(active study\)'/);
+  assert.match(kerygmaHtml, /RELATED VERSES INCLUDED IN THE SAVED IBS STUDY/);
+});
+
+
+test('Related verse text is inserted into the saved active-stage note, preserving existing notes and preventing duplicates', () => {
+  const { sandbox, record, events } = makeHarness();
+  record.relatedPassages = [{
+    id: 'related-john-3-16',
+    crossReferenceId: 'xref-related-1',
+    book: 'John',
+    chapter: 3,
+    startVerse: 16,
+    endVerse: 17,
+    reference: 'John 3:16-17',
+    translation: 'KJV',
+    verses: [
+      { number: 16, text: 'For God so loved the world.' },
+      { number: 17, text: 'For God sent not his Son to condemn the world.' }
+    ],
+    relation: 'theme',
+    note: 'Both passages speak about God’s saving purpose.',
+    stage: 'observe',
+    includedInStageNotes: false,
+    createdAt: '2026-10-24T08:20:00.000Z'
+  }];
+
+  const inserted = sandbox.includeStudyRelatedPassageInStageNotes('Romans::8', 'related-john-3-16');
+  assert.equal(inserted, true);
+  assert.match(record.sections.observe, /Existing study observations/);
+  assert.match(record.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.match(record.sections.observe, /16\. For God so loved the world\./);
+  assert.match(record.sections.observe, /17\. For God sent not his Son to condemn the world\./);
+  assert.match(record.sections.observe, /Why it matters: Both passages speak about God’s saving purpose\./);
+  assert.equal(record.relatedPassages[0].includedInStageNotes, true);
+  assert.equal(record.relatedPassages[0].stage, 'observe');
+  assert.ok(events.includes('snapshot'));
+  assert.ok(events.includes('sync'));
+
+  const before = record.sections.observe;
+  sandbox.includeStudyRelatedPassageInStageNotes('Romans::8', 'related-john-3-16');
+  assert.equal(record.sections.observe, before, 'a second insert must not duplicate the passage block');
+  assert.equal((record.sections.observe.match(/\[Related passage: John 3:16-17\]/g) || []).length, 1);
+});
+
+test('A related verse can also be included in a different active stage without replacing the original stage notes', () => {
+  const { sandbox, record } = makeHarness();
+  record.relatedPassages = [{
+    id: 'related-psalm-23',
+    crossReferenceId: 'xref-related-2',
+    book: 'Psalms',
+    chapter: 23,
+    startVerse: 1,
+    endVerse: 1,
+    reference: 'Psalms 23:1',
+    translation: 'KJV',
+    verses: [{ number: 1, text: 'The LORD is my shepherd; I shall not want.' }],
+    relation: 'theme',
+    note: 'God’s shepherd care.',
+    stage: 'observe',
+    includedInStageNotes: false,
+    createdAt: '2026-10-24T08:20:00.000Z'
+  }];
+
+  sandbox.appState.activeNotesSection = 'interpret';
+  sandbox.includeStudyRelatedPassageInStageNotes('Romans::8', 'related-psalm-23', 'interpret');
+  assert.match(record.sections.observe, /Existing study observations/);
+  assert.equal(record.sections.interpret.includes('[Related passage: Psalms 23:1]'), true);
+  assert.equal(record.relatedPassages[0].stage, 'interpret');
+  assert.equal(record.relatedPassages[0].includedInStageNotes, true);
+});
+
+test('Existing study-level links are migrated into full related passage items without losing the link metadata', () => {
+  const { sandbox } = makeHarness();
+  sandbox.appState.activeNotesSection = 'interpret';
+  const state = sandbox.getStudyRelatedPassageState({
+    relatedPassages: [],
+    crossReferences: [{
+      id: 'xref-legacy',
+      source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
+      target: { book: 'John', chapter: 3, startVerse: 16, endVerse: 17 },
+      relation: 'theme',
+      note: 'Shared theme.',
+      createdAt: '2026-10-24T08:00:00.000Z'
+    }]
+  });
+  assert.equal(state.entries.length, 1);
+  assert.equal(state.entries[0].book, 'John');
+  assert.equal(state.entries[0].stage, 'interpret');
+  assert.equal(state.entries[0].note, 'Shared theme.');
+  assert.equal(state.entries[0].verses.length, 0);
+  assert.equal(state.changed, true);
+});
+
+test('Kerygma normalizes and retains verse text as study content, not only cross-reference metadata', () => {
+  const normalizerSource = extractFunction(
+    kerygmaHtml,
+    '            normalizeInductiveStudyPacket(raw) {',
+    '            async handleInductiveStudyFile(file) {'
+  );
+  const normalizedFunctionSource = normalizerSource.replace(
+    /^normalizeInductiveStudyPacket\(raw\)\s*\{/,
+    'function normalizeInductiveStudyPacket(raw) {'
+  );
+  const normalize = vm.runInNewContext('(' + normalizedFunctionSource + ')', {});
+  const packet = normalize({
+    format: 'inductive-bible-study-sermon-source',
+    version: 1,
+    studyReference: { book: 'Romans', chapter: 8, display: 'Romans 8' },
+    sermonPassage: 'Romans 8',
+    translation: 'KJV',
+    sections: { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', discipleship: 'Discipleship' },
+    relatedPassages: [{
+      id: 'related-john-3-16',
+      book: 'John',
+      chapter: 3,
+      startVerse: 16,
+      endVerse: 17,
+      reference: 'John 3:16-17',
+      translation: 'KJV',
+      stage: 'observe',
+      includedInStageNotes: true,
+      relation: 'Shared theme',
+      note: 'God’s saving purpose.',
+      verses: [
+        { number: 16, text: 'For God so loved the world.' },
+        { number: 17, text: 'For God sent not his Son to condemn the world.' }
+      ]
+    }]
+  });
+  assert.equal(packet.relatedPassages.length, 1);
+  assert.equal(packet.relatedPassages[0].reference, 'John 3:16-17');
+  assert.equal(packet.relatedPassages[0].verses.length, 2);
+  assert.equal(packet.relatedPassages[0].verses[0].text, 'For God so loved the world.');
+  assert.equal(packet.relatedPassages[0].includedInStageNotes, true);
+  assert.match(kerygmaHtml, /RELATED PASSAGES INCLUDED IN THE ACTIVE IBS STUDY/);
+  assert.match(kerygmaHtml, /IBS related passages included in the active study/);
+});
+
+
+test('Removing a related passage removes its included stage-note block while preserving other notes', () => {
+  const { sandbox, record, events } = makeHarness();
+  const item = {
+    id: 'related-john-3-16',
+    crossReferenceId: 'xref-related-1',
+    book: 'John',
+    chapter: 3,
+    startVerse: 16,
+    endVerse: 17,
+    translation: 'KJV',
+    verses: [{ number: 16, text: 'For God so loved the world.' }],
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    stage: 'observe',
+    includedInStageNotes: true,
+    createdAt: '2026-10-24T08:20:00.000Z'
+  };
+  record.sections.observe = 'Existing study observations.\n\n[Related passage: John 3:16-17]\nTranslation: KJV\nConnection: Shared theme or repeated idea\n16. For God so loved the world.\nWhy it matters: God’s saving purpose.\n\n';
+  record.relatedPassages = [item];
+  record.crossReferences = [{
+    id: 'xref-related-1',
+    source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
+    target: { book: 'John', chapter: 3, startVerse: 16, endVerse: 17 },
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    createdAt: item.createdAt
+  }];
+
+  sandbox.removeStudyRelatedPassage(item);
+  assert.match(record.sections.observe, /Existing study observations\./);
+  assert.doesNotMatch(record.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.equal(record.relatedPassages.length, 0);
+  assert.equal(record.crossReferences.length, 0);
+  assert.ok(events.includes('snapshot'));
+  assert.ok(events.includes('sync'));
+});
+
+test('Both IBS and Kerygma inline application scripts remain syntactically valid', () => {
+  const check = (source, filename) => {
+    const scripts = [...source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+      .filter(match => !/\bsrc\s*=/.test(match[1]) &&
+        !/\btype\s*=\s*["']?(?:application\/json|application\/ld\+json)/i.test(match[1]));
+    assert.ok(scripts.length > 0, filename + ' should include an inline application script');
+    scripts.forEach((match, index) => {
+      new vm.Script(match[2], { filename: filename + '-inline-' + index });
+    });
+  };
+  check(indexHtml, 'IBS');
+  check(kerygmaHtml, 'Kerygma');
 });

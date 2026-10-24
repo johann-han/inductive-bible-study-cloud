@@ -4916,8 +4916,18 @@ function renderStandardCrossReferenceList() {
 
       if (toggleWorkspaceMobile) {
         toggleWorkspaceMobile.onclick = () => {
-          const isOpen = workspacePanel && !workspacePanel.classList.contains('translate-x-full');
-          setWorkspaceOpen(!isOpen);
+          const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
+          const isOpen = workspacePanel &&
+            workspacePanel.getAttribute('aria-hidden') === 'false' &&
+            !workspacePanel.classList.contains('translate-x-full') &&
+            !workspacePanel.classList.contains('workspace-mobile-closed') &&
+            !workspacePanel.classList.contains('hidden') &&
+            !document.body.classList.contains('reader-fullscreen-mode');
+
+          // On phones the header item is an explicit Open Notes action. The panel
+          // has its own close button; stale transform classes must not turn this
+          // tap into another close operation.
+          setWorkspaceOpen(isMobile ? true : !isOpen);
         };
       }
       if (closeWorkspaceMobile) closeWorkspaceMobile.onclick = () => setWorkspaceOpen(false);
@@ -7785,15 +7795,8 @@ function renderStandardCrossReferenceList() {
       loadActiveStudyNote();
       const exactStudyFocused = focusExistingAiStudyHeading(existingStudy);
 
-      const workspacePanel = document.getElementById('workspacePanel');
-      const notesToggle = document.getElementById('toggleWorkspaceMobile');
-      const mobileBackdrop = document.getElementById('mobileBackdrop');
       const aiDrawer = document.getElementById('aiDrawer');
-      workspacePanel?.classList.remove('translate-x-full');
-      workspacePanel?.setAttribute('aria-hidden', 'false');
-      notesToggle?.setAttribute('aria-expanded', 'true');
-      notesToggle?.setAttribute('title', 'Close study notes');
-      mobileBackdrop?.classList.remove('hidden');
+      openStudyWorkspacePanel();
       aiDrawer?.classList.add('translate-x-full');
 
       const status = document.getElementById('noteSaveStatus');
@@ -8020,14 +8023,7 @@ function renderStandardCrossReferenceList() {
             appState.activeTab = bookInfo.testament;
             appState.activeNotesSection = section;
             loadActiveStudyNote();
-            const workspacePanel = document.getElementById('workspacePanel');
-            const notesToggle = document.getElementById('toggleWorkspaceMobile');
-            const mobileBackdrop = document.getElementById('mobileBackdrop');
-            workspacePanel?.classList.remove('translate-x-full');
-            workspacePanel?.setAttribute('aria-hidden', 'false');
-            notesToggle?.setAttribute('aria-expanded', 'true');
-            notesToggle?.setAttribute('title', 'Close study notes');
-            mobileBackdrop?.classList.remove('hidden');
+            openStudyWorkspacePanel();
             document.getElementById('strongsModal')?.classList.add('hidden');
             const status = document.getElementById('noteSaveStatus');
             if (status) status.textContent = 'Existing lexicon entries sorted by verse order · no duplicate added';
@@ -8096,14 +8092,7 @@ function renderStandardCrossReferenceList() {
         area.scrollTop = Math.max(0, rowsBefore * lineHeight - lineHeight * 2);
       }
 
-      const workspacePanel = document.getElementById('workspacePanel');
-      const notesToggle = document.getElementById('toggleWorkspaceMobile');
-      const mobileBackdrop = document.getElementById('mobileBackdrop');
-      workspacePanel?.classList.remove('translate-x-full');
-      workspacePanel?.setAttribute('aria-hidden', 'false');
-      notesToggle?.setAttribute('aria-expanded', 'true');
-      notesToggle?.setAttribute('title', 'Close study notes');
-      mobileBackdrop?.classList.remove('hidden');
+      openStudyWorkspacePanel();
       document.getElementById('strongsModal')?.classList.add('hidden');
 
       const status = document.getElementById('noteSaveStatus');

@@ -569,3 +569,23 @@ test('Resume Observe Study forces the active study panel into view on phones', (
   );
   assert.match(resumeHandler, /openDashboardStudy\(resumeEntry\.book, resumeEntry\.chapter, 'observe', \{ openStudyPanel: true \}\)/);
 });
+
+
+test('Phone Notes link explicitly opens the panel instead of toggling from stale CSS state', () => {
+  const toggleStart = indexHtml.indexOf('toggleWorkspaceMobile.onclick = () => {');
+  const toggleEnd = indexHtml.indexOf('// Strongs Modal Copy to Notes Button', toggleStart);
+  assert.ok(toggleStart >= 0 && toggleEnd > toggleStart, 'Notes click handler should be present');
+  const toggleSource = indexHtml.slice(toggleStart, toggleEnd);
+
+  assert.match(toggleSource, /const isMobile = typeof window !== 'undefined' && window\.innerWidth <= 767/);
+  assert.match(toggleSource, /workspacePanel\.getAttribute\('aria-hidden'\) === 'false'/);
+  assert.match(toggleSource, /workspace-mobile-closed/);
+  assert.match(toggleSource, /setWorkspaceOpen\(isMobile \? true : !isOpen\)/,
+    'phone taps must always request the panel open; the close button handles closing');
+  assert.doesNotMatch(toggleSource, /setWorkspaceOpen\(!isOpen\)/,
+    'do not let stale transform state turn a phone tap into a close');
+
+  assert.doesNotMatch(indexHtml, /workspacePanel\?\.classList\.remove\('translate-x-full'\)/,
+    'study workflows should use the shared panel opener instead of partial class changes');
+  assert.match(indexHtml, /openStudyWorkspacePanel\(\);\s*aiDrawer\?\.classList\.add\('translate-x-full'\)/);
+});

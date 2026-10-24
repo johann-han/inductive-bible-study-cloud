@@ -6161,12 +6161,19 @@ function renderStandardCrossReferenceList() {
       const expandButton = document.getElementById('expandWorkspaceBtn');
       if (!panel) return;
 
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
+      // A fixed drawer nested inside the reader's overflow-hidden flex container can
+      // be clipped or painted below the reader on mobile browsers. Move only the
+      // mobile panel to body so it sits in the viewport's top-level stacking layer.
+      if (isMobile && panel.parentElement !== document.body) {
+        document.body.appendChild(panel);
+      }
+
       clearWorkspacePanelInlinePosition(panel);
       panel.classList.remove(
         'hidden', 'translate-x-full', 'workspace-expanded',
         'workspace-mobile-open', 'workspace-mobile-closed'
       );
-      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
       if (isMobile) panel.classList.add('workspace-mobile-open');
       panel.setAttribute('aria-hidden', 'false');
       notesToggle?.setAttribute('aria-expanded', 'true');

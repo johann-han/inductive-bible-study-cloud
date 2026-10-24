@@ -557,7 +557,7 @@ test('Resume Observe Study forces the active study panel into view on phones', (
   );
   assert.match(openWorkflow, /document\.body\.classList\.contains\('reader-fullscreen-mode'\)[\s\S]*?setReaderFullscreenMode\(false\)/,
     'opening Notes must exit reader fullscreen, which otherwise forcibly hides the panel');
-  assert.match(openWorkflow, /window\.innerWidth <= 767/);
+  assert.match(openWorkflow, /window\.innerWidth <= 1024/);
   assert.match(openWorkflow, /if \(isMobile && panel\.parentElement !== document\.body\)\s*\{\s*document\.body\.appendChild\(panel\);\s*\}/,
     'on phones the panel must escape the reader container that clips fixed drawers');
   assert.match(openWorkflow, /panel\.classList\.add\('workspace-mobile-open'\)/);

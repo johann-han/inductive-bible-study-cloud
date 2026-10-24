@@ -848,11 +848,12 @@
             <div class="flex items-center justify-between gap-2">
               <div class="min-w-0">
                 <p class="text-[11px] font-bold text-slate-800">Related passages</p>
-                <p class="text-[10px] text-slate-500">Connect other verses to this whole study.</p>
+                <p class="text-[10px] text-slate-500">Verse text and connection notes saved as study material.</p>
               </div>
               <button id="openStudyRelatedPassagesBtn" type="button" class="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100">Add / manage <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-[1rem] justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
             </div>
             <p id="studyRelatedPassageStatus" class="text-[10px] text-slate-500" role="status" aria-live="polite">Related verses are saved with this study.</p>
+            <div id="studyRelatedPassageList" class="space-y-2"></div>
           </section>
           <div id="workspaceNoteFind" class="space-y-1">
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
@@ -2125,7 +2126,351 @@
         : 'View cross-references for this chapter (none saved yet)';
     }
 
+    function normalizeStudyRelatedPassages(value) {
+      if (!Array.isArray(value)) return [];
+      const normalized = [];
+      for (const item of value.slice(0, 100)) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+        const book = BIBLE_CANON.find(entry => entry.name === item.book);
+        const chapter = Number(item.chapter);
+        const startVerse = item.startVerse == null ? null : Number(item.startVerse);
+        const endVerse = item.endVerse == null ? startVerse : (item.endVerse == null ? null : Number(item.endVerse));
+        if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) continue;
+        if (startVerse !== null && (!Number.isInteger(startVerse) || startVerse < 1 || startVerse > 250)) continue;
+        if (endVerse !== null && (!Number.isInteger(endVerse) || endVerse < (startVerse || 1) || endVerse > 250)) continue;
+        const verses = Array.isArray(item.verses) ? item.verses.slice(0, 250).map(verse => ({
+          number: Number(verse?.number),
+          text: String(verse?.text || '').slice(0, 4000)
+        })).filter(verse => Number.isInteger(verse.number) && verse.number > 0 && verse.number <= 250 && verse.text.trim()) : [];
+        const relation = CROSS_REFERENCE_RELATIONS[item.relation] ? item.relation : 'other';
+        normalized.push({
+          id: typeof item.id === 'string' && item.id.length <= 100 ? item.id : 'related-' + book.name.replace(/\\s+/g, '-') + '-' + chapter + '-' + normalized.length,
+          crossReferenceId: typeof item.crossReferenceId === 'string' ? item.crossReferenceId.slice(0, 100) : '',
+          book: book.name,
+          chapter,
+          startVerse,
+          endVerse,
+          translation: String(item.translation || 'KJV').slice(0, 40),
+          verses,
+          relation,
+          note: String(item.note || '').slice(0, 2000),
+          createdAt: typeof item.createdAt === 'string' ? item.createdAt.slice(0, 50) : '',
+          textLoadError: item.textLoadError === true
+        });
+      }
+      return normalized;
+    }
+
+    function formatStudyRelatedPassageReference(item) {
+      if (!item) return 'Unknown passage';
+      const base = item.book + ' ' + Number(item.chapter);
+      if (!Number.isInteger(item.startVerse) || item.startVerse < 1) return base;
+      return base + ':' + item.startVerse +
+        (Number.isInteger(item.endVerse) && item.endVerse > item.startVerse ? '-' + item.endVerse : '');
+    }
+
+    function relatedPassageFromCrossReference(ref) {
+      const target = ref?.target;
+      if (!target || !BIBLE_CANON.some(book => book.name === target.book)) return null;
+      const targetChapter = Number(target.chapter);
+      const targetBook = BIBLE_CANON.find(book => book.name === target.book);
+      if (!Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return null;
+      return {
+        id: 'related-' + String(ref.id || Date.now().toString(36)).slice(0, 88),
+        crossReferenceId: String(ref.id || '').slice(0, 100),
+        book: target.book,
+        chapter: targetChapter,
+        startVerse: Number.isInteger(target.startVerse) ? target.startVerse : null,
+        endVerse: Number.isInteger(target.endVerse) ? target.endVerse : (Number.isInteger(target.startVerse) ? target.startVerse : null),
+        translation: String(appState.currentTranslationAbbr || appState.currentTranslation || 'KJV'),
+        verses: [],
+        relation: CROSS_REFERENCE_RELATIONS[ref.relation] ? ref.relation : 'other',
+        note: String(ref.note || '').slice(0, 2000),
+        createdAt: String(ref.createdAt || new Date().toISOString()).slice(0, 50),
+        textLoadError: false
+      };
+    }
+
+    function getStudyRelatedPassageState(record) {
+      const existing = normalizeStudyRelatedPassages(record?.relatedPassages);
+      const knownIds = new Set(existing.map(item => item.crossReferenceId).filter(Boolean));
+      const entries = existing.slice();
+      if (Array.isArray(record?.crossReferences)) {
+        for (const ref of record.crossReferences) {
+          if (ref?.source?.scope !== 'study' || !ref.target || (ref.id && knownIds.has(ref.id))) continue;
+          const item = relatedPassageFromCrossReference(ref);
+          if (!item) continue;
+          entries.push(item);
+          if (item.crossReferenceId) knownIds.add(item.crossReferenceId);
+        }
+      }
+      return {
+        entries,
+        changed: JSON.stringify(entries) !== JSON.stringify(Array.isArray(record?.relatedPassages) ? record.relatedPassages : [])
+      };
+    }
+
+    function saveStudyRelatedPassages(book, chapter, entries) {
+      const library = readStudyLibrary();
+      const key = studyRecordKey(book, chapter);
+      const record = library[key];
+      if (!record) return false;
+      record.relatedPassages = normalizeStudyRelatedPassages(entries);
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) return false;
+      scheduleCloudStudySync();
+      return true;
+    }
+
+    async function fetchStudyRelatedPassageText(item) {
+      const book = BIBLE_CANON.find(entry => entry.name === item?.book);
+      const chapter = Number(item?.chapter);
+      if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) {
+        throw new Error('Choose a valid canonical Bible passage.');
+      }
+      const translation = String(item.translation || 'KJV').toUpperCase();
+      const bookId = HELLOAO_BOOK_IDS[book.name];
+      let verseItems = [];
+
+      if (bookId && ['KJV', 'BSB'].includes(translation)) {
+        const source = translation === 'KJV' ? 'eng_kjv' : 'BSB';
+        const response = await fetchWithTimeout('https://bible.helloao.org/api/' + source + '/' + bookId + '/' + chapter + '.simple.json', 8000);
+        if (!response.ok) throw new Error('The Bible text service returned ' + response.status + '.');
+        const payload = await response.json();
+        verseItems = (payload?.chapter?.content || [])
+          .filter(entry => entry && entry.type === 'verse' && Number.isInteger(Number(entry.number)))
+          .map(entry => ({ number: Number(entry.number), text: String(entry.text || '').trim() }));
+      } else {
+        const response = await fetchWithTimeout('https://bible-api.com/' + encodeURIComponent(book.name + ' ' + chapter) +
+          '?translation=' + encodeURIComponent(translation.toLowerCase()), 8000);
+        if (!response.ok) throw new Error('The Bible text service returned ' + response.status + '.');
+        const payload = await response.json();
+        verseItems = (Array.isArray(payload?.verses) ? payload.verses : [])
+          .map(entry => ({
+            number: Number(entry.verse ?? entry.number),
+            text: String(entry.text || '').trim().replace(/^\\s*\\d+\\s+/, '')
+          }));
+      }
+
+      const start = Number.isInteger(item.startVerse) ? item.startVerse : 1;
+      const end = Number.isInteger(item.endVerse) ? item.endVerse : Math.max(0, ...verseItems.map(entry => entry.number));
+      const verses = verseItems.filter(verse => verse.number >= start && verse.number <= end && verse.text);
+      if (!verses.length) throw new Error('The verse text was not available for ' + formatStudyRelatedPassageReference(item) + '.');
+      return verses;
+    }
+
+    async function loadStudyRelatedPassageText(itemId) {
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      if (!record) return;
+      const state = getStudyRelatedPassageState(record);
+      const item = state.entries.find(entry => entry.id === itemId);
+      if (!item) return;
+      const list = document.getElementById('studyRelatedPassageList');
+      if (list) {
+        const button = list.querySelector('[data-related-load="' + itemId + '"]');
+        if (button) { button.disabled = true; button.textContent = 'Loading verse text…'; }
+      }
+      try {
+        const verses = await fetchStudyRelatedPassageText(item);
+        const latestLibrary = readStudyLibrary();
+        const latestRecord = latestLibrary[key];
+        if (!latestRecord) return;
+        const latestState = getStudyRelatedPassageState(latestRecord);
+        const latestItem = latestState.entries.find(entry => entry.id === itemId);
+        if (!latestItem) return;
+        latestItem.verses = verses;
+        latestItem.textLoadError = false;
+        latestRecord.relatedPassages = normalizeStudyRelatedPassages(latestState.entries);
+        latestRecord.updatedAt = new Date().toISOString();
+        latestLibrary[key] = latestRecord;
+        if (writeStudyLibrary(latestLibrary)) {
+          const tombstones = readStudyTombstones();
+          delete tombstones[key];
+          writeStudyTombstones(tombstones);
+          scheduleCloudStudySync();
+          if (key === studyRecordKey()) updateStudyRelatedPassageButton();
+        }
+      } catch (error) {
+        const latestLibrary = readStudyLibrary();
+        const latestRecord = latestLibrary[key];
+        if (latestRecord) {
+          const state = getStudyRelatedPassageState(latestRecord);
+          const latestItem = state.entries.find(entry => entry.id === itemId);
+          if (latestItem) {
+            latestItem.textLoadError = true;
+            latestRecord.relatedPassages = normalizeStudyRelatedPassages(state.entries);
+            latestLibrary[key] = latestRecord;
+            writeStudyLibrary(latestLibrary);
+          }
+        }
+        if (key === studyRecordKey()) updateStudyRelatedPassageButton();
+        const status = document.getElementById('studyRelatedPassageStatus');
+        if (status) status.textContent = 'Passage link saved, but its verse text could not be loaded. Retry from the item below.';
+      }
+    }
+
+    function renderStudyRelatedPassageList(record, entries) {
+      const list = document.getElementById('studyRelatedPassageList');
+      if (!list) return;
+      list.replaceChildren();
+      if (!entries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-[10px] text-slate-500';
+        empty.textContent = 'No related verse text has been added to this study yet.';
+        list.appendChild(empty);
+        return;
+      }
+
+      entries.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'rounded-lg border border-sky-100 bg-sky-50/50 p-2 space-y-1.5';
+        const title = document.createElement('p');
+        title.className = 'text-[11px] font-bold text-slate-900';
+        title.textContent = formatStudyRelatedPassageReference(item) + (item.verses.length ? ' · ' + item.translation : ' · text not loaded');
+        const relation = document.createElement('p');
+        relation.className = 'text-[10px] font-semibold text-sky-800';
+        relation.textContent = CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other;
+        card.append(title, relation);
+
+        if (item.verses.length) {
+          const verseText = document.createElement('blockquote');
+          verseText.className = 'border-l-2 border-sky-300 pl-2 text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap';
+          verseText.textContent = item.verses.map(verse => verse.number + '. ' + verse.text).join('\\n');
+          card.appendChild(verseText);
+        } else {
+          const load = document.createElement('button');
+          load.type = 'button';
+          load.dataset.relatedLoad = item.id;
+          load.className = 'text-[10px] font-bold text-sky-800 underline disabled:opacity-50';
+          load.textContent = item.textLoadError ? 'Retry loading verse text' : 'Include verse text in study';
+          load.addEventListener('click', () => loadStudyRelatedPassageText(item.id));
+          card.appendChild(load);
+        }
+
+        if (item.note) {
+          const note = document.createElement('p');
+          note.className = 'text-[10px] text-slate-700 whitespace-pre-wrap';
+          note.textContent = 'Why it matters: ' + item.note;
+          card.appendChild(note);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'flex flex-wrap gap-3 pt-1';
+        if (item.verses.length) {
+          const addToNotes = document.createElement('button');
+          addToNotes.type = 'button';
+          addToNotes.className = 'text-[10px] font-bold text-emerald-800 underline';
+          addToNotes.textContent = 'Add text to active stage notes';
+          addToNotes.addEventListener('click', () => insertStudyRelatedPassageIntoNotes(item));
+          actions.appendChild(addToNotes);
+        }
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'text-[10px] font-semibold text-slate-500 hover:text-red-700';
+        remove.textContent = 'Remove from study';
+        remove.addEventListener('click', () => removeStudyRelatedPassage(item));
+        actions.appendChild(remove);
+        card.appendChild(actions);
+        list.appendChild(card);
+      });
+    }
+
     function updateStudyRelatedPassageButton() {
+      const countElement = document.getElementById('studyRelatedPassageCount');
+      const status = document.getElementById('studyRelatedPassageStatus');
+      const library = readStudyLibrary();
+      const key = studyRecordKey(appState.currentBook, appState.currentChapter);
+      const record = library[key];
+      if (!record) {
+        if (countElement) countElement.textContent = '0';
+        if (status) status.textContent = 'Related verses will be saved inside this study.';
+        renderStudyRelatedPassageList(null, []);
+        return;
+      }
+      const state = getStudyRelatedPassageState(record);
+      const entries = state.entries;
+      if (state.changed) {
+        record.relatedPassages = normalizeStudyRelatedPassages(entries);
+        library[key] = record;
+        if (writeStudyLibrary(library)) scheduleCloudStudySync();
+      }
+      if (countElement) countElement.textContent = String(entries.length);
+      const withText = entries.filter(item => item.verses.length).length;
+      if (status) status.textContent = entries.length
+        ? withText + ' of ' + entries.length + ' related passage' + (entries.length === 1 ? '' : 's') + ' included in this study.'
+        : 'Related verse text, connection type and explanation will be stored inside this study.';
+      renderStudyRelatedPassageList(record, entries);
+
+      entries.filter(item => !item.verses.length && !item.textLoadError).forEach(item => {
+        if (document.getElementById('studyRelatedPassageList')?.querySelector('[data-related-load="' + item.id + '"]')) {
+          // Existing links are migrated into the study and their verse text is loaded in the background.
+          loadStudyRelatedPassageText(item.id);
+        }
+      });
+    }
+
+    async function insertStudyRelatedPassageIntoNotes(item) {
+      if (!item || !Array.isArray(item.verses) || !item.verses.length) return;
+      const area = document.getElementById('workspaceNoteArea');
+      if (!area) return;
+      saveActiveStudyNote();
+      const marker = '[Related passage: ' + formatStudyRelatedPassageReference(item) + ']';
+      if (area.value.includes(marker)) {
+        const status = document.getElementById('noteSaveStatus');
+        if (status) status.textContent = 'This related passage is already included in the active stage notes.';
+        return;
+      }
+      const body = item.verses.map(verse => verse.number + '. ' + verse.text).join('\\n');
+      const block = marker + '\\nConnection: ' + (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other) +
+        '\\n' + body + (item.note ? '\\nWhy it matters: ' + item.note : '') + '\\n\\n';
+      const prefix = area.value.trim() ? area.value.replace(/\\s*$/, '\\n\\n') : '';
+      const nextValue = prefix + block;
+      area.value = nextValue;
+      area.focus();
+      area.setSelectionRange(nextValue.length, nextValue.length);
+      saveActiveStudyNote();
+      updateWorkspaceWordCount(area.value);
+      const status = document.getElementById('noteSaveStatus');
+      if (status) status.textContent = 'Related passage text added to ' + (NOTE_SECTION_LABELS[appState.activeNotesSection] || 'active stage') + ' notes.';
+    }
+
+    function removeStudyRelatedPassage(item) {
+      if (!item) return;
+      const reference = formatStudyRelatedPassageReference(item);
+      if (!window.confirm('Remove ' + reference + ' from this study? This also removes its related-passage link, but leaves your stage notes unchanged.')) return;
+      const key = studyRecordKey();
+      const library = readStudyLibrary();
+      const record = library[key];
+      if (!record) return;
+      const state = getStudyRelatedPassageState(record);
+      record.relatedPassages = state.entries.filter(entry => entry.id !== item.id);
+      const removeIds = new Set([item.crossReferenceId, item.id.startsWith('related-') ? item.id.slice('related-'.length) : ''].filter(Boolean));
+      if (Array.isArray(record.crossReferences)) {
+        record.crossReferences = record.crossReferences.filter(ref => !(
+          ref && ref.source?.scope === 'study' &&
+          (removeIds.has(ref.id) || (
+            ref.target?.book === item.book && Number(ref.target.chapter) === Number(item.chapter) &&
+            Number(ref.target.startVerse || 0) === Number(item.startVerse || 0) &&
+            Number(ref.target.endVerse || 0) === Number(item.endVerse || 0) && ref.relation === item.relation
+          ))
+        ));
+      }
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) return;
+      const tombstones = readStudyTombstones();
+      delete tombstones[key];
+      writeStudyTombstones(tombstones);
+      scheduleCloudStudySync();
+      updateStudyRelatedPassageButton();
+      renderCrossReferenceList();
+      updateChapterCrossReferenceButton();
+    }
+
+
       const countElement = document.getElementById('studyRelatedPassageCount');
       const status = document.getElementById('studyRelatedPassageStatus');
       const library = readStudyLibrary();

@@ -6707,9 +6707,11 @@ function renderStandardCrossReferenceList() {
           const targetChapter = Number(ref?.target?.chapter);
           const targetStart = ref?.target?.startVerse;
           const targetEnd = ref?.target?.endVerse;
+          const studyLevelSource = ref?.source?.scope === 'study' && ref.source.verse == null;
+          const validSourceVerse = Number.isInteger(ref?.source?.verse) && ref.source.verse >= 1 && ref.source.verse <= 250;
           return ref && typeof ref.id === 'string' && ref.id.length <= 100 &&
             ref.source && ref.source.book === book && Number(ref.source.chapter) === chapter &&
-            Number.isInteger(ref.source.verse) && ref.source.verse >= 1 && ref.source.verse <= 250 &&
+            (studyLevelSource || validSourceVerse) &&
             targetBook && Number.isInteger(targetChapter) && targetChapter >= 1 &&
             targetChapter <= Number(targetBook.chapters) && CROSS_REFERENCE_RELATIONS[ref.relation] &&
             typeof ref.note === 'string' && ref.note.length <= 2000 &&
@@ -6717,19 +6719,27 @@ function renderStandardCrossReferenceList() {
               (Number.isInteger(targetStart) && Number.isInteger(targetEnd) &&
                 targetStart >= 1 && targetEnd >= targetStart && targetEnd <= 250));
         })
-        .map(ref => ({
-          id: ref.id,
-          source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: ref.source.verse },
-          target: {
-            book: ref.target.book,
-            chapter: Number(ref.target.chapter),
-            startVerse: Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null,
-            endVerse: Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : null
-          },
-          relation: ref.relation,
-          note: ref.note,
-          createdAt: typeof ref.createdAt === 'string' ? ref.createdAt.slice(0, 50) : ''
-        }));
+        .map(ref => {
+          const studyLevelSource = ref.source.scope === 'study' && ref.source.verse == null;
+          return {
+            id: ref.id,
+            source: {
+              book: ref.source.book,
+              chapter: Number(ref.source.chapter),
+              verse: studyLevelSource ? null : ref.source.verse,
+              ...(studyLevelSource ? { scope: 'study' } : {})
+            },
+            target: {
+              book: ref.target.book,
+              chapter: Number(ref.target.chapter),
+              startVerse: Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null,
+              endVerse: Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : null
+            },
+            relation: ref.relation,
+            note: ref.note,
+            createdAt: typeof ref.createdAt === 'string' ? ref.createdAt.slice(0, 50) : ''
+          };
+        });
 
       const standardRows = Array.isArray(options.standardCrossReferenceRows) ? options.standardCrossReferenceRows : [];
       const standardEntries = standardRows

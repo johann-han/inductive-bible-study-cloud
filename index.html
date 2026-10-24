@@ -4981,7 +4981,8 @@ function renderStandardCrossReferenceList() {
       };
 
       if (toggleWorkspaceMobile) {
-        toggleWorkspaceMobile.onclick = () => {
+        toggleWorkspaceMobile.onclick = event => {
+          event.preventDefault();
           const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
           const isOpen = workspacePanel &&
             workspacePanel.getAttribute('aria-hidden') === 'false' &&
@@ -4990,10 +4991,17 @@ function renderStandardCrossReferenceList() {
             !workspacePanel.classList.contains('hidden') &&
             !document.body.classList.contains('reader-fullscreen-mode');
 
-          // On phones the header item is an explicit Open Notes action. The panel
-          // has its own close button; stale transform classes must not turn this
-          // tap into another close operation.
-          setWorkspaceOpen(isMobile ? true : !isOpen);
+          if (isMobile) {
+            // Handle the mobile Notes action here instead of relying on the
+            // generic header-menu click listener. Close the menu first, then
+            // explicitly open Notes, so it cannot remain behind the dropdown.
+            event.stopPropagation();
+            setHeaderMenuOpen(false);
+            setWorkspaceOpen(true);
+            return;
+          }
+
+          setWorkspaceOpen(!isOpen);
         };
       }
       if (closeWorkspaceMobile) closeWorkspaceMobile.onclick = () => setWorkspaceOpen(false);

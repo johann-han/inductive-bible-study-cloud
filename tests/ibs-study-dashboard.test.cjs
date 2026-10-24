@@ -167,7 +167,7 @@ function createDashboardHarness(library, appState, activePointer = null) {
 
   const entriesSource = extractFunction(
     '    function getDashboardStudyEntries() {',
-    '    function openDashboardStudy(book, chapter, suggestedSection = null) {'
+    '    function openStudyWorkspacePanel() {'
   );
   sandbox.getDashboardStudyEntries = vm.runInNewContext('(' + entriesSource + ')', sandbox);
   const completeSource = extractFunction(
@@ -309,6 +309,7 @@ function createDashboardSetupHarness({ entries = [], pointer = null } = {}) {
     saveActiveStudyNote: () => events.push('save-active-note'),
     showDashboardHome: () => events.push('show-home'),
     showBibleReader: () => events.push('show-reader'),
+    setupWorkspacePanelResize: () => events.push('setup-resize'),
     renderStudyDashboard: () => events.push('render-dashboard'),
     renderStudyLibrary: () => events.push('render-library'),
     getDashboardStudyEntries: () => entries,
@@ -606,7 +607,7 @@ function createRestoreStudyHarness(library, pointer) {
   };
   const entriesSource = extractFunction(
     '    function getDashboardStudyEntries() {',
-    '    function openDashboardStudy(book, chapter, suggestedSection = null) {'
+    '    function openStudyWorkspacePanel() {'
   );
   sandbox.getDashboardStudyEntries = vm.runInNewContext('(' + entriesSource + ')', sandbox);
   for (const [start, end, key] of [

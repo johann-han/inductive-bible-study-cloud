@@ -1323,6 +1323,24 @@
                     if (value) blocks.push(sectionLabels[key] + ':\n' + value);
                 });
 
+                const relatedPassages = Array.isArray(packet.relatedPassages) ? packet.relatedPassages.slice(0, 12) : [];
+                if (relatedPassages.length && ['exegesis', 'bigIdea', 'outline', 'applications', 'manuscript', 'all'].includes(profile)) {
+                    const relatedText = relatedPassages.map(item => {
+                        const verses = Array.isArray(item.verses) ? item.verses.map(verse => verse.number + '. ' + clip(verse.text, 700)).join('\n') : '';
+                        return [
+                            clip(item.reference || ((item.book || '') + ' ' + (item.chapter || '')), 120),
+                            item.translation ? 'Translation: ' + clip(item.translation, 40) : '',
+                            item.stage ? 'Already included in IBS stage: ' + clip(item.stage, 30) : '',
+                            item.relation ? 'Connection: ' + clip(item.relation, 100) : '',
+                            verses,
+                            item.note ? 'Why it matters: ' + clip(item.note, 500) : ''
+                        ].filter(Boolean).join('\n');
+                    }).join('\n\n');
+                    blocks.push('RELATED VERSES INCLUDED IN THE SAVED IBS STUDY (user-selected source material; do not treat the relationship note as a proven interpretation):\n' +
+                        clip(relatedText, profile === 'manuscript' ? 5000 : 7500));
+                    if (relatedPassages.length > 12) blocks.push('Only the first 12 related passages are included in this prompt; the complete verse text remains in the read-only source panel and study packet.');
+                }
+
                 const currentPassageText = String(sermon.text || '').trim();
                 const importedPassageText = String(packet.passageText || '').trim();
                 if (packet.passageTextIncluded && importedPassageText && importedPassageText !== currentPassageText && ['exegesis', 'bigIdea', 'outline', 'manuscript', 'all'].includes(profile)) {

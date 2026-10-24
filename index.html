@@ -723,7 +723,7 @@
           </div>
           <div class="p-4 space-y-4">
             <form id="crossReferenceForm" class="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div><label class="block text-[11px] font-semibold text-slate-600">Starting verse</label><p id="crossReferenceSourceLabel" class="mt-1 text-sm font-bold text-slate-900">Select one verse first.</p></div>
+              <div><label class="block text-[11px] font-semibold text-slate-600">Starting verse or study</label><p id="crossReferenceSourceLabel" class="mt-1 text-sm font-bold text-slate-900">Select one verse first.</p></div>
               <div>
                 <label for="crossReferenceTargetInput" class="block text-[11px] font-semibold text-slate-600">Related passage</label>
                 <input id="crossReferenceTargetInput" type="text" required maxlength="100" placeholder="e.g. Romans 8:28-30 or Psalm 23" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-sky-600">
@@ -844,6 +844,16 @@
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
+          <section class="rounded-lg border border-sky-200 bg-white p-2.5 space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-[11px] font-bold text-slate-800">Related passages</p>
+                <p class="text-[10px] text-slate-500">Connect other verses to this whole study.</p>
+              </div>
+              <button id="openStudyRelatedPassagesBtn" type="button" class="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100">Add / manage <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-[1rem] justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
+            </div>
+            <p id="studyRelatedPassageStatus" class="text-[10px] text-slate-500" role="status" aria-live="polite">Related verses are saved with this study.</p>
+          </section>
           <div id="workspaceNoteFind" class="space-y-1">
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
             <div class="flex items-center gap-2">
@@ -2025,6 +2035,8 @@
     }
 
     let crossReferenceListFilter = null;
+    let crossReferenceStudyLevelMode = false;
+    let crossReferenceStudySource = null;
 
     function getCrossReferenceCountsForVerse(entries, book, chapter, verse) {
       let outgoing = 0;
@@ -2032,7 +2044,7 @@
       for (const entry of entries || []) {
         const ref = entry?.crossReference;
         if (!ref?.source || !ref?.target) continue;
-        if (ref.source.book === book && Number(ref.source.chapter) === Number(chapter) &&
+        if (ref.source.scope !== 'study' && ref.source.book === book && Number(ref.source.chapter) === Number(chapter) &&
             Number(ref.source.verse) === Number(verse)) outgoing++;
         if (ref.target.book === book && Number(ref.target.chapter) === Number(chapter)) {
           const start = Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null;
@@ -2655,7 +2667,11 @@ function renderStandardCrossReferenceList() {
     }
 
     function formatCrossReferenceSource(source) {
-      return source && source.book && Number.isInteger(Number(source.chapter)) && Number.isInteger(Number(source.verse))
+      if (!source || !source.book || !Number.isInteger(Number(source.chapter))) return 'Unknown verse';
+      if (source.scope === 'study' && source.verse == null) {
+        return String(source.book) + ' ' + Number(source.chapter) + ' (active study)';
+      }
+      return Number.isInteger(Number(source.verse))
         ? String(source.book) + ' ' + Number(source.chapter) + ':' + Number(source.verse)
         : 'Unknown verse';
     }
@@ -2681,6 +2697,9 @@ function renderStandardCrossReferenceList() {
       const count = document.getElementById('crossReferenceCount');
       if (!list) return;
       let entries = collectCrossReferencesForChapter();
+      if (crossReferenceStudyLevelMode) {
+        entries = entries.filter(entry => entry.crossReference?.source?.scope === 'study');
+      }
       if (crossReferenceListFilter) {
         const filter = crossReferenceListFilter;
         entries = entries.filter(entry => {
@@ -2703,7 +2722,9 @@ function renderStandardCrossReferenceList() {
         empty.className = 'text-xs text-slate-500';
         empty.textContent = crossReferenceListFilter
           ? 'No saved cross-references for ' + crossReferenceListFilter.book + ' ' + crossReferenceListFilter.chapter + ':' + crossReferenceListFilter.verse + '.'
-          : 'No saved cross-references for this chapter yet.';
+          : crossReferenceStudyLevelMode
+            ? 'No related passages have been added to this study yet.'
+            : 'No saved cross-references for this chapter yet.';
         list.appendChild(empty);
         return;
       }
@@ -2745,8 +2766,15 @@ function renderStandardCrossReferenceList() {
 
     function openCrossReferenceModal(options = {}) {
       const viewOnly = options.viewOnly === true;
-      const source = options.reference || (Array.from(appState.selectedVerses || []).length === 1
-        ? parseBibleReference(Array.from(appState.selectedVerses)[0]) : null);
+      const studyLevel = options.studyLevel === true;
+      crossReferenceStudyLevelMode = studyLevel;
+      crossReferenceStudySource = studyLevel
+        ? { book: appState.currentBook, chapter: Number(appState.currentChapter) }
+        : null;
+      const source = studyLevel
+        ? { book: appState.currentBook, chapter: Number(appState.currentChapter), startVerse: null, endVerse: null, scope: 'study' }
+        : (options.reference || (Array.from(appState.selectedVerses || []).length === 1
+          ? parseBibleReference(Array.from(appState.selectedVerses)[0]) : null));
       const modal = document.getElementById('crossReferenceModal');
       const form = document.getElementById('crossReferenceForm');
       const sourceLabel = document.getElementById('crossReferenceSourceLabel');
@@ -2756,7 +2784,7 @@ function renderStandardCrossReferenceList() {
       const targetInput = document.getElementById('crossReferenceTargetInput');
       const noteInput = document.getElementById('crossReferenceNoteInput');
 
-      if (!viewOnly && (!source || source.startVerse === null)) {
+      if (!viewOnly && !studyLevel && (!source || source.startVerse === null)) {
         if (status) status.textContent = 'Select exactly one verse in the Bible text first.';
         return;
       }
@@ -2764,23 +2792,31 @@ function renderStandardCrossReferenceList() {
       crossReferenceListFilter = viewOnly && options.reference
         ? { book: options.reference.book, chapter: Number(options.reference.chapter), verse: Number(options.reference.verse) }
         : null;
-      if (form) form.classList.toggle('hidden', viewOnly || !source || source.startVerse === null);
-      if (sourceLabel) sourceLabel.textContent = source && source.startVerse !== null
-        ? formatCrossReferenceTarget(source)
-        : 'Select a verse and choose Link passage to add a connection.';
+      if (form) form.classList.toggle('hidden', viewOnly || !source || (!studyLevel && source.startVerse === null));
+      if (sourceLabel) sourceLabel.textContent = studyLevel
+        ? formatCrossReferenceSource({ book: source.book, chapter: source.chapter, scope: 'study', verse: null })
+        : (source && source.startVerse !== null
+          ? formatCrossReferenceTarget(source)
+          : 'Select a verse and choose Link passage to add a connection.');
       if (subtitle) subtitle.textContent = viewOnly
         ? (crossReferenceListFilter
           ? 'Connections involving ' + formatCrossReferenceSource(crossReferenceListFilter) + '.'
           : 'All saved connections to and from this chapter.')
-        : 'Link passages and record why they belong together.';
+        : studyLevel
+          ? 'Add verses and passages that help explain or connect with this active study.'
+          : 'Link passages and record why they belong together.';
       if (listTitle) listTitle.textContent = crossReferenceListFilter
         ? 'Links for ' + crossReferenceListFilter.book + ' ' + crossReferenceListFilter.chapter + ':' + crossReferenceListFilter.verse
-        : 'Links to and from this chapter';
+        : studyLevel
+          ? 'Related passages for ' + source.book + ' ' + source.chapter
+          : 'Links to and from this chapter';
 
       if (!viewOnly) {
         if (targetInput) targetInput.value = '';
         if (noteInput) noteInput.value = '';
-        if (status) status.textContent = 'Choose a related passage to create a link.';
+        if (status) status.textContent = studyLevel
+          ? 'Add a related passage to this study.'
+          : 'Choose a related passage to create a link.';
       }
       renderCrossReferenceList();
       if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
@@ -3129,6 +3165,7 @@ function renderStandardCrossReferenceList() {
     function setupCrossReferenceWorkflow() {
       const modal = document.getElementById('crossReferenceModal');
       const openButton = document.getElementById('btnOpenCrossReferenceModal');
+      const studyRelatedButton = document.getElementById('openStudyRelatedPassagesBtn');
       const chapterOverviewButton = document.getElementById('openChapterCrossReferencesBtn');
       const closeButton = document.getElementById('closeCrossReferenceModalBtn');
       const form = document.getElementById('crossReferenceForm');
@@ -3137,6 +3174,7 @@ function renderStandardCrossReferenceList() {
       const noteInput = document.getElementById('crossReferenceNoteInput');
       const status = document.getElementById('crossReferenceFormStatus');
       openButton?.addEventListener('click', () => openCrossReferenceModal());
+      studyRelatedButton?.addEventListener('click', () => openCrossReferenceModal({ studyLevel: true }));
       chapterOverviewButton?.addEventListener('click', () => openCrossReferenceModal({ viewOnly: true }));
       closeButton?.addEventListener('click', () => {
         modal?.classList.add('hidden');

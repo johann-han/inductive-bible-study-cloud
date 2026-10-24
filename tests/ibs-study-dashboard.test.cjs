@@ -328,6 +328,51 @@ function createDashboardSetupHarness({ entries = [], pointer = null } = {}) {
   return { document, events };
 }
 
+function createDashboardViewHarness() {
+  const document = new FakeDocument();
+  const events = [];
+  const sandbox = {
+    document,
+    saveActiveStudyNote: () => events.push('save-active-note'),
+    renderStudyDashboard: () => events.push('render-dashboard'),
+    renderBooksList: () => events.push('render-books'),
+    renderChapterPills: () => events.push('render-chapters'),
+    loadActiveStudyNote: () => events.push('load-notes'),
+    renderScripture: () => events.push('render-scripture')
+  };
+  const homeSource = extractFunction(
+    '    function showDashboardHome() {',
+    '    function showBibleReader() {'
+  );
+  sandbox.showDashboardHome = vm.runInNewContext('(' + homeSource + ')', sandbox);
+  const readerSource = extractFunction(
+    '    function showBibleReader() {',
+    '    function populateDashboardChapterChooser(bookName, preferredChapter = null) {'
+  );
+  sandbox.showBibleReader = vm.runInNewContext('(' + readerSource + ')', sandbox);
+  return { sandbox, document, events };
+}
+
+test('actual home and reader functions switch visible views and refresh the existing workspace', () => {
+  const { sandbox, document, events } = createDashboardViewHarness();
+  const home = document.getElementById('studyDashboardHome');
+  const reader = document.getElementById('readerWorkspace');
+  home.style.display = '';
+  reader.style.display = '';
+  
+  sandbox.showDashboardHome();
+  assert.equal(reader.style.display, 'none');
+  assert.equal(home.style.display, '');
+  assert.equal(document.body.classList.contains('ibs-home-view'), true);
+  assert.deepEqual(events, ['save-active-note', 'render-dashboard']);
+
+  sandbox.showBibleReader();
+  assert.equal(home.style.display, 'none');
+  assert.equal(reader.style.display, '');
+  assert.equal(document.body.classList.contains('ibs-home-view'), false);
+  assert.deepEqual(events.slice(-4), ['render-books', 'render-chapters', 'load-notes', 'render-scripture']);
+});
+
 test('Home and reader controls switch views without treating the dashboard as a dismissible modal', () => {
   const { document, events } = createDashboardSetupHarness();
 

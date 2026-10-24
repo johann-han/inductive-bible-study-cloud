@@ -286,6 +286,47 @@
       #aiDrawer #aiInput { min-width: 0; font-size: 16px; }
     }
 
+    /* Resizable study notes panel. The grip is available on desktop/tablet, not the full-screen phone drawer. */
+    #workspacePanel {
+      max-width: min(92vw, 960px);
+    }
+    #workspaceResizeHandle {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 10px;
+      z-index: 55;
+      display: none;
+      cursor: ew-resize;
+      touch-action: none;
+      background: transparent;
+      outline: none;
+    }
+    #workspaceResizeHandle::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 50%;
+      width: 3px;
+      height: 44px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      transform: translateY(-50%);
+      transition: background-color .15s, height .15s;
+    }
+    #workspaceResizeHandle:hover::after,
+    #workspaceResizeHandle:focus-visible::after,
+    #workspacePanel.workspace-panel-resizing #workspaceResizeHandle::after {
+      background: #d97706;
+      height: 64px;
+    }
+    #workspacePanel.workspace-panel-resizing {
+      transition: none !important;
+      user-select: none;
+    }
+    @media (min-width: 641px) {
+      #workspaceResizeHandle { display: block; }
+    }
+
     #workspacePanel.workspace-expanded {
       inset: 0 !important;
       top: 0 !important;
@@ -777,6 +818,7 @@
 
       <!-- STUDY WORKSPACE PANEL -->
       <section id="workspacePanel" aria-hidden="true" class="fixed inset-y-0 right-0 z-30 w-full sm:w-96 lg:top-12 lg:w-80 xl:w-96 bg-slate-50 flex flex-col border-l border-slate-200 overflow-hidden transition-transform duration-300 translate-x-full shadow-2xl shrink-0">
+        <div id="workspaceResizeHandle" role="separator" aria-orientation="vertical" aria-valuemin="320" aria-valuemax="960" aria-valuenow="384" aria-label="Resize study notes panel" tabindex="0" title="Drag the left edge to resize the study panel"></div>
         <div class="flex border-b border-slate-200 bg-white text-xs font-semibold text-slate-600">
           <button id="wsTabObserve" class="flex-1 py-3 text-center border-b-2 border-amber-600 text-amber-700 bg-slate-50 font-bold">Observe</button>
           <button id="wsTabInterpret" class="flex-1 py-3 text-center border-b-2 border-transparent hover:text-slate-900">Interpret</button>
@@ -5329,7 +5371,20 @@ function renderStandardCrossReferenceList() {
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
     }
 
-    function openDashboardStudy(book, chapter, suggestedSection = null) {
+    function openStudyWorkspacePanel() {
+      const panel = document.getElementById('workspacePanel');
+      const notesToggle = document.getElementById('toggleWorkspaceMobile');
+      const backdrop = document.getElementById('mobileBackdrop');
+      if (!panel) return;
+      panel.classList.remove('translate-x-full');
+      panel.setAttribute('aria-hidden', 'false');
+      notesToggle?.setAttribute('aria-expanded', 'true');
+      notesToggle?.setAttribute('title', 'Close study notes');
+      backdrop?.classList.remove('hidden');
+      updateWorkspaceSectionButtons();
+    }
+
+    function openDashboardStudy(book, chapter, suggestedSection = null, options = {}) {
       const targetBook = BIBLE_CANON.find(item => item.name === book);
       const targetChapter = Number(chapter);
       if (!targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return false;
@@ -5350,6 +5405,7 @@ function renderStandardCrossReferenceList() {
       if (bookSearch) bookSearch.value = '';
       saveLastActiveStudy();
       showBibleReader();
+      if (options.openStudyPanel) openStudyWorkspacePanel();
       return true;
     }
 
@@ -5515,7 +5571,79 @@ function renderStandardCrossReferenceList() {
       }
     }
 
+    function setupWorkspacePanelResize() {
+      const panel = document.getElementById('workspacePanel');
+      const handle = document.getElementById('workspaceResizeHandle');
+      if (!panel || !handle || handle.dataset.resizeReady === 'true') return;
+      handle.dataset.resizeReady = 'true';
+
+      const storageKey = 'inductive-bible-study-workspace-width-v1';
+      const minimumWidth = 320;
+      const maximumWidth = () => Math.max(minimumWidth, Math.floor(Math.min(960, window.innerWidth * 0.82)));
+      const clampWidth = width => Math.max(minimumWidth, Math.min(maximumWidth(), Math.round(Number(width) || 384)));
+      const setWidth = width => {
+        const next = clampWidth(width);
+        panel.style.width = next + 'px';
+        handle.setAttribute('aria-valuenow', String(next));
+        handle.setAttribute('aria-valuemax', String(maximumWidth()));
+        return next;
+      };
+      const saveWidth = width => {
+        try {
+          localStorage.setItem(storageKey, String(width));
+        } catch (error) {
+          // Resizing is optional; storage failure must not affect saved study content.
+          console.warn('The study panel width preference could not be saved:', error);
+        }
+      };
+
+      try {
+        const savedWidth = Number(localStorage.getItem(storageKey));
+        if (Number.isFinite(savedWidth) && savedWidth >= minimumWidth) setWidth(savedWidth);
+      } catch (_) {
+        // Continue with the responsive default width.
+      }
+      handle.setAttribute('aria-valuemin', String(minimumWidth));
+      handle.setAttribute('aria-valuemax', String(maximumWidth()));
+
+      handle.addEventListener('pointerdown', event => {
+        if (window.innerWidth <= 640 || (event.button !== undefined && event.button !== 0)) return;
+        const startX = Number(event.clientX) || 0;
+        const startWidth = panel.getBoundingClientRect().width || 384;
+        event.preventDefault?.();
+        panel.classList.add('workspace-panel-resizing');
+        const move = moveEvent => {
+          // The panel is anchored to the right; dragging its left edge left increases width.
+          setWidth(startWidth + startX - Number(moveEvent.clientX));
+        };
+        const finish = () => {
+          const width = setWidth(panel.getBoundingClientRect().width || Number.parseFloat(panel.style.width) || startWidth);
+          panel.classList.remove('workspace-panel-resizing');
+          saveWidth(width);
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', finish);
+          window.removeEventListener('pointercancel', finish);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', finish, { once: true });
+        window.addEventListener('pointercancel', finish, { once: true });
+      });
+
+      handle.addEventListener('keydown', event => {
+        const current = panel.getBoundingClientRect().width || Number.parseFloat(panel.style.width) || 384;
+        let next = null;
+        if (event.key === 'ArrowLeft') next = current + 24;
+        else if (event.key === 'ArrowRight') next = current - 24;
+        else if (event.key === 'Home') next = minimumWidth;
+        else if (event.key === 'End') next = maximumWidth();
+        if (next === null) return;
+        event.preventDefault?.();
+        saveWidth(setWidth(next));
+      });
+    }
+
     function setupStudyDashboard() {
+      setupWorkspacePanelResize();
       const openButton = document.getElementById('openDashboardBtn');
       const readerButtons = [
         document.getElementById('dashboardOpenReaderBtn'),
@@ -5564,7 +5692,7 @@ function renderStandardCrossReferenceList() {
             resumeEntry,
             lastActive && lastActive.book === resumeEntry.book && Number(lastActive.chapter) === Number(resumeEntry.chapter) ? lastActive.section : null
           );
-          openDashboardStudy(resumeEntry.book, resumeEntry.chapter, section);
+          openDashboardStudy(resumeEntry.book, resumeEntry.chapter, section, { openStudyPanel: true });
         } else {
           showBibleReader();
         }

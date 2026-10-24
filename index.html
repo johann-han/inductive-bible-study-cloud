@@ -510,6 +510,12 @@
       }
     }
 
+
+    /* The dashboard is the home screen; show reader-only controls only in the Bible workspace. */
+    body.ibs-home-view #mobileMenuBtn,
+    body.ibs-home-view #headerMenuBtn,
+    body.ibs-home-view #headerControlsPanel { display: none !important; }
+
   </style>
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0f172a">
@@ -518,7 +524,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
-<body class="bg-slate-100 text-slate-900 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
+<body class="ibs-home-view bg-slate-100 text-slate-900 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
 
   <!-- TOP HEADER NAVBAR -->
   <header class="bg-slate-900 text-white border-b border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between shrink-0 shadow-md z-30 min-h-[52px]">
@@ -547,7 +553,7 @@
     </button>
 
     <div id="headerControlsPanel" class="is-menu-closed flex items-center space-x-1.5 sm:space-x-2">
-      <button id="openDashboardBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1" title="Open your Bible study dashboard">⌂ <span>Dashboard</span></button>
+      <button id="openDashboardBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1" title="Return to IBS Home">⌂ <span>Home</span></button>
       <button id="openBibleSearchBtn" type="button" title="Search Bible verses by words or phrase" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">🔎 Search</button>
       <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
         <span id="currentPassageLabel" class="truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">Genesis 1</span>
@@ -583,7 +589,7 @@
   </header>
 
   <!-- MAIN CONTENT CONTAINER -->
-  <div class="flex-1 flex overflow-hidden relative">
+  <div id="readerWorkspace" class="flex-1 flex overflow-hidden relative" style="display:none">
     <div id="mobileBackdrop" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
 
     <!-- LEFT SIDEBAR: BIBLE CANON BROWSER -->
@@ -825,17 +831,17 @@
     </main>
 
     <!-- IBS STUDY DASHBOARD -->
-    <div id="studyDashboardModal" class="hidden fixed inset-0 z-[80] bg-slate-950/70 p-2 sm:p-5 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyDashboardTitle">
-      <section class="w-full max-w-5xl max-h-[96dvh] sm:max-h-[92vh] bg-slate-50 rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+    <main id="studyDashboardHome" class="flex-1 min-h-0 overflow-y-auto bg-slate-100 px-3 py-4 sm:px-6 sm:py-8" aria-labelledby="studyDashboardTitle">
+      <section class="mx-auto w-full max-w-6xl min-h-full bg-slate-50 rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden">
         <header class="flex items-center justify-between gap-3 p-4 sm:p-6 bg-slate-900 text-white">
           <div class="min-w-0">
             <p class="text-[11px] uppercase tracking-[0.18em] text-amber-300 font-bold">Inductive Bible Study</p>
-            <h2 id="studyDashboardTitle" class="text-xl sm:text-2xl font-bold mt-1">Study Dashboard</h2>
-            <p class="text-sm text-slate-300 mt-1">Resume your study, review your progress, or open a passage.</p>
+            <h2 id="studyDashboardTitle" class="text-xl sm:text-2xl font-bold mt-1">IBS Home</h2>
+            <p class="text-sm text-slate-300 mt-1">Resume an unfinished study, review your progress, or choose a passage.</p>
           </div>
-          <button id="closeStudyDashboardBtn" type="button" class="shrink-0 rounded-lg px-3 py-2 text-xl text-slate-200 hover:bg-slate-800" aria-label="Close dashboard">&times;</button>
+          <button id="dashboardOpenReaderBtn" type="button" class="shrink-0 rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800" aria-label="Open Bible reader">Read Bible →</button>
         </header>
-        <div class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-5">
+        <div class="p-3 sm:p-6 space-y-5">
           <section class="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Study overview">
             <article class="rounded-xl border border-slate-200 bg-white p-4">
               <p class="text-xs font-semibold text-slate-500">Saved passages</p>
@@ -860,9 +866,10 @@
             <article class="lg:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
               <p class="text-xs font-bold uppercase tracking-wider text-amber-800">Pick up where you left off</p>
               <h3 id="dashboardResumeTitle" class="text-lg font-bold text-slate-900 mt-2">Genesis 1</h3>
-              <p class="text-sm text-slate-600 mt-1">Continue reading in your current translation, with your existing notes and annotations.</p>
+              <p id="dashboardResumeStage" class="text-sm font-semibold text-amber-900 mt-1">Resume your last active study and stage.</p>
+              <p class="text-sm text-slate-600 mt-1">Your notes, markup, verse maps and cross-references stay with their saved passage.</p>
               <div class="flex flex-wrap gap-2 mt-4">
-                <button id="dashboardContinueBtn" type="button" class="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950">Continue reading</button>
+                <button id="dashboardContinueBtn" type="button" class="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950">Resume study</button>
                 <button id="dashboardChoosePassageBtn" type="button" class="rounded-lg border border-amber-300 bg-white hover:bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">Choose passage</button>
               </div>
             </article>
@@ -879,6 +886,30 @@
               </div>
             </article>
           </section>
+          <section id="dashboardPassageChooser" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-labelledby="dashboardPassageChooserTitle">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 id="dashboardPassageChooserTitle" class="text-base font-bold text-slate-900">Choose a Bible passage</h3>
+                <p class="text-sm text-slate-600 mt-1">Select a book and chapter here. Your choice opens in the reader only after you confirm it.</p>
+              </div>
+              <button id="dashboardCancelPassageBtn" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">Cancel</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+              <div>
+                <label for="dashboardBookSelect" class="block text-xs font-bold text-slate-700 mb-1">Bible book</label>
+                <select id="dashboardBookSelect" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"></select>
+              </div>
+              <div>
+                <label for="dashboardChapterSelect" class="block text-xs font-bold text-slate-700 mb-1">Chapter / passage</label>
+                <select id="dashboardChapterSelect" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"></select>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+              <p id="dashboardPassageStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Choose the passage you want to study.</p>
+              <button id="dashboardOpenSelectedPassageBtn" type="button" class="rounded-lg bg-slate-900 hover:bg-slate-800 px-4 py-3 text-sm font-bold text-white">Open selected passage →</button>
+            </div>
+          </section>
+
           <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <h3 class="text-base font-bold text-slate-900">The four inductive stages</h3>
             <p class="text-sm text-slate-600 mt-1">Use this overview to spot where you may want to continue your work.</p>
@@ -887,10 +918,10 @@
         </div>
         <footer class="flex flex-wrap items-center justify-between gap-2 p-3 sm:px-6 border-t border-slate-200 bg-white">
           <span class="text-xs text-slate-500">Your existing study records remain in the Study Library.</span>
-          <button id="dashboardCloseFooterBtn" type="button" class="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm font-bold text-white">Return to Bible reader</button>
+          <button id="dashboardCloseFooterBtn" type="button" class="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm font-bold text-white">Open Bible reader</button>
         </footer>
       </section>
-    </div>
+    </main>
 
     <!-- LOCAL STUDY LIBRARY -->
     <div id="studyLibraryModal" class="hidden fixed inset-0 z-[70] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyLibraryTitle">
@@ -1223,6 +1254,7 @@
 
     // Remember the last Bible passage locally so the reader reopens where the user left off.
     const LAST_READING_STORAGE_KEY = 'inductive-bible-study-last-reading-v1';
+    const LAST_ACTIVE_STUDY_STORAGE_KEY = 'inductive-bible-study-last-active-study-v1';
 
     function restoreLastReading() {
       try {
@@ -1267,6 +1299,70 @@
         // Reading history is a convenience; failure must never interrupt the Bible reader.
         console.warn('The last Bible reading could not be saved:', error);
       }
+      saveLastActiveStudy();
+    }
+
+    function isDashboardStudyComplete(record) {
+      return ['observe', 'interpret', 'doctrine', 'apply'].every(section =>
+        String(record?.sections?.[section] || '').trim().length > 0
+      );
+    }
+
+    function preferredDashboardStudySection(record, suggestedSection) {
+      if (suggestedSection && NOTE_SECTION_LABELS[suggestedSection]) return suggestedSection;
+      if (record && NOTE_SECTION_LABELS[record.activeSection]) return record.activeSection;
+      return ['observe', 'interpret', 'doctrine', 'apply'].find(section =>
+        !String(record?.sections?.[section] || '').trim()
+      ) || 'observe';
+    }
+
+    function readLastActiveStudy() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(LAST_ACTIVE_STUDY_STORAGE_KEY) || 'null');
+        if (!saved || typeof saved !== 'object' || typeof saved.book !== 'string') return null;
+        const book = BIBLE_CANON.find(entry => entry.name === saved.book);
+        const chapter = Number(saved.chapter);
+        if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) return null;
+        return { book: book.name, chapter, section: NOTE_SECTION_LABELS[saved.section] ? saved.section : null };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function saveLastActiveStudy() {
+      try {
+        localStorage.setItem(LAST_ACTIVE_STUDY_STORAGE_KEY, JSON.stringify({
+          book: appState.currentBook,
+          chapter: appState.currentChapter,
+          section: NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe'
+        }));
+      } catch (error) {
+        console.warn('The last active study pointer could not be saved:', error);
+      }
+    }
+
+    function restoreLastActiveStudy() {
+      const entries = getDashboardStudyEntries();
+      const saved = readLastActiveStudy();
+      const savedEntry = saved && entries.find(record => record.book === saved.book && Number(record.chapter) === Number(saved.chapter));
+      if (savedEntry) {
+        if (isDashboardStudyComplete(savedEntry)) return false;
+        appState.currentBook = savedEntry.book;
+        appState.currentChapter = Number(savedEntry.chapter);
+        appState.activeTab = BIBLE_CANON.find(book => book.name === savedEntry.book)?.testament || appState.activeTab;
+        appState.activeNotesSection = preferredDashboardStudySection(savedEntry, saved.section);
+        return true;
+      }
+
+      // Old installations, or stale pointers to a passage without saved notes, fall back to the newest unfinished study.
+      const fallback = entries.find(record => !isDashboardStudyComplete(record));
+      if (!fallback) return false;
+      appState.currentBook = fallback.book;
+      appState.currentChapter = Number(fallback.chapter);
+      appState.activeTab = BIBLE_CANON.find(book => book.name === fallback.book)?.testament || appState.activeTab;
+      appState.activeNotesSection = preferredDashboardStudySection(fallback);
+      saveLastActiveStudy();
+      return true;
     }
 
     const scriptureChapterCache = new Map();
@@ -3585,6 +3681,7 @@ function renderStandardCrossReferenceList() {
 
     async function initApp() {
       restoreLastReading();
+      restoreLastActiveStudy();
       await initSQLiteLexicon();
       renderBooksList();
       renderChapterPills();
@@ -4666,6 +4763,7 @@ function renderStandardCrossReferenceList() {
       if (!NOTE_SECTION_LABELS[section]) return;
       saveActiveStudyNote();
       appState.activeNotesSection = section;
+      saveLastActiveStudy();
       loadActiveStudyNote();
     }
 
@@ -5230,27 +5328,94 @@ function renderStandardCrossReferenceList() {
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
     }
 
-    function openDashboardStudy(book, chapter) {
+    function openDashboardStudy(book, chapter, suggestedSection = null) {
       const targetBook = BIBLE_CANON.find(item => item.name === book);
       const targetChapter = Number(chapter);
-      if (!targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return;
+      if (!targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return false;
       saveActiveStudyNote();
       appState.currentBook = targetBook.name;
       appState.currentChapter = targetChapter;
       appState.activeTab = targetBook.testament;
       appState.selectedVerses.clear();
+      const library = readStudyLibrary();
+      const record = library[studyRecordKey(targetBook.name, targetChapter)] || null;
+      const pointer = readLastActiveStudy();
+      const pointerMatchesTarget = pointer && pointer.book === targetBook.name && Number(pointer.chapter) === targetChapter;
+      appState.activeNotesSection = preferredDashboardStudySection(
+        record,
+        suggestedSection || (pointerMatchesTarget ? pointer.section : null)
+      );
       const bookSearch = document.getElementById('bookSearchInput');
       if (bookSearch) bookSearch.value = '';
-      if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();
+      saveLastActiveStudy();
+      showBibleReader();
+      return true;
+    }
+
+    function showDashboardHome() {
+      saveActiveStudyNote();
+      const home = document.getElementById('studyDashboardHome');
+      const reader = document.getElementById('readerWorkspace');
+      if (reader) reader.style.display = 'none';
+      if (home) home.style.display = '';
+      document.body.classList.add('ibs-home-view');
+      renderStudyDashboard();
+    }
+
+    function showBibleReader() {
+      const home = document.getElementById('studyDashboardHome');
+      const reader = document.getElementById('readerWorkspace');
+      if (home) home.style.display = 'none';
+      if (reader) reader.style.display = '';
+      document.body.classList.remove('ibs-home-view');
       if (typeof renderBooksList === 'function') renderBooksList();
       if (typeof renderChapterPills === 'function') renderChapterPills();
+      if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();
       if (typeof renderScripture === 'function') renderScripture();
-      document.getElementById('studyDashboardModal')?.classList.add('hidden');
+    }
+
+    function populateDashboardChapterChooser(bookName, preferredChapter = null) {
+      const bookSelect = document.getElementById('dashboardBookSelect');
+      const chapterSelect = document.getElementById('dashboardChapterSelect');
+      const book = BIBLE_CANON.find(item => item.name === (bookName || bookSelect?.value));
+      if (!book || !chapterSelect) return;
+      chapterSelect.replaceChildren();
+      for (let chapter = 1; chapter <= book.chapters; chapter += 1) {
+        const option = document.createElement('option');
+        option.value = String(chapter);
+        option.textContent = book.name + ' ' + chapter;
+        chapterSelect.appendChild(option);
+      }
+      const defaultChapter = preferredChapter === null
+        ? (book.name === appState.currentBook ? appState.currentChapter : 1)
+        : Number(preferredChapter);
+      chapterSelect.value = String(Number.isInteger(defaultChapter) && defaultChapter >= 1 && defaultChapter <= book.chapters ? defaultChapter : 1);
+    }
+
+    function populateDashboardPassageChooser() {
+      const bookSelect = document.getElementById('dashboardBookSelect');
+      const chapterSelect = document.getElementById('dashboardChapterSelect');
+      if (!bookSelect || !chapterSelect) return;
+      bookSelect.replaceChildren();
+      BIBLE_CANON.forEach(book => {
+        const option = document.createElement('option');
+        option.value = book.name;
+        option.textContent = book.name + (book.testament === 'OT' ? ' (Old Testament)' : ' (New Testament)');
+        bookSelect.appendChild(option);
+      });
+      bookSelect.value = BIBLE_CANON.some(book => book.name === appState.currentBook) ? appState.currentBook : 'Genesis';
+      bookSelect.onchange = () => populateDashboardChapterChooser(bookSelect.value);
+      populateDashboardChapterChooser(bookSelect.value, appState.currentChapter);
     }
 
     function renderStudyDashboard() {
       const entries = getDashboardStudyEntries();
       const sectionKeys = ['observe', 'interpret', 'doctrine', 'apply'];
+      const incompleteEntries = entries.filter(record => !isDashboardStudyComplete(record));
+      const lastActive = readLastActiveStudy();
+      const pointerEntry = lastActive && entries.find(record => record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter));
+      const pointedEntry = pointerEntry && !isDashboardStudyComplete(pointerEntry) ? pointerEntry : null;
+      const resumeEntry = pointedEntry || (!pointerEntry ? incompleteEntries[0] : null);
       const sectionNames = [
         { key: 'observe', label: 'Observe', description: 'What does the text say?', color: 'amber' },
         { key: 'interpret', label: 'Interpret', description: 'What does the text mean?', color: 'sky' },
@@ -5266,6 +5431,12 @@ function renderStandardCrossReferenceList() {
       const recentList = document.getElementById('dashboardRecentStudies');
       const progressList = document.getElementById('dashboardStageProgress');
       const currentLabel = `${appState.currentBook} ${appState.currentChapter}`;
+      const resumeLabel = resumeEntry ? resumeEntry.book + ' ' + resumeEntry.chapter : currentLabel;
+      const resumeSection = resumeEntry
+        ? preferredDashboardStudySection(resumeEntry, lastActive && lastActive.book === resumeEntry.book && Number(lastActive.chapter) === Number(resumeEntry.chapter) ? lastActive.section : null)
+        : appState.activeNotesSection;
+      const resumeStage = NOTE_SECTION_LABELS[resumeSection] || 'Observe';
+      const resumeStageElement = document.getElementById('dashboardResumeStage');
       const filledSections = entries.reduce((total, record) => total + sectionKeys.filter(key => String(record.sections?.[key] || '').trim()).length, 0);
       const completedStudies = entries.filter(record => sectionKeys.every(key => String(record.sections?.[key] || '').trim())).length;
       const possibleSections = entries.length * sectionKeys.length;
@@ -5274,7 +5445,12 @@ function renderStandardCrossReferenceList() {
       if (completeCount) completeCount.textContent = String(completedStudies);
       if (currentPassage) currentPassage.textContent = currentLabel;
       if (currentTranslation) currentTranslation.textContent = `Translation: ${appState.currentTranslationAbbr || appState.currentTranslation || 'KJV'}`;
-      if (resumeTitle) resumeTitle.textContent = currentLabel;
+      if (resumeTitle) resumeTitle.textContent = resumeLabel;
+      if (resumeStageElement) resumeStageElement.textContent = resumeEntry
+        ? 'Unfinished study · resume at ' + resumeStage + '.'
+        : 'Open your current passage or choose a new one.';
+      const continueButton = document.getElementById('dashboardContinueBtn');
+      if (continueButton) continueButton.textContent = resumeEntry ? 'Resume ' + resumeStage + ' study' : 'Open current passage';
 
       if (recentList) {
         recentList.replaceChildren();
@@ -5339,39 +5515,65 @@ function renderStandardCrossReferenceList() {
     }
 
     function setupStudyDashboard() {
-      const modal = document.getElementById('studyDashboardModal');
       const openButton = document.getElementById('openDashboardBtn');
-      const closeButtons = [
-        document.getElementById('closeStudyDashboardBtn'),
+      const readerButtons = [
+        document.getElementById('dashboardOpenReaderBtn'),
         document.getElementById('dashboardCloseFooterBtn')
       ];
-      const close = () => modal?.classList.add('hidden');
-      const open = () => {
-        saveActiveStudyNote();
-        renderStudyDashboard();
-        modal?.classList.remove('hidden');
-      };
-      openButton?.addEventListener('click', open);
-      closeButtons.forEach(button => button?.addEventListener('click', close));
-      modal?.addEventListener('click', event => { if (event.target === modal) close(); });
-      document.getElementById('dashboardContinueBtn')?.addEventListener('click', close);
-      document.getElementById('dashboardChoosePassageBtn')?.addEventListener('click', () => {
-        close();
-        const sidebar = document.getElementById('sidebar');
-        sidebar?.classList.remove('sidebar-collapsed', '-translate-x-full');
-        document.getElementById('mobileBackdrop')?.classList.remove('hidden');
-        document.getElementById('mobileMenuBtn')?.setAttribute('aria-expanded', 'true');
-        document.getElementById('mobileMenuBtn')?.setAttribute('aria-label', 'Close navigation sidebar');
+      const chooser = document.getElementById('dashboardPassageChooser');
+      const chooseButton = document.getElementById('dashboardChoosePassageBtn');
+      const cancelChooserButton = document.getElementById('dashboardCancelPassageBtn');
+      const openSelectedPassageButton = document.getElementById('dashboardOpenSelectedPassageBtn');
+      const bookSelect = document.getElementById('dashboardBookSelect');
+      const chapterSelect = document.getElementById('dashboardChapterSelect');
+      const status = document.getElementById('dashboardPassageStatus');
+
+      populateDashboardPassageChooser();
+      openButton?.addEventListener('click', showDashboardHome);
+      readerButtons.forEach(button => button?.addEventListener('click', showBibleReader));
+      chooseButton?.addEventListener('click', () => {
+        if (!bookSelect?.options?.length) populateDashboardPassageChooser();
+        chooser?.classList.remove('hidden');
+        chooser?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        bookSelect?.focus();
+      });
+      cancelChooserButton?.addEventListener('click', () => chooser?.classList.add('hidden'));
+      openSelectedPassageButton?.addEventListener('click', () => {
+        const book = BIBLE_CANON.find(item => item.name === bookSelect?.value);
+        const chapter = Number(chapterSelect?.value);
+        if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) {
+          if (status) status.textContent = 'Choose a valid Bible book and chapter before opening the passage.';
+          return;
+        }
+        if (status) status.textContent = 'Opening ' + book.name + ' ' + chapter + '…';
+        openDashboardStudy(book.name, chapter);
+      });
+      document.getElementById('dashboardContinueBtn')?.addEventListener('click', () => {
+        const allEntries = getDashboardStudyEntries();
+        const entries = allEntries.filter(record => !isDashboardStudyComplete(record));
+        const lastActive = readLastActiveStudy();
+        const pointerEntry = lastActive && allEntries.find(record =>
+          record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter)
+        );
+        const resumeEntry = pointerEntry
+          ? (isDashboardStudyComplete(pointerEntry) ? null : pointerEntry)
+          : entries[0];
+        if (resumeEntry) {
+          const section = preferredDashboardStudySection(
+            resumeEntry,
+            lastActive && lastActive.book === resumeEntry.book && Number(lastActive.chapter) === Number(resumeEntry.chapter) ? lastActive.section : null
+          );
+          openDashboardStudy(resumeEntry.book, resumeEntry.chapter, section);
+        } else {
+          showBibleReader();
+        }
       });
       document.getElementById('dashboardOpenLibraryBtn')?.addEventListener('click', () => {
-        close();
         saveActiveStudyNote();
         renderStudyLibrary();
         document.getElementById('studyLibraryModal')?.classList.remove('hidden');
       });
-      document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) close();
-      });
+      renderStudyDashboard();
     }
 
     function setupStudyLibrary() {

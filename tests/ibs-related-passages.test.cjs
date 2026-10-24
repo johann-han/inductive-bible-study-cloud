@@ -493,3 +493,19 @@ test('Both IBS and Kerygma inline application scripts remain syntactically valid
   check(indexHtml, 'IBS');
   check(kerygmaHtml, 'Kerygma');
 });
+
+
+test('selected verse copy action copies the reference, translation, and verse text', () => {
+  assert.match(indexHtml, /id="btnCopySelectedVerse"/);
+  assert.match(indexHtml, /Select exactly one verse to copy its reference and text/);
+  const copySource = extractFunction(
+    indexHtml,
+    '    async function copySelectedVerse() {',
+    '    function setupVerseMappingWorkflow() {'
+  );
+  assert.match(copySource, /appState\.selectedVerses\.size !== 1/);
+  assert.match(copySource, /appState\.currentTranslationAbbr/);
+  assert.match(copySource, /navigator\.clipboard\?\.writeText/);
+  assert.match(copySource, /document\.execCommand\('copy'\)/);
+  assert.match(indexHtml, /btnCopySelectedVerse'\)\?\.addEventListener\('click', copySelectedVerse\)/);
+});

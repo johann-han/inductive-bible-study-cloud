@@ -704,6 +704,7 @@
             <button id="btnHighlightObserve" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 px-2.5 py-1 rounded font-semibold text-[11px] shadow">Observe</button>
             <button id="btnHighlightInterpret" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded font-semibold text-[11px] shadow">Interpret</button>
             <button id="btnOpenCrossReferenceModal" type="button" disabled title="Select exactly one verse to link a passage" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1 rounded shadow disabled:opacity-40 disabled:cursor-not-allowed">Link passage</button>
+            <button id="btnCopySelectedVerse" type="button" disabled title="Select exactly one verse to copy its reference and text" class="bg-slate-600 hover:bg-slate-500 text-white font-bold px-2.5 py-1 rounded shadow disabled:opacity-40 disabled:cursor-not-allowed">Copy verse</button>
             <button id="btnOpenVerseMapping" type="button" disabled title="Select exactly one verse to create a verse map" class="bg-violet-700 hover:bg-violet-600 text-white font-bold px-2.5 py-1 rounded shadow disabled:opacity-40 disabled:cursor-not-allowed">Verse Map</button>
             <button id="sendVersesToAiBtn" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-2.5 py-1 rounded shadow">Ask AI</button>
           </div>
@@ -3663,9 +3664,52 @@ function renderStandardCrossReferenceList() {
       document.addEventListener('keydown', event => { if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) { modal.classList.add('hidden'); activePassageOutlineReference = null; } });
     }
 
+    async function copySelectedVerse() {
+      if (appState.selectedVerses.size !== 1) return false;
+      const selectedKey = Array.from(appState.selectedVerses)[0];
+      const match = /^(.*) (\\d+):(\\d+)$/.exec(selectedKey);
+      if (!match) return false;
+      const book = match[1];
+      const chapter = Number(match[2]);
+      const verseNumber = Number(match[3]);
+      const verseNode = document.querySelector('#scriptureContainer [data-verse-number="' + verseNumber + '"] .scripture-verse-text');
+      const verseText = verseNode?.innerText?.trim() || verseNode?.textContent?.trim();
+      if (!verseText) return false;
+      const copyText = book + ' ' + chapter + ':' + verseNumber + ' (' + appState.currentTranslationAbbr + ')\\n' + verseText;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(copyText);
+        } else {
+          const fallback = document.createElement('textarea');
+          fallback.value = copyText;
+          fallback.setAttribute('readonly', '');
+          fallback.style.position = 'fixed';
+          fallback.style.opacity = '0';
+          document.body.appendChild(fallback);
+          fallback.select();
+          const copied = document.execCommand('copy');
+          fallback.remove();
+          if (!copied) throw new Error('Clipboard copy was not available');
+        }
+        const button = document.getElementById('btnCopySelectedVerse');
+        if (button) {
+          const original = button.textContent;
+          button.textContent = 'Copied!';
+          window.setTimeout(() => { if (button.isConnected) button.textContent = original; }, 1600);
+        }
+        return true;
+      } catch (error) {
+        console.warn('Could not copy the selected verse.', error);
+        const button = document.getElementById('btnCopySelectedVerse');
+        if (button) button.textContent = 'Copy failed';
+        return false;
+      }
+    }
+
     function setupVerseMappingWorkflow() {
       const modal = document.getElementById('verseMappingModal');
       const openButton = document.getElementById('btnOpenVerseMapping');
+      document.getElementById('btnCopySelectedVerse')?.addEventListener('click', copySelectedVerse);
       const closeButton = document.getElementById('closeVerseMappingModalBtn');
       openButton?.addEventListener('click', openVerseMapping);
       closeButton?.addEventListener('click', () => { modal?.classList.add('hidden'); activeVerseMappingReference = null; });
@@ -4225,6 +4269,7 @@ function renderStandardCrossReferenceList() {
       const summaryLabel = document.getElementById('selectedVersesSummary');
       const crossReferenceButton = document.getElementById('btnOpenCrossReferenceModal');
       const verseMappingButton = document.getElementById('btnOpenVerseMapping');
+      const copyVerseButton = document.getElementById('btnCopySelectedVerse');
 
       updateChapterCrossReferenceButton();
       if (!bar) return;
@@ -4233,6 +4278,12 @@ function renderStandardCrossReferenceList() {
         crossReferenceButton.title = appState.selectedVerses.size === 1
           ? 'Link the selected verse to a related passage'
           : 'Select exactly one verse to link a passage';
+      }
+      if (copyVerseButton) {
+        copyVerseButton.disabled = appState.selectedVerses.size !== 1;
+        copyVerseButton.title = appState.selectedVerses.size === 1
+          ? 'Copy the selected verse with its Bible reference'
+          : 'Select exactly one verse to copy its reference and text';
       }
       if (verseMappingButton) {
         verseMappingButton.disabled = appState.selectedVerses.size !== 1;

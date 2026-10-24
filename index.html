@@ -2260,6 +2260,8 @@
       return verses;
     }
 
+    const studyRelatedPassageLoads = new Set();
+
     async function loadStudyRelatedPassageText(itemId) {
       const library = readStudyLibrary();
       const key = studyRecordKey();
@@ -2268,6 +2270,9 @@
       const state = getStudyRelatedPassageState(record);
       const item = state.entries.find(entry => entry.id === itemId);
       if (!item) return;
+      const loadKey = key + '::' + itemId;
+      if (studyRelatedPassageLoads.has(loadKey)) return;
+      studyRelatedPassageLoads.add(loadKey);
       const list = document.getElementById('studyRelatedPassageList');
       if (list) {
         const button = list.querySelector('[data-related-load="' + itemId + '"]');
@@ -2309,6 +2314,8 @@
         if (key === studyRecordKey()) updateStudyRelatedPassageButton();
         const status = document.getElementById('studyRelatedPassageStatus');
         if (status) status.textContent = 'Passage link saved, but its verse text could not be loaded. Retry from the item below.';
+      } finally {
+        studyRelatedPassageLoads.delete(loadKey);
       }
     }
 

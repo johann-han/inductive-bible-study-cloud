@@ -2507,16 +2507,23 @@
       return includeStudyRelatedPassageInStageNotes(studyRecordKey(), item.id, appState.activeNotesSection);
     }
 
-        function removeStudyRelatedPassage(item) {
+    function removeStudyRelatedPassage(item) {
       if (!item) return;
       const reference = formatStudyRelatedPassageReference(item);
-      if (!window.confirm('Remove ' + reference + ' from this study? This also removes its related-passage link, but leaves your stage notes unchanged.')) return;
       const key = studyRecordKey();
       const library = readStudyLibrary();
       const record = library[key];
       if (!record) return;
       const state = getStudyRelatedPassageState(record);
-      record.relatedPassages = state.entries.filter(entry => entry.id !== item.id);
+      const remaining = state.entries.filter(entry => entry.id !== item.id);
+      const anotherSamePassage = remaining.some(entry =>
+        formatStudyRelatedPassageReference(entry) === reference && entry.verses.length > 0
+      );
+      if (!window.confirm(anotherSamePassage
+        ? 'Remove this related-passage link? The verse text will remain included because another related entry points to the same passage.'
+        : 'Remove ' + reference + ' from the study? Its related-passage entry, link, and automatically inserted passage block will be removed. Other study notes will be preserved.')) return;
+
+      record.relatedPassages = remaining;
       const removeIds = new Set([item.crossReferenceId, item.id.startsWith('related-') ? item.id.slice('related-'.length) : ''].filter(Boolean));
       if (Array.isArray(record.crossReferences)) {
         record.crossReferences = record.crossReferences.filter(ref => !(
@@ -2528,6 +2535,30 @@
           ))
         ));
       }
+
+      let notesChanged = false;
+      if (!anotherSamePassage) {
+        const marker = '[Related passage: ' + reference + ']';
+        for (const stage of ['observe', 'interpret', 'doctrine', 'apply']) {
+          const source = String(record.sections?.[stage] || '');
+          let next = source;
+          let position = next.indexOf(marker);
+          while (position >= 0) {
+            const blockEnd = next.indexOf('\n\n', position);
+            const end = blockEnd < 0 ? next.length : blockEnd + 2;
+            const before = next.slice(0, position).replace(/\s+$/, '');
+            const after = next.slice(end).replace(/^\s+/, '');
+            next = [before, after].filter(Boolean).join('\n\n');
+            position = next.indexOf(marker);
+          }
+          if (next !== source) {
+            if (!notesChanged) saveStudyNoteVersionSnapshot(record);
+            notesChanged = true;
+            record.sections[stage] = next;
+          }
+        }
+      }
+
       record.updatedAt = new Date().toISOString();
       library[key] = record;
       if (!writeStudyLibrary(library)) return;
@@ -2538,19 +2569,6 @@
       updateStudyRelatedPassageButton();
       renderCrossReferenceList();
       updateChapterCrossReferenceButton();
-    }
-
-
-      const countElement = document.getElementById('studyRelatedPassageCount');
-      const status = document.getElementById('studyRelatedPassageStatus');
-      const library = readStudyLibrary();
-      const record = library[studyRecordKey(appState.currentBook, appState.currentChapter)];
-      const total = (Array.isArray(record?.crossReferences) ? record.crossReferences : [])
-        .filter(ref => ref?.source?.scope === 'study').length;
-      if (countElement) countElement.textContent = String(total);
-      if (status) status.textContent = total
-        ? total + ' related passage' + (total === 1 ? '' : 's') + ' saved with ' + appState.currentBook + ' ' + appState.currentChapter + '.'
-        : 'Related verses are saved with this study.';
     }
 
     const STANDARD_CROSS_REFERENCE_TSV_URL = '/api/standard-cross-references';

@@ -580,10 +580,11 @@ test('Phone Notes link explicitly opens the panel instead of toggling from stale
   assert.match(toggleSource, /const isMobile = typeof window !== 'undefined' && window\.innerWidth <= 767/);
   assert.match(toggleSource, /workspacePanel\.getAttribute\('aria-hidden'\) === 'false'/);
   assert.match(toggleSource, /workspace-mobile-closed/);
-  assert.match(toggleSource, /setWorkspaceOpen\(isMobile \? true : !isOpen\)/,
-    'phone taps must always request the panel open; the close button handles closing');
-  assert.doesNotMatch(toggleSource, /setWorkspaceOpen\(!isOpen\)/,
-    'do not let stale transform state turn a phone tap into a close');
+  assert.match(toggleSource, /event\.preventDefault\(\)/);
+  assert.match(toggleSource, /if \(isMobile\)\s*\{[\s\S]*?event\.stopPropagation\(\);[\s\S]*?setHeaderMenuOpen\(false\);[\s\S]*?setWorkspaceOpen\(true\);/,
+    'phone Notes taps must explicitly close the header menu and open the panel in the same handler');
+  assert.doesNotMatch(toggleSource, /setWorkspaceOpen\(isMobile \? true : !isOpen\)/,
+    'do not rely on the generic parent menu handler to finish the mobile open action');
 
   assert.doesNotMatch(indexHtml, /workspacePanel\?\.classList\.remove\('translate-x-full'\)/,
     'study workflows should use the shared panel opener instead of partial class changes');

@@ -49,6 +49,18 @@ class FakeElement {
     this.children = [...nodes];
   }
 
+  get options() {
+    return this.children;
+  }
+
+  focus() {
+    this.focused = true;
+  }
+
+  scrollIntoView() {
+    this.scrolled = true;
+  }
+
   addEventListener(type, handler) {
     this.listeners[type] = handler;
   }
@@ -62,6 +74,7 @@ class FakeDocument {
   constructor() {
     this.elements = new Map();
     this.listeners = {};
+    this.body = new FakeElement('body');
   }
 
   addEventListener(type, handler) {
@@ -130,12 +143,14 @@ function makeLibrary() {
   };
 }
 
-function createDashboardHarness(library, appState) {
+function createDashboardHarness(library, appState, activePointer = null) {
   const document = new FakeDocument();
   const sandbox = {
     appState,
     document,
+    NOTE_SECTION_LABELS: { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' },
     readStudyLibrary: () => library,
+    readLastActiveStudy: () => activePointer,
     normalizeVerseMaps(value) {
       return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     },
@@ -146,9 +161,19 @@ function createDashboardHarness(library, appState) {
 
   const entriesSource = extractFunction(
     '    function getDashboardStudyEntries() {',
-    '    function openDashboardStudy(book, chapter) {'
+    '    function openDashboardStudy(book, chapter, suggestedSection = null) {'
   );
   sandbox.getDashboardStudyEntries = vm.runInNewContext('(' + entriesSource + ')', sandbox);
+  const completeSource = extractFunction(
+    '    function isDashboardStudyComplete(record) {',
+    '    function preferredDashboardStudySection(record, suggestedSection) {'
+  );
+  sandbox.isDashboardStudyComplete = vm.runInNewContext('(' + completeSource + ')', sandbox);
+  const preferredSource = extractFunction(
+    '    function preferredDashboardStudySection(record, suggestedSection) {',
+    '    function readLastActiveStudy() {'
+  );
+  sandbox.preferredDashboardStudySection = vm.runInNewContext('(' + preferredSource + ')', sandbox);
 
   const renderSource = extractFunction(
     '    function renderStudyDashboard() {',
@@ -189,7 +214,9 @@ test('dashboard counts actual filled inductive stages and reflects the current p
   assert.equal(document.getElementById('dashboardCompleteCount').textContent, '1');
   assert.equal(document.getElementById('dashboardCurrentPassage').textContent, 'Romans 5');
   assert.equal(document.getElementById('dashboardCurrentTranslation').textContent, 'Translation: WEB');
-  assert.equal(document.getElementById('dashboardResumeTitle').textContent, 'Romans 5');
+  assert.equal(document.getElementById('dashboardResumeTitle').textContent, '1 Corinthians 7');
+  assert.equal(document.getElementById('dashboardResumeStage').textContent, 'Unfinished study · resume at Interpret.');
+  assert.equal(document.getElementById('dashboardContinueBtn').textContent, 'Resume Interpret study');
 
   const progress = document.getElementById('dashboardStageProgress').children;
   assert.equal(progress.length, 4);
@@ -243,25 +270,55 @@ test('dashboard shows a helpful empty state when no studies have been saved', ()
   assert.match(flattenText(document.getElementById('dashboardStageProgress')), /0 of 0 passages/);
 });
 
-test('dashboard entry point and responsive dialog markup remain present', () => {
-  assert.match(html, /id="openDashboardBtn"[^>]*title="Open your Bible study dashboard"/);
-  assert.match(html, /id="studyDashboardModal"[^>]*role="dialog" aria-modal="true"/);
-  assert.match(html, /max-h-\[96dvh\] sm:max-h-\[92vh\]/);
+test('dashboard home is the initial view and its inline book/chapter chooser is present', () => {
+  assert.match(html, /<body class="ibs-home-view/);
+  assert.match(html, /id="studyDashboardHome"/);
+  assert.match(html, /id="readerWorkspace"[^>]*style="display:none"/);
+  assert.match(html, /id="openDashboardBtn"[^>]*title="Return to IBS Home"/);
+  assert.match(html, /id="dashboardBookSelect"/);
+  assert.match(html, /id="dashboardChapterSelect"/);
+  assert.match(html, /id="dashboardOpenSelectedPassageBtn"/);
   assert.match(html, /id="dashboardChoosePassageBtn"/);
   assert.match(html, /id="dashboardOpenLibraryBtn"/);
   assert.match(html, /button\.addEventListener\('click', \(\) => openDashboardStudy\(record\.book, record\.chapter\)\)/);
+  assert.match(html, /restoreLastActiveStudy\(\);/);
+  assert.match(html, /saveLastActiveStudy\(\);/);
 });
 
 
-function createDashboardSetupHarness() {
+function createDashboardSetupHarness({ entries = [], pointer = null } = {}) {
   const document = new FakeDocument();
   const events = [];
   const sandbox = {
     document,
+    BIBLE_CANON: [
+      { name: 'Genesis', testament: 'OT', chapters: 50 },
+      { name: 'Romans', testament: 'NT', chapters: 16 },
+      { name: 'John', testament: 'NT', chapters: 21 }
+    ],
+    NOTE_SECTION_LABELS: { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' },
+    appState: { currentBook: 'Genesis', currentChapter: 1, activeNotesSection: 'observe' },
     saveActiveStudyNote: () => events.push('save-active-note'),
+    showDashboardHome: () => events.push('show-home'),
+    showBibleReader: () => events.push('show-reader'),
     renderStudyDashboard: () => events.push('render-dashboard'),
-    renderStudyLibrary: () => events.push('render-library')
+    renderStudyLibrary: () => events.push('render-library'),
+    getDashboardStudyEntries: () => entries,
+    isDashboardStudyComplete: record => ['observe', 'interpret', 'doctrine', 'apply'].every(key => String(record?.sections?.[key] || '').trim()),
+    readLastActiveStudy: () => pointer,
+    preferredDashboardStudySection: (record, suggested) => suggested || record?.activeSection || 'observe',
+    openDashboardStudy: (book, chapter, section) => events.push('open:' + book + ':' + chapter + (section ? ':' + section : '')),
   };
+  const chapterSource = extractFunction(
+    '    function populateDashboardChapterChooser(bookName, preferredChapter = null) {',
+    '    function populateDashboardPassageChooser() {'
+  );
+  sandbox.populateDashboardChapterChooser = vm.runInNewContext('(' + chapterSource + ')', sandbox);
+  const chooserSource = extractFunction(
+    '    function populateDashboardPassageChooser() {',
+    '    function renderStudyDashboard() {'
+  );
+  sandbox.populateDashboardPassageChooser = vm.runInNewContext('(' + chooserSource + ')', sandbox);
   const source = extractFunction(
     '    function setupStudyDashboard() {',
     '    function setupStudyLibrary() {'
@@ -271,54 +328,146 @@ function createDashboardSetupHarness() {
   return { document, events };
 }
 
-test('opening and closing the dashboard saves active notes and responds to Escape', () => {
+test('Home and reader controls switch views without treating the dashboard as a dismissible modal', () => {
   const { document, events } = createDashboardSetupHarness();
-  const modal = document.getElementById('studyDashboardModal');
-  modal.classList.add('hidden');
 
   document.getElementById('openDashboardBtn').listeners.click();
-  assert.deepEqual(events, ['save-active-note', 'render-dashboard']);
-  assert.equal(modal.classList.contains('hidden'), false);
-
-  document.getElementById('closeStudyDashboardBtn').listeners.click();
-  assert.equal(modal.classList.contains('hidden'), true);
-
-  document.getElementById('openDashboardBtn').listeners.click();
-  document.listeners.keydown({ key: 'Escape' });
-  assert.equal(modal.classList.contains('hidden'), true);
-
-  document.getElementById('openDashboardBtn').listeners.click();
-  modal.listeners.click({ target: {} });
-  assert.equal(modal.classList.contains('hidden'), false, 'clicking inside the dialog should not close it');
-  modal.listeners.click({ target: modal });
-  assert.equal(modal.classList.contains('hidden'), true, 'clicking the backdrop should close it');
+  assert.ok(events.includes('show-home'));
+  document.getElementById('dashboardOpenReaderBtn').listeners.click();
+  assert.equal(events.at(-1), 'show-reader');
+  document.getElementById('dashboardCloseFooterBtn').listeners.click();
+  assert.equal(events.at(-1), 'show-reader');
 });
 
-test('dashboard passage and library shortcuts use existing navigation and save routines', () => {
+test('Choose Passage stays on the dashboard until a valid book and chapter are confirmed', () => {
   const { document, events } = createDashboardSetupHarness();
-  const modal = document.getElementById('studyDashboardModal');
-  const sidebar = document.getElementById('sidebar');
-  const backdrop = document.getElementById('mobileBackdrop');
-  const menuButton = document.getElementById('mobileMenuBtn');
-  const libraryModal = document.getElementById('studyLibraryModal');
-  modal.classList.add('hidden');
-  sidebar.classList.add('sidebar-collapsed', '-translate-x-full');
-  backdrop.classList.add('hidden');
-  libraryModal.classList.add('hidden');
+  const chooser = document.getElementById('dashboardPassageChooser');
+  const book = document.getElementById('dashboardBookSelect');
+  const chapter = document.getElementById('dashboardChapterSelect');
 
-  document.getElementById('openDashboardBtn').listeners.click();
   document.getElementById('dashboardChoosePassageBtn').listeners.click();
-  assert.equal(modal.classList.contains('hidden'), true);
-  assert.equal(sidebar.classList.contains('sidebar-collapsed'), false);
-  assert.equal(sidebar.classList.contains('-translate-x-full'), false);
-  assert.equal(backdrop.classList.contains('hidden'), false);
-  assert.equal(menuButton.attributes['aria-expanded'], 'true');
-  assert.equal(menuButton.attributes['aria-label'], 'Close navigation sidebar');
+  assert.equal(chooser.classList.contains('hidden'), false);
+  assert.ok(book.options.length > 0);
+  assert.ok(chapter.options.length > 0);
+  assert.ok(!events.includes('show-reader'));
 
-  document.getElementById('openDashboardBtn').listeners.click();
-  document.getElementById('dashboardOpenLibraryBtn').listeners.click();
-  assert.equal(modal.classList.contains('hidden'), true);
-  assert.equal(libraryModal.classList.contains('hidden'), false);
-  assert.equal(events.filter(event => event === 'render-library').length, 1);
-  assert.equal(events.filter(event => event === 'save-active-note').length, 3);
+  book.value = 'Romans';
+  book.onchange();
+  chapter.value = '2';
+  document.getElementById('dashboardOpenSelectedPassageBtn').listeners.click();
+  assert.equal(events.at(-1), 'open:Romans:2');
+  assert.ok(!events.includes('show-reader'), 'selection itself must not route to the reader before confirmation');
+
+  document.getElementById('dashboardCancelPassageBtn').listeners.click();
+  assert.equal(chooser.classList.contains('hidden'), true);
 });
+
+test('Resume action chooses the last active unfinished study and restores its stage', () => {
+  const incomplete = {
+    book: 'Romans',
+    chapter: 2,
+    activeSection: 'observe',
+    sections: { observe: 'Text notes', interpret: '', doctrine: '', apply: '' }
+  };
+  const pointer = { book: 'Romans', chapter: 2, section: 'interpret' };
+  const { document, events } = createDashboardSetupHarness({ entries: [incomplete], pointer });
+
+  document.getElementById('dashboardContinueBtn').listeners.click();
+  assert.equal(events.at(-1), 'open:Romans:2:interpret');
+});
+
+test('startup restoration returns an unfinished study to its last active passage and stage', () => {
+  const library = {
+    'Romans::2': {
+      book: 'Romans',
+      chapter: 2,
+      activeSection: 'observe',
+      updatedAt: '2026-10-23T10:00:00.000Z',
+      sections: { observe: 'Saved observations', interpret: '', doctrine: '', apply: '' }
+    },
+    'John::3': {
+      book: 'John',
+      chapter: 3,
+      activeSection: 'doctrine',
+      updatedAt: '2026-10-22T10:00:00.000Z',
+      sections: { observe: 'Observation', interpret: 'Interpretation', doctrine: '', apply: '' }
+    }
+  };
+  const original = JSON.stringify(library);
+  const pointer = { book: 'Romans', chapter: 2, section: 'interpret' };
+  const { sandbox } = createRestoreStudyHarness(library, pointer);
+
+  assert.equal(sandbox.restoreLastActiveStudy(), true);
+  assert.equal(sandbox.appState.currentBook, 'Romans');
+  assert.equal(sandbox.appState.currentChapter, 2);
+  assert.equal(sandbox.appState.activeNotesSection, 'interpret');
+  assert.equal(JSON.stringify(library), original, 'startup restoration must not mutate saved study records');
+});
+
+test('startup falls back to the newest unfinished study when no valid last-study pointer exists', () => {
+  const library = {
+    'Romans::2': {
+      book: 'Romans',
+      chapter: 2,
+      activeSection: 'observe',
+      updatedAt: '2026-10-21T10:00:00.000Z',
+      sections: { observe: 'Saved observations', interpret: '', doctrine: '', apply: '' }
+    },
+    'John::3': {
+      book: 'John',
+      chapter: 3,
+      activeSection: 'doctrine',
+      updatedAt: '2026-10-23T10:00:00.000Z',
+      sections: { observe: 'Observation', interpret: 'Interpretation', doctrine: '', apply: '' }
+    }
+  };
+  const { sandbox } = createRestoreStudyHarness(library, null);
+
+  assert.equal(sandbox.restoreLastActiveStudy(), true);
+  assert.equal(sandbox.appState.currentBook, 'John');
+  assert.equal(sandbox.appState.currentChapter, 3);
+  assert.equal(sandbox.appState.activeNotesSection, 'doctrine');
+});
+
+function createRestoreStudyHarness(library, pointer) {
+  const document = new FakeDocument();
+  const store = new Map();
+  if (pointer) store.set('inductive-bible-study-last-active-study-v1', JSON.stringify(pointer));
+  const sandbox = {
+    document,
+    appState: { currentBook: 'Genesis', currentChapter: 1, activeTab: 'OT', activeNotesSection: 'observe' },
+    BIBLE_CANON: [
+      { name: 'Genesis', testament: 'OT', chapters: 50 },
+      { name: 'Romans', testament: 'NT', chapters: 16 },
+      { name: 'John', testament: 'NT', chapters: 21 }
+    ],
+    NOTE_SECTION_LABELS: { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' },
+    LAST_ACTIVE_STUDY_STORAGE_KEY: 'inductive-bible-study-last-active-study-v1',
+    localStorage: {
+      getItem: key => store.has(key) ? store.get(key) : null,
+      setItem: (key, value) => store.set(key, String(value))
+    },
+    readStudyLibrary: () => library,
+    normalizeVerseMaps(value) {
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    },
+    hasSavedPassageOutline(value) {
+      return Boolean(value && Array.isArray(value.sections) && value.sections.length);
+    }
+  };
+  const entriesSource = extractFunction(
+    '    function getDashboardStudyEntries() {',
+    '    function openDashboardStudy(book, chapter, suggestedSection = null) {'
+  );
+  sandbox.getDashboardStudyEntries = vm.runInNewContext('(' + entriesSource + ')', sandbox);
+  for (const [start, end, key] of [
+    ['    function isDashboardStudyComplete(record) {', '    function preferredDashboardStudySection(record, suggestedSection) {', 'isDashboardStudyComplete'],
+    ['    function preferredDashboardStudySection(record, suggestedSection) {', '    function readLastActiveStudy() {', 'preferredDashboardStudySection'],
+    ['    function readLastActiveStudy() {', '    function saveLastActiveStudy() {', 'readLastActiveStudy'],
+    ['    function saveLastActiveStudy() {', '    function restoreLastActiveStudy() {', 'saveLastActiveStudy'],
+    ['    function restoreLastActiveStudy() {', '    const scriptureChapterCache = new Map();', 'restoreLastActiveStudy']
+  ]) {
+    sandbox[key] = vm.runInNewContext('(' + extractFunction(start, end) + ')', sandbox);
+  }
+  return { sandbox, document };
+}

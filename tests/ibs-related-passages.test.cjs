@@ -521,7 +521,7 @@ test('Study panel close clears inline transform so translate-x-full can hide it'
   );
   assert.match(panelWorkflow, /\['display', 'position', 'inset-block', 'right', 'left', 'transform', 'z-index'\]/);
   assert.match(panelWorkflow, /panel\.style\.removeProperty\(property\)/);
-  assert.match(panelWorkflow, /panel\.classList\.remove\('hidden', 'translate-x-full', 'workspace-expanded'\)/);
+  assert.match(panelWorkflow, /'hidden', 'translate-x-full', 'workspace-expanded',\s*'workspace-mobile-open', 'workspace-mobile-closed'/);
   assert.doesNotMatch(panelWorkflow, /panel\.style\.transform\s*=\s*'translateX\(0\)'/);
 });
 
@@ -543,4 +543,25 @@ test('Study panel never opens the blurred mobile navigation backdrop', () => {
   assert.match(closeWorkflow, /workspacePanel\.classList\.add\('translate-x-full'\)/);
   assert.match(closeWorkflow, /document\.getElementById\('mobileBackdrop'\)\?\.classList\.add\('hidden'\)/);
   assert.doesNotMatch(closeWorkflow, /mobileBackdrop\?\.classList\.toggle/);
+});
+
+
+test('Resume Observe Study forces the active study panel into view on phones', () => {
+  assert.match(indexHtml, /#workspacePanel\.workspace-mobile-open\s*\{[\s\S]*?position: fixed !important;[\s\S]*?width: 100vw !important;[\s\S]*?height: 100dvh !important;[\s\S]*?transform: translateX\(0\) !important;[\s\S]*?z-index: 70 !important;/);
+  assert.match(indexHtml, /#workspacePanel\.workspace-mobile-closed\s*\{\s*transform: translateX\(100%\) !important;/);
+
+  const openWorkflow = extractFunction(
+    indexHtml,
+    '    function openStudyWorkspacePanel() {',
+    '    function openDashboardStudy('
+  );
+  assert.match(openWorkflow, /window\.innerWidth <= 767/);
+  assert.match(openWorkflow, /panel\.classList\.add\('workspace-mobile-open'\)/);
+  assert.match(openWorkflow, /backdrop\?\.classList\.add\('hidden'\)/);
+
+  const resumeHandler = indexHtml.slice(
+    indexHtml.indexOf("document.getElementById('dashboardContinueBtn')?.addEventListener('click'"),
+    indexHtml.indexOf("document.getElementById('dashboardOpenLibraryBtn')?.addEventListener('click'")
+  );
+  assert.match(resumeHandler, /openDashboardStudy\(resumeEntry\.book, resumeEntry\.chapter, 'observe', \{ openStudyPanel: true \}\)/);
 });

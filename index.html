@@ -1254,6 +1254,7 @@
 
     // Remember the last Bible passage locally so the reader reopens where the user left off.
     const LAST_READING_STORAGE_KEY = 'inductive-bible-study-last-reading-v1';
+    const LAST_ACTIVE_STUDY_STORAGE_KEY = 'inductive-bible-study-last-active-study-v1';
 
     function restoreLastReading() {
       try {
@@ -1297,7 +1298,71 @@
       } catch (error) {
         // Reading history is a convenience; failure must never interrupt the Bible reader.
         console.warn('The last Bible reading could not be saved:', error);
+      }      saveLastActiveStudy();
+    }
+
+
+    function isDashboardStudyComplete(record) {
+      return ['observe', 'interpret', 'doctrine', 'apply'].every(section =>
+        String(record?.sections?.[section] || '').trim().length > 0
+      );
+    }
+
+    function preferredDashboardStudySection(record, suggestedSection) {
+      if (suggestedSection && NOTE_SECTION_LABELS[suggestedSection]) return suggestedSection;
+      if (record && NOTE_SECTION_LABELS[record.activeSection]) return record.activeSection;
+      return ['observe', 'interpret', 'doctrine', 'apply'].find(section =>
+        !String(record?.sections?.[section] || '').trim()
+      ) || 'observe';
+    }
+
+    function readLastActiveStudy() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(LAST_ACTIVE_STUDY_STORAGE_KEY) || 'null');
+        if (!saved || typeof saved !== 'object' || typeof saved.book !== 'string') return null;
+        const book = BIBLE_CANON.find(entry => entry.name === saved.book);
+        const chapter = Number(saved.chapter);
+        if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) return null;
+        return { book: book.name, chapter, section: NOTE_SECTION_LABELS[saved.section] ? saved.section : null };
+      } catch (_) {
+        return null;
       }
+    }
+
+    function saveLastActiveStudy() {
+      try {
+        localStorage.setItem(LAST_ACTIVE_STUDY_STORAGE_KEY, JSON.stringify({
+          book: appState.currentBook,
+          chapter: appState.currentChapter,
+          section: NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe'
+        }));
+      } catch (error) {
+        console.warn('The last active study pointer could not be saved:', error);
+      }
+    }
+
+    function restoreLastActiveStudy() {
+      const entries = getDashboardStudyEntries();
+      const saved = readLastActiveStudy();
+      const savedEntry = saved && entries.find(record => record.book === saved.book && Number(record.chapter) === Number(saved.chapter));
+      if (savedEntry) {
+        if (isDashboardStudyComplete(savedEntry)) return false;
+        appState.currentBook = savedEntry.book;
+        appState.currentChapter = Number(savedEntry.chapter);
+        appState.activeTab = BIBLE_CANON.find(book => book.name === savedEntry.book)?.testament || appState.activeTab;
+        appState.activeNotesSection = preferredDashboardStudySection(savedEntry, saved.section);
+        return true;
+      }
+
+      // Old installations, or stale pointers to a passage without saved notes, fall back to the newest unfinished study.
+      const fallback = entries.find(record => !isDashboardStudyComplete(record));
+      if (!fallback) return false;
+      appState.currentBook = fallback.book;
+      appState.currentChapter = Number(fallback.chapter);
+      appState.activeTab = BIBLE_CANON.find(book => book.name === fallback.book)?.testament || appState.activeTab;
+      appState.activeNotesSection = preferredDashboardStudySection(fallback);
+      saveLastActiveStudy();
+      return true;
     }
 
     const scriptureChapterCache = new Map();
@@ -3616,6 +3681,7 @@ function renderStandardCrossReferenceList() {
 
     async function initApp() {
       restoreLastReading();
+      restoreLastActiveStudy();
       await initSQLiteLexicon();
       renderBooksList();
       renderChapterPills();
@@ -4697,6 +4763,7 @@ function renderStandardCrossReferenceList() {
       if (!NOTE_SECTION_LABELS[section]) return;
       saveActiveStudyNote();
       appState.activeNotesSection = section;
+      saveLastActiveStudy();
       loadActiveStudyNote();
     }
 

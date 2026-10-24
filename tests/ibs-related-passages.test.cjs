@@ -189,6 +189,12 @@ function makeHarness(selectedVerseValues = []) {
     '    function insertStudyRelatedPassageIntoNotes(item) {'
   );
   sandbox.includeStudyRelatedPassageInStageNotes = vm.runInNewContext('(' + includeNotesSource + ')', sandbox);
+  const removeRelatedSource = extractFunction(
+    indexHtml,
+    '    function removeStudyRelatedPassage(item) {',
+    '    const STANDARD_CROSS_REFERENCE_TSV_URL'
+  );
+  sandbox.removeStudyRelatedPassage = vm.runInNewContext('(' + removeRelatedSource + ')', sandbox);
 
   sandbox.setupCrossReferenceWorkflow = vm.runInNewContext('(' + workflowSource + ')', sandbox);
   sandbox.setupCrossReferenceWorkflow();
@@ -293,8 +299,12 @@ test('Existing verse-to-verse linking still saves a verse source without study s
 test('Study-level related links are included in IBS exports and retained by Kerygma import', () => {
   assert.match(indexHtml, /const studyLevelSource = ref\?\.source\?\.scope === 'study' && ref\.source\.verse == null/);
   assert.match(indexHtml, /source: \{[\s\S]*?scope: 'study'[\s\S]*?\}/);
+  assert.match(indexHtml, /relatedPassagesHtml/);
+  assert.match(indexHtml, /relatedPassages: getStudyRelatedPassageState\(record\)\.entries\.map/);
+  assert.match(indexHtml, /_relatedPassages: relatedPassages/);
   assert.match(kerygmaHtml, /if\(value\.scope==='study'&&value\.verse==null\)return\{book:refBook,chapter:refChapter,verse:null,scope:'study'\}/);
   assert.match(kerygmaHtml, /ref\.source\.scope === 'study' \? ' \(active study\)'/);
+  assert.match(kerygmaHtml, /RELATED VERSES INCLUDED IN THE SAVED IBS STUDY/);
 });
 
 
@@ -430,4 +440,56 @@ test('Kerygma normalizes and retains verse text as study content, not only cross
   assert.equal(packet.relatedPassages[0].includedInStageNotes, true);
   assert.match(kerygmaHtml, /RELATED PASSAGES INCLUDED IN THE ACTIVE IBS STUDY/);
   assert.match(kerygmaHtml, /IBS related passages included in the active study/);
+});
+
+
+test('Removing a related passage removes its included stage-note block while preserving other notes', () => {
+  const { sandbox, record, events } = makeHarness();
+  const item = {
+    id: 'related-john-3-16',
+    crossReferenceId: 'xref-related-1',
+    book: 'John',
+    chapter: 3,
+    startVerse: 16,
+    endVerse: 17,
+    translation: 'KJV',
+    verses: [{ number: 16, text: 'For God so loved the world.' }],
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    stage: 'observe',
+    includedInStageNotes: true,
+    createdAt: '2026-10-24T08:20:00.000Z'
+  };
+  record.sections.observe = 'Existing study observations.\n\n[Related passage: John 3:16-17]\nTranslation: KJV\nConnection: Shared theme or repeated idea\n16. For God so loved the world.\nWhy it matters: God’s saving purpose.\n\n';
+  record.relatedPassages = [item];
+  record.crossReferences = [{
+    id: 'xref-related-1',
+    source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
+    target: { book: 'John', chapter: 3, startVerse: 16, endVerse: 17 },
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    createdAt: item.createdAt
+  }];
+
+  sandbox.removeStudyRelatedPassage(item);
+  assert.match(record.sections.observe, /Existing study observations\./);
+  assert.doesNotMatch(record.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.equal(record.relatedPassages.length, 0);
+  assert.equal(record.crossReferences.length, 0);
+  assert.ok(events.includes('snapshot'));
+  assert.ok(events.includes('sync'));
+});
+
+test('Both IBS and Kerygma inline application scripts remain syntactically valid', () => {
+  const check = (source, filename) => {
+    const scripts = [...source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+      .filter(match => !/\bsrc\s*=/.test(match[1]) &&
+        !/\btype\s*=\s*["']?(?:application\/json|application\/ld\+json)/i.test(match[1]));
+    assert.ok(scripts.length > 0, filename + ' should include an inline application script');
+    scripts.forEach((match, index) => {
+      new vm.Script(match[2], { filename: filename + '-inline-' + index });
+    });
+  };
+  check(indexHtml, 'IBS');
+  check(kerygmaHtml, 'Kerygma');
 });

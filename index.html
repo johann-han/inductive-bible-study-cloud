@@ -6119,7 +6119,9 @@ function renderStandardCrossReferenceList() {
       const notesToggle = document.getElementById('toggleWorkspaceMobile');
       const backdrop = document.getElementById('mobileBackdrop');
       if (!panel) return;
-      panel.classList.remove('translate-x-full');
+      panel.classList.remove('hidden', 'translate-x-full');
+      panel.style.display = 'flex';
+      panel.style.zIndex = '40';
       panel.setAttribute('aria-hidden', 'false');
       notesToggle?.setAttribute('aria-expanded', 'true');
       notesToggle?.setAttribute('title', 'Close study notes');
@@ -6147,6 +6149,8 @@ function renderStandardCrossReferenceList() {
       const bookSearch = document.getElementById('bookSearchInput');
       if (bookSearch) bookSearch.value = '';
       saveLastActiveStudy();
+      const mobileBackdrop = document.getElementById('mobileBackdrop');
+      if (!options.openStudyPanel) mobileBackdrop?.classList.add('hidden');
       showBibleReader();
       if (options.openStudyPanel) openStudyWorkspacePanel();
       return true;

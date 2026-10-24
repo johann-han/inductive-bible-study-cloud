@@ -107,7 +107,7 @@
         min-height: 0;
       }
       body > header > div:first-child { flex: 0 0 auto; min-width: 0; }
-      body > header > div:nth-child(2) {
+      #headerControlsPanel {
         display: grid;
         grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, .9fr);
         gap: .35rem;
@@ -117,10 +117,10 @@
         overflow: visible;
         justify-content: initial;
       }
-      body > header > div:nth-child(2) > :not([hidden]) ~ :not([hidden]) {
+      #headerControlsPanel > :not([hidden]) ~ :not([hidden]) {
         margin-left: 0 !important;
       }
-      body > header > div:nth-child(2) > * { width: 100%; min-width: 0; justify-content: center; }
+      #headerControlsPanel > * { width: 100%; min-width: 0; justify-content: center; }
       #navSelectBtn { padding: .45rem .4rem; }
       #navSelectBtn #currentPassageLabel { max-width: 7.25rem; }
       #globalTranslationSelect { width: 100%; max-width: none; padding: .45rem .2rem; }
@@ -254,7 +254,7 @@
     }
 
     @media (max-width: 360px) {
-      body > header > div:nth-child(2) {
+      #headerControlsPanel {
         grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .85fr);
         gap: .25rem;
       }
@@ -263,7 +263,7 @@
     }
 
     @media (min-width: 641px) and (max-width: 1023px) {
-      body > header > div:nth-child(2) { gap: .35rem; }
+      #headerControlsPanel { gap: .35rem; }
       #navSelectBtn #currentPassageLabel { max-width: 6.75rem; }
       #globalTranslationSelect { max-width: 120px; }
     }
@@ -546,7 +546,7 @@
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>
     </button>
 
-    <div id="headerControlsPanel" class="flex items-center space-x-1.5 sm:space-x-2">
+    <div id="headerControlsPanel" class="is-menu-closed flex items-center space-x-1.5 sm:space-x-2">
       <button id="openBibleSearchBtn" type="button" title="Search Bible verses by words or phrase" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">🔎 Search</button>
       <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
         <span id="currentPassageLabel" class="truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">Genesis 1</span>
@@ -3577,6 +3577,34 @@ function renderStandardCrossReferenceList() {
         document.getElementById('toggleWorkspaceMobile')?.setAttribute('aria-expanded', 'false');
         document.getElementById('toggleWorkspaceMobile')?.setAttribute('title', 'Open study notes');
       };
+
+      // Compact mobile reader menu; desktop controls remain visible in the header.
+      const headerMenuBtn = document.getElementById('headerMenuBtn');
+      const headerControlsPanel = document.getElementById('headerControlsPanel');
+      const setHeaderMenuOpen = open => {
+        if (!headerMenuBtn || !headerControlsPanel) return;
+        headerControlsPanel.classList.toggle('is-menu-closed', !open);
+        headerMenuBtn.setAttribute('aria-expanded', String(open));
+        headerMenuBtn.setAttribute('aria-label', open ? 'Close reader menu' : 'Open reader menu');
+        headerMenuBtn.innerHTML = open
+          ? 'Close <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6 6 18"></path></svg>'
+          : 'Menu <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>';
+      };
+      if (headerMenuBtn) headerMenuBtn.addEventListener('click', () => {
+        setHeaderMenuOpen(headerControlsPanel?.classList.contains('is-menu-closed'));
+      });
+      if (headerControlsPanel) {
+        headerControlsPanel.addEventListener('click', event => {
+          if (event.target.closest('button')) setHeaderMenuOpen(false);
+        });
+        document.getElementById('globalTranslationSelect')?.addEventListener('change', () => setHeaderMenuOpen(false));
+      }
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') setHeaderMenuOpen(false);
+      });
+      window.addEventListener('resize', () => {
+        if (window.matchMedia('(min-width: 768px)').matches) setHeaderMenuOpen(false);
+      });
 
       // Full-text Bible search (independent of the current book/chapter).
       const bibleSearchModal = document.getElementById('bibleSearchModal');

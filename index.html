@@ -4867,11 +4867,25 @@ function renderStandardCrossReferenceList() {
 
       const setWorkspaceOpen = (show) => {
         if (!workspacePanel) return;
-        workspacePanel.classList.toggle('translate-x-full', !show);
-        workspacePanel.setAttribute('aria-hidden', show ? 'false' : 'true');
-        toggleWorkspaceMobile?.setAttribute('aria-expanded', show ? 'true' : 'false');
-        toggleWorkspaceMobile?.setAttribute('title', show ? 'Close study notes' : 'Open study notes');
-        mobileBackdrop?.classList.toggle('hidden', !show);
+        if (show) {
+          openStudyWorkspacePanel();
+        } else {
+          workspacePanel.classList.remove('workspace-expanded');
+          clearWorkspacePanelInlinePosition(workspacePanel);
+          workspacePanel.classList.add('translate-x-full');
+          workspacePanel.setAttribute('aria-hidden', 'true');
+          if (expandWorkspaceBtn) {
+            expandWorkspaceBtn.setAttribute('aria-expanded', 'false');
+            expandWorkspaceBtn.setAttribute('aria-label', 'Expand study notes');
+            expandWorkspaceBtn.title = 'Expand study notes';
+            expandWorkspaceBtn.textContent = '⛶';
+          }
+          toggleWorkspaceMobile?.setAttribute('aria-expanded', 'false');
+          toggleWorkspaceMobile?.setAttribute('title', 'Open study notes');
+        }
+
+        // Closing or opening notes must not activate the navigation backdrop.
+        document.getElementById('mobileBackdrop')?.classList.add('hidden');
       };
 
       if (toggleWorkspaceMobile) {
@@ -6118,20 +6132,33 @@ function renderStandardCrossReferenceList() {
       const panel = document.getElementById('workspacePanel');
       const notesToggle = document.getElementById('toggleWorkspaceMobile');
       const backdrop = document.getElementById('mobileBackdrop');
+      const expandButton = document.getElementById('expandWorkspaceBtn');
       if (!panel) return;
-      panel.classList.remove('hidden', 'translate-x-full');
-      panel.style.display = 'flex';
-      panel.style.position = 'fixed';
-      panel.style.insetBlock = '0';
-      panel.style.right = '0';
-      panel.style.left = 'auto';
-      panel.style.transform = 'translateX(0)';
-      panel.style.zIndex = '40';
+
+      clearWorkspacePanelInlinePosition(panel);
+      panel.classList.remove('hidden', 'translate-x-full', 'workspace-expanded');
       panel.setAttribute('aria-hidden', 'false');
       notesToggle?.setAttribute('aria-expanded', 'true');
       notesToggle?.setAttribute('title', 'Close study notes');
-      backdrop?.classList.remove('hidden');
+
+      // This backdrop belongs to the mobile navigation drawer. Showing it behind
+      // the study panel blurs the reader and can leave the panel obscured on phones.
+      backdrop?.classList.add('hidden');
+      if (expandButton) {
+        expandButton.setAttribute('aria-expanded', 'false');
+        expandButton.setAttribute('aria-label', 'Expand study notes');
+        expandButton.title = 'Expand study notes';
+        expandButton.textContent = '⛶';
+      }
       updateWorkspaceSectionButtons();
+    }
+
+    // Clear temporary inline positioning so the Tailwind slide-in/slide-out classes can work.
+    function clearWorkspacePanelInlinePosition(panel) {
+      if (!panel) return;
+      ['display', 'position', 'inset-block', 'right', 'left', 'transform', 'z-index'].forEach(property => {
+        panel.style.removeProperty(property);
+      });
     }
 
     function openDashboardStudy(book, chapter, suggestedSection = null, options = {}) {

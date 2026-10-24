@@ -511,3 +511,36 @@ test('selected verse copy action copies the reference, translation, and verse te
   assert.match(copySource, /document\.execCommand\('copy'\)/);
   assert.match(indexHtml, /btnCopySelectedVerse'\)\?\.addEventListener\('click', copySelectedVerse\)/);
 });
+
+
+test('Study panel close clears inline transform so translate-x-full can hide it', () => {
+  const panelWorkflow = extractFunction(
+    indexHtml,
+    '    function openStudyWorkspacePanel() {',
+    '    function openDashboardStudy('
+  );
+  assert.match(panelWorkflow, /\['display', 'position', 'inset-block', 'right', 'left', 'transform', 'z-index'\]/);
+  assert.match(panelWorkflow, /panel\.style\.removeProperty\(property\)/);
+  assert.match(panelWorkflow, /panel\.classList\.remove\('hidden', 'translate-x-full', 'workspace-expanded'\)/);
+  assert.doesNotMatch(panelWorkflow, /panel\.style\.transform\s*=\s*'translateX\(0\)'/);
+});
+
+test('Study panel never opens the blurred mobile navigation backdrop', () => {
+  const panelWorkflow = extractFunction(
+    indexHtml,
+    '    function openStudyWorkspacePanel() {',
+    '    function openDashboardStudy('
+  );
+  assert.match(panelWorkflow, /backdrop\?\.classList\.add\('hidden'\)/);
+  assert.doesNotMatch(panelWorkflow, /backdrop\?\.classList\.remove\('hidden'\)/);
+
+  const closeWorkflow = extractFunction(
+    indexHtml,
+    '      const setWorkspaceOpen = (show) => {',
+    '      if (toggleWorkspaceMobile) {'
+  );
+  assert.match(closeWorkflow, /clearWorkspacePanelInlinePosition\(workspacePanel\)/);
+  assert.match(closeWorkflow, /workspacePanel\.classList\.add\('translate-x-full'\)/);
+  assert.match(closeWorkflow, /document\.getElementById\('mobileBackdrop'\)\?\.classList\.add\('hidden'\)/);
+  assert.doesNotMatch(closeWorkflow, /mobileBackdrop\?\.classList\.toggle/);
+});

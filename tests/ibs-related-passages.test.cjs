@@ -754,3 +754,101 @@ test('Related passage text and inclusion state survive cloud hydration and a loc
   assert.match(syncSource, /_relatedPassages: relatedPassages/);
   assert.match(syncSource, /normalizeStudyRelatedPassages\(remote\.sections\?\._relatedPassages\)/);
 });
+
+
+test('JSON backup restore retains related verse text and its saved stage-note block', async () => {
+  const { sandbox, library, events } = makeHarness();
+  sandbox.setStudyBackupStatus = (message, tone = 'normal') => events.push({ backupStatus: message, tone });
+  sandbox.normalizeVerseMaps = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  sandbox.normalizePassageOutline = value => value && typeof value === 'object' ? value : null;
+  sandbox.normalizeStudyNoteVersionHistory = value => Array.isArray(value) ? value : [];
+  sandbox.SCRIPTURE_MARKUP_TYPES = Object.freeze({ observe: 'Observe', repeated: 'Repeated' });
+  sandbox.VERSE_MAP_FIELDS = ['verseText', 'translation', 'context', 'keyWords', 'wordStudies', 'translationComparison', 'crossReferences', 'meaningSummary', 'response'];
+  sandbox.renderStudyLibrary = () => events.push('render-study-library');
+  // Keep the harness's normal writer: restore mutates the object returned by
+  // readStudyLibrary, so clearing that same object in a fake writer would erase
+  // the test result instead of persisting it.
+
+  const relatedItem = {
+    id: 'related-john-3-16',
+    crossReferenceId: 'xref-related-1',
+    book: 'John',
+    chapter: 3,
+    startVerse: 16,
+    endVerse: 17,
+    translation: 'KJV',
+    verses: [
+      { number: 16, text: 'For God so loved the world.' },
+      { number: 17, text: 'For God sent not his Son to condemn the world.' }
+    ],
+    stage: 'observe',
+    includedInStageNotes: true,
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    createdAt: '2026-10-24T08:20:00.000Z'
+  };
+  const block = [
+    '[Related passage: John 3:16-17]',
+    'Translation: KJV',
+    'Connection: Shared theme or repeated idea',
+    '16. For God so loved the world.',
+    '17. For God sent not his Son to condemn the world.',
+    'Why it matters: God’s saving purpose.'
+  ].join('\n');
+  const backup = {
+    format: 'inductive-bible-study-backup',
+    version: 1,
+    exportedAt: '2026-10-24T12:00:00.000Z',
+    studyCount: 1,
+    studies: [{
+      book: 'Romans',
+      chapter: 8,
+      sections: {
+        observe: 'Existing study observations.\n\n' + block,
+        interpret: '',
+        doctrine: '',
+        apply: ''
+      },
+      crossReferences: [{
+        id: 'xref-related-1',
+        source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
+        target: { book: 'John', chapter: 3, startVerse: 16, endVerse: 17 },
+        relation: 'theme',
+        note: 'God’s saving purpose.',
+        createdAt: '2026-10-24T08:20:00.000Z'
+      }],
+      relatedPassages: [relatedItem],
+      activeSection: 'observe',
+      updatedAt: '2026-10-24T12:00:00.000Z'
+    }]
+  };
+  const serializedBackup = JSON.stringify(backup);
+  const restoreSource = extractFunction(
+    indexHtml,
+    '    async function restoreFullStudyBackup(file) {',
+    '    function setupStudyBackup() {'
+  );
+  const restoreFullStudyBackup = vm.runInNewContext('(' + restoreSource + ')', sandbox);
+
+  await restoreFullStudyBackup({
+    size: Buffer.byteLength(serializedBackup, 'utf8'),
+    text: async () => serializedBackup
+  });
+
+  const restored = library['Romans::8'];
+  assert.ok(restored, 'the study should exist after restore');
+  assert.match(restored.sections.observe, /Existing study observations\./);
+  assert.match(restored.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.match(restored.sections.observe, /16\. For God so loved the world\./);
+  assert.match(restored.sections.observe, /Why it matters: God’s saving purpose\./);
+  assert.equal(restored.relatedPassages.length, 1);
+  assert.equal(restored.relatedPassages[0].verses.length, 2);
+  assert.equal(restored.relatedPassages[0].verses[1].text, 'For God sent not his Son to condemn the world.');
+  assert.equal(restored.relatedPassages[0].includedInStageNotes, true);
+  assert.equal(restored.relatedPassages[0].stage, 'observe');
+  assert.equal(restored.crossReferences[0].source.scope, 'study');
+  assert.ok(events.includes('load-active-note'));
+  assert.ok(events.includes('render-study-library'));
+  assert.ok(events.includes('sync'));
+  assert.ok(events.some(event => event.backupStatus && event.backupStatus.startsWith('Restore complete.')));
+});

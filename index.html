@@ -2464,6 +2464,8 @@
       const currentNotes = String(record.sections[stage] || '');
       const reference = formatStudyRelatedPassageReference(item);
       const marker = '[Related passage: ' + reference + ']';
+      const previouslyIncluded = item.includedInStageNotes === true;
+      const previousStage = item.stage;
       let changed = false;
 
       if (!currentNotes.includes(marker)) {
@@ -2479,7 +2481,7 @@
       item.stage = stage;
       item.includedInStageNotes = true;
       record.relatedPassages = normalizeStudyRelatedPassages(state.entries);
-      if (changed || state.changed) {
+      if (changed || state.changed || !previouslyIncluded || previousStage !== stage) {
         record.updatedAt = new Date().toISOString();
         library[key] = record;
         if (!writeStudyLibrary(library)) return false;

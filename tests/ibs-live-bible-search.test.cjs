@@ -91,7 +91,7 @@ test('search results update while typing and offer pagination for larger result 
   assert.match(html, /bibleSearchInput?.addEventListener('input', () => scheduleBibleSearch(false))/);
   assert.match(html, /bibleSearchTranslation?.addEventListener('change', () => scheduleBibleSearch(true))/);
   assert.match(html, /bibleSearchLoadMoreBtn?.addEventListener('click', () => performBibleSearch({ append: true }))/);
-  assert.match(html, /bibleSearchRequestId += 1; // Ignore responses for earlier queries while the user continues typing/);
+  assert.ok(html.includes('bibleSearchRequestId += 1; // Ignore responses for earlier queries while the user continues typing'));
   assert.match(html, /setTimeout(() => {s*bibleSearchDebounceTimer = null;s*performBibleSearch();s*}, immediate ? 0 : 300)/);
   assert.match(html, /Search updates as you type and includes only the 66 books in the IBS canon/);
 });

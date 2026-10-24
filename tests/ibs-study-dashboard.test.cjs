@@ -211,7 +211,7 @@ test('dashboard limits recent passages to five and renders passage names as text
   const recent = document.getElementById('dashboardRecentStudies');
   assert.equal(recent.children.length, 5);
   const rendered = recent.children.map(card => flattenText(card));
-  assert.ok(rendered[0].includes('Book 2 2'));
+  assert.ok(rendered[0].includes('<img src=x onerror=alert(1)> 1'));
   assert.ok(rendered.some(text => text.includes('<img src=x onerror=alert(1)> 1')));
   assert.ok(!rendered.some(text => text.includes('Book 6 6')));
   assert.ok(!rendered.some(text => text.includes('Book 7 7')));

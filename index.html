@@ -5328,22 +5328,84 @@ function renderStandardCrossReferenceList() {
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
     }
 
-    function openDashboardStudy(book, chapter) {
+    function openDashboardStudy(book, chapter, suggestedSection = null) {
       const targetBook = BIBLE_CANON.find(item => item.name === book);
       const targetChapter = Number(chapter);
-      if (!targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return;
+      if (!targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters)) return false;
       saveActiveStudyNote();
       appState.currentBook = targetBook.name;
       appState.currentChapter = targetChapter;
       appState.activeTab = targetBook.testament;
       appState.selectedVerses.clear();
+      const library = readStudyLibrary();
+      const record = library[studyRecordKey(targetBook.name, targetChapter)] || null;
+      const pointer = readLastActiveStudy();
+      const pointerMatchesTarget = pointer && pointer.book === targetBook.name && Number(pointer.chapter) === targetChapter;
+      appState.activeNotesSection = preferredDashboardStudySection(
+        record,
+        suggestedSection || (pointerMatchesTarget ? pointer.section : null)
+      );
       const bookSearch = document.getElementById('bookSearchInput');
       if (bookSearch) bookSearch.value = '';
-      if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();
+      saveLastActiveStudy();
+      showBibleReader();
+      return true;
+    }
+
+    function showDashboardHome() {
+      saveActiveStudyNote();
+      const home = document.getElementById('studyDashboardHome');
+      const reader = document.getElementById('readerWorkspace');
+      if (reader) reader.style.display = 'none';
+      if (home) home.style.display = '';
+      document.body.classList.add('ibs-home-view');
+      renderStudyDashboard();
+    }
+
+    function showBibleReader() {
+      const home = document.getElementById('studyDashboardHome');
+      const reader = document.getElementById('readerWorkspace');
+      if (home) home.style.display = 'none';
+      if (reader) reader.style.display = '';
+      document.body.classList.remove('ibs-home-view');
       if (typeof renderBooksList === 'function') renderBooksList();
       if (typeof renderChapterPills === 'function') renderChapterPills();
+      if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();
       if (typeof renderScripture === 'function') renderScripture();
-      document.getElementById('studyDashboardModal')?.classList.add('hidden');
+    }
+
+    function populateDashboardChapterChooser(bookName, preferredChapter = null) {
+      const bookSelect = document.getElementById('dashboardBookSelect');
+      const chapterSelect = document.getElementById('dashboardChapterSelect');
+      const book = BIBLE_CANON.find(item => item.name === (bookName || bookSelect?.value));
+      if (!book || !chapterSelect) return;
+      chapterSelect.replaceChildren();
+      for (let chapter = 1; chapter <= book.chapters; chapter += 1) {
+        const option = document.createElement('option');
+        option.value = String(chapter);
+        option.textContent = book.name + ' ' + chapter;
+        chapterSelect.appendChild(option);
+      }
+      const defaultChapter = preferredChapter === null
+        ? (book.name === appState.currentBook ? appState.currentChapter : 1)
+        : Number(preferredChapter);
+      chapterSelect.value = String(Number.isInteger(defaultChapter) && defaultChapter >= 1 && defaultChapter <= book.chapters ? defaultChapter : 1);
+    }
+
+    function populateDashboardPassageChooser() {
+      const bookSelect = document.getElementById('dashboardBookSelect');
+      const chapterSelect = document.getElementById('dashboardChapterSelect');
+      if (!bookSelect || !chapterSelect) return;
+      bookSelect.replaceChildren();
+      BIBLE_CANON.forEach(book => {
+        const option = document.createElement('option');
+        option.value = book.name;
+        option.textContent = book.name + (book.testament === 'OT' ? ' (Old Testament)' : ' (New Testament)');
+        bookSelect.appendChild(option);
+      });
+      bookSelect.value = BIBLE_CANON.some(book => book.name === appState.currentBook) ? appState.currentBook : 'Genesis';
+      bookSelect.onchange = () => populateDashboardChapterChooser(bookSelect.value);
+      populateDashboardChapterChooser(bookSelect.value, appState.currentChapter);
     }
 
     function renderStudyDashboard() {
@@ -5437,39 +5499,61 @@ function renderStandardCrossReferenceList() {
     }
 
     function setupStudyDashboard() {
-      const modal = document.getElementById('studyDashboardModal');
       const openButton = document.getElementById('openDashboardBtn');
-      const closeButtons = [
-        document.getElementById('closeStudyDashboardBtn'),
+      const readerButtons = [
+        document.getElementById('dashboardOpenReaderBtn'),
         document.getElementById('dashboardCloseFooterBtn')
       ];
-      const close = () => modal?.classList.add('hidden');
-      const open = () => {
-        saveActiveStudyNote();
-        renderStudyDashboard();
-        modal?.classList.remove('hidden');
-      };
-      openButton?.addEventListener('click', open);
-      closeButtons.forEach(button => button?.addEventListener('click', close));
-      modal?.addEventListener('click', event => { if (event.target === modal) close(); });
-      document.getElementById('dashboardContinueBtn')?.addEventListener('click', close);
-      document.getElementById('dashboardChoosePassageBtn')?.addEventListener('click', () => {
-        close();
-        const sidebar = document.getElementById('sidebar');
-        sidebar?.classList.remove('sidebar-collapsed', '-translate-x-full');
-        document.getElementById('mobileBackdrop')?.classList.remove('hidden');
-        document.getElementById('mobileMenuBtn')?.setAttribute('aria-expanded', 'true');
-        document.getElementById('mobileMenuBtn')?.setAttribute('aria-label', 'Close navigation sidebar');
+      const chooser = document.getElementById('dashboardPassageChooser');
+      const chooseButton = document.getElementById('dashboardChoosePassageBtn');
+      const cancelChooserButton = document.getElementById('dashboardCancelPassageBtn');
+      const openSelectedPassageButton = document.getElementById('dashboardOpenSelectedPassageBtn');
+      const bookSelect = document.getElementById('dashboardBookSelect');
+      const chapterSelect = document.getElementById('dashboardChapterSelect');
+      const status = document.getElementById('dashboardPassageStatus');
+
+      populateDashboardPassageChooser();
+      openButton?.addEventListener('click', showDashboardHome);
+      readerButtons.forEach(button => button?.addEventListener('click', showBibleReader));
+      chooseButton?.addEventListener('click', () => {
+        populateDashboardPassageChooser();
+        chooser?.classList.remove('hidden');
+        chooser?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        bookSelect?.focus();
+      });
+      cancelChooserButton?.addEventListener('click', () => chooser?.classList.add('hidden'));
+      openSelectedPassageButton?.addEventListener('click', () => {
+        const book = BIBLE_CANON.find(item => item.name === bookSelect?.value);
+        const chapter = Number(chapterSelect?.value);
+        if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters)) {
+          if (status) status.textContent = 'Choose a valid Bible book and chapter before opening the passage.';
+          return;
+        }
+        if (status) status.textContent = 'Opening ' + book.name + ' ' + chapter + '…';
+        openDashboardStudy(book.name, chapter);
+      });
+      document.getElementById('dashboardContinueBtn')?.addEventListener('click', () => {
+        const entries = getDashboardStudyEntries().filter(record => !isDashboardStudyComplete(record));
+        const lastActive = readLastActiveStudy();
+        const resumeEntry = (lastActive && entries.find(record =>
+          record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter)
+        )) || (!lastActive ? entries[0] : null);
+        if (resumeEntry) {
+          const section = preferredDashboardStudySection(
+            resumeEntry,
+            lastActive && lastActive.book === resumeEntry.book && Number(lastActive.chapter) === Number(resumeEntry.chapter) ? lastActive.section : null
+          );
+          openDashboardStudy(resumeEntry.book, resumeEntry.chapter, section);
+        } else {
+          showBibleReader();
+        }
       });
       document.getElementById('dashboardOpenLibraryBtn')?.addEventListener('click', () => {
-        close();
         saveActiveStudyNote();
         renderStudyLibrary();
         document.getElementById('studyLibraryModal')?.classList.remove('hidden');
       });
-      document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) close();
-      });
+      renderStudyDashboard();
     }
 
     function setupStudyLibrary() {

@@ -22,6 +22,7 @@ class FakeElement {
     this.style = {};
     this.listeners = {};
     this.attributes = {};
+    this.dataset = {};
     this.classList = {
       values: new Set(),
       add: (...items) => items.forEach(item => this.classList.values.add(item)),
@@ -67,6 +68,11 @@ class FakeElement {
 
   setAttribute(name, value) {
     this.attributes[name] = String(value);
+  }
+
+  getBoundingClientRect() {
+    const width = Number.parseFloat(this.style.width);
+    return { width: Number.isFinite(width) ? width : 384, left: 0, right: Number.isFinite(width) ? width : 384 };
   }
 }
 
@@ -161,7 +167,7 @@ function createDashboardHarness(library, appState, activePointer = null) {
 
   const entriesSource = extractFunction(
     '    function getDashboardStudyEntries() {',
-    '    function openDashboardStudy(book, chapter, suggestedSection = null) {'
+    '    function openStudyWorkspacePanel() {'
   );
   sandbox.getDashboardStudyEntries = vm.runInNewContext('(' + entriesSource + ')', sandbox);
   const completeSource = extractFunction(
@@ -177,7 +183,7 @@ function createDashboardHarness(library, appState, activePointer = null) {
 
   const renderSource = extractFunction(
     '    function renderStudyDashboard() {',
-    '    function setupStudyDashboard() {'
+    '    function setupWorkspacePanelResize() {'
   );
   sandbox.renderStudyDashboard = vm.runInNewContext('(' + renderSource + ')', sandbox);
   return { sandbox, document };
@@ -303,6 +309,7 @@ function createDashboardSetupHarness({ entries = [], pointer = null } = {}) {
     saveActiveStudyNote: () => events.push('save-active-note'),
     showDashboardHome: () => events.push('show-home'),
     showBibleReader: () => events.push('show-reader'),
+    setupWorkspacePanelResize: () => events.push('setup-resize'),
     renderStudyDashboard: () => events.push('render-dashboard'),
     renderStudyLibrary: () => events.push('render-library'),
     getDashboardStudyEntries: () => entries,
@@ -423,6 +430,102 @@ test('Resume action chooses the last active unfinished study and restores its st
   assert.equal(events.at(-1), 'open:Romans:2:interpret');
 });
 
+
+test('Resume opens the study panel at the requested active stage, not just the Bible reader', () => {
+  const calls = [];
+  const document = new FakeDocument();
+  const library = {
+    'Romans::2': {
+      book: 'Romans',
+      chapter: 2,
+      activeSection: 'interpret',
+      sections: { observe: 'Observation text', interpret: 'Interpretation text', doctrine: '', apply: '' }
+    }
+  };
+  const sandbox = {
+    document,
+    BIBLE_CANON: [{ name: 'Romans', testament: 'NT', chapters: 16 }],
+    appState: {
+      currentBook: 'Genesis',
+      currentChapter: 1,
+      activeTab: 'OT',
+      activeNotesSection: 'observe',
+      selectedVerses: { clear() { calls.push('clear-selection'); } }
+    },
+    saveActiveStudyNote: () => calls.push('save-before-navigation'),
+    readStudyLibrary: () => library,
+    studyRecordKey: (book, chapter) => book + '::' + chapter,
+    readLastActiveStudy: () => ({ book: 'Romans', chapter: 2, section: 'interpret' }),
+    preferredDashboardStudySection: (record, suggested) => suggested || record.activeSection || 'observe',
+    saveLastActiveStudy: () => calls.push('save-active-pointer'),
+    showBibleReader: () => calls.push('show-reader'),
+    openStudyWorkspacePanel: () => calls.push('open-study-panel')
+  };
+  const source = extractFunction(
+    '    function openDashboardStudy(book, chapter, suggestedSection = null, options = {}) {',
+    '    function showDashboardHome() {'
+  );
+  sandbox.openDashboardStudy = vm.runInNewContext('(' + source + ')', sandbox);
+
+  const opened = sandbox.openDashboardStudy('Romans', 2, 'interpret', { openStudyPanel: true });
+  assert.equal(opened, true);
+  assert.equal(sandbox.appState.currentBook, 'Romans');
+  assert.equal(sandbox.appState.currentChapter, 2);
+  assert.equal(sandbox.appState.activeNotesSection, 'interpret');
+  assert.ok(calls.indexOf('show-reader') >= 0);
+  assert.ok(calls.indexOf('open-study-panel') > calls.indexOf('show-reader'),
+    'the Notes panel must open after the active passage/stage has loaded');
+});
+
+test('study panel has an accessible drag handle and desktop resize is saved separately from study data', () => {
+  assert.match(html, /id="workspaceResizeHandle" role="separator" aria-orientation="vertical"/);
+  assert.match(html, /title="Drag the left edge to resize the study panel"/);
+  assert.match(html, /#workspacePanel\.workspace-panel-resizing/);
+
+  const document = new FakeDocument();
+  const storage = new Map([['inductive-study-library-v1', '{"Romans::2":{"book":"Romans","chapter":2}}']]);
+  const fakeWindow = {
+    innerWidth: 1440,
+    listeners: {},
+    addEventListener(type, handler) { this.listeners[type] = handler; },
+    removeEventListener(type, handler) {
+      if (this.listeners[type] === handler) delete this.listeners[type];
+    }
+  };
+  const sandbox = {
+    document,
+    window: fakeWindow,
+    localStorage: {
+      getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+      setItem(key, value) { storage.set(key, String(value)); }
+    }
+  };
+  const source = extractFunction(
+    '    function setupWorkspacePanelResize() {',
+    '    function setupStudyDashboard() {'
+  );
+  sandbox.setupWorkspacePanelResize = vm.runInNewContext('(' + source + ')', sandbox);
+  sandbox.setupWorkspacePanelResize();
+
+  const panel = document.getElementById('workspacePanel');
+  const handle = document.getElementById('workspaceResizeHandle');
+  handle.listeners.pointerdown({
+    button: 0,
+    clientX: 900,
+    preventDefault() {}
+  });
+  fakeWindow.listeners.pointermove({ clientX: 800 });
+  fakeWindow.listeners.pointerup({});
+
+  assert.equal(panel.style.width, '484px');
+  assert.equal(storage.get('inductive-bible-study-workspace-width-v1'), '484');
+  assert.equal(storage.get('inductive-study-library-v1'), '{"Romans::2":{"book":"Romans","chapter":2}}');
+
+  handle.listeners.keydown({ key: 'ArrowLeft', preventDefault() {} });
+  assert.equal(panel.style.width, '508px');
+  assert.equal(storage.get('inductive-bible-study-workspace-width-v1'), '508');
+});
+
 test('startup restoration returns an unfinished study to its last active passage and stage', () => {
   const library = {
     'Romans::2': {
@@ -504,7 +607,7 @@ function createRestoreStudyHarness(library, pointer) {
   };
   const entriesSource = extractFunction(
     '    function getDashboardStudyEntries() {',
-    '    function openDashboardStudy(book, chapter, suggestedSection = null) {'
+    '    function openStudyWorkspacePanel() {'
   );
   sandbox.getDashboardStudyEntries = vm.runInNewContext('(' + entriesSource + ')', sandbox);
   for (const [start, end, key] of [

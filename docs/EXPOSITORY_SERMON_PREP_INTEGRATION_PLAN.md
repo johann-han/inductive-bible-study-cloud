@@ -808,3 +808,11 @@ PR [#92](https://github.com/johann-han/inductive-bible-study-cloud/pull/92) adds
 After the Dashboard became the initial IBS view, the live screenshot showed only the header and an empty content area. Inspection of the merged HTML found that the new Dashboard `main` had accidentally remained inside `readerWorkspace`, whose inline `display:none` is intentional on the Home screen. The hotfix closes the reader workspace before the Dashboard markup, leaving Home and Reader as siblings. A structural regression assertion now verifies this boundary so the Dashboard cannot silently become hidden with the reader again.
 
 The hotfix is isolated to an HTML wrapper boundary and one regression assertion. No saved-study, browser-storage, cloud-sync, Bible-source, or Kerygma data is changed. Treat the production issue as unresolved until the hotfix PR passes the existing CI workflow and the deployed page is rechecked.
+
+### Resume active study panel and resize notes drawer (24 October 2026)
+
+The Dashboard's Resume action now opens the existing Study panel after loading the selected unfinished passage and its active inductive stage. The current tab, note title and notes content are refreshed before the panel is shown, so Resume does not stop at the Bible reader alone.
+
+The Study panel now has a keyboard-accessible resize separator along its left edge on desktop/tablet. Dragging the edge left expands the panel and dragging right narrows it within viewport-aware limits. Arrow keys resize in increments; Home/End set minimum/maximum widths. The width preference is stored separately in `inductive-bible-study-workspace-width-v1`; no study records are changed. On phones the panel remains a full-screen drawer and the resize grip is hidden.
+
+Regression coverage checks that Resume opens the active stage after the reader is prepared and that pointer/keyboard resizing saves the width preference without altering the existing study-library storage value. GitHub Actions run [40084790138](https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/40084790138) passed on PR head `5c6626ee85a81480e0901df0452ea81ecdbacede`: 57 tests passed, zero failed, including server JavaScript syntax validation. Verify desktop and phone behaviour after deployment; source-level CI does not substitute for live UI acceptance.

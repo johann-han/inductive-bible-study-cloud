@@ -587,5 +587,35 @@ test('Phone Notes link explicitly opens the panel instead of toggling from stale
 
   assert.doesNotMatch(indexHtml, /workspacePanel\?\.classList\.remove\('translate-x-full'\)/,
     'study workflows should use the shared panel opener instead of partial class changes');
-  assert.match(indexHtml, /openStudyWorkspacePanel\(\);\s*aiDrawer\?\.classList\.add\('translate-x-full'\)/);
+  assert.match(indexHtml, /openStudyWorkspacePanel\(\);\s*setAIDrawerOpen\(false\)/);
+});
+
+
+test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
+  const helperStart = indexHtml.indexOf('function setAIDrawerOpen(open) {');
+  const helperEnd = indexHtml.indexOf('function setReaderFullscreenMode(enabled) {', helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'shared AI drawer state helper should exist');
+  const helper = indexHtml.slice(helperStart, helperEnd);
+
+  assert.match(helper, /const isMobileLayout = typeof window !== 'undefined' && window\.innerWidth <= 1024/);
+  assert.match(helper, /document\.body\.appendChild\(drawer\)/,
+    'mobile AI drawer must escape the reader overflow container');
+  assert.match(helper, /drawer\.classList\.add\('ai-drawer-open'\)/);
+  assert.match(helper, /drawer\.classList\.add\('translate-x-full', 'ai-drawer-closed'\)/);
+  assert.match(helper, /drawer\.setAttribute\('aria-hidden', open \? 'false' : 'true'\)/);
+
+  assert.match(indexHtml, /#aiDrawer\.ai-drawer-closed\s*\{[\s\S]*?transform: translateX\(110%\) !important;[\s\S]*?pointer-events: none !important;/);
+  assert.match(indexHtml, /#aiDrawer\.ai-drawer-open\s*\{[\s\S]*?transform: translateX\(0\) !important;[\s\S]*?pointer-events: auto !important;/);
+  assert.match(indexHtml, /#aiDrawer\.ai-drawer-mobile\s*\{[\s\S]*?position: fixed !important;[\s\S]*?width: 100vw !important;[\s\S]*?z-index: 100 !important;/);
+
+  const handlers = indexHtml.slice(
+    indexHtml.indexOf('// AI Drawer Toggles'),
+    indexHtml.indexOf('// AI Study Mentor: requests go to the local backend')
+  );
+  assert.match(handlers, /toggleAiBtn\.onclick = \(\) => setAIDrawerOpen\(true\)/);
+  assert.match(handlers, /closeAiDrawerBtn\.type = 'button'/);
+  assert.match(handlers, /event\.stopPropagation\(\)/);
+  assert.match(handlers, /setAIDrawerOpen\(false\)/);
+  assert.doesNotMatch(indexHtml, /drawer\?\.classList\.(?:add|remove)\('translate-x-full'\)/,
+    'AI drawer workflows should use the shared state handler rather than partial transform updates');
 });

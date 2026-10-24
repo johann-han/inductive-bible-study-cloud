@@ -6551,7 +6551,8 @@ function renderStandardCrossReferenceList() {
             const targetEnd = ref?.target?.endVerse;
             if (!ref || typeof ref.id !== 'string' || ref.id.length > 100 ||
                 !ref.source || ref.source.book !== book || Number(ref.source.chapter) !== chapter ||
-                !Number.isInteger(ref.source.verse) || ref.source.verse < 1 || ref.source.verse > 250 ||
+                !((ref.source.scope === 'study' && ref.source.verse == null) ||
+                  (Number.isInteger(ref.source.verse) && ref.source.verse >= 1 && ref.source.verse <= 250)) ||
                 !targetBook || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > Number(targetBook.chapters) ||
                 !CROSS_REFERENCE_RELATIONS[ref.relation] || typeof ref.note !== 'string' || ref.note.length > 2000 ||
                 !((targetStart === null && targetEnd === null) ||
@@ -6562,11 +6563,29 @@ function renderStandardCrossReferenceList() {
           }
           crossReferences = item.crossReferences.map(ref => ({
             id: ref.id,
-            source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: ref.source.verse },
+            source: {
+              book: ref.source.book,
+              chapter: Number(ref.source.chapter),
+              verse: ref.source.scope === 'study' ? null : ref.source.verse,
+              ...(ref.source.scope === 'study' ? { scope: 'study' } : {})
+            },
             target: { book: ref.target.book, chapter: Number(ref.target.chapter), startVerse: ref.target.startVerse, endVerse: ref.target.endVerse },
             relation: ref.relation, note: ref.note, createdAt: typeof ref.createdAt === 'string' ? ref.createdAt : ''
           }));
         }
+        let relatedPassages = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'relatedPassages')) {
+          if (!Array.isArray(item.relatedPassages) || item.relatedPassages.length > 100) {
+            setStudyBackupStatus(`The backup has invalid related-passage study content for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          relatedPassages = normalizeStudyRelatedPassages(item.relatedPassages);
+          if (relatedPassages.length !== item.relatedPassages.length) {
+            setStudyBackupStatus(`The backup has invalid related-passage details for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
         let scriptureMarkups = [];
         if (Object.prototype.hasOwnProperty.call(item, 'scriptureMarkups')) {
           if (!Array.isArray(item.scriptureMarkups) || item.scriptureMarkups.length > 5000) {
@@ -6668,6 +6687,7 @@ function renderStandardCrossReferenceList() {
             sections,
             ...(Object.prototype.hasOwnProperty.call(item, 'scriptureMarkups') ? { scriptureMarkups } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'crossReferences') ? { crossReferences } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'relatedPassages') ? { relatedPassages } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'verseMaps') ? { verseMaps } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'passageOutline') ? { passageOutline } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'versionHistory') ? { versionHistory } : {}),
@@ -6697,6 +6717,10 @@ function renderStandardCrossReferenceList() {
         // Pre-cross-reference backups preserve any links already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'crossReferences')) {
           incoming.crossReferences = Array.isArray(current?.crossReferences) ? current.crossReferences : [];
+        }
+        // Backups created before related verses became study content preserve material already saved locally.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'relatedPassages')) {
+          incoming.relatedPassages = normalizeStudyRelatedPassages(current?.relatedPassages);
         }
         // Backups made before Verse Mapping existed preserve maps already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'verseMaps')) incoming.verseMaps = normalizeVerseMaps(current?.verseMaps);

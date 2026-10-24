@@ -221,8 +221,8 @@ test('dashboard counts actual filled inductive stages and reflects the current p
   assert.equal(document.getElementById('dashboardCurrentPassage').textContent, 'Romans 5');
   assert.equal(document.getElementById('dashboardCurrentTranslation').textContent, 'Translation: WEB');
   assert.equal(document.getElementById('dashboardResumeTitle').textContent, '1 Corinthians 7');
-  assert.equal(document.getElementById('dashboardResumeStage').textContent, 'Unfinished study · resume at Interpret.');
-  assert.equal(document.getElementById('dashboardContinueBtn').textContent, 'Resume Interpret study');
+  assert.equal(document.getElementById('dashboardResumeStage').textContent, 'Unfinished study · resume at Observe.');
+  assert.equal(document.getElementById('dashboardContinueBtn').textContent, 'Resume Observe Study');
 
   const progress = document.getElementById('dashboardStageProgress').children;
   assert.equal(progress.length, 4);
@@ -230,6 +230,20 @@ test('dashboard counts actual filled inductive stages and reflects the current p
   assert.match(flattenText(progress[1]), /Interpret.*1 of 4 passages/);
   assert.match(flattenText(progress[2]), /Doctrine.*1 of 4 passages/);
   assert.match(flattenText(progress[3]), /Discipleship.*1 of 4 passages/);
+});
+
+test('Dashboard keeps Resume Observe Study when the last-visited record is complete', () => {
+  const { sandbox, document } = createDashboardHarness(makeLibrary(), {
+    currentBook: 'Romans',
+    currentChapter: 2,
+    currentTranslationAbbr: 'WEB'
+  }, { book: 'Romans', chapter: 2, section: 'apply' });
+
+  sandbox.renderStudyDashboard();
+
+  assert.equal(document.getElementById('dashboardResumeTitle').textContent, '1 Corinthians 7');
+  assert.equal(document.getElementById('dashboardResumeStage').textContent, 'Unfinished study · resume at Observe.');
+  assert.equal(document.getElementById('dashboardContinueBtn').textContent, 'Resume Observe Study');
 });
 
 test('dashboard limits recent passages to five and renders passage names as text', () => {
@@ -316,7 +330,9 @@ function createDashboardSetupHarness({ entries = [], pointer = null } = {}) {
     isDashboardStudyComplete: record => ['observe', 'interpret', 'doctrine', 'apply'].every(key => String(record?.sections?.[key] || '').trim()),
     readLastActiveStudy: () => pointer,
     preferredDashboardStudySection: (record, suggested) => suggested || record?.activeSection || 'observe',
-    openDashboardStudy: (book, chapter, section) => events.push('open:' + book + ':' + chapter + (section ? ':' + section : '')),
+    openDashboardStudy: (book, chapter, section, options) => events.push(
+      'open:' + book + ':' + chapter + (section ? ':' + section : '') + (options?.openStudyPanel ? ':panel' : '')
+    ),
   };
   const chapterSource = extractFunction(
     '    function populateDashboardChapterChooser(bookName, preferredChapter = null) {',
@@ -416,18 +432,20 @@ test('Choose Passage stays on the dashboard until a valid book and chapter are c
   assert.equal(chooser.classList.contains('hidden'), true);
 });
 
-test('Resume action chooses the last active unfinished study and restores its stage', () => {
-  const incomplete = {
-    book: 'Romans',
-    chapter: 2,
-    activeSection: 'observe',
-    sections: { observe: 'Text notes', interpret: '', doctrine: '', apply: '' }
+test('Resume Observe Study falls back when the last-visited study is already complete', () => {
+  const completed = {
+    book: 'Romans', chapter: 2, activeSection: 'apply',
+    sections: { observe: 'O', interpret: 'I', doctrine: 'D', apply: 'A' }
   };
-  const pointer = { book: 'Romans', chapter: 2, section: 'interpret' };
-  const { document, events } = createDashboardSetupHarness({ entries: [incomplete], pointer });
+  const unfinished = {
+    book: 'John', chapter: 3, activeSection: 'interpret',
+    sections: { observe: 'Observation notes', interpret: '', doctrine: '', apply: '' }
+  };
+  const pointer = { book: 'Romans', chapter: 2, section: 'apply' };
+  const { document, events } = createDashboardSetupHarness({ entries: [completed, unfinished], pointer });
 
   document.getElementById('dashboardContinueBtn').listeners.click();
-  assert.equal(events.at(-1), 'open:Romans:2:interpret');
+  assert.equal(events.at(-1), 'open:John:3:observe:panel');
 });
 
 

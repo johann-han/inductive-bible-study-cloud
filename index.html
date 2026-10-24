@@ -177,6 +177,82 @@
       #verseSelectionBar { padding-bottom: max(.65rem, env(safe-area-inset-bottom)); }
     }
 
+    /* Compact IBS header controls behind a menu on phones; keep the full desktop toolbar. */
+    @media (max-width: 767px) {
+      body > header {
+        position: relative;
+        flex-wrap: nowrap;
+        gap: .5rem;
+        min-height: 60px;
+      }
+      body > header > div:first-child {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+      body > header > div:first-child > div {
+        min-width: 0;
+      }
+      body > header > div:first-child h1 {
+        font-size: .85rem;
+      }
+      body > header > div:first-child a[href="/sermon/index.html"] {
+        padding: .55rem .65rem;
+      }
+      #headerMenuBtn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+      }
+      #headerControlsPanel {
+        display: none;
+        position: absolute;
+        top: calc(100% + 1px);
+        right: .5rem;
+        left: .5rem;
+        z-index: 80;
+        width: auto;
+        max-width: none;
+        padding: .65rem;
+        border: 1px solid #334155;
+        border-radius: 0 0 .9rem .9rem;
+        background: #0f172a;
+        box-shadow: 0 16px 32px rgba(15, 23, 42, .32);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+        align-items: stretch;
+      }
+      #headerControlsPanel.is-menu-closed {
+        display: none !important;
+      }
+      #headerControlsPanel > button,
+      #headerControlsPanel > select {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        min-height: 42px;
+        justify-content: center;
+        white-space: normal;
+        text-align: center;
+        padding: .5rem .35rem;
+        font-size: .75rem;
+      }
+      #headerControlsPanel #navSelectBtn {
+        min-width: 0;
+      }
+      #headerControlsPanel #currentPassageLabel {
+        max-width: 8rem;
+      }
+      #headerControlsPanel #globalTranslationSelect {
+        padding-left: .35rem;
+        padding-right: .35rem;
+      }
+      #headerControlsPanel #appInstallBtn {
+        display: none !important;
+      }
+    }
+
     @media (max-width: 360px) {
       body > header > div:nth-child(2) {
         grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .85fr);
@@ -465,7 +541,12 @@
     </div>
 
     <!-- Active Passage Bar & Controls -->
-    <div class="flex items-center space-x-1.5 sm:space-x-2">
+    <button id="headerMenuBtn" type="button" aria-controls="headerControlsPanel" aria-expanded="false" aria-label="Open reader menu" class="md:hidden inline-flex items-center gap-2 rounded-lg border border-amber-400 px-4 py-2 text-sm font-bold text-amber-100 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 shrink-0">
+      Menu
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>
+    </button>
+
+    <div id="headerControlsPanel" class="flex items-center space-x-1.5 sm:space-x-2">
       <button id="openBibleSearchBtn" type="button" title="Search Bible verses by words or phrase" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">🔎 Search</button>
       <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
         <span id="currentPassageLabel" class="truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">Genesis 1</span>

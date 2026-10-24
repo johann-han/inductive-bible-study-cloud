@@ -6161,6 +6161,13 @@ function renderStandardCrossReferenceList() {
       const expandButton = document.getElementById('expandWorkspaceBtn');
       if (!panel) return;
 
+      // Full-screen reading CSS deliberately hides the Notes panel. Exit that
+      // mode first, or the button can say "Close study notes" while Notes stays
+      // invisible despite the panel's open classes.
+      if (document.body.classList.contains('reader-fullscreen-mode')) {
+        setReaderFullscreenMode(false);
+      }
+
       const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
       // A fixed drawer nested inside the reader's overflow-hidden flex container can
       // be clipped or painted below the reader on mobile browsers. Move only the

@@ -602,7 +602,8 @@ test('AI Study Guide drawer has reliable explicit mobile open and close states',
     'mobile AI drawer must escape the reader overflow container');
   assert.match(helper, /drawer\.classList\.add\('ai-drawer-open'\)/);
   assert.match(helper, /drawer\.classList\.add\('translate-x-full', 'ai-drawer-closed'\)/);
-  assert.match(helper, /drawer\.setAttribute\('aria-hidden', open \? 'false' : 'true'\)/);
+  assert.match(helper, /drawer\.setAttribute\('aria-hidden', 'false'\)/);
+  assert.match(helper, /drawer\.setAttribute\('aria-hidden', 'true'\)/);
 
   assert.match(indexHtml, /#aiDrawer\.ai-drawer-closed\s*\{[\s\S]*?transform: translateX\(110%\) !important;[\s\S]*?pointer-events: none !important;/);
   assert.match(indexHtml, /#aiDrawer\.ai-drawer-open\s*\{[\s\S]*?transform: translateX\(0\) !important;[\s\S]*?pointer-events: auto !important;/);

@@ -777,6 +777,20 @@
             appendix += section('PERSONAL CROSS-REFERENCES — user-created links',
                 list(packet.customCrossReferences).length ? JSON.stringify(packet.customCrossReferences, null, 2) : '[No personal cross-references in imported source packet]');
 
+            const relatedPassages = list(packet.relatedPassages);
+            appendix += section('RELATED PASSAGES INCLUDED IN THE ACTIVE IBS STUDY',
+                relatedPassages.length ? relatedPassages.map(item => {
+                    const reference = text(item.reference) || (text(item.book) + ' ' + String(item.chapter || ''));
+                    const verseText = list(item.verses).map(verse => String(verse.number) + '. ' + text(verse.text)).join('\\n');
+                    return [
+                        reference + (text(item.translation) ? ' (' + text(item.translation) + ')' : ''),
+                        text(item.stage) ? 'Included in stage: ' + text(item.stage) : '',
+                        text(item.relation) ? 'Connection: ' + text(item.relation) : '',
+                        verseText,
+                        text(item.note) ? 'Why it matters: ' + text(item.note) : ''
+                    ].filter(Boolean).join('\\n');
+                }).join('\\n\\n') : '[No related passage text is included in the imported source packet]');
+
             const standard = packet.standardCrossReferences && typeof packet.standardCrossReferences === 'object' ? packet.standardCrossReferences : {};
             const standardEntries = list(standard.entries);
             appendix += section('STANDARD CROSS-REFERENCES — dataset-derived, distinct from AI suggestions',
@@ -1157,9 +1171,41 @@
                 const customCrossReferences = (Array.isArray(raw.customCrossReferences)?raw.customCrossReferences.slice(0,1000):[]).filter(ref=>ref&&typeof ref==='object'&&refPoint(ref.source,true)&&refPoint(ref.target,false)).map(ref=>({id:clean(ref.id,120),source:refPoint(ref.source,true),target:refPoint(ref.target,false),relation:clean(ref.relation,80),note:clean(ref.note,4000),createdAt:clean(ref.createdAt,80)}));
                 const std = raw.standardCrossReferences && typeof raw.standardCrossReferences==='object'&&!Array.isArray(raw.standardCrossReferences)?raw.standardCrossReferences:{};
                 const standardCrossReferences = {dataset:clean(std.dataset,300),license:clean(std.license,100),available:std.available===true,note:clean(std.note,1000),entries:(Array.isArray(std.entries)?std.entries.slice(0,250):[]).filter(row=>row&&int(row.verse,1,250)!==null).map(row=>({verse:row.verse,anchors:(Array.isArray(row.anchors)?row.anchors.slice(0,100):[]).filter(anchor=>anchor&&typeof anchor==='object').map(anchor=>({anchor:clean(anchor.anchor,1000),references:(Array.isArray(anchor.references)?anchor.references.slice(0,250):[]).map(ref=>clean(ref,200)).filter(Boolean)}))}))};
+                const relatedPassages = (Array.isArray(raw.relatedPassages) ? raw.relatedPassages.slice(0, 100) : []).map(item => {
+                    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+                    const relatedBook = clean(item.book, 80).trim();
+                    const relatedChapter = int(item.chapter, 1, 150);
+                    if (!Object.prototype.hasOwnProperty.call(chapters, relatedBook) || !relatedChapter || relatedChapter > chapters[relatedBook]) return null;
+                    const startVerse = item.startVerse == null ? null : int(item.startVerse, 1, 250);
+                    const endVerse = item.endVerse == null ? startVerse : int(item.endVerse, 1, 250);
+                    if ((item.startVerse != null && !startVerse) || (item.endVerse != null && !endVerse) ||
+                        (startVerse && endVerse && endVerse < startVerse)) return null;
+                    const verses = (Array.isArray(item.verses) ? item.verses.slice(0, 250) : [])
+                        .map(verse => ({ number: int(verse && verse.number, 1, 250), text: clean(verse && verse.text, 4000) }))
+                        .filter(verse => verse.number && verse.text.trim());
+                    const reference = clean(item.reference, 120).trim() ||
+                        relatedBook + ' ' + relatedChapter +
+                        (startVerse ? ':' + startVerse + (endVerse && endVerse > startVerse ? '–' + endVerse : '') : '');
+                    return {
+                        id: clean(item.id, 100),
+                        crossReferenceId: clean(item.crossReferenceId, 100),
+                        book: relatedBook,
+                        chapter: relatedChapter,
+                        startVerse,
+                        endVerse,
+                        reference,
+                        translation: clean(item.translation, 40) || 'Unknown',
+                        verses,
+                        stage: ['observe', 'interpret', 'doctrine', 'apply'].includes(item.stage) ? item.stage : 'observe',
+                        includedInStageNotes: item.includedInStageNotes === true,
+                        relation: clean(item.relation, 100),
+                        note: clean(item.note, 2000),
+                        createdAt: clean(item.createdAt, 80)
+                    };
+                }).filter(Boolean);
                 const selectedVerses = (Array.isArray(raw.selectedVerses)?raw.selectedVerses.slice(0,250):[]).map(v=>clean(v,160)).filter(validPlainRef);
                 const passageText = clean(raw.passageText,150000);
-                return {format:'inductive-bible-study-sermon-source',version:1,exportedAt:clean(raw.exportedAt,80),studyReference:{book,chapter,display:book+' '+chapter},sermonPassage,translation:clean(raw.translation,40)||'Unknown',sourceUpdatedAt:typeof raw.sourceUpdatedAt==='string'?clean(raw.sourceUpdatedAt,80):null,passageText,passageTextIncluded:raw.passageTextIncluded===true&&Boolean(passageText.trim()),sections,passageOutline,verseMaps,scriptureMarkups,customCrossReferences,standardCrossReferences,selectedVerses};
+                return {format:'inductive-bible-study-sermon-source',version:1,exportedAt:clean(raw.exportedAt,80),studyReference:{book,chapter,display:book+' '+chapter},sermonPassage,translation:clean(raw.translation,40)||'Unknown',sourceUpdatedAt:typeof raw.sourceUpdatedAt==='string'?clean(raw.sourceUpdatedAt,80):null,passageText,passageTextIncluded:raw.passageTextIncluded===true&&Boolean(passageText.trim()),sections,passageOutline,verseMaps,scriptureMarkups,customCrossReferences,relatedPassages,standardCrossReferences,selectedVerses};
             }
 
             async handleInductiveStudyFile(file) {
@@ -1171,7 +1217,7 @@
             showInductiveStudyPreview(packet,filename) {
                 const modal=document.getElementById('inductiveImportModal');const preview=document.getElementById('inductiveImportPreview');const currentLabel=document.getElementById('inductiveImportCurrentLabel');
                 if(!modal||!preview)return;preview.replaceChildren();const heading=document.createElement('p');heading.className='text-xs text-slate-500';heading.textContent='File: '+filename+' · Version '+packet.version;preview.appendChild(heading);
-                const grid=document.createElement('dl');grid.className='grid grid-cols-1 sm:grid-cols-2 gap-2';const details=[['Sermon passage',packet.sermonPassage],['Translation',packet.translation],['Passage text',packet.passageTextIncluded?(packet.passageText.split(/\n/).length+' verse lines included'):'Not included'],['Study notes',packet.sections.observe.length+' obs · '+packet.sections.interpret.length+' interp · '+packet.sections.doctrine.length+' doctrine · '+packet.sections.discipleship.length+' discipleship characters'],['Passage outline',packet.passageOutline.sections.length+' source sections'],['Verse maps',Object.keys(packet.verseMaps).length+' verses'],['Visual marks',packet.scriptureMarkups.length],['Personal cross-references',packet.customCrossReferences.length],['Standard cross-reference entries',packet.standardCrossReferences.entries.length+(packet.standardCrossReferences.available?' · source available':' · unavailable')]];
+                const grid=document.createElement('dl');grid.className='grid grid-cols-1 sm:grid-cols-2 gap-2';const details=[['Sermon passage',packet.sermonPassage],['Translation',packet.translation],['Passage text',packet.passageTextIncluded?(packet.passageText.split(/\n/).length+' verse lines included'):'Not included'],['Study notes',packet.sections.observe.length+' obs · '+packet.sections.interpret.length+' interp · '+packet.sections.doctrine.length+' doctrine · '+packet.sections.discipleship.length+' discipleship characters'],['Passage outline',packet.passageOutline.sections.length+' source sections'],['Verse maps',Object.keys(packet.verseMaps).length+' verses'],['Visual marks',packet.scriptureMarkups.length],['Personal cross-references',packet.customCrossReferences.length],['Related passages included',packet.relatedPassages.length+' passages with verse text'],['Standard cross-reference entries',packet.standardCrossReferences.entries.length+(packet.standardCrossReferences.available?' · source available':' · unavailable')]];
                 details.forEach(pair=>{const item=document.createElement('div');item.className='rounded-lg border border-slate-200 p-3 min-w-0';const dt=document.createElement('dt');dt.className='text-[10px] uppercase tracking-wide text-slate-500';dt.textContent=pair[0];const dd=document.createElement('dd');dd.className='text-xs font-medium text-slate-800 mt-1 break-words';dd.textContent=String(pair[1]);item.appendChild(dt);item.appendChild(dd);grid.appendChild(item);});preview.appendChild(grid);
                 const note=document.createElement('p');note.className='text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3';note.textContent='Import stores the four IBS stages and supporting evidence separately. It does not replace a sermon’s Big Idea, outline, applications or manuscript. Blank passage/title fields may be filled; existing text is preserved.';preview.appendChild(note);
                 if(currentLabel){const current=this.getCurrentSermon();currentLabel.textContent='Selected: '+((current&&current.title)||'Untitled Sermon')+'. Populated sermon fields will be preserved.';}
@@ -1206,6 +1252,14 @@
                 const mapKeys=Object.keys(packet.verseMaps);if(mapKeys.length)addDetails('Verse maps ('+mapKeys.length+' verses)',mapKeys.map(key=>'Verse '+key+'\n'+JSON.stringify(packet.verseMaps[key],null,2)).join('\n\n'));
                 if(packet.scriptureMarkups.length)addDetails('Visual Bible markup ('+packet.scriptureMarkups.length+' marks)',JSON.stringify(packet.scriptureMarkups,null,2));
                 if(packet.customCrossReferences.length)addDetails('My Cross-References · personal links ('+packet.customCrossReferences.length+')',formatPersonalCrossReferences(packet.customCrossReferences));
+                if(packet.relatedPassages.length)addDetails('Related passages included in this study ('+packet.relatedPassages.length+')',packet.relatedPassages.map(item=>[
+                    item.reference || ((item.book || '')+' '+(item.chapter || '')),
+                    'Translation: '+(item.translation || 'Unknown'),
+                    'Stage: '+(item.stage || 'observe'),
+                    'Connection: '+(item.relation || 'Other connection'),
+                    (item.verses || []).map(verse=>verse.number+'. '+verse.text).join('\\n'),
+                    item.note ? 'Why it matters: '+item.note : ''
+                ].filter(Boolean).join('\\n')).join('\\n\\n'));
                 const std=packet.standardCrossReferences;addDetails('Standard cross-references · '+(std.dataset||'source not specified')+' · '+(std.license||'licence not specified'),formatStandardCrossReferences(std));
                 if(packet.selectedVerses.length)addDetails('Selected verses',packet.selectedVerses.join('\n'));
                 const importedAt=packet.exportedAt?new Date(packet.exportedAt):null;addDetails('Transfer details','Exported: '+(importedAt&&!Number.isNaN(importedAt.getTime())?importedAt.toLocaleString():'date not recorded')+'\nSource updated: '+(packet.sourceUpdatedAt||'not recorded')+'\nFormat: '+packet.format+' v'+packet.version);
@@ -3651,6 +3705,18 @@ Answer the current question in light of the active stage and the available sourc
                         'No populated verse maps or word studies were recorded in the imported packet.', 8);
 
                     const personalRefs = Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences.slice(0, 10) : [];
+                    const relatedPassages = Array.isArray(packet.relatedPassages) ? packet.relatedPassages.slice(0, 12) : [];
+                    addEntries('IBS related passages included in the active study', relatedPassages.map(item => ({
+                        reference: item.reference || ((item.book || '') + ' ' + (item.chapter || '')),
+                        _evidence: [
+                            item.translation ? 'Translation: ' + String(item.translation).slice(0, 40) : '',
+                            item.stage ? 'Included in stage: ' + String(item.stage).slice(0, 30) : '',
+                            item.relation ? 'Connection: ' + String(item.relation).slice(0, 100) : '',
+                            Array.isArray(item.verses) ? item.verses.map(verse => verse.number + '. ' + String(verse.text || '').slice(0, 1000)).join('\\n') : '',
+                            item.note ? 'Why it matters: ' + String(item.note).slice(0, 300) : ''
+                        ].filter(Boolean).join('\\n')
+                    })), row => row.reference, 'No related verse text was included in the imported study.', 12);
+
                     addEntries('IBS personal cross-references · user-created', personalRefs.map(ref => ({
                         _evidence: (ref.source ? ((ref.source.book || '') + ' ' + ref.source.chapter + (ref.source.scope === 'study' ? ' (active study)' : (ref.source.verse ? ':' + ref.source.verse : ''))) : 'Source reference not recorded') +
                             ' → ' + (ref.target ? ((ref.target.book || '') + ' ' + ref.target.chapter + (ref.target.startVerse ? ':' + ref.target.startVerse + (ref.target.endVerse && ref.target.endVerse !== ref.target.startVerse ? '–' + ref.target.endVerse : '') : '')) : 'Target reference not recorded') +
@@ -3820,6 +3886,18 @@ Answer the current question in light of the active stage and the available sourc
                         'No verse-map or word-study entries were included in the imported packet.');
 
                     const personalRefs = Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences.slice(0, 12) : [];
+                    const relatedPassages = Array.isArray(packet.relatedPassages) ? packet.relatedPassages.slice(0, 12) : [];
+                    addEntries('IBS related passages included in the active study', relatedPassages.map(item => ({
+                        reference: item.reference || ((item.book || '') + ' ' + (item.chapter || '')),
+                        _evidence: [
+                            item.translation ? 'Translation: ' + String(item.translation).slice(0, 40) : '',
+                            item.stage ? 'Included in stage: ' + String(item.stage).slice(0, 30) : '',
+                            item.relation ? 'Connection: ' + String(item.relation).slice(0, 100) : '',
+                            Array.isArray(item.verses) ? item.verses.map(verse => verse.number + '. ' + String(verse.text || '').slice(0, 1000)).join('\\n') : '',
+                            item.note ? 'Why it matters: ' + String(item.note).slice(0, 300) : ''
+                        ].filter(Boolean).join('\\n')
+                    })), row => row.reference, 'No related verse text was included in the imported study.', 12);
+
                     addEntries('IBS personal cross-references · user-created', personalRefs.map(ref => ({
                         _evidence: (ref.source ? ((ref.source.book || '') + ' ' + ref.source.chapter + (ref.source.scope === 'study' ? ' (active study)' : (ref.source.verse ? ':' + ref.source.verse : ''))) : 'Source reference not recorded') +
                             ' → ' + (ref.target ? ((ref.target.book || '') + ' ' + ref.target.chapter + (ref.target.startVerse ? ':' + ref.target.startVerse + (ref.target.endVerse && ref.target.endVerse !== ref.target.startVerse ? '–' + ref.target.endVerse : '') : '')) : 'Target reference not recorded') +

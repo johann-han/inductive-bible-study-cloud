@@ -1125,9 +1125,10 @@
         </select>
         <button id="bibleSearchSubmit" type="submit" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">Search</button>
       </form>
-      <div id="bibleSearchStatus" role="status" aria-live="polite" class="px-4 pt-3 text-xs text-slate-500"></div>
-      <div id="bibleSearchResults" class="p-3 sm:p-4 overflow-y-auto space-y-2 min-h-0"></div>
-      <div class="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">Choose a result to open that verse in the Bible reader. Search uses the selected Bible translation.</div>
+      <div id="bibleSearchStatus" role="status" aria-live="polite" class="px-4 pt-3 text-xs text-slate-500">Type at least two characters to search.</div>
+      <div id="bibleSearchResults" class="flex-1 p-3 sm:p-4 overflow-y-auto space-y-2 min-h-0"></div>
+      <div class="px-3 sm:px-4 pb-3"><button id="bibleSearchLoadMoreBtn" type="button" hidden class="w-full rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Load more results</button></div>
+      <div class="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">Search updates as you type and includes only the 66 books in the IBS canon. Choose a result to open that verse in the Bible reader.</div>
     </div>
   </div>
 
@@ -1268,6 +1269,62 @@
       { name: "Jude", testament: "NT", chapters: 1 },
       { name: "Revelation", testament: "NT", chapters: 22 }
     ];
+
+    const BIBLE_SEARCH_PAGE_SIZE = 50;
+
+    function parseSearchReference(reference) {
+      let raw = String(reference || '').trim().replace(/[–—]/g, '-').replace(/\s+/g, ' ');
+      if (!raw || raw.length > 120) return null;
+      raw = raw.replace(/^Psalm\s+/i, 'Psalms ')
+        .replace(/^Song of Songs\s+/i, 'Song of Solomon ')
+        .replace(/^(I|II|III)\s+/i, prefix => ({ I: '1', II: '2', III: '3' })[prefix.trim().toUpperCase()] + ' ');
+      const match = raw.match(/^(.+?)\s+(\d+)[:.](\d+)(?:[-–].*)?$/);
+      if (!match) return null;
+      const bookName = match[1].trim();
+      const book = BIBLE_CANON.find(entry => entry.name.toLocaleLowerCase() === bookName.toLocaleLowerCase());
+      const chapter = Number(match[2]);
+      const verse = Number(match[3]);
+      if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > Number(book.chapters) ||
+          !Number.isInteger(verse) || verse < 1 || verse > 250) return null;
+      return { book: book.name, chapter, verse };
+    }
+
+    function buildBibleSearchUrl(query, translation = 'kjv', offset = 0) {
+      const params = new URLSearchParams({
+        q: String(query || '').trim(),
+        translation: String(translation || 'kjv').toLowerCase(),
+        testament: 'OT,NT',
+        limit: String(BIBLE_SEARCH_PAGE_SIZE),
+        offset: String(Math.max(0, Math.floor(Number(offset) || 0)))
+      });
+      return 'https://bible-api.dws-cloud.com/v1/search?' + params.toString();
+    }
+
+    function normalizeCanonicalBibleSearchPayload(payload) {
+      const sourceResults = Array.isArray(payload?.results) ? payload.results
+        : Array.isArray(payload?.verses) ? payload.verses
+        : Array.isArray(payload?.data?.results) ? payload.data.results
+        : Array.isArray(payload?.data?.verses) ? payload.data.verses : [];
+      const results = sourceResults.map(item => {
+        const reference = String(item?.reference || item?.ref || item?.referenceText ||
+          (item?.book_name && item?.chapter && item?.verse ? item.book_name + ' ' + item.chapter + ':' + item.verse : '') ||
+          (item?.bookName && item?.chapter && item?.verse ? item.bookName + ' ' + item.chapter + ':' + item.verse : '') ||
+          (item?.book && item?.chapter && item?.verse ? item.book + ' ' + item.chapter + ':' + item.verse : '')).trim();
+        const text = String(item?.text || item?.content || item?.snippet || '').trim();
+        const parsed = parseSearchReference(reference);
+        if (!parsed || !text) return null;
+        return { reference: parsed.book + ' ' + parsed.chapter + ':' + parsed.verse, text, parsed };
+      }).filter(Boolean);
+      const rawTotal = payload?.total ?? payload?.data?.total;
+      const total = rawTotal !== undefined && rawTotal !== null && Number.isFinite(Number(rawTotal))
+        ? Math.max(0, Number(rawTotal)) : null;
+      return {
+        results,
+        rawCount: sourceResults.length,
+        total,
+        totalCapped: payload?.total_capped === true || payload?.data?.total_capped === true
+      };
+    }
 
     // Free Use Bible API identifiers. The KJV text and its Strong's annotations
     // are fetched from the same API so character offsets match the displayed words.

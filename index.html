@@ -6849,6 +6849,7 @@ function renderStandardCrossReferenceList() {
         },
         scriptureMarkups: Array.isArray(row.sections?._scriptureMarkups) ? row.sections._scriptureMarkups : [],
         crossReferences: Array.isArray(row.sections?._crossReferences) ? row.sections._crossReferences : [],
+        relatedPassages: normalizeStudyRelatedPassages(row.sections?._relatedPassages),
         verseMaps: normalizeVerseMaps(row.sections?._verseMaps),
         passageOutline: normalizePassageOutline(row.sections?._passageOutline),
         versionHistory: normalizeStudyNoteVersionHistory(row.sections?._versionHistory),
@@ -6909,7 +6910,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline, versionHistory;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -6920,6 +6921,7 @@ function renderStandardCrossReferenceList() {
             activeSection = 'observe';
             scriptureMarkups = [];
             crossReferences = [];
+            relatedPassages = [];
             verseMaps = {};
             passageOutline = null;
             versionHistory = [];
@@ -6937,10 +6939,11 @@ function renderStandardCrossReferenceList() {
             updatedAt = rec.updatedAt || winner.time || new Date().toISOString();
             scriptureMarkups = Array.isArray(rec.scriptureMarkups) ? rec.scriptureMarkups : [];
             crossReferences = Array.isArray(rec.crossReferences) ? rec.crossReferences : [];
+            relatedPassages = normalizeStudyRelatedPassages(rec.relatedPassages);
             verseMaps = normalizeVerseMaps(rec.verseMaps);
             passageOutline = normalizePassageOutline(rec.passageOutline);
             versionHistory = normalizeStudyNoteVersionHistory(rec.versionHistory);
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, verseMaps, passageOutline, versionHistory };
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory };
           } else {
             continue;
           }
@@ -6948,7 +6951,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -6966,6 +6969,7 @@ function renderStandardCrossReferenceList() {
               JSON.stringify(Array.isArray(nextRow.sections?._scriptureMarkups) ? nextRow.sections._scriptureMarkups : []) &&
             JSON.stringify(Array.isArray(remote.sections?._crossReferences) ? remote.sections._crossReferences : []) ===
               JSON.stringify(Array.isArray(nextRow.sections?._crossReferences) ? nextRow.sections._crossReferences : []) &&
+            JSON.stringify(normalizeStudyRelatedPassages(remote.sections?._relatedPassages)) === JSON.stringify(normalizeStudyRelatedPassages(nextRow.sections?._relatedPassages)) &&
             JSON.stringify(normalizeVerseMaps(remote.sections?._verseMaps)) === JSON.stringify(normalizeVerseMaps(nextRow.sections?._verseMaps)) &&
             JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline)) &&
             JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory));

@@ -838,7 +838,7 @@ test('JSON backup restore retains related verse text and its saved stage-note bl
   });
 
   const restored = library['Romans::8'];
-  assert.ok(restored, 'the study should exist after restore; events=' + JSON.stringify(events));
+  assert.ok(restored, 'the study should exist after restore; keys=' + JSON.stringify(Object.keys(library)) + '; sandbox keys=' + JSON.stringify(Object.keys(sandbox.readStudyLibrary())) + '; events=' + JSON.stringify(events));
   assert.match(restored.sections.observe, /Existing study observations\./);
   assert.match(restored.sections.observe, /\[Related passage: John 3:16-17\]/);
   assert.match(restored.sections.observe, /16\. For God so loved the world\./);

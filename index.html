@@ -3667,7 +3667,7 @@ function renderStandardCrossReferenceList() {
     async function copySelectedVerse() {
       if (appState.selectedVerses.size !== 1) return false;
       const selectedKey = Array.from(appState.selectedVerses)[0];
-      const match = /^(.*) (\\d+):(\\d+)$/.exec(selectedKey);
+      const match = /^(.*) (\d+):(\d+)$/.exec(selectedKey);
       if (!match) return false;
       const book = match[1];
       const chapter = Number(match[2]);
@@ -3675,7 +3675,7 @@ function renderStandardCrossReferenceList() {
       const verseNode = document.querySelector('#scriptureContainer [data-verse-number="' + verseNumber + '"] .scripture-verse-text');
       const verseText = verseNode?.innerText?.trim() || verseNode?.textContent?.trim();
       if (!verseText) return false;
-      const copyText = book + ' ' + chapter + ':' + verseNumber + ' (' + appState.currentTranslationAbbr + ')\\n' + verseText;
+      const copyText = book + ' ' + chapter + ':' + verseNumber + ' (' + appState.currentTranslationAbbr + ')\n' + verseText;
       try {
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(copyText);
@@ -6121,6 +6121,11 @@ function renderStandardCrossReferenceList() {
       if (!panel) return;
       panel.classList.remove('hidden', 'translate-x-full');
       panel.style.display = 'flex';
+      panel.style.position = 'fixed';
+      panel.style.insetBlock = '0';
+      panel.style.right = '0';
+      panel.style.left = 'auto';
+      panel.style.transform = 'translateX(0)';
       panel.style.zIndex = '40';
       panel.setAttribute('aria-hidden', 'false');
       notesToggle?.setAttribute('aria-expanded', 'true');

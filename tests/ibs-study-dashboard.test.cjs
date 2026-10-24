@@ -274,6 +274,8 @@ test('dashboard home is the initial view and its inline book/chapter chooser is 
   assert.match(html, /<body class="ibs-home-view/);
   assert.match(html, /id="studyDashboardHome"/);
   assert.match(html, /id="readerWorkspace"[^>]*style="display:none"/);
+  assert.match(html, /<\/main>\s*<\/div>\s*<!-- IBS STUDY DASHBOARD -->\s*<main id="studyDashboardHome"/,
+    'the dashboard must be a sibling of, not a child of, the hidden reader workspace');
   assert.match(html, /id="openDashboardBtn"[^>]*title="Return to IBS Home"/);
   assert.match(html, /id="dashboardBookSelect"/);
   assert.match(html, /id="dashboardChapterSelect"/);

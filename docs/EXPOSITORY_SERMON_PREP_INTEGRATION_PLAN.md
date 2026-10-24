@@ -1,3 +1,11 @@
+## 24 October 2026 — Follow-up for phone acceptance failures
+
+The user reported that the mobile **Resume Observe Study** action still leaves a blurred/fuzzy screen and that **Copy verse** is missing or fails. The merged commit `5420d336b962924c7c6a9656ce4ec2c10038b649` passed CI, but these live acceptance failures mean the feature must not be considered verified. A follow-up branch `fix/mobile-resume-copy-verse-followup` corrects escaping defects in the copy handler's reference parser and line break, and explicitly pins the Study panel to the viewport above the mobile backdrop when opened. Re-run regression checks on the exact PR head and verify the deployed commit on Render before asking for another phone acceptance test.
+
+Preserve all existing study data and browser storage. Do not redesign the Dashboard. Continue targeted checks for related-passage persistence, safe deletion, exports, and Kerygma import after the phone blockers are resolved.
+
+---
+
 ## 24 October 2026 — Mobile resume and copy-selected-verse work
 
 A follow-up feature branch, `fix/mobile-resume-copy-selected-verse`, addresses the reported phone issue where tapping **Resume Observe Study** left the reader obscured by the mobile backdrop. The panel-opening path now explicitly unhides and displays the Study panel above the backdrop, and normal passage opens clear any stale mobile backdrop. This is a targeted mitigation; it still requires live phone acceptance testing before it can be considered verified.

@@ -6326,7 +6326,7 @@ function renderStandardCrossReferenceList() {
       const library = readStudyLibrary();
       const studies = Object.values(library)
         .filter(record => record && record.book && Number.isInteger(Number(record.chapter)) &&
-          ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)))
+          ((record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline) || (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0)))
         .map(record => ({
           book: String(record.book),
           chapter: Number(record.chapter),
@@ -6337,7 +6337,8 @@ function renderStandardCrossReferenceList() {
             apply: String(record.sections?.apply || '')
           },
           verseMaps: normalizeVerseMaps(record.verseMaps),
-          passageOutline: normalizePassageOutline(record.passageOutline)
+          passageOutline: normalizePassageOutline(record.passageOutline),
+          relatedPassages: normalizeStudyRelatedPassages(record.relatedPassages)
         }))
         .sort((a, b) => {
           const aIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
@@ -6387,6 +6388,16 @@ function renderStandardCrossReferenceList() {
         if (passageOutlineMarkdown) parts.push('## Passage Outline', '', passageOutlineMarkdown, '');
         const verseMapMarkdown = formatVerseMapsForMarkdown(record.verseMaps);
         if (verseMapMarkdown) parts.push('## Verse Mapping', '', verseMapMarkdown, '');
+        if (record.relatedPassages.length) {
+          parts.push('## Related Passages Included in This Study', '');
+          record.relatedPassages.forEach(item => {
+            parts.push('### ' + formatStudyRelatedPassageReference(item) + ' (' + item.translation + ')', '');
+            parts.push('Connection: ' + (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other), '');
+            item.verses.forEach(verse => parts.push(verse.number + '. ' + verse.text));
+            if (item.note) parts.push('', 'Why it matters: ' + item.note);
+            parts.push('');
+          });
+        }
       });
 
       const blob = new Blob([parts.join('\n')], { type: 'text/markdown;charset=utf-8' });
@@ -6412,7 +6423,7 @@ function renderStandardCrossReferenceList() {
             ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
             (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
-            (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
+            (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
           ))
         .map(record => ({
           book: String(record.book),
@@ -6438,18 +6449,19 @@ function renderStandardCrossReferenceList() {
           crossReferences: Array.isArray(record.crossReferences) ? record.crossReferences
             .filter(ref => ref && typeof ref.id === 'string' && ref.id.length <= 100 &&
               ref.source && ref.source.book === record.book && Number(ref.source.chapter) === Number(record.chapter) &&
-              Number.isInteger(ref.source.verse) && ref.source.verse > 0 &&
+              ((ref.source.scope === 'study' && ref.source.verse == null) || (Number.isInteger(ref.source.verse) && ref.source.verse > 0)) &&
               ref.target && BIBLE_CANON.some(book => book.name === ref.target.book) &&
               Number.isInteger(ref.target.chapter) && ref.target.chapter > 0 &&
               CROSS_REFERENCE_RELATIONS[ref.relation] && typeof ref.note === 'string' && ref.note.length <= 2000)
             .map(ref => ({
               id: ref.id,
-              source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: Number(ref.source.verse) },
+              source: { book: ref.source.book, chapter: Number(ref.source.chapter), verse: ref.source.scope === 'study' ? null : Number(ref.source.verse), ...(ref.source.scope === 'study' ? { scope: 'study' } : {}) },
               target: { book: ref.target.book, chapter: Number(ref.target.chapter),
                 startVerse: Number.isInteger(ref.target.startVerse) ? ref.target.startVerse : null,
                 endVerse: Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : null },
               relation: ref.relation, note: String(ref.note || ''), createdAt: String(ref.createdAt || '')
             })) : [],
+          relatedPassages: normalizeStudyRelatedPassages(record.relatedPassages),
           verseMaps: normalizeVerseMaps(record.verseMaps),
           passageOutline: normalizePassageOutline(record.passageOutline),
           activeSection: NOTE_SECTION_LABELS[record.activeSection] ? record.activeSection : 'observe',

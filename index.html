@@ -1298,9 +1298,9 @@
       } catch (error) {
         // Reading history is a convenience; failure must never interrupt the Bible reader.
         console.warn('The last Bible reading could not be saved:', error);
-      }      saveLastActiveStudy();
+      }
+      saveLastActiveStudy();
     }
-
 
     function isDashboardStudyComplete(record) {
       return ['observe', 'interpret', 'doctrine', 'apply'].every(section =>
@@ -5411,6 +5411,10 @@ function renderStandardCrossReferenceList() {
     function renderStudyDashboard() {
       const entries = getDashboardStudyEntries();
       const sectionKeys = ['observe', 'interpret', 'doctrine', 'apply'];
+      const incompleteEntries = entries.filter(record => !isDashboardStudyComplete(record));
+      const lastActive = readLastActiveStudy();
+      const pointedEntry = lastActive && incompleteEntries.find(record => record.book === lastActive.book && Number(record.chapter) === Number(lastActive.chapter));
+      const resumeEntry = pointedEntry || (!lastActive ? incompleteEntries[0] : null);
       const sectionNames = [
         { key: 'observe', label: 'Observe', description: 'What does the text say?', color: 'amber' },
         { key: 'interpret', label: 'Interpret', description: 'What does the text mean?', color: 'sky' },
@@ -5426,6 +5430,12 @@ function renderStandardCrossReferenceList() {
       const recentList = document.getElementById('dashboardRecentStudies');
       const progressList = document.getElementById('dashboardStageProgress');
       const currentLabel = `${appState.currentBook} ${appState.currentChapter}`;
+      const resumeLabel = resumeEntry ? resumeEntry.book + ' ' + resumeEntry.chapter : currentLabel;
+      const resumeSection = resumeEntry
+        ? preferredDashboardStudySection(resumeEntry, lastActive && lastActive.book === resumeEntry.book && Number(lastActive.chapter) === Number(resumeEntry.chapter) ? lastActive.section : null)
+        : appState.activeNotesSection;
+      const resumeStage = NOTE_SECTION_LABELS[resumeSection] || 'Observe';
+      const resumeStageElement = document.getElementById('dashboardResumeStage');
       const filledSections = entries.reduce((total, record) => total + sectionKeys.filter(key => String(record.sections?.[key] || '').trim()).length, 0);
       const completedStudies = entries.filter(record => sectionKeys.every(key => String(record.sections?.[key] || '').trim())).length;
       const possibleSections = entries.length * sectionKeys.length;
@@ -5434,7 +5444,12 @@ function renderStandardCrossReferenceList() {
       if (completeCount) completeCount.textContent = String(completedStudies);
       if (currentPassage) currentPassage.textContent = currentLabel;
       if (currentTranslation) currentTranslation.textContent = `Translation: ${appState.currentTranslationAbbr || appState.currentTranslation || 'KJV'}`;
-      if (resumeTitle) resumeTitle.textContent = currentLabel;
+      if (resumeTitle) resumeTitle.textContent = resumeLabel;
+      if (resumeStageElement) resumeStageElement.textContent = resumeEntry
+        ? 'Unfinished study · resume at ' + resumeStage + '.'
+        : 'Open your current passage or choose a new one.';
+      const continueButton = document.getElementById('dashboardContinueBtn');
+      if (continueButton) continueButton.textContent = resumeEntry ? 'Resume ' + resumeStage + ' study' : 'Open current passage';
 
       if (recentList) {
         recentList.replaceChildren();
@@ -5516,7 +5531,7 @@ function renderStandardCrossReferenceList() {
       openButton?.addEventListener('click', showDashboardHome);
       readerButtons.forEach(button => button?.addEventListener('click', showBibleReader));
       chooseButton?.addEventListener('click', () => {
-        populateDashboardPassageChooser();
+        if (!bookSelect?.options?.length) populateDashboardPassageChooser();
         chooser?.classList.remove('hidden');
         chooser?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
         bookSelect?.focus();

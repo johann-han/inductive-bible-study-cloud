@@ -3679,15 +3679,21 @@ function renderStandardCrossReferenceList() {
             : 'That verse link and connection type are already saved for this starting verse.';
           return;
         }
-        refs.push({
+        const newCrossReference = {
           id: 'xref-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
           source: studyLevel
             ? { book: source.book, chapter: source.chapter, verse: null, scope: 'study' }
             : { book: source.book, chapter: source.chapter, verse: source.startVerse },
           target: { book: target.book, chapter: target.chapter, startVerse: target.startVerse, endVerse: target.endVerse },
           relation, note, createdAt: new Date().toISOString()
-        });
+        };
+        refs.push(newCrossReference);
         record.crossReferences = refs;
+        if (studyLevel) {
+          // The reference remains a navigation link, but the passage also becomes first-class study material.
+          const relatedState = getStudyRelatedPassageState(record);
+          record.relatedPassages = normalizeStudyRelatedPassages(relatedState.entries);
+        }
         record.updatedAt = new Date().toISOString();
         library[key] = record;
         if (!writeStudyLibrary(library)) {

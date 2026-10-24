@@ -21,6 +21,7 @@ class FakeElement {
     this.className = '';
     this.style = {};
     this.listeners = {};
+    this.attributes = {};
     this.classList = {
       values: new Set(),
       add: (...items) => items.forEach(item => this.classList.values.add(item)),
@@ -51,11 +52,20 @@ class FakeElement {
   addEventListener(type, handler) {
     this.listeners[type] = handler;
   }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
 }
 
 class FakeDocument {
   constructor() {
     this.elements = new Map();
+    this.listeners = {};
+  }
+
+  addEventListener(type, handler) {
+    this.listeners[type] = handler;
   }
 
   getElementById(id) {
@@ -240,4 +250,75 @@ test('dashboard entry point and responsive dialog markup remain present', () => 
   assert.match(html, /id="dashboardChoosePassageBtn"/);
   assert.match(html, /id="dashboardOpenLibraryBtn"/);
   assert.match(html, /button\.addEventListener\('click', \(\) => openDashboardStudy\(record\.book, record\.chapter\)\)/);
+});
+
+
+function createDashboardSetupHarness() {
+  const document = new FakeDocument();
+  const events = [];
+  const sandbox = {
+    document,
+    saveActiveStudyNote: () => events.push('save-active-note'),
+    renderStudyDashboard: () => events.push('render-dashboard'),
+    renderStudyLibrary: () => events.push('render-library')
+  };
+  const source = extractFunction(
+    '    function setupStudyDashboard() {',
+    '    function setupStudyLibrary() {'
+  );
+  sandbox.setupStudyDashboard = vm.runInNewContext('(' + source + ')', sandbox);
+  sandbox.setupStudyDashboard();
+  return { document, events };
+}
+
+test('opening and closing the dashboard saves active notes and responds to Escape', () => {
+  const { document, events } = createDashboardSetupHarness();
+  const modal = document.getElementById('studyDashboardModal');
+  modal.classList.add('hidden');
+
+  document.getElementById('openDashboardBtn').listeners.click();
+  assert.deepEqual(events, ['save-active-note', 'render-dashboard']);
+  assert.equal(modal.classList.contains('hidden'), false);
+
+  document.getElementById('closeStudyDashboardBtn').listeners.click();
+  assert.equal(modal.classList.contains('hidden'), true);
+
+  document.getElementById('openDashboardBtn').listeners.click();
+  document.listeners.keydown({ key: 'Escape' });
+  assert.equal(modal.classList.contains('hidden'), true);
+
+  document.getElementById('openDashboardBtn').listeners.click();
+  modal.listeners.click({ target: {} });
+  assert.equal(modal.classList.contains('hidden'), false, 'clicking inside the dialog should not close it');
+  modal.listeners.click({ target: modal });
+  assert.equal(modal.classList.contains('hidden'), true, 'clicking the backdrop should close it');
+});
+
+test('dashboard passage and library shortcuts use existing navigation and save routines', () => {
+  const { document, events } = createDashboardSetupHarness();
+  const modal = document.getElementById('studyDashboardModal');
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('mobileBackdrop');
+  const menuButton = document.getElementById('mobileMenuBtn');
+  const libraryModal = document.getElementById('studyLibraryModal');
+  modal.classList.add('hidden');
+  sidebar.classList.add('sidebar-collapsed', '-translate-x-full');
+  backdrop.classList.add('hidden');
+  libraryModal.classList.add('hidden');
+
+  document.getElementById('openDashboardBtn').listeners.click();
+  document.getElementById('dashboardChoosePassageBtn').listeners.click();
+  assert.equal(modal.classList.contains('hidden'), true);
+  assert.equal(sidebar.classList.contains('sidebar-collapsed'), false);
+  assert.equal(sidebar.classList.contains('-translate-x-full'), false);
+  assert.equal(backdrop.classList.contains('hidden'), false);
+  assert.equal(menuButton.attributes['aria-expanded'], 'true');
+  assert.equal(menuButton.attributes['aria-label'], 'Close navigation sidebar');
+
+  document.getElementById('openDashboardBtn').listeners.click();
+  document.getElementById('dashboardOpenLibraryBtn').listeners.click();
+  assert.equal(modal.classList.contains('hidden'), true);
+  assert.equal(libraryModal.classList.contains('hidden'), false);
+  assert.equal(events.filter(event => event === 'render-library').length, 1);
+  assert.equal(events.filter(event => event === 'save-active-note').length, 3);
 });

@@ -779,3 +779,8 @@ Following mobile screenshots showing the header actions occupying several rows a
 ### IBS mobile header dropdown (24 October 2026)
 
 Following the Kerygma mobile menu improvement, the IBS reader now has a dedicated mobile-only Menu control. The Search, passage picker, translation selector, Strong's toggle, Notes, Cloud and AI Guide controls are grouped in a dropdown panel on narrow screens so the Bible reader has more vertical and horizontal space. The existing controls remain in the header on desktop. Menu state is exposed through ARIA attributes, Escape closes it, and choosing an action closes the menu. No study content, annotations, notes, cloud-sync records, or persistence logic is changed. Validate on a phone after deployment, including passage navigation, translation changes, search, Strong's, Notes, Cloud and AI Guide.
+
+
+### IBS Study Dashboard (24 October 2026)
+
+Added an on-demand Study Dashboard accessible from the IBS header menu. It summarizes saved passage count, filled note sections, passages with all four inductive stages complete, and the current reading passage/translation. It shows up to five recently updated saved passages, lets the user open one directly, continue reading, choose a passage via the existing book sidebar, or open the existing Study Library. Stage cards show how many saved passages have Observe, Interpret, Doctrine, and Discipleship notes. Dashboard summaries read the existing `inductive-study-library-v1` records and current app state; they do not introduce a second storage model or mutate saved records. The current active note is saved through the existing save routine before the dashboard opens. Requires GitHub Actions regression checks and live desktop/mobile validation after deployment.

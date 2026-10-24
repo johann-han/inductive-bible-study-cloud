@@ -2152,6 +2152,8 @@
           endVerse,
           translation: String(item.translation || 'KJV').slice(0, 40),
           verses,
+          stage: NOTE_SECTION_LABELS[item.stage] ? item.stage : 'observe',
+          includedInStageNotes: item.includedInStageNotes === true,
           relation,
           note: String(item.note || '').slice(0, 2000),
           createdAt: typeof item.createdAt === 'string' ? item.createdAt.slice(0, 50) : '',
@@ -2184,6 +2186,8 @@
         endVerse: Number.isInteger(target.endVerse) ? target.endVerse : (Number.isInteger(target.startVerse) ? target.startVerse : null),
         translation: String(appState.currentTranslationAbbr || appState.currentTranslation || 'KJV'),
         verses: [],
+        stage: NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe',
+        includedInStageNotes: false,
         relation: CROSS_REFERENCE_RELATIONS[ref.relation] ? ref.relation : 'other',
         note: String(ref.note || '').slice(0, 2000),
         createdAt: String(ref.createdAt || new Date().toISOString()).slice(0, 50),
@@ -2296,6 +2300,7 @@
           delete tombstones[key];
           writeStudyTombstones(tombstones);
           scheduleCloudStudySync();
+          includeStudyRelatedPassageInStageNotes(key, itemId);
           if (key === studyRecordKey()) updateStudyRelatedPassageButton();
         }
       } catch (error) {
@@ -2367,11 +2372,18 @@
         const actions = document.createElement('div');
         actions.className = 'flex flex-wrap gap-3 pt-1';
         if (item.verses.length) {
+          const stageLabel = NOTE_SECTION_LABELS[item.stage] || 'Observe';
+          if (item.includedInStageNotes) {
+            const included = document.createElement('span');
+            included.className = 'text-[10px] font-semibold text-emerald-800';
+            included.textContent = 'Included in ' + stageLabel + ' notes';
+            actions.appendChild(included);
+          }
           const addToNotes = document.createElement('button');
           addToNotes.type = 'button';
           addToNotes.className = 'text-[10px] font-bold text-emerald-800 underline';
-          addToNotes.textContent = 'Add text to active stage notes';
-          addToNotes.addEventListener('click', () => insertStudyRelatedPassageIntoNotes(item));
+          addToNotes.textContent = item.includedInStageNotes ? 'Add to current stage too' : 'Add text to active stage notes';
+          addToNotes.addEventListener('click', () => includeStudyRelatedPassageInStageNotes(studyRecordKey(), item.id, appState.activeNotesSection));
           actions.appendChild(addToNotes);
         }
         const remove = document.createElement('button');
@@ -2397,19 +2409,28 @@
         renderStudyRelatedPassageList(null, []);
         return;
       }
-      const state = getStudyRelatedPassageState(record);
-      const entries = state.entries;
+      let state = getStudyRelatedPassageState(record);
+      let entries = state.entries;
       if (state.changed) {
         record.relatedPassages = normalizeStudyRelatedPassages(entries);
         library[key] = record;
         if (writeStudyLibrary(library)) scheduleCloudStudySync();
       }
+
+      // Any already-loaded related text must also exist in a saved inductive stage, not just in this list.
+      entries.filter(item => item.verses.length && !item.includedInStageNotes).forEach(item => {
+        includeStudyRelatedPassageInStageNotes(key, item.id, null, { refreshEditor: false });
+      });
+      const refreshedRecord = readStudyLibrary()[key] || record;
+      state = getStudyRelatedPassageState(refreshedRecord);
+      entries = state.entries;
+
       if (countElement) countElement.textContent = String(entries.length);
       const withText = entries.filter(item => item.verses.length).length;
       if (status) status.textContent = entries.length
-        ? withText + ' of ' + entries.length + ' related passage' + (entries.length === 1 ? '' : 's') + ' included in this study.'
+        ? withText + ' of ' + entries.length + ' related passage' + (entries.length === 1 ? '' : 's') + ' included in this study and its stage notes.'
         : 'Related verse text, connection type and explanation will be stored inside this study.';
-      renderStudyRelatedPassageList(record, entries);
+      renderStudyRelatedPassageList(refreshedRecord, entries);
 
       entries.filter(item => !item.verses.length && !item.textLoadError).forEach(item => {
         if (document.getElementById('studyRelatedPassageList')?.querySelector('[data-related-load="' + item.id + '"]')) {
@@ -2419,32 +2440,69 @@
       });
     }
 
-    async function insertStudyRelatedPassageIntoNotes(item) {
-      if (!item || !Array.isArray(item.verses) || !item.verses.length) return;
-      const area = document.getElementById('workspaceNoteArea');
-      if (!area) return;
-      saveActiveStudyNote();
-      const marker = '[Related passage: ' + formatStudyRelatedPassageReference(item) + ']';
-      if (area.value.includes(marker)) {
-        const status = document.getElementById('noteSaveStatus');
-        if (status) status.textContent = 'This related passage is already included in the active stage notes.';
-        return;
+    function includeStudyRelatedPassageInStageNotes(studyKey, itemId, stageOverride = null, options = {}) {
+      const key = studyKey || studyRecordKey();
+      const initialLibrary = readStudyLibrary();
+      const initialRecord = initialLibrary[key];
+      if (!initialRecord) return false;
+      let state = getStudyRelatedPassageState(initialRecord);
+      let item = state.entries.find(entry => entry.id === itemId);
+      if (!item || !Array.isArray(item.verses) || !item.verses.length) return false;
+      const stage = NOTE_SECTION_LABELS[stageOverride] ? stageOverride
+        : (NOTE_SECTION_LABELS[item.stage] ? item.stage : 'observe');
+
+      // Capture edits from the open textarea before appending into that same saved stage.
+      if (key === studyRecordKey() && appState.activeNotesSection === stage) saveActiveStudyNote();
+
+      const library = readStudyLibrary();
+      const record = library[key];
+      if (!record) return false;
+      state = getStudyRelatedPassageState(record);
+      item = state.entries.find(entry => entry.id === itemId);
+      if (!item || !item.verses.length) return false;
+      record.sections = { observe: '', interpret: '', doctrine: '', apply: '', ...(record.sections || {}) };
+      const currentNotes = String(record.sections[stage] || '');
+      const reference = formatStudyRelatedPassageReference(item);
+      const marker = '[Related passage: ' + reference + ']';
+      let changed = false;
+
+      if (!currentNotes.includes(marker)) {
+        const body = item.verses.map(verse => verse.number + '. ' + verse.text).join('\n');
+        const block = marker + '\nTranslation: ' + item.translation +
+          '\nConnection: ' + (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other) +
+          '\n' + body + (item.note ? '\nWhy it matters: ' + item.note : '') + '\n\n';
+        const prefix = currentNotes.trim() ? currentNotes.replace(/\s*$/, '\n\n') : '';
+        saveStudyNoteVersionSnapshot(record);
+        record.sections[stage] = prefix + block;
+        changed = true;
       }
-      const body = item.verses.map(verse => verse.number + '. ' + verse.text).join('\n');
-      const block = marker + '\\nConnection: ' + (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other) +
-        '\\n' + body + (item.note ? '\\nWhy it matters: ' + item.note : '') + '\\n\\n';
-      const prefix = area.value.trim() ? area.value.replace(/\\s*$/, '\\n\\n') : '';
-      const nextValue = prefix + block;
-      area.value = nextValue;
-      area.focus();
-      area.setSelectionRange(nextValue.length, nextValue.length);
-      saveActiveStudyNote();
-      updateWorkspaceWordCount(area.value);
-      const status = document.getElementById('noteSaveStatus');
-      if (status) status.textContent = 'Related passage text added to ' + (NOTE_SECTION_LABELS[appState.activeNotesSection] || 'active stage') + ' notes.';
+      item.stage = stage;
+      item.includedInStageNotes = true;
+      record.relatedPassages = normalizeStudyRelatedPassages(state.entries);
+      if (changed || state.changed) {
+        record.updatedAt = new Date().toISOString();
+        library[key] = record;
+        if (!writeStudyLibrary(library)) return false;
+        const tombstones = readStudyTombstones();
+        delete tombstones[key];
+        writeStudyTombstones(tombstones);
+        scheduleCloudStudySync();
+      }
+      if (key === studyRecordKey() && options.refreshEditor !== false) {
+        if (appState.activeNotesSection === stage) loadActiveStudyNote();
+        updateStudyRelatedPassageButton();
+        const status = document.getElementById('noteSaveStatus');
+        if (status) status.textContent = 'Related passage text is included in ' + (NOTE_SECTION_LABELS[stage] || 'stage') + ' notes.';
+      }
+      return true;
     }
 
-    function removeStudyRelatedPassage(item) {
+    function insertStudyRelatedPassageIntoNotes(item) {
+      if (!item) return false;
+      return includeStudyRelatedPassageInStageNotes(studyRecordKey(), item.id, appState.activeNotesSection);
+    }
+
+        function removeStudyRelatedPassage(item) {
       if (!item) return;
       const reference = formatStudyRelatedPassageReference(item);
       if (!window.confirm('Remove ' + reference + ' from this study? This also removes its related-passage link, but leaves your stage notes unchanged.')) return;

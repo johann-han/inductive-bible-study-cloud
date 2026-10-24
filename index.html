@@ -3272,14 +3272,22 @@ function renderStandardCrossReferenceList() {
       if (!record || !Array.isArray(record.crossReferences)) return;
       const index = record.crossReferences.findIndex(item => item && item.id === crossReference.id);
       if (index < 0) return;
-      if (!window.confirm('Remove this cross-reference link? The Bible text and study notes will remain unchanged.')) return;
+      const studyLevel = crossReference.source.scope === 'study' || crossReference.source.verse == null;
+      if (!window.confirm(studyLevel
+        ? 'Remove this related passage from the study? Its verse text and connection notes will be removed from the related-passage list; your inductive stage notes remain unchanged.'
+        : 'Remove this cross-reference link? The Bible text and study notes will remain unchanged.')) return;
       record.crossReferences.splice(index, 1);
+      if (studyLevel) {
+        const relatedState = getStudyRelatedPassageState(record);
+        record.relatedPassages = relatedState.entries.filter(item => item.crossReferenceId !== crossReference.id);
+      }
       record.updatedAt = new Date().toISOString();
       library[key] = record;
       if (!writeStudyLibrary(library)) return;
       scheduleCloudStudySync();
       renderCrossReferenceList();
       updateChapterCrossReferenceButton();
+      if (key === studyRecordKey()) updateStudyRelatedPassageButton();
       renderScripture();
       const status = document.getElementById('crossReferenceFormStatus');
       if (status) status.textContent = 'Cross-reference removed.';
@@ -5626,7 +5634,7 @@ function renderStandardCrossReferenceList() {
       const outline = normalizePassageOutline(record?.passageOutline);
       const verseMaps = normalizeVerseMaps(record?.verseMaps);
       const markups = Array.isArray(record?.scriptureMarkups) ? record.scriptureMarkups : [];
-      const relatedPassages = normalizeStudyRelatedPassages(record?.relatedPassages);
+      const relatedPassages = record ? getStudyRelatedPassageState(record).entries : [];
       const dateLabel = generatedAt instanceof Date && !Number.isNaN(generatedAt.getTime()) ? generatedAt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : escape(generatedAt);
       const textSection = (id, title, text) => '<section class="report-section" id="' + id + '"><h2>' + title + '</h2>' + formatStudyReportText(text) + '</section>';
       const outlineHtml = outline ? '<section class="report-section" id="passage-outline"><h2>Passage Outline</h2><h3>' + escape(outline.title || reference + ' Outline') + '</h3>' + (outline.sections.length ? '<ol class="outline-list">' + outline.sections.map((section, index) => '<li class="outline-item"><h3>' + escape(section.heading || 'Outline point ' + (index + 1)) + '</h3>' + (section.verseRange ? '<p class="verse-range"><strong>Verses:</strong> ' + escape(section.verseRange) + '</p>' : '') + (section.majorIdea ? '<h4>Major idea</h4>' + formatStudyReportText(section.majorIdea) : '') + (section.supportingDetails ? '<h4>Supporting details</h4>' + formatStudyReportText(section.supportingDetails) : '') + '</li>').join('') + '</ol>' : '<p class="empty">The outline has a title but no outline points.</p>') + '</section>' : '';
@@ -5961,7 +5969,8 @@ function renderStandardCrossReferenceList() {
           (record.sections && ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim())) ||
           Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 ||
           hasSavedPassageOutline(record.passageOutline) ||
-          (Array.isArray(record.versionHistory) && record.versionHistory.length > 0)
+          (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
+          (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0)
         ))
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
     }
@@ -6349,7 +6358,7 @@ function renderStandardCrossReferenceList() {
           },
           verseMaps: normalizeVerseMaps(record.verseMaps),
           passageOutline: normalizePassageOutline(record.passageOutline),
-          relatedPassages: normalizeStudyRelatedPassages(record.relatedPassages)
+          relatedPassages: getStudyRelatedPassageState(record).entries
         }))
         .sort((a, b) => {
           const aIndex = BIBLE_CANON.findIndex(book => book.name === a.book);
@@ -6472,7 +6481,7 @@ function renderStandardCrossReferenceList() {
                 endVerse: Number.isInteger(ref.target.endVerse) ? ref.target.endVerse : null },
               relation: ref.relation, note: String(ref.note || ''), createdAt: String(ref.createdAt || '')
             })) : [],
-          relatedPassages: normalizeStudyRelatedPassages(record.relatedPassages),
+          relatedPassages: getStudyRelatedPassageState(record).entries,
           verseMaps: normalizeVerseMaps(record.verseMaps),
           passageOutline: normalizePassageOutline(record.passageOutline),
           activeSection: NOTE_SECTION_LABELS[record.activeSection] ? record.activeSection : 'observe',
@@ -7337,7 +7346,7 @@ function renderStandardCrossReferenceList() {
         verseMaps,
         scriptureMarkups,
         customCrossReferences,
-        relatedPassages: normalizeStudyRelatedPassages(record.relatedPassages).map(item => ({
+        relatedPassages: getStudyRelatedPassageState(record).entries.map(item => ({
           ...item,
           reference: formatStudyRelatedPassageReference(item)
         })),

@@ -774,3 +774,8 @@ After the first responsive CSS pass, the user tested on a phone and supplied a s
 ### Kerygma mobile header menu (23 October 2026)
 
 Following mobile screenshots showing the header actions occupying several rows and reducing the reading area, the header actions are grouped in a native accessible `details/summary` dropdown. On phones, a compact Menu control appears beside the Kerygma title and the IBS Workspace, New Sermon, Import Study, API Settings and Export actions are shown only when the menu is opened. On desktop, the menu toggle is hidden and the actions remain inline. Existing button handlers and the single Import Study file input are preserved. This changes presentation only; it does not change sermon data, import behavior, AI workflows, or storage. Validate menu opening, all five actions, import, and desktop layout after deployment.
+
+
+### IBS mobile header dropdown (24 October 2026)
+
+Following the Kerygma mobile menu improvement, the IBS reader now has a dedicated mobile-only Menu control. The Search, passage picker, translation selector, Strong's toggle, Notes, Cloud and AI Guide controls are grouped in a dropdown panel on narrow screens so the Bible reader has more vertical and horizontal space. The existing controls remain in the header on desktop. Menu state is exposed through ARIA attributes, Escape closes it, and choosing an action closes the menu. No study content, annotations, notes, cloud-sync records, or persistence logic is changed. Validate on a phone after deployment, including passage navigation, translation changes, search, Strong's, Notes, Cloud and AI Guide.

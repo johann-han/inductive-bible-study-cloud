@@ -107,7 +107,7 @@
         min-height: 0;
       }
       body > header > div:first-child { flex: 0 0 auto; min-width: 0; }
-      body > header > div:nth-child(2) {
+      #headerControlsPanel {
         display: grid;
         grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, .9fr);
         gap: .35rem;
@@ -117,10 +117,10 @@
         overflow: visible;
         justify-content: initial;
       }
-      body > header > div:nth-child(2) > :not([hidden]) ~ :not([hidden]) {
+      #headerControlsPanel > :not([hidden]) ~ :not([hidden]) {
         margin-left: 0 !important;
       }
-      body > header > div:nth-child(2) > * { width: 100%; min-width: 0; justify-content: center; }
+      #headerControlsPanel > * { width: 100%; min-width: 0; justify-content: center; }
       #navSelectBtn { padding: .45rem .4rem; }
       #navSelectBtn #currentPassageLabel { max-width: 7.25rem; }
       #globalTranslationSelect { width: 100%; max-width: none; padding: .45rem .2rem; }
@@ -177,8 +177,84 @@
       #verseSelectionBar { padding-bottom: max(.65rem, env(safe-area-inset-bottom)); }
     }
 
+    /* Compact IBS header controls behind a menu on phones; keep the full desktop toolbar. */
+    @media (max-width: 767px) {
+      body > header {
+        position: relative;
+        flex-wrap: nowrap;
+        gap: .5rem;
+        min-height: 60px;
+      }
+      body > header > div:first-child {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+      body > header > div:first-child > div {
+        min-width: 0;
+      }
+      body > header > div:first-child h1 {
+        font-size: .85rem;
+      }
+      body > header > div:first-child a[href="/sermon/index.html"] {
+        padding: .55rem .65rem;
+      }
+      #headerMenuBtn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+      }
+      #headerControlsPanel {
+        display: none;
+        position: absolute;
+        top: calc(100% + 1px);
+        right: .5rem;
+        left: .5rem;
+        z-index: 80;
+        width: auto;
+        max-width: none;
+        padding: .65rem;
+        border: 1px solid #334155;
+        border-radius: 0 0 .9rem .9rem;
+        background: #0f172a;
+        box-shadow: 0 16px 32px rgba(15, 23, 42, .32);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem;
+        align-items: stretch;
+      }
+      #headerControlsPanel.is-menu-closed {
+        display: none !important;
+      }
+      #headerControlsPanel > button,
+      #headerControlsPanel > select {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        min-height: 42px;
+        justify-content: center;
+        white-space: normal;
+        text-align: center;
+        padding: .5rem .35rem;
+        font-size: .75rem;
+      }
+      #headerControlsPanel #navSelectBtn {
+        min-width: 0;
+      }
+      #headerControlsPanel #currentPassageLabel {
+        max-width: 8rem;
+      }
+      #headerControlsPanel #globalTranslationSelect {
+        padding-left: .35rem;
+        padding-right: .35rem;
+      }
+      #headerControlsPanel #appInstallBtn {
+        display: none !important;
+      }
+    }
+
     @media (max-width: 360px) {
-      body > header > div:nth-child(2) {
+      #headerControlsPanel {
         grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .85fr);
         gap: .25rem;
       }
@@ -187,7 +263,7 @@
     }
 
     @media (min-width: 641px) and (max-width: 1023px) {
-      body > header > div:nth-child(2) { gap: .35rem; }
+      #headerControlsPanel { gap: .35rem; }
       #navSelectBtn #currentPassageLabel { max-width: 6.75rem; }
       #globalTranslationSelect { max-width: 120px; }
     }
@@ -465,7 +541,12 @@
     </div>
 
     <!-- Active Passage Bar & Controls -->
-    <div class="flex items-center space-x-1.5 sm:space-x-2">
+    <button id="headerMenuBtn" type="button" aria-controls="headerControlsPanel" aria-expanded="false" aria-label="Open reader menu" class="md:hidden inline-flex items-center gap-2 rounded-lg border border-amber-400 px-4 py-2 text-sm font-bold text-amber-100 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 shrink-0">
+      Menu
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>
+    </button>
+
+    <div id="headerControlsPanel" class="is-menu-closed flex items-center space-x-1.5 sm:space-x-2">
       <button id="openBibleSearchBtn" type="button" title="Search Bible verses by words or phrase" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">🔎 Search</button>
       <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
         <span id="currentPassageLabel" class="truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">Genesis 1</span>
@@ -3496,6 +3577,34 @@ function renderStandardCrossReferenceList() {
         document.getElementById('toggleWorkspaceMobile')?.setAttribute('aria-expanded', 'false');
         document.getElementById('toggleWorkspaceMobile')?.setAttribute('title', 'Open study notes');
       };
+
+      // Compact mobile reader menu; desktop controls remain visible in the header.
+      const headerMenuBtn = document.getElementById('headerMenuBtn');
+      const headerControlsPanel = document.getElementById('headerControlsPanel');
+      const setHeaderMenuOpen = open => {
+        if (!headerMenuBtn || !headerControlsPanel) return;
+        headerControlsPanel.classList.toggle('is-menu-closed', !open);
+        headerMenuBtn.setAttribute('aria-expanded', String(open));
+        headerMenuBtn.setAttribute('aria-label', open ? 'Close reader menu' : 'Open reader menu');
+        headerMenuBtn.innerHTML = open
+          ? 'Close <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6 6 18"></path></svg>'
+          : 'Menu <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>';
+      };
+      if (headerMenuBtn) headerMenuBtn.addEventListener('click', () => {
+        setHeaderMenuOpen(headerControlsPanel?.classList.contains('is-menu-closed'));
+      });
+      if (headerControlsPanel) {
+        headerControlsPanel.addEventListener('click', event => {
+          if (event.target.closest('button')) setHeaderMenuOpen(false);
+        });
+        document.getElementById('globalTranslationSelect')?.addEventListener('change', () => setHeaderMenuOpen(false));
+      }
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') setHeaderMenuOpen(false);
+      });
+      window.addEventListener('resize', () => {
+        if (window.matchMedia('(min-width: 768px)').matches) setHeaderMenuOpen(false);
+      });
 
       // Full-text Bible search (independent of the current book/chapter).
       const bibleSearchModal = document.getElementById('bibleSearchModal');

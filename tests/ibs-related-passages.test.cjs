@@ -572,7 +572,7 @@ test('Resume Observe Study forces the active study panel into view on phones', (
 
 
 test('Phone Notes link explicitly opens the panel instead of toggling from stale CSS state', () => {
-  const toggleStart = indexHtml.indexOf('toggleWorkspaceMobile.onclick = () => {');
+  const toggleStart = indexHtml.indexOf('toggleWorkspaceMobile.onclick = event => {');
   const toggleEnd = indexHtml.indexOf('// Strongs Modal Copy to Notes Button', toggleStart);
   assert.ok(toggleStart >= 0 && toggleEnd > toggleStart, 'Notes click handler should be present');
   const toggleSource = indexHtml.slice(toggleStart, toggleEnd);

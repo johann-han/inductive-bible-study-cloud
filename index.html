@@ -510,6 +510,12 @@
       }
     }
 
+
+    /* The dashboard is the home screen; show reader-only controls only in the Bible workspace. */
+    body.ibs-home-view #mobileMenuBtn,
+    body.ibs-home-view #headerMenuBtn,
+    body.ibs-home-view #headerControlsPanel { display: none !important; }
+
   </style>
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0f172a">
@@ -518,7 +524,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
-<body class="bg-slate-100 text-slate-900 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
+<body class="ibs-home-view bg-slate-100 text-slate-900 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden">
 
   <!-- TOP HEADER NAVBAR -->
   <header class="bg-slate-900 text-white border-b border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between shrink-0 shadow-md z-30 min-h-[52px]">
@@ -547,7 +553,7 @@
     </button>
 
     <div id="headerControlsPanel" class="is-menu-closed flex items-center space-x-1.5 sm:space-x-2">
-      <button id="openDashboardBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1" title="Open your Bible study dashboard">⌂ <span>Dashboard</span></button>
+      <button id="openDashboardBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1" title="Return to IBS Home">⌂ <span>Home</span></button>
       <button id="openBibleSearchBtn" type="button" title="Search Bible verses by words or phrase" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">🔎 Search</button>
       <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
         <span id="currentPassageLabel" class="truncate max-w-[80px] xs:max-w-[110px] sm:max-w-none">Genesis 1</span>
@@ -583,7 +589,7 @@
   </header>
 
   <!-- MAIN CONTENT CONTAINER -->
-  <div class="flex-1 flex overflow-hidden relative">
+  <div id="readerWorkspace" class="flex-1 flex overflow-hidden relative" style="display:none">
     <div id="mobileBackdrop" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
 
     <!-- LEFT SIDEBAR: BIBLE CANON BROWSER -->
@@ -825,17 +831,17 @@
     </main>
 
     <!-- IBS STUDY DASHBOARD -->
-    <div id="studyDashboardModal" class="hidden fixed inset-0 z-[80] bg-slate-950/70 p-2 sm:p-5 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyDashboardTitle">
-      <section class="w-full max-w-5xl max-h-[96dvh] sm:max-h-[92vh] bg-slate-50 rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+    <main id="studyDashboardHome" class="flex-1 min-h-0 overflow-y-auto bg-slate-100 px-3 py-4 sm:px-6 sm:py-8" aria-labelledby="studyDashboardTitle">
+      <section class="mx-auto w-full max-w-6xl min-h-full bg-slate-50 rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden">
         <header class="flex items-center justify-between gap-3 p-4 sm:p-6 bg-slate-900 text-white">
           <div class="min-w-0">
             <p class="text-[11px] uppercase tracking-[0.18em] text-amber-300 font-bold">Inductive Bible Study</p>
             <h2 id="studyDashboardTitle" class="text-xl sm:text-2xl font-bold mt-1">Study Dashboard</h2>
             <p class="text-sm text-slate-300 mt-1">Resume your study, review your progress, or open a passage.</p>
           </div>
-          <button id="closeStudyDashboardBtn" type="button" class="shrink-0 rounded-lg px-3 py-2 text-xl text-slate-200 hover:bg-slate-800" aria-label="Close dashboard">&times;</button>
+          <button id="dashboardOpenReaderBtn" type="button" class="shrink-0 rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800" aria-label="Open Bible reader">Read Bible →</button>
         </header>
-        <div class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-5">
+        <div class="p-3 sm:p-6 space-y-5">
           <section class="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Study overview">
             <article class="rounded-xl border border-slate-200 bg-white p-4">
               <p class="text-xs font-semibold text-slate-500">Saved passages</p>
@@ -860,9 +866,10 @@
             <article class="lg:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
               <p class="text-xs font-bold uppercase tracking-wider text-amber-800">Pick up where you left off</p>
               <h3 id="dashboardResumeTitle" class="text-lg font-bold text-slate-900 mt-2">Genesis 1</h3>
-              <p class="text-sm text-slate-600 mt-1">Continue reading in your current translation, with your existing notes and annotations.</p>
+              <p id="dashboardResumeStage" class="text-sm font-semibold text-amber-900 mt-1">Resume your last active study and stage.</p>
+              <p class="text-sm text-slate-600 mt-1">Your notes, markup, verse maps and cross-references stay with their saved passage.</p>
               <div class="flex flex-wrap gap-2 mt-4">
-                <button id="dashboardContinueBtn" type="button" class="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950">Continue reading</button>
+                <button id="dashboardContinueBtn" type="button" class="rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950">Resume study</button>
                 <button id="dashboardChoosePassageBtn" type="button" class="rounded-lg border border-amber-300 bg-white hover:bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">Choose passage</button>
               </div>
             </article>
@@ -879,7 +886,31 @@
               </div>
             </article>
           </section>
-          <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+                    <section id="dashboardPassageChooser" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-labelledby="dashboardPassageChooserTitle">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 id="dashboardPassageChooserTitle" class="text-base font-bold text-slate-900">Choose a Bible passage</h3>
+                <p class="text-sm text-slate-600 mt-1">Select a book and chapter here. Your choice opens in the reader only after you confirm it.</p>
+              </div>
+              <button id="dashboardCancelPassageBtn" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">Cancel</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+              <div>
+                <label for="dashboardBookSelect" class="block text-xs font-bold text-slate-700 mb-1">Bible book</label>
+                <select id="dashboardBookSelect" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"></select>
+              </div>
+              <div>
+                <label for="dashboardChapterSelect" class="block text-xs font-bold text-slate-700 mb-1">Chapter / passage</label>
+                <select id="dashboardChapterSelect" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"></select>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+              <p id="dashboardPassageStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Choose the passage you want to study.</p>
+              <button id="dashboardOpenSelectedPassageBtn" type="button" class="rounded-lg bg-slate-900 hover:bg-slate-800 px-4 py-3 text-sm font-bold text-white">Open selected passage →</button>
+            </div>
+          </section>
+
+<section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <h3 class="text-base font-bold text-slate-900">The four inductive stages</h3>
             <p class="text-sm text-slate-600 mt-1">Use this overview to spot where you may want to continue your work.</p>
             <div id="dashboardStageProgress" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4"></div>
@@ -887,10 +918,10 @@
         </div>
         <footer class="flex flex-wrap items-center justify-between gap-2 p-3 sm:px-6 border-t border-slate-200 bg-white">
           <span class="text-xs text-slate-500">Your existing study records remain in the Study Library.</span>
-          <button id="dashboardCloseFooterBtn" type="button" class="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm font-bold text-white">Return to Bible reader</button>
+          <button id="dashboardCloseFooterBtn" type="button" class="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm font-bold text-white">Open Bible reader</button>
         </footer>
       </section>
-    </div>
+    </main>
 
     <!-- LOCAL STUDY LIBRARY -->
     <div id="studyLibraryModal" class="hidden fixed inset-0 z-[70] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyLibraryTitle">

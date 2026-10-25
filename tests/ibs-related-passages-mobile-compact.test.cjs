@@ -26,7 +26,9 @@ test('related passages card is compact on phones while its list remains toggleab
   assert.match(html, /html\.touch-workspace-layout #headerControlsPanel\.is-menu-closed \{ display: none !important; \}/);
   assert.match(html, /if \(notesButton && isTouchWorkspaceLayout\(\)\)/);
   assert.match(html, /function setAIDrawerOpen\(open\)[\s\S]*?const isMobileLayout = isTouchWorkspaceLayout\(\);/);
-  assert.match(html, /html, body\s*\{\s*max-width: 100%;\s*overflow-x: hidden;\s*overflow-x: clip;/);
+  assert.match(html, /html, body\s*\{\s*width: 100%;\s*max-width: 100%;\s*overflow-x: hidden;\s*overflow-x: clip;\s*overscroll-behavior-x: none;/);
+  assert.match(html, /body\s*\{\s*touch-action: pan-y pinch-zoom;/,
+    'mobile document must allow vertical scrolling and pinch zoom without horizontal touch panning');
   assert.match(html, /#workspacePanel\.workspace-mobile-closed\s*\{\s*transform: translateX\(100%\) !important;/);
   assert.match(html, /@media \(max-width: 640px\)[\s\S]*?#studyRelatedPassagesSection\s*\{\s*padding: \.5rem !important;\s*gap: \.35rem !important;/);
   assert.match(html, /#studyRelatedPassagesSection > div:first-child > div:first-child > p:nth-child\(2\),\s*#studyRelatedPassageStatus\s*\{\s*display: none !important;/);

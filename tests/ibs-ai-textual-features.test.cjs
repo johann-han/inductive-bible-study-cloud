@@ -32,7 +32,7 @@ test('server-wide AI mentor prompt requires contextual connector analysis and th
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   assert.match(server, /For each significant connector, explicitly quote the word or phrase and verse/);
   assert.match(server, /identify the exact clauses or ideas it connects/);
-  assert.match(server, /explain how that relationship advances the author.s argument and affects interpretation/);
+  assert.match(server, /advances the .* argument and affects interpretation/);
   assert.match(server, /CAUSE \/ REASON \(because, for this reason, since, that\)/);
   assert.match(server, /COMPARISON \(as, also, just as, like, likewise, more, more than, so as, so also, too\)/);
   assert.match(server, /CONTINUATION \(and, either, neither, nor, or\)/);

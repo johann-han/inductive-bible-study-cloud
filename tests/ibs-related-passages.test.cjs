@@ -307,6 +307,65 @@ test('Study-level related links are included in IBS exports and retained by Kery
   assert.match(kerygmaHtml, /RELATED VERSES INCLUDED IN THE SAVED IBS STUDY/);
 });
 
+test('IBS sermon-source packet preserves related passage text, connection, explanation and stage inclusion', () => {
+  const { sandbox, record } = makeHarness();
+  sandbox.normalizeVerseMaps = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  sandbox.normalizePassageOutline = value => value && typeof value === 'object' ? value : null;
+  sandbox.SCRIPTURE_MARKUP_TYPES = {};
+
+  record.relatedPassages = [{
+    id: 'related-john-3-16',
+    crossReferenceId: 'xref-related-1',
+    book: 'John',
+    chapter: 3,
+    startVerse: 16,
+    endVerse: 17,
+    translation: 'KJV',
+    verses: [
+      { number: 16, text: 'For God so loved the world.' },
+      { number: 17, text: 'For God sent not his Son to condemn the world.' }
+    ],
+    stage: 'observe',
+    includedInStageNotes: true,
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    createdAt: '2026-10-24T08:20:00.000Z'
+  }];
+  record.crossReferences = [{
+    id: 'xref-related-1',
+    source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
+    target: { book: 'John', chapter: 3, startVerse: 16, endVerse: 17 },
+    relation: 'theme',
+    note: 'God’s saving purpose.',
+    createdAt: '2026-10-24T08:20:00.000Z'
+  }];
+
+  const packetSource = extractFunction(
+    indexHtml,
+    '    function createSermonSourcePacket(record, options = {}) {',
+    '    function getSermonPacketPassageText('
+  );
+  const createSermonSourcePacket = vm.runInNewContext('(' + packetSource + ')', sandbox);
+  const packet = createSermonSourcePacket(record, {
+    translation: 'KJV',
+    passageText: 'Romans 8 study passage'
+  });
+
+  assert.equal(packet.relatedPassages.length, 1);
+  const related = packet.relatedPassages[0];
+  assert.equal(related.reference, 'John 3:16-17');
+  assert.equal(related.verses.length, 2);
+  assert.equal(related.verses[0].text, 'For God so loved the world.');
+  assert.equal(related.verses[1].text, 'For God sent not his Son to condemn the world.');
+  assert.equal(related.stage, 'observe');
+  assert.equal(related.includedInStageNotes, true);
+  assert.equal(related.relation, 'theme');
+  assert.equal(related.note, 'God’s saving purpose.');
+  assert.equal(packet.customCrossReferences[0].relation, 'theme');
+  assert.equal(packet.customCrossReferences[0].note, 'God’s saving purpose.');
+});
+
+
 
 test('Related verse text is inserted into the saved active-stage note, preserving existing notes and preventing duplicates', () => {
   const { sandbox, record, events } = makeHarness();
@@ -437,7 +496,11 @@ test('Kerygma normalizes and retains verse text as study content, not only cross
   assert.equal(packet.relatedPassages[0].reference, 'John 3:16-17');
   assert.equal(packet.relatedPassages[0].verses.length, 2);
   assert.equal(packet.relatedPassages[0].verses[0].text, 'For God so loved the world.');
+  assert.equal(packet.relatedPassages[0].verses[1].text, 'For God sent not his Son to condemn the world.');
   assert.equal(packet.relatedPassages[0].includedInStageNotes, true);
+  assert.equal(packet.relatedPassages[0].stage, 'observe');
+  assert.equal(packet.relatedPassages[0].relation, 'Shared theme');
+  assert.equal(packet.relatedPassages[0].note, 'God’s saving purpose.');
   assert.match(kerygmaHtml, /RELATED PASSAGES INCLUDED IN THE ACTIVE IBS STUDY/);
   assert.match(kerygmaHtml, /IBS related passages included in the active study/);
 });
@@ -704,8 +767,12 @@ test('Related passage text and inclusion state survive cloud hydration and a loc
   assert.equal(hydrated.relatedPassages[0].verses[0].text, 'For God so loved the world.');
   assert.equal(hydrated.relatedPassages[0].includedInStageNotes, true);
   assert.equal(hydrated.relatedPassages[0].stage, 'observe');
+  assert.equal(hydrated.relatedPassages[0].relation, 'theme');
+  assert.equal(hydrated.relatedPassages[0].note, 'God’s saving purpose.');
   assert.match(hydrated.sections.observe, /Existing study observations\./);
   assert.match(hydrated.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.match(hydrated.sections.observe, /Connection: Shared theme or repeated idea/);
+  assert.match(hydrated.sections.observe, /Why it matters: God’s saving purpose\./);
 
   // Exercise the real localStorage read/write functions with a fresh app context,
   // sharing only the browser storage backing store to simulate a page reload.
@@ -741,7 +808,11 @@ test('Related passage text and inclusion state survive cloud hydration and a loc
   assert.equal(reloadedState.entries.length, 1);
   assert.equal(reloadedState.entries[0].verses[1].text, 'For God sent not his Son to condemn the world.');
   assert.equal(reloadedState.entries[0].includedInStageNotes, true);
+  assert.equal(reloadedState.entries[0].stage, 'observe');
+  assert.equal(reloadedState.entries[0].relation, 'theme');
+  assert.equal(reloadedState.entries[0].note, 'God’s saving purpose.');
   assert.match(reloaded.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.match(reloaded.sections.observe, /Connection: Shared theme or repeated idea/);
   assert.match(reloaded.sections.observe, /Why it matters: God’s saving purpose\./);
 
   // Guard the outgoing half of the cloud-sync round trip as well.
@@ -846,7 +917,12 @@ test('JSON backup restore retains related verse text and its saved stage-note bl
   assert.equal(restored.relatedPassages[0].verses[1].text, 'For God sent not his Son to condemn the world.');
   assert.equal(restored.relatedPassages[0].includedInStageNotes, true);
   assert.equal(restored.relatedPassages[0].stage, 'observe');
+  assert.equal(restored.relatedPassages[0].relation, 'theme');
+  assert.equal(restored.relatedPassages[0].note, 'God’s saving purpose.');
+  assert.match(restored.sections.observe, /Connection: Shared theme or repeated idea/);
   assert.equal(restored.crossReferences[0].source.scope, 'study');
+  assert.equal(restored.crossReferences[0].relation, 'theme');
+  assert.equal(restored.crossReferences[0].note, 'God’s saving purpose.');
   assert.ok(events.includes('load-active-note'));
   assert.ok(events.includes('render-study-library'));
   assert.ok(events.includes('sync'));
@@ -993,10 +1069,17 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
   assert.equal(cloudRows.length, 1);
   const cloudRecord = cloudRows[0];
   assert.match(cloudRecord.sections.observe, /\[Related passage: John 3:16-17\]/);
+  assert.match(cloudRecord.sections.observe, /Connection: Shared theme or repeated idea/);
+  assert.match(cloudRecord.sections.observe, /Why it matters: God’s saving purpose\./);
   assert.equal(cloudRecord.sections._relatedPassages.length, 1);
   assert.equal(cloudRecord.sections._relatedPassages[0].verses[1].text, 'For God sent not his Son to condemn the world.');
   assert.equal(cloudRecord.sections._relatedPassages[0].includedInStageNotes, true);
+  assert.equal(cloudRecord.sections._relatedPassages[0].stage, 'observe');
+  assert.equal(cloudRecord.sections._relatedPassages[0].relation, 'theme');
+  assert.equal(cloudRecord.sections._relatedPassages[0].note, 'God’s saving purpose.');
   assert.equal(cloudRecord.sections._crossReferences[0].source.scope, 'study');
+  assert.equal(cloudRecord.sections._crossReferences[0].relation, 'theme');
+  assert.equal(cloudRecord.sections._crossReferences[0].note, 'God’s saving purpose.');
 
   // Second direction: simulate a fresh device by clearing only the local library,
   // then fetch and hydrate the cloud row through the same production sync function.
@@ -1011,7 +1094,13 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
   assert.equal(restored.relatedPassages[0].verses[1].text, 'For God sent not his Son to condemn the world.');
   assert.equal(restored.relatedPassages[0].includedInStageNotes, true);
   assert.equal(restored.relatedPassages[0].stage, 'observe');
+  assert.equal(restored.relatedPassages[0].relation, 'theme');
+  assert.equal(restored.relatedPassages[0].note, 'God’s saving purpose.');
+  assert.match(restored.sections.observe, /Connection: Shared theme or repeated idea/);
+  assert.match(restored.sections.observe, /Why it matters: God’s saving purpose\./);
   assert.equal(restored.crossReferences[0].source.scope, 'study');
+  assert.equal(restored.crossReferences[0].relation, 'theme');
+  assert.equal(restored.crossReferences[0].note, 'God’s saving purpose.');
   assert.ok(events.filter(event => event === 'save-active-note').length >= 2);
 });
 

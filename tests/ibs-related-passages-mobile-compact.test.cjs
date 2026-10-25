@@ -63,10 +63,12 @@ test('active IBS study prevents horizontal viewport panning and refreshes the PW
 
   assert.match(html, /html\.ibs-study-view\s*\{[^}]*overflow-x:\s*clip;[^}]*overscroll-behavior-x:\s*none;[^}]*touch-action:\s*pan-y pinch-zoom;/,
     'the active study viewport must not pan horizontally');
+  assert.match(html, /html\.touch-workspace-layout\.ibs-study-view\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*height:\s*100dvh;[^}]*overflow:\s*hidden;/,
+    'the active touch-study root must be fixed to the viewport to prevent two-axis document dragging');
   assert.match(html, /function showBibleReader\(\)[\s\S]*?document\.documentElement\.classList\.add\('ibs-study-view'\)/,
     'opening the reader must enable the study viewport gesture rule');
   assert.match(html, /function showDashboardHome\(\)[\s\S]*?document\.documentElement\.classList\.remove\('ibs-study-view'\)/,
     'returning Home must remove the study-only viewport state');
-  assert.match(sw, /CACHE_NAME\s*=\s*'inductive-bible-study-shell-v16'/,
+  assert.match(sw, /CACHE_NAME\s*=\s*'inductive-bible-study-shell-v17'/,
     'installed workspaces must fetch the updated shell rather than reuse the previous cache');
 });

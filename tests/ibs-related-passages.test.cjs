@@ -603,7 +603,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
 test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v12'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v13'/);
 });
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {

@@ -41,7 +41,24 @@ function removeNonConnectorEntries(answer) {
     output.push(line);
   }
 
-  return output.join('\n').replace(/\n{3,}/g, '\n\n');
+  const cleaned = output.join('\n').replace(/\n{3,}/g, '\n\n');
+  let renumberingLinkingWords = false;
+  let nextNumber = 1;
+  return cleaned.split('\n').map(line => {
+    const heading = line.match(headingPattern) || (!numberedEntryPattern.test(line) && line.match(boldHeadingPattern));
+    if (heading) {
+      const headingName = heading[1].replace(/[*_]/g, '').replace(/:$/, '').trim().toLowerCase();
+      renumberingLinkingWords = headingName === 'linking words';
+      nextNumber = 1;
+      return line;
+    }
+    if (!renumberingLinkingWords) return line;
+    const numbered = line.match(/^(\s*(?:[-*]\s*)?(?:\*\*)?\s*)\d+([.)]\s*)/);
+    if (!numbered) return line;
+    return line.replace(/^(\s*(?:[-*]\s*)?(?:\*\*)?\s*)\d+([.)]\s*)/, (_, prefix, punctuation) => {
+      return prefix + nextNumber++ + punctuation;
+    });
+  }).join('\n');
 }
 
 module.exports = { removeNonConnectorEntries };

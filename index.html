@@ -362,10 +362,38 @@
       #crossReferenceModal > section {
         width: 100% !important;
         max-width: 100% !important;
-        max-height: 72dvh !important;
+        height: var(--cross-reference-sheet-height, 60dvh) !important;
+        min-height: 35dvh !important;
+        max-height: 90dvh !important;
         overflow-y: auto !important;
         overscroll-behavior: contain;
         border-radius: 1rem 1rem .75rem .75rem !important;
+      }
+      #crossReferenceSheetHandle {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        width: 100%;
+        height: 1.65rem;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        margin: -.1rem 0 0;
+        background: white;
+        touch-action: none;
+        cursor: ns-resize;
+      }
+      #crossReferenceSheetHandle span {
+        display: block;
+        width: 2.8rem;
+        height: .28rem;
+        border-radius: 999px;
+        background: #cbd5e1;
+      }
+      #crossReferenceSheetHandle:focus-visible {
+        outline: 2px solid #0284c7;
+        outline-offset: -3px;
       }
       #crossReferenceModal > section > div:first-child {
         padding: .65rem .8rem !important;
@@ -1103,6 +1131,7 @@
       <!-- CONNECTED CROSS-REFERENCE STUDY -->
       <div id="crossReferenceModal" class="hidden fixed inset-0 z-[120] bg-slate-950/60 p-3 sm:p-6 items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="crossReferenceModalTitle">
         <section class="w-full max-w-2xl max-h-[94dvh] overflow-y-auto rounded-xl bg-white shadow-2xl border border-slate-200">
+          <button id="crossReferenceSheetHandle" type="button" class="hidden" aria-label="Resize Related Passages panel" aria-valuemin="35" aria-valuemax="90" aria-valuenow="60"><span aria-hidden="true"></span></button>
           <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div>
               <h2 id="crossReferenceModalTitle" class="font-bold text-slate-900">Connected cross-references</h2>
@@ -4133,6 +4162,48 @@ function renderStandardCrossReferenceList() {
       const relationSelect = document.getElementById('crossReferenceRelationSelect');
       const noteInput = document.getElementById('crossReferenceNoteInput');
       const status = document.getElementById('crossReferenceFormStatus');
+      const sheetHandle = document.getElementById('crossReferenceSheetHandle');
+      if (sheetHandle && modal) {
+        let startY = 0;
+        let startHeight = 0;
+        let pointerId = null;
+        const touchSheet = () => typeof window.matchMedia === 'function' &&
+          window.matchMedia('(max-width: 767px), (pointer: coarse) and (hover: none)').matches;
+        const setHeight = height => {
+          const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+          if (!viewportHeight) return;
+          const next = Math.max(viewportHeight * .35, Math.min(viewportHeight * .90, height));
+          modal.style.setProperty('--cross-reference-sheet-height', Math.round(next) + 'px');
+          sheetHandle.setAttribute('aria-valuenow', String(Math.round(next / viewportHeight * 100)));
+        };
+        if (touchSheet()) sheetHandle.classList.remove('hidden');
+        sheetHandle.addEventListener('pointerdown', event => {
+          if (!touchSheet()) return;
+          event.preventDefault();
+          startY = event.clientY;
+          startHeight = modal.querySelector(':scope > section')?.getBoundingClientRect().height || (window.innerHeight * .60);
+          pointerId = event.pointerId;
+          if (typeof sheetHandle.setPointerCapture === 'function') sheetHandle.setPointerCapture(event.pointerId);
+        });
+        sheetHandle.addEventListener('pointermove', event => {
+          if (pointerId !== event.pointerId) return;
+          event.preventDefault();
+          setHeight(startHeight + startY - event.clientY);
+        });
+        const stopResize = event => { if (pointerId === event.pointerId) pointerId = null; };
+        sheetHandle.addEventListener('pointerup', stopResize);
+        sheetHandle.addEventListener('pointercancel', stopResize);
+        sheetHandle.addEventListener('lostpointercapture', () => { pointerId = null; });
+        sheetHandle.addEventListener('keydown', event => {
+          if (!touchSheet() || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const vh = window.innerHeight || document.documentElement.clientHeight;
+          const current = modal.querySelector(':scope > section')?.getBoundingClientRect().height || vh * .60;
+          if (event.key === 'Home') setHeight(vh * .35);
+          else if (event.key === 'End') setHeight(vh * .90);
+          else setHeight(current + (event.key === 'ArrowUp' ? 48 : -48));
+        });
+      }
       openButton?.addEventListener('click', () => openCrossReferenceModal());
       toggleStudyRelatedPassagesButton?.addEventListener('click', () => {
         if (!studyRelatedPassageList) return;

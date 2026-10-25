@@ -4875,8 +4875,10 @@ function renderStandardCrossReferenceList() {
     }
 
     async function initApp() {
-      restoreLastReading();
-      restoreLastActiveStudy();
+      // The reader's last-opened passage takes precedence over the last active study pointer.
+      // The latter is a fallback for installations without a valid reading-history entry.
+      const hasLastReading = restoreLastReading();
+      if (!hasLastReading) restoreLastActiveStudy();
       await initSQLiteLexicon();
       renderBooksList();
       renderChapterPills();

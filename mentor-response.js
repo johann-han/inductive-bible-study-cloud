@@ -10,7 +10,7 @@ function removeNonConnectorEntries(answer) {
   const numberedEntryPattern = /^\s*(?:[-*]\s*)?(?:\*\*)?\s*\d+[.)]\s*/;
 
   for (const line of lines) {
-    const heading = line.match(headingPattern) || line.match(boldHeadingPattern);
+    const heading = line.match(headingPattern) || (!numberedEntryPattern.test(line) && line.match(boldHeadingPattern));
     if (heading) {
       const headingName = heading[1].replace(/[*_]/g, '').replace(/:$/, '').trim().toLowerCase();
       if (inLinkingWords && headingName !== 'linking words') {

@@ -26,11 +26,32 @@ test('related passages card is compact on phones while its list remains toggleab
   assert.match(html, /html\.touch-workspace-layout #headerControlsPanel\.is-menu-closed \{ display: none !important; \}/);
   assert.match(html, /if \(notesButton && isTouchWorkspaceLayout\(\)\)/);
   assert.match(html, /function setAIDrawerOpen\(open\)[\s\S]*?const isMobileLayout = isTouchWorkspaceLayout\(\);/);
-  assert.match(html, /html, body\s*\{\s*max-width: 100%;\s*overflow-x: hidden;\s*overflow-x: clip;/);
+  assert.match(html, /html, body\s*\{\s*width: 100%;\s*max-width: 100%;\s*overflow-x: hidden;\s*overflow-x: clip;\s*overscroll-behavior-x: none;/);
+  assert.match(html, /body\s*\{\s*touch-action: pan-y pinch-zoom;/,
+    'mobile document must allow vertical scrolling and pinch zoom without horizontal touch panning');
   assert.match(html, /#workspacePanel\.workspace-mobile-closed\s*\{\s*transform: translateX\(100%\) !important;/);
   assert.match(html, /@media \(max-width: 640px\)[\s\S]*?#studyRelatedPassagesSection\s*\{\s*padding: \.5rem !important;\s*gap: \.35rem !important;/);
   assert.match(html, /#studyRelatedPassagesSection > div:first-child > div:first-child > p:nth-child\(2\),\s*#studyRelatedPassageStatus\s*\{\s*display: none !important;/);
   assert.match(html, /#studyRelatedPassageList\.is-mobile-collapsed\s*\{\s*display: none;\s*\}/);
   assert.match(html, /id="toggleStudyRelatedPassagesBtn"[^>]*aria-controls="studyRelatedPassageList"[^>]*aria-expanded="false"/);
   assert.match(html, /id="openStudyRelatedPassagesBtn"/);
+});
+
+
+
+test('IBS Home prevents horizontal viewport panning without changing reader gestures', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  assert.match(html, /html\.ibs-home-view\s*\{[^}]*touch-action:\s*pan-y pinch-zoom;/,
+    'the viewport root must prevent horizontal panning while keeping vertical scroll and pinch zoom');
+  assert.match(html, /html\.ibs-home-view\s*\{[^}]*overscroll-behavior-x:\s*none;/,
+    'horizontal overscroll must not chain into a blank area');
+  assert.match(html, /body\.ibs-home-view > #studyDashboardHome\s*\{[^}]*min-width:\s*0;[^}]*overflow-x:\s*clip;[^}]*overscroll-behavior-x:\s*none;/,
+    'the Home dashboard must be clipped to the viewport');
+  assert.match(html, /document\.documentElement\.classList\.add\('ibs-home-view'\)/,
+    'the initial Home route must set the viewport gesture state before first paint');
+  assert.match(html, /function showDashboardHome\(\)[\s\S]*?document\.documentElement\.classList\.add\('ibs-home-view'\)/,
+    'returning to Home must restore the viewport gesture state');
+  assert.match(html, /function showBibleReader\(\)[\s\S]*?document\.documentElement\.classList\.remove\('ibs-home-view'\)/,
+    'entering the Bible reader must remove the Home-only gesture restriction');
 });

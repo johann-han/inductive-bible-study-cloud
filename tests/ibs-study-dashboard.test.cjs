@@ -81,6 +81,7 @@ class FakeDocument {
     this.elements = new Map();
     this.listeners = {};
     this.body = new FakeElement('body');
+    this.documentElement = new FakeElement('html');
   }
 
   addEventListener(type, handler) {
@@ -389,12 +390,14 @@ test('actual home and reader functions switch visible views and refresh the exis
   assert.equal(reader.style.display, 'none');
   assert.equal(home.style.display, '');
   assert.equal(document.body.classList.contains('ibs-home-view'), true);
+  assert.equal(document.documentElement.classList.contains('ibs-home-view'), true);
   assert.deepEqual(events, ['save-active-note', 'render-dashboard']);
 
   sandbox.showBibleReader();
   assert.equal(home.style.display, 'none');
   assert.equal(reader.style.display, '');
   assert.equal(document.body.classList.contains('ibs-home-view'), false);
+  assert.equal(document.documentElement.classList.contains('ibs-home-view'), false);
   assert.deepEqual(events.slice(-4), ['render-books', 'render-chapters', 'load-notes', 'render-scripture']);
 });
 

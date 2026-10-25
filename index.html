@@ -9039,7 +9039,8 @@ function renderStandardCrossReferenceList() {
             apply: 'Guide me through reviewing my DISCIPLESHIP notes. Check that each response follows from the passage’s meaning and doctrine established, is specific and practical, and does not impose a modern idea on the text. Help me consider what believers should understand, change, practise, or teach. Ask reflective questions; do not prescribe personal decisions or invent the user’s circumstances.'
           };
           const activeSection = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
-          askMentor(sectionPrompts[activeSection]);
+          const textualFeaturesGuidance = ' For every stage, explicitly examine significant and repeated keywords and the passage’s linking words (for example because, therefore, but, for, if, so that, and then). Explain what each important connector links and how that relationship shapes the argument or meaning in this specific context. Discuss Greek or Hebrew definitions, Strong’s entries, or morphology only when reliable original-language data is actually available in the study context; never invent a definition, grammatical form, or lexical claim. Keep observations distinct from interpretation and support conclusions with the text.';
+          askMentor(sectionPrompts[activeSection] + textualFeaturesGuidance);
         });
       }
 

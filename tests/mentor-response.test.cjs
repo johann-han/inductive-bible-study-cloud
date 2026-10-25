@@ -76,3 +76,24 @@ test('renumbers all remaining entries consecutively after removing Not', () => {
   assert.doesNotMatch(output, /5\. \*\*For\*\*/);
   assert.match(output, /Keep interpretation numbering untouched: 4\. Example\./);
 });
+
+test('removes a standalone Let imperative from Linking Words but preserves it elsewhere', () => {
+  const input = [
+    '## Linking Words',
+    '1. **And** — joins the clauses.',
+    '2. **Let** — directs the reader to act.',
+    '   This is an imperative, not a connective relationship.',
+    '3. **Lest** — introduces a purpose clause.',
+    '## Textual Observations',
+    '“Let” is an imperative in this sentence.',
+    '## Interpretation',
+    'Keep this interpretation.'
+  ].join('\n');
+  const output = removeNonConnectorEntries(input);
+  assert.match(output, /1\. \*\*And\*\*/);
+  assert.doesNotMatch(output, /^2\. \*\*Let\*\*/m);
+  assert.doesNotMatch(output, /This is an imperative/);
+  assert.match(output, /2\. \*\*Lest\*\*/);
+  assert.match(output, /Textual Observations[\s\S]*“Let” is an imperative/);
+  assert.match(output, /Keep this interpretation/);
+});

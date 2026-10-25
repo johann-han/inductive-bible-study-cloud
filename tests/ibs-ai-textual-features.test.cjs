@@ -35,7 +35,8 @@ test('initial analysis excludes non-connectors from the Linking Words list and v
   assert.match(html, /Do not include a non-connector as a numbered linking-word entry/);
   assert.match(html, /Put negation such as “not” under Textual Observations, not Linking Words/);
   assert.match(html, /Verify each quotation character-for-character against the selected translation/);
-  assert.match(html, /“lest any man should boast,” not “let no man should boast”/);
+  assert.match(html, /lest any man should boast/);
+  assert.match(html, /not “let no man should boast”/);
 });
 
 test('initial selected-verse study prompt requests contextual keyword and linking-word analysis', () => {

@@ -60,6 +60,18 @@ test('AI original-language guidance forbids invented Greek/Hebrew definitions or
 });
 
 
+test('server mentor performs a final audit and excludes non-connectors from linking-word entries', () => {
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.match(server, /FINAL CONNECTOR AUDIT \(mandatory before sending\)/);
+  assert.match(server, /name the two distinct clauses, propositions, or ideas that the quoted word actually connects/);
+  assert.match(server, /If you cannot point to both sides of that connection in the supplied verse, remove the entry/);
+  assert.match(server, /Never place 'not' in the Linking Words list when it negates a phrase/);
+  assert.match(server, /'not of works' in Ephesians 2:9 KJV/);
+  assert.match(server, /Prefer a shorter accurate list to a longer list padded with non-connectors/);
+  assert.match(html, /Before finalizing, audit every numbered linking-word entry and identify the two clauses or ideas it connects/);
+  assert.match(html, /In Ephesians 2:8–10 KJV, never list “not” from “not of works” as a linking word/);
+});
+
 test('server-wide AI mentor prompt requires contextual connector analysis and the full taxonomy', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   assert.match(server, /For each genuine significant connector, explicitly quote the exact word or phrase and verse/);

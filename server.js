@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { removeNonConnectorEntries } = require('./mentor-response');
 
 function loadEnv() {
   const envPath = path.join(__dirname, '.env');
@@ -483,7 +484,8 @@ const server = http.createServer(async (req, res) => {
       }
       const answer = data?.choices?.[0]?.message?.content;
       if (typeof answer !== 'string' || !answer.trim()) return send(res, 502, { error: 'The selected model returned no text response.' });
-      return send(res, 200, { answer: answer.trim(), model: data.model || MODEL });
+      const sanitizedAnswer = removeNonConnectorEntries(answer.trim());
+      return send(res, 200, { answer: sanitizedAnswer, model: data.model || MODEL });
     } catch (error) {
       return send(res, error.statusCode || 500, { error: error.message || 'Unexpected server error.' });
     }

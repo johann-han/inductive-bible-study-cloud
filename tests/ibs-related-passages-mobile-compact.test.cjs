@@ -9,6 +9,7 @@ test('related passages card is compact on phones while its list remains toggleab
   assert.match(html, /function isTouchWorkspaceLayout\(\)[\s\S]*?matchMedia\('\(pointer: coarse\) and \(hover: none\)'\)/);
   assert.match(html, /@media \(pointer: coarse\) and \(hover: none\)[\s\S]*?#studyRelatedPassageStatus\s*\{\s*display: none !important;/);
   assert.ok(html.includes('isTouchWorkspaceLayout()'));
+  assert.match(html, /function setAIDrawerOpen\(open\)[\s\S]*?const isMobileLayout = isTouchWorkspaceLayout\(\);/);
   assert.match(html, /html, body\s*\{\s*max-width: 100%;\s*overflow-x: hidden;\s*overflow-x: clip;/);
   assert.match(html, /#workspacePanel\.workspace-mobile-closed\s*\{\s*transform: translateX\(100%\) !important;/);
   assert.match(html, /@media \(max-width: 640px\)[\s\S]*?#studyRelatedPassagesSection\s*\{\s*padding: \.5rem !important;\s*gap: \.35rem !important;/);

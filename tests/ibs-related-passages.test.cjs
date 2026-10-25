@@ -642,7 +642,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
   assert.match(toggleSource, /const isMobileLayout = typeof window !== 'undefined' && window\.innerWidth <= 1024/);
   assert.match(toggleSource, /event\.stopPropagation\(\)/);
-  assert.match(toggleSource, /if \(window\.innerWidth <= 767\) setHeaderMenuOpen\(false\)/);
+  assert.match(toggleSource, /if \(isTouchWorkspaceLayout\(\)\) setHeaderMenuOpen\(false\)/);
   assert.match(toggleSource, /setWorkspaceOpen\(true\)/,
     'phone/tablet Notes taps should open directly instead of relying on menu bubbling');
   assert.doesNotMatch(toggleSource, /if \(isMobileLayout\) return;/,

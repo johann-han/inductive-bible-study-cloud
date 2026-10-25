@@ -15,6 +15,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
+
+    /* Prevent off-canvas fixed drawers from widening the page's horizontal
+       scroll area on mobile browsers. Keep a fallback for browsers without clip. */
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+      overflow-x: clip;
+    }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 4px; }

@@ -6,6 +6,15 @@ const path = require('node:path');
 test('related passages card is compact on phones while its list remains toggleable', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /<section id="studyRelatedPassagesSection"[^>]*>/);
+  const bootstrapStart = html.indexOf('// Desktop-site mode can report a viewport wider than the actual phone.');
+  const bootstrapEnd = html.indexOf('</script>', bootstrapStart);
+  const firstStyle = html.indexOf('<style>', bootstrapEnd);
+  assert.ok(bootstrapStart >= 0 && bootstrapEnd > bootstrapStart && firstStyle > bootstrapEnd,
+    'touch layout must be classified before the responsive CSS is parsed');
+  const bootstrap = html.slice(bootstrapStart, bootstrapEnd);
+  assert.match(bootstrap, /applyTouchWorkspaceLayout\(\);/);
+  assert.match(bootstrap, /addEventListener\('resize', applyTouchWorkspaceLayout/);
+  assert.match(bootstrap, /addEventListener\('orientationchange', applyTouchWorkspaceLayout/);
   assert.match(html, /function isTouchWorkspaceLayout\(\)[\s\S]*?screenWidth <= 1024[\s\S]*?classList\.toggle\('touch-workspace-layout', useMobileLayout\)/);
   assert.match(html, /function isTouchWorkspaceLayout\(\)[\s\S]*?maxTouchPoints/);
   assert.match(html, /touchDeviceWithWideViewport = hasTouch && screenWidth > 0 && screenWidth <= 1024/);

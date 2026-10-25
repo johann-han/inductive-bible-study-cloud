@@ -69,6 +69,6 @@ test('active IBS study prevents horizontal viewport panning and refreshes the PW
     'opening the reader must enable the study viewport gesture rule');
   assert.match(html, /function showDashboardHome\(\)[\s\S]*?document\.documentElement\.classList\.remove\('ibs-study-view'\)/,
     'returning Home must remove the study-only viewport state');
-  assert.match(sw, /CACHE_NAME\s*=\s*'inductive-bible-study-shell-v19'/,
+  assert.match(sw, /CACHE_NAME\s*=\s*'inductive-bible-study-shell-v20'/,
     'installed workspaces must fetch the updated shell rather than reuse the previous cache');
 });

@@ -17,6 +17,8 @@
     // Desktop-site mode can report a viewport wider than the actual phone.
     // Classify the layout early, before the CSS breakpoint-dependent shell paints.
     (() => {
+      // Initial route is the Home dashboard; set viewport gesture rules before first paint.
+      document.documentElement.classList.add('ibs-home-view');
       const applyTouchWorkspaceLayout = () => {
         const viewportWidth = Number(window.innerWidth || 0);
         const screenWidth = Number(window.screen && window.screen.width || 0);
@@ -51,6 +53,35 @@
     body {
       touch-action: pan-y pinch-zoom;
     }
+    /* The Home screen is not a horizontal carousel. Apply gesture handling to the
+       document element (the viewport's gesture surface), not only to body, and
+       keep the dashboard itself inside that viewport. Reader mode removes this
+       root class so workspace controls retain their own scrolling behaviour. */
+    html.ibs-home-view {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: clip;
+      overscroll-behavior-x: none;
+      touch-action: pan-y pinch-zoom;
+    }
+    body.ibs-home-view {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: clip;
+    }
+    body.ibs-home-view > #studyDashboardHome {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: clip;
+      overscroll-behavior-x: none;
+    }
+    body.ibs-home-view > #studyDashboardHome > section {
+      min-width: 0;
+      max-width: 100%;
+    }
+
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 4px; }
@@ -6626,6 +6657,7 @@ function renderStandardCrossReferenceList() {
       if (reader) reader.style.display = 'none';
       if (home) home.style.display = '';
       document.body.classList.add('ibs-home-view');
+      document.documentElement.classList.add('ibs-home-view');
       renderStudyDashboard();
     }
 
@@ -6635,6 +6667,7 @@ function renderStandardCrossReferenceList() {
       if (home) home.style.display = 'none';
       if (reader) reader.style.display = '';
       document.body.classList.remove('ibs-home-view');
+      document.documentElement.classList.remove('ibs-home-view');
       if (typeof renderBooksList === 'function') renderBooksList();
       if (typeof renderChapterPills === 'function') renderChapterPills();
       if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();

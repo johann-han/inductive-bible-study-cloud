@@ -6,7 +6,7 @@ const test = require('node:test');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 test('AI stage review explicitly examines keywords and linking words in context', () => {
-  assert.match(html, /const textualFeaturesGuidance = '[^']*do not merely list linking words or give generic definitions/);
+  assert.match(html, /const textualFeaturesGuidance = `[^`]*do not merely list linking words or give generic definitions/);
   assert.match(html, /do not merely list linking words or give generic definitions/);
   assert.match(html, /identify the exact clause, statement, reason, result, contrast, purpose, or inference it connects/);
   assert.match(html, /explain its grammatical\/discourse function in this sentence/);
@@ -28,6 +28,15 @@ test('linking-word guidance distinguishes genuine connectors from negation and d
   assert.match(html, /negators such as “not,” imperatives or directive verbs such as “let,” articles, auxiliaries, and ordinary content words are not linking words merely because they affect meaning/);
   assert.match(html, /If no genuine connector is present, say so rather than filling the list/);
   assert.match(html, /Do not mistake negation \(for example, “not”\) or a directive verb \(for example, “let”\) for a linking word/);
+});
+
+test('initial analysis excludes non-connectors from the Linking Words list and verifies quotations', () => {
+  assert.match(html, /STRICT OUTPUT RULE: The “Linking Words” section may contain only words that demonstrably connect two clauses/);
+  assert.match(html, /Do not include a non-connector as a numbered linking-word entry/);
+  assert.match(html, /Put negation such as “not” under Textual Observations, not Linking Words/);
+  assert.match(html, /Verify each quotation character-for-character against the selected translation/);
+  assert.match(html, /lest any man should boast/);
+  assert.match(html, /let no man should boast/);
 });
 
 test('initial selected-verse study prompt requests contextual keyword and linking-word analysis', () => {

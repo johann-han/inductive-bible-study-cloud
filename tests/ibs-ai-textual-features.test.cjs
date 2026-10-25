@@ -54,6 +54,10 @@ test('AI original-language guidance forbids invented Greek/Hebrew definitions or
 test('server-wide AI mentor prompt requires contextual connector analysis and the full taxonomy', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   assert.match(server, /For each significant connector, explicitly quote the word or phrase and verse/);
+  assert.match(server, /Before listing a word under 'Linking Words,' verify from the supplied verse wording that it actually links two clauses, propositions, or ideas/);
+  assert.match(server, /'not' is a negator and 'let' is usually a directive verb, not a connector/);
+  assert.match(server, /do not misquote 'lest' as 'let'/);
+  assert.match(server, /If the passage has no significant connectors, say so rather than filling the list/);
   assert.match(server, /identify the exact clauses or ideas it connects/);
   assert.match(server, /advances the .* argument and affects interpretation/);
   assert.match(server, /CAUSE \/ REASON \(because, for this reason, since, that\)/);

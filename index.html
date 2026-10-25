@@ -38,9 +38,18 @@
     /* Prevent off-canvas fixed drawers from widening the page's horizontal
        scroll area on mobile browsers. Keep a fallback for browsers without clip. */
     html, body {
+      width: 100%;
       max-width: 100%;
       overflow-x: hidden;
       overflow-x: clip;
+      overscroll-behavior-x: none;
+    }
+
+    /* The Home page is a single vertical screen on phones, not a horizontal
+       carousel. Prevent touch swipes from panning the document into empty space
+       while preserving vertical scrolling and pinch zoom. */
+    body {
+      touch-action: pan-y pinch-zoom;
     }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }

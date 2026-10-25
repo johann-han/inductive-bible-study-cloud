@@ -24,7 +24,7 @@ test('removes a numbered Not entry and its explanatory continuation only from Li
   assert.match(output, /2\. \*\*That\*\*/);
   assert.doesNotMatch(output, /3\. \*\*“Not” \(Ephesians 2:9\)\*\*/);
   assert.doesNotMatch(output, /This negates “of works”/);
-  assert.match(output, /3\. \*\*Created\*\*/);
+  assert.doesNotMatch(output, /Created/);
   assert.match(output, /## Interpretation[\s\S]*The negation is important/);
 });
 

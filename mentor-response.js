@@ -31,7 +31,7 @@ function removeNonConnectorEntries(answer) {
         .replace(/^\s*\d+[.)]\s*/, '')
         .replace(/^\*\*/, '')
         .replace(/^[“”"'‘’*_\s]+/, '');
-      removingEntry = /^(?:not|let)(?:\b|\s*["'”’*])/i.test(entryTitle);
+      removingEntry = /^(?:not|let|created)(?:\b|\s*["'”’*])/i.test(entryTitle);
       if (removingEntry) continue;
     } else if (removingEntry) {
       if (numberedEntryPattern.test(line)) removingEntry = false;

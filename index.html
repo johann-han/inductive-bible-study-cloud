@@ -4205,12 +4205,6 @@ function renderStandardCrossReferenceList() {
           else if (event.key === 'End') setSheetHeight(window.innerHeight * .90);
           else setSheetHeight(current + (event.key === 'ArrowUp' ? 48 : -48));
         });
-        window.addEventListener('resize', () => {
-          if (isResizableSheet() && modal.style.getPropertyValue('--cross-reference-sheet-height')) {
-            const current = modal.querySelector(':scope > section')?.getBoundingClientRect().height || window.innerHeight * .60;
-            setSheetHeight(current);
-          }
-        });
       }
       openButton?.addEventListener('click', () => openCrossReferenceModal());
       toggleStudyRelatedPassagesButton?.addEventListener('click', () => {

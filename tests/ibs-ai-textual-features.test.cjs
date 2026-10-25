@@ -30,6 +30,14 @@ test('linking-word guidance distinguishes genuine connectors from negation and d
   assert.match(html, /Do not mistake negation \(for example, “not”\) or a directive verb \(for example, “let”\) for a linking word/);
 });
 
+test('initial analysis excludes non-connectors from the Linking Words list and verifies quotations', () => {
+  assert.match(html, /STRICT OUTPUT RULE: The 'Linking Words' section may contain only words that demonstrably connect two clauses/);
+  assert.match(html, /Do not include a non-connector as a numbered linking-word entry/);
+  assert.match(html, /Put negation such as “not” under Textual Observations, not Linking Words/);
+  assert.match(html, /Verify each quotation character-for-character against the selected translation/);
+  assert.match(html, /“lest any man should boast,” not “let no man should boast”/);
+});
+
 test('initial selected-verse study prompt requests contextual keyword and linking-word analysis', () => {
   assert.match(html, /Make this first analysis examine the passage’s significant keywords and linking words/);
   assert.match(html, /For each significant linking word actually present, quote it with its verse/);

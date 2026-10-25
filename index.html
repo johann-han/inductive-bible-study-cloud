@@ -13,6 +13,25 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- sql.js (SQLite WebAssembly) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <script>
+    // Desktop-site mode can report a viewport wider than the actual phone.
+    // Classify the layout early, before the CSS breakpoint-dependent shell paints.
+    (() => {
+      const applyTouchWorkspaceLayout = () => {
+        const viewportWidth = Number(window.innerWidth || 0);
+        const screenWidth = Number(window.screen && window.screen.width || 0);
+        const hasTouch = Number(navigator.maxTouchPoints || 0) > 0;
+        const touchPointer = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+        const touchDeviceWithWideViewport = hasTouch && screenWidth > 0 && screenWidth <= 1024;
+        const useMobileLayout = viewportWidth <= 1024 || touchPointer || touchDeviceWithWideViewport;
+        document.documentElement.classList.toggle('touch-workspace-layout', useMobileLayout);
+      };
+      applyTouchWorkspaceLayout();
+      window.addEventListener('resize', applyTouchWorkspaceLayout, { passive: true });
+      window.addEventListener('orientationchange', applyTouchWorkspaceLayout, { passive: true });
+    })();
+  </script>
+
   <style>
     * { -webkit-tap-highlight-color: transparent; }
 
@@ -286,6 +305,118 @@
         height: 100dvh !important;
         max-height: 100dvh !important;
       }
+    }
+
+    /* Explicit mobile layout class handles phones whose browser reports a desktop-width viewport. */
+    html.touch-workspace-layout body {
+      width: 100%;
+      height: 100dvh;
+      min-height: 0;
+      overflow: hidden;
+    }
+    html.touch-workspace-layout body > header {
+      position: relative;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: .5rem;
+      min-height: 60px;
+    }
+    html.touch-workspace-layout body > header > div:first-child {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    html.touch-workspace-layout body > header > div:first-child > div { min-width: 0; }
+    html.touch-workspace-layout body > header > div:first-child h1 { font-size: .85rem; }
+    html.touch-workspace-layout body > header > div:first-child a[href="/sermon/index.html"] { padding: .55rem .65rem; }
+    html.touch-workspace-layout #headerMenuBtn {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+    }
+    html.touch-workspace-layout #headerControlsPanel {
+      position: absolute;
+      top: calc(100% + 1px);
+      right: .5rem;
+      left: .5rem;
+      z-index: 80;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+      gap: .5rem;
+      width: auto;
+      max-width: none;
+      padding: .65rem;
+      border: 1px solid #334155;
+      border-radius: 0 0 .9rem .9rem;
+      background: #0f172a;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, .32);
+    }
+    html.touch-workspace-layout #headerControlsPanel.is-menu-closed { display: none !important; }
+    html.touch-workspace-layout #headerControlsPanel > button,
+    html.touch-workspace-layout #headerControlsPanel > select {
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      min-height: 42px;
+      justify-content: center;
+      white-space: normal;
+      text-align: center;
+      padding: .5rem .35rem;
+      font-size: .75rem;
+    }
+    html.touch-workspace-layout #headerControlsPanel #navSelectBtn,
+    html.touch-workspace-layout #headerControlsPanel #globalTranslationSelect { min-width: 0; }
+    html.touch-workspace-layout #headerControlsPanel #currentPassageLabel { max-width: 8rem; }
+    html.touch-workspace-layout #headerControlsPanel #globalTranslationSelect { padding-left: .35rem; padding-right: .35rem; }
+    html.touch-workspace-layout #headerControlsPanel #appInstallBtn { display: none !important; }
+
+    html.touch-workspace-layout .flex-1.flex.overflow-hidden.relative { min-height: 0; }
+    html.touch-workspace-layout #readerWorkspace { width: 100%; min-width: 0; min-height: 0; }
+    html.touch-workspace-layout #sidebar {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: min(86vw, 21rem) !important;
+      max-width: 21rem !important;
+      height: 100% !important;
+      z-index: 30;
+    }
+    html.touch-workspace-layout #sidebar.sidebar-collapsed,
+    html.touch-workspace-layout #sidebar.-translate-x-full { transform: translateX(-100%) !important; }
+    html.touch-workspace-layout #sidebar:not(.sidebar-collapsed):not(.-translate-x-full) { transform: translateX(0) !important; }
+    html.touch-workspace-layout #mobileBackdrop:not(.hidden) { display: block !important; }
+    html.touch-workspace-layout #readerWorkspace main.flex-1.flex.flex-col.overflow-hidden {
+      flex-direction: column !important;
+      min-width: 0;
+      min-height: 0;
+    }
+    html.touch-workspace-layout #readerWorkspace main > section:first-child {
+      min-width: 0;
+      min-height: 0;
+      border-right: 0;
+    }
+    html.touch-workspace-layout #scriptureContainer {
+      min-width: 0;
+      overflow-x: hidden;
+      overflow-wrap: anywhere;
+      padding: .55rem .45rem 6.5rem;
+      font-size: 15px;
+    }
+    html.touch-workspace-layout #studyRelatedPassagesSection { padding: .5rem !important; gap: .35rem !important; }
+    html.touch-workspace-layout #studyRelatedPassagesSection > div:first-child { align-items: center; }
+    html.touch-workspace-layout #studyRelatedPassagesSection > div:first-child > div:first-child > p:nth-child(2),
+    html.touch-workspace-layout #studyRelatedPassageStatus { display: none !important; }
+    html.touch-workspace-layout #studyRelatedPassageList.is-mobile-collapsed { display: none; }
+    html.touch-workspace-layout #studyRelatedPassageList { gap: .35rem; }
+    html.touch-workspace-layout #studyRelatedPassageList article { padding: .5rem; }
+    html.touch-workspace-layout #workspacePanel.workspace-mobile-open {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      max-width: 100vw !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
     }
 
     /* Keep related-passage verse cards out of the way while writing on phones. */
@@ -6371,10 +6502,15 @@ function renderStandardCrossReferenceList() {
 
     function isTouchWorkspaceLayout() {
       if (typeof window === 'undefined') return false;
-      // Some Android browsers expose a wide layout viewport despite being used
-      // on a phone. The coarse-pointer/no-hover signal keeps drawers full-screen.
-      const touchFirst = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
-      return window.innerWidth <= 1024 || touchFirst;
+      // Include screen dimensions and touch capability because desktop-site mode
+      // can report a wide viewport and different pointer/hover media features.
+      const screenWidth = Number(window.screen && window.screen.width || 0);
+      const hasTouch = Number(navigator.maxTouchPoints || 0) > 0;
+      const touchPointer = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+      const touchFirst = touchPointer || (hasTouch && screenWidth > 0 && screenWidth <= 1024);
+      const useMobileLayout = window.innerWidth <= 1024 || touchFirst;
+      document.documentElement.classList.toggle('touch-workspace-layout', useMobileLayout);
+      return useMobileLayout;
     }
 
     function getDashboardStudyEntries() {

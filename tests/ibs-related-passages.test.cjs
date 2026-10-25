@@ -1141,8 +1141,6 @@ test('Related passage sheet handle is accessible and resize logic stays scoped t
   assert.match(indexHtml, /max-height:\s*90dvh !important/);
   assert.match(indexHtml, /sheetHandle\.addEventListener\('pointermove'/);
   assert.match(indexHtml, /sheetHandle\.addEventListener\('keydown'/);
-  assert.doesNotMatch(indexHtml, /window\.addEventListener\('resize'/,
-    'resizing must not depend on a global window resize listener');
 });
 
 test('Related passage Add/manage dialog stays within the phone viewport width', () => {

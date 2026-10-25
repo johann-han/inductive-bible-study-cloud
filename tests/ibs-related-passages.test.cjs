@@ -675,7 +675,7 @@ test('AI Study Guide drawer has reliable explicit mobile open and close states',
   assert.ok(helperStart >= 0 && helperEnd > helperStart, 'shared AI drawer state helper should exist');
   const helper = indexHtml.slice(helperStart, helperEnd);
 
-  assert.match(helper, /const isMobileLayout = typeof window !== 'undefined' && window\.innerWidth <= 1024/);
+  assert.match(helper, /const isMobileLayout = isTouchWorkspaceLayout\(\)/, 'AI drawer and Notes must share touch-first layout detection');
   assert.match(helper, /document\.body\.appendChild\(drawer\)/,
     'mobile AI drawer must escape the reader overflow container');
   assert.match(helper, /drawer\.classList\.add\('ai-drawer-open'\)/);

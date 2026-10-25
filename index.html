@@ -4415,7 +4415,9 @@ function renderStandardCrossReferenceList() {
         setReaderFullscreenMode(false);
       }
 
-      const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024;
+      // Use the same touch-first detection as the Notes drawer. Android desktop-site
+      // mode can report a wide layout viewport even though this is a phone.
+      const isMobileLayout = isTouchWorkspaceLayout();
       if (open) {
         if (isMobileLayout && drawer.parentElement !== document.body) {
           document.body.appendChild(drawer);

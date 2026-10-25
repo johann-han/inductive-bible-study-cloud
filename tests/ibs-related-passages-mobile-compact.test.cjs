@@ -55,3 +55,18 @@ test('IBS Home prevents horizontal viewport panning without changing reader gest
   assert.match(html, /function showBibleReader\(\)[\s\S]*?document\.documentElement\.classList\.remove\('ibs-home-view'\)/,
     'entering the Bible reader must remove the Home-only gesture restriction');
 });
+
+
+test('active IBS study prevents horizontal viewport panning and refreshes the PWA shell', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+
+  assert.match(html, /html\.ibs-study-view\s*\{[^}]*overflow-x:\s*clip;[^}]*overscroll-behavior-x:\s*none;[^}]*touch-action:\s*pan-y pinch-zoom;/,
+    'the active study viewport must not pan horizontally');
+  assert.match(html, /function showBibleReader\(\)[\s\S]*?document\.documentElement\.classList\.add\('ibs-study-view'\)/,
+    'opening the reader must enable the study viewport gesture rule');
+  assert.match(html, /function showDashboardHome\(\)[\s\S]*?document\.documentElement\.classList\.remove\('ibs-study-view'\)/,
+    'returning Home must remove the study-only viewport state');
+  assert.match(sw, /CACHE_NAME\s*=\s*'inductive-bible-study-shell-v16'/,
+    'installed workspaces must fetch the updated shell rather than reuse the previous cache');
+});

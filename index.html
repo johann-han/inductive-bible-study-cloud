@@ -77,6 +77,27 @@
       overflow-x: clip;
       overscroll-behavior-x: none;
     }
+    /* Keep the active reader/workspace from panning the document sideways on touch devices.
+       Horizontal overflow remains available inside explicitly scrollable child controls. */
+    html.ibs-study-view {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: clip;
+      overscroll-behavior-x: none;
+      touch-action: pan-y pinch-zoom;
+    }
+    body.ibs-study-view {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: clip;
+    }
+    html.touch-workspace-layout.ibs-study-view {
+      overflow-x: clip;
+      overscroll-behavior-x: none;
+      touch-action: pan-y pinch-zoom;
+    }
+
     body.ibs-home-view > #studyDashboardHome > section {
       min-width: 0;
       max-width: 100%;
@@ -6658,6 +6679,7 @@ function renderStandardCrossReferenceList() {
       if (home) home.style.display = '';
       document.body.classList.add('ibs-home-view');
       document.documentElement.classList.add('ibs-home-view');
+      document.documentElement.classList.remove('ibs-study-view');
       renderStudyDashboard();
     }
 
@@ -6668,6 +6690,7 @@ function renderStandardCrossReferenceList() {
       if (reader) reader.style.display = '';
       document.body.classList.remove('ibs-home-view');
       document.documentElement.classList.remove('ibs-home-view');
+      document.documentElement.classList.add('ibs-study-view');
       if (typeof renderBooksList === 'function') renderBooksList();
       if (typeof renderChapterPills === 'function') renderChapterPills();
       if (typeof loadActiveStudyNote === 'function') loadActiveStudyNote();

@@ -1011,6 +1011,7 @@
     </button>
 
     <div id="headerControlsPanel" class="is-menu-closed flex items-center space-x-1.5 sm:space-x-2">
+      <button id="openStudyLibraryBtn" type="button" class="bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-amber-200 shrink-0">My Saved Studies</button>
       <button id="openDashboardBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1" title="Return to IBS Home">⌂ <span>Home</span></button>
       <button id="openBibleSearchBtn" type="button" title="Search Bible verses by words or phrase" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 transition">🔎 Search</button>
       <button id="navSelectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 shrink-0 transition">
@@ -1250,7 +1251,7 @@
         <div class="p-3 bg-white border-b border-slate-200 flex items-center justify-between">
           <span class="text-xs font-bold text-amber-800 truncate pr-2" id="workspaceNoteTitle">Genesis 1 - Observe Notes</span>
           <div class="flex items-center space-x-2 shrink-0">
-            <button id="openStudyLibraryBtn" type="button" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-1 rounded font-semibold">My Studies</button>
+            
             <button id="exportMarkdownBtn" class="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded font-semibold">Export MD</button>
             <button id="exportStudyReportBtn" type="button" title="Download a publication-ready, print-friendly report for this study" class="text-[10px] bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-1 rounded font-semibold">Report</button>
             <button id="exportSermonSourceBtn" type="button" title="Export this study as structured JSON for Expository Sermon Prep" class="text-[10px] bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1 rounded font-semibold">Sermon</button>
@@ -1400,7 +1401,7 @@
     </main>
 
     <!-- LOCAL STUDY LIBRARY -->
-    <div id="studyLibraryModal" class="hidden fixed inset-0 z-[70] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyLibraryTitle">
+    <div id="studyLibraryModal" class="hidden fixed inset-0 z-[100] bg-slate-950/60 p-3 sm:p-6 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="studyLibraryTitle">
       <section class="w-full max-w-2xl max-h-[85vh] bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
         <header class="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
           <div>

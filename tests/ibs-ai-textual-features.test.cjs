@@ -22,6 +22,14 @@ test('AI stage review explicitly examines keywords and linking words in context'
   assert.match(html, /askMentor\(sectionPrompts\[activeSection\] \+ textualFeaturesGuidance\)/);
 });
 
+
+test('default Analyze My Notes action begins with contextual keyword and linking-word analysis', () => {
+  assert.match(html, /data-prompt="Analyse the selected passage’s significant keywords and linking words as the first study analysis/);
+  assert.match(html, /identify the clauses or ideas it connects/);
+  assert.match(html, /classify its contextual function using my ten linking-word categories/);
+  assert.match(html, /Do not jump to life application unless I ask for it/);
+});
+
 test('AI original-language guidance forbids invented Greek/Hebrew definitions or morphology', () => {
   assert.match(html, /Discuss Greek or Hebrew definitions, Strong’s entries, or morphology only when reliable original-language data is actually available in the study context/);
   assert.match(html, /never invent a definition, grammatical form, or lexical claim/);

@@ -23,6 +23,13 @@ test('AI stage review explicitly examines keywords and linking words in context'
 });
 
 
+test('linking-word guidance distinguishes genuine connectors from negation and directive words', () => {
+  assert.match(html, /Before classifying anything as a linking word, verify that it actually connects clauses, propositions, or ideas/);
+  assert.match(html, /negators such as “not,” imperatives or directive verbs such as “let,” articles, auxiliaries, and ordinary content words are not linking words merely because they affect meaning/);
+  assert.match(html, /If no genuine connector is present, say so rather than filling the list/);
+  assert.match(html, /Do not mistake negation \(for example, “not”\) or a directive verb \(for example, “let”\) for a linking word/);
+});
+
 test('initial selected-verse study prompt requests contextual keyword and linking-word analysis', () => {
   assert.match(html, /Make this first analysis examine the passage’s significant keywords and linking words/);
   assert.match(html, /For each significant linking word actually present, quote it with its verse/);

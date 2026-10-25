@@ -666,7 +666,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
 test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v20'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v21'/);
 });
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
@@ -1129,9 +1129,21 @@ test('Related passage Add/manage dialog escapes transformed panels on mobile', (
 
 test('PWA shell cache version advances for the related-passage dialog fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v20'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v21'/);
 });
 
+
+test('Related passage sheet handle is accessible and resize logic stays scoped to the handle', () => {
+  assert.match(indexHtml, /id="crossReferenceSheetHandle"[^>]*aria-label="Resize Related Passages panel"/);
+  assert.match(indexHtml, /#crossReferenceSheetHandle\s*\{[\s\S]*?touch-action:\s*none;/);
+  assert.match(indexHtml, /height:\s*var\(--cross-reference-sheet-height, 60dvh\)/);
+  assert.match(indexHtml, /min-height:\s*35dvh !important/);
+  assert.match(indexHtml, /max-height:\s*90dvh !important/);
+  assert.match(indexHtml, /sheetHandle\.addEventListener\('pointermove'/);
+  assert.match(indexHtml, /sheetHandle\.addEventListener\('keydown'/);
+  assert.doesNotMatch(indexHtml, /window\.addEventListener\('resize'/,
+    'resizing must not depend on a global window resize listener');
+});
 
 test('Related passage Add/manage dialog stays within the phone viewport width', () => {
   assert.match(indexHtml, /@media \(max-width: 767px\)\s*\{[\s\S]*?#crossReferenceModal\s*\{[\s\S]*?width: 100vw !important;[\s\S]*?max-width: 100vw !important;[\s\S]*?box-sizing: border-box !important;[\s\S]*?overflow-x: hidden !important;/);

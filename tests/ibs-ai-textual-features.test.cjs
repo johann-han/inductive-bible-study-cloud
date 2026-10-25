@@ -26,3 +26,17 @@ test('AI original-language guidance forbids invented Greek/Hebrew definitions or
   assert.match(html, /Discuss Greek or Hebrew definitions, Strong’s entries, or morphology only when reliable original-language data is actually available in the study context/);
   assert.match(html, /never invent a definition, grammatical form, or lexical claim/);
 });
+
+
+test('server-wide AI mentor prompt requires contextual connector analysis and the full taxonomy', () => {
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.match(server, /For each significant connector, explicitly quote the word or phrase and verse/);
+  assert.match(server, /identify the exact clauses or ideas it connects/);
+  assert.match(server, /advances the .* argument and affects interpretation/);
+  assert.match(server, /CAUSE \/ REASON \(because, for this reason, since, that\)/);
+  assert.match(server, /COMPARISON \(as, also, just as, like, likewise, more, more than, so as, so also, too\)/);
+  assert.match(server, /CONTINUATION \(and, either, neither, nor, or\)/);
+  assert.match(server, /PURPOSE \/ RESULT \(for this purpose, in order that, so that, that, then, therefore, thus\)/);
+  assert.match(server, /candidate categories, not automatic labels/);
+  assert.match(server, /never invent occurrences or overstate uncertain links/);
+});

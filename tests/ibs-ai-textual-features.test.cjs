@@ -23,6 +23,14 @@ test('AI stage review explicitly examines keywords and linking words in context'
 });
 
 
+test('initial selected-verse study prompt requests contextual keyword and linking-word analysis', () => {
+  assert.match(html, /Make this first analysis examine the passage’s significant keywords and linking words/);
+  assert.match(html, /For each significant linking word actually present, quote it with its verse/);
+  assert.match(html, /classify its contextual function using the ten linking-word categories/);
+  assert.match(html, /Do not invent words or force categories/);
+  assert.match(html, /or jump directly to life application/);
+});
+
 test('default Analyze My Notes action begins with contextual keyword and linking-word analysis', () => {
   assert.match(html, /data-prompt="Analyse the selected passage’s significant keywords and linking words as the first study analysis/);
   assert.match(html, /identify the clauses or ideas it connects/);

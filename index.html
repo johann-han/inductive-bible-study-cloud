@@ -9067,8 +9067,7 @@ function renderStandardCrossReferenceList() {
             return;
           }
           const prompt = 'Help me study only the selected verse(s): ' + selected.join(', ') +
-            '. Begin with specific observations supported by the text, then raise interpretation questions and relevant context. ' +
-            'Do not jump directly to application or claim certainty beyond the supplied passage. Guide me with questions as well as concise explanations.';
+            '. Make this first analysis examine the passage’s significant keywords and linking words. For each significant linking word actually present, quote it with its verse, identify the clauses or ideas it connects, classify its contextual function using the ten linking-word categories, and explain how it advances the author’s argument and affects interpretation. Identify important or repeated keywords and explain their contribution. Begin with specific observations supported by the text, distinguish observation from interpretation, and raise relevant interpretation questions and context. Do not invent words or force categories, claim certainty beyond the supplied passage, or jump directly to life application. Guide me with questions as well as concise explanations.';
           askMentor(prompt);
         });
       }

@@ -261,6 +261,33 @@
       }
     }
 
+    /* Touch-first phones may report a wide layout viewport (for example, with
+       browser desktop-site mode enabled). Keep study controls compact there too. */
+    @media (pointer: coarse) and (hover: none) {
+      #studyRelatedPassagesSection {
+        padding: .5rem !important;
+        gap: .35rem !important;
+      }
+      #studyRelatedPassagesSection > div:first-child {
+        align-items: center;
+      }
+      #studyRelatedPassagesSection > div:first-child > div:first-child > p:nth-child(2),
+      #studyRelatedPassageStatus {
+        display: none !important;
+      }
+      #studyRelatedPassageList.is-mobile-collapsed { display: none; }
+      #studyRelatedPassageList { gap: .35rem; }
+      #studyRelatedPassageList article { padding: .5rem; }
+      #workspacePanel.workspace-mobile-open {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+      }
+    }
+
     /* Keep related-passage verse cards out of the way while writing on phones. */
     @media (max-width: 640px) {
       #studyRelatedPassagesSection {
@@ -5079,7 +5106,7 @@ function renderStandardCrossReferenceList() {
           clearWorkspacePanelInlinePosition(workspacePanel);
           workspacePanel.classList.remove('workspace-expanded', 'workspace-mobile-open');
           workspacePanel.classList.add('translate-x-full');
-          const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024;
+          const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024 || isTouchWorkspaceLayout();
           workspacePanel.classList.toggle('workspace-mobile-closed', isMobileLayout);
           workspacePanel.setAttribute('aria-hidden', 'true');
           if (expandWorkspaceBtn) {
@@ -5099,7 +5126,7 @@ function renderStandardCrossReferenceList() {
       if (toggleWorkspaceMobile) {
         toggleWorkspaceMobile.onclick = event => {
           event.preventDefault();
-          const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024;
+          const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024 || isTouchWorkspaceLayout();
           const isOpen = workspacePanel &&
             workspacePanel.getAttribute('aria-hidden') === 'false' &&
             !workspacePanel.classList.contains('translate-x-full') &&
@@ -6340,6 +6367,14 @@ function renderStandardCrossReferenceList() {
       });
     }
 
+    function isTouchWorkspaceLayout() {
+      if (typeof window === 'undefined') return false;
+      // Some Android browsers expose a wide layout viewport despite being used
+      // on a phone. The coarse-pointer/no-hover signal keeps drawers full-screen.
+      const touchFirst = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+      return window.innerWidth <= 1024 || touchFirst;
+    }
+
     function getDashboardStudyEntries() {
       const library = readStudyLibrary();
       return Object.values(library)
@@ -6367,10 +6402,12 @@ function renderStandardCrossReferenceList() {
         setReaderFullscreenMode(false);
       }
 
+      // Standard phone/tablet breakpoint: window.innerWidth <= 1024. Touch-first
+      // detection below also covers phones whose browser reports a wider viewport.
       // Match the AI drawer's phone/tablet breakpoint. A browser may report a
       // layout viewport wider than 767 CSS pixels even when the menu is in its
       // compact layout; keeping this threshold aligned prevents a clipped side tab.
-      const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024;
+      const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024 || isTouchWorkspaceLayout();
       // A fixed drawer nested inside the reader's overflow-hidden flex container can
       // be clipped or painted below the reader. Move the panel to body on phone/tablet
       // layouts so its viewport positioning is independent of readerWorkspace.

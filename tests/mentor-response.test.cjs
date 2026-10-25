@@ -24,7 +24,7 @@ test('removes a numbered Not entry and its explanatory continuation only from Li
   assert.match(output, /2\. \*\*That\*\*/);
   assert.doesNotMatch(output, /3\. \*\*“Not” \(Ephesians 2:9\)\*\*/);
   assert.doesNotMatch(output, /This negates “of works”/);
-  assert.match(output, /4\. \*\*Created\*\*/);
+  assert.match(output, /3\. \*\*Created\*\*/);
   assert.match(output, /## Interpretation[\s\S]*The negation is important/);
 });
 
@@ -52,6 +52,27 @@ test('supports unbolded and quoted Not entry titles', () => {
   const output = removeNonConnectorEntries(input);
   assert.doesNotMatch(output, /^2\. Not/m);
   assert.doesNotMatch(output, /It does not connect clauses/);
-  assert.match(output, /3\. Therefore/);
+  assert.match(output, /2\. Therefore/);
   assert.match(output, /Keep this section/);
+});
+
+
+test('renumbers all remaining entries consecutively after removing Not', () => {
+  const input = [
+    '## Linking Words',
+    '1. **For** — reason.',
+    '2. **And** — addition.',
+    '3. **Not** — negation, not a connector.',
+    '4. **Lest** — purpose.',
+    '5. **For** — reason.',
+    '## Interpretation',
+    'Keep interpretation numbering untouched: 4. Example.'
+  ].join('\n');
+  const output = removeNonConnectorEntries(input);
+  assert.match(output, /1\. \*\*For\*\*/);
+  assert.match(output, /2\. \*\*And\*\*/);
+  assert.match(output, /3\. \*\*Lest\*\*/);
+  assert.match(output, /4\. \*\*For\*\*/);
+  assert.doesNotMatch(output, /5\. \*\*For\*\*/);
+  assert.match(output, /Keep interpretation numbering untouched: 4\. Example\./);
 });

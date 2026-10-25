@@ -253,6 +253,13 @@
       }
     }
 
+    /* Keep related-passage verse cards out of the way while writing on phones. */
+    @media (max-width: 640px) {
+      #studyRelatedPassageList.is-mobile-collapsed { display: none; }
+      #studyRelatedPassageList { gap: .35rem; }
+      #studyRelatedPassageList article { padding: .5rem; }
+    }
+
     @media (max-width: 360px) {
       #headerControlsPanel {
         grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .85fr);
@@ -957,10 +964,13 @@
                 <p class="text-[11px] font-bold text-slate-800">Related passages</p>
                 <p class="text-[10px] text-slate-500">Verse text and connection notes saved as study material.</p>
               </div>
-              <button id="openStudyRelatedPassagesBtn" type="button" class="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100">Add / manage <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-[1rem] justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
+              <div class="flex shrink-0 items-center gap-1.5">
+                <button id="toggleStudyRelatedPassagesBtn" type="button" aria-controls="studyRelatedPassageList" aria-expanded="false" class="sm:hidden rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700">Show passages</button>
+                <button id="openStudyRelatedPassagesBtn" type="button" class="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100">Add / manage <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-[1rem] justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
+              </div>
             </div>
             <p id="studyRelatedPassageStatus" class="text-[10px] text-slate-500" role="status" aria-live="polite">Related verses are saved with this study.</p>
-            <div id="studyRelatedPassageList" class="space-y-2"></div>
+            <div id="studyRelatedPassageList" class="space-y-2 is-mobile-collapsed"></div>
           </section>
           <div id="workspaceNoteFind" class="space-y-1">
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
@@ -3839,6 +3849,8 @@ function renderStandardCrossReferenceList() {
       const modal = document.getElementById('crossReferenceModal');
       const openButton = document.getElementById('btnOpenCrossReferenceModal');
       const studyRelatedButton = document.getElementById('openStudyRelatedPassagesBtn');
+      const toggleStudyRelatedPassagesButton = document.getElementById('toggleStudyRelatedPassagesBtn');
+      const studyRelatedPassageList = document.getElementById('studyRelatedPassageList');
       const chapterOverviewButton = document.getElementById('openChapterCrossReferencesBtn');
       const closeButton = document.getElementById('closeCrossReferenceModalBtn');
       const form = document.getElementById('crossReferenceForm');
@@ -3847,6 +3859,12 @@ function renderStandardCrossReferenceList() {
       const noteInput = document.getElementById('crossReferenceNoteInput');
       const status = document.getElementById('crossReferenceFormStatus');
       openButton?.addEventListener('click', () => openCrossReferenceModal());
+      toggleStudyRelatedPassagesButton?.addEventListener('click', () => {
+        if (!studyRelatedPassageList) return;
+        const collapsed = studyRelatedPassageList.classList.toggle('is-mobile-collapsed');
+        toggleStudyRelatedPassagesButton.setAttribute('aria-expanded', String(!collapsed));
+        toggleStudyRelatedPassagesButton.textContent = collapsed ? 'Show passages' : 'Hide passages';
+      });
       studyRelatedButton?.addEventListener('click', () => openCrossReferenceModal({ studyLevel: true }));
       chapterOverviewButton?.addEventListener('click', () => openCrossReferenceModal({ viewOnly: true }));
       closeButton?.addEventListener('click', () => {

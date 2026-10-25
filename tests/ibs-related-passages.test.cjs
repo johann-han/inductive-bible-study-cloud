@@ -1139,3 +1139,33 @@ test('Related passage Add/manage dialog stays within the phone viewport width', 
   assert.match(indexHtml, /#crossReferenceModal input,[\s\S]*?#crossReferenceModal select,[\s\S]*?#crossReferenceModal textarea\s*\{[\s\S]*?width: 100%;/);
   assert.match(indexHtml, /#crossReferenceModal #crossReferenceModalTitle,[\s\S]*?overflow-wrap: anywhere;/);
 });
+
+
+test('Related-passage cards are collapsed by default on mobile and can be expanded without affecting Add / manage', () => {
+  assert.match(indexHtml, /#studyRelatedPassageList\.is-mobile-collapsed\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(indexHtml, /id="toggleStudyRelatedPassagesBtn"[^>]*aria-controls="studyRelatedPassageList"[^>]*aria-expanded="false"/);
+  assert.match(indexHtml, /id="studyRelatedPassageList" class="space-y-2 is-mobile-collapsed"/);
+
+  const { sandbox, document } = makeHarness();
+  const list = document.getElementById('studyRelatedPassageList');
+  // The fake DOM does not parse the HTML class attribute, so seed the initial markup state.
+  list.classList.add('is-mobile-collapsed');
+  sandbox.setupCrossReferenceWorkflow();
+  const toggle = document.getElementById('toggleStudyRelatedPassagesBtn');
+  const manage = document.getElementById('openStudyRelatedPassagesBtn');
+
+  assert.equal(list.classList.contains('is-mobile-collapsed'), true);
+  toggle.listeners.click();
+  assert.equal(list.classList.contains('is-mobile-collapsed'), false);
+  assert.equal(toggle.attributes['aria-expanded'], 'true');
+  assert.equal(toggle.textContent, 'Hide passages');
+
+  toggle.listeners.click();
+  assert.equal(list.classList.contains('is-mobile-collapsed'), true);
+  assert.equal(toggle.attributes['aria-expanded'], 'false');
+  assert.equal(toggle.textContent, 'Show passages');
+
+  manage.listeners.click();
+  assert.equal(sandbox.crossReferenceStudyLevelMode, true);
+  assert.equal(document.getElementById('crossReferenceModal').classList.contains('hidden'), false);
+});

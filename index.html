@@ -604,6 +604,61 @@
     }
 
 
+    /* Keep the related-passage Add/manage dialog fully inside phone viewports. */
+    @media (max-width: 767px) {
+      #crossReferenceModal {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        box-sizing: border-box !important;
+        padding: .5rem !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      #crossReferenceModal > section {
+        width: 100% !important;
+        max-width: calc(100vw - 1rem) !important;
+        min-width: 0 !important;
+        max-height: calc(100dvh - 1rem) !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+      }
+      #crossReferenceModal > section > div,
+      #crossReferenceModal #crossReferenceForm,
+      #crossReferenceModal #crossReferenceList {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      #crossReferenceModal #crossReferenceModalTitle,
+      #crossReferenceModal #crossReferenceModalSubtitle,
+      #crossReferenceModal #crossReferenceSourceLabel,
+      #crossReferenceModal #crossReferenceListTitle,
+      #crossReferenceModal #crossReferenceList > * {
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+      #crossReferenceModal input,
+      #crossReferenceModal select,
+      #crossReferenceModal textarea,
+      #crossReferenceModal button {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      #crossReferenceModal input,
+      #crossReferenceModal select,
+      #crossReferenceModal textarea {
+        width: 100%;
+      }
+    }
+
     /* The dashboard is the home screen; show reader-only controls only in the Bible workspace. */
     body.ibs-home-view #mobileMenuBtn,
     body.ibs-home-view #headerMenuBtn,

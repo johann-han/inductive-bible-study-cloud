@@ -642,7 +642,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
   assert.match(toggleSource, /const isMobileLayout = typeof window !== 'undefined' && window\.innerWidth <= 1024/);
   assert.match(toggleSource, /event\.stopPropagation\(\)/);
-  assert.match(toggleSource, /if \(window\.innerWidth <= 767\) setHeaderMenuOpen\(false\)/);
+  assert.match(toggleSource, /if \(isTouchWorkspaceLayout\(\)\) setHeaderMenuOpen\(false\)/);
   assert.match(toggleSource, /setWorkspaceOpen\(true\)/,
     'phone/tablet Notes taps should open directly instead of relying on menu bubbling');
   assert.doesNotMatch(toggleSource, /if \(isMobileLayout\) return;/,
@@ -666,7 +666,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
 test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v14'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v15'/);
 });
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
@@ -1129,7 +1129,7 @@ test('Related passage Add/manage dialog escapes transformed panels on mobile', (
 
 test('PWA shell cache version advances for the related-passage dialog fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v14'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v15'/);
 });
 
 

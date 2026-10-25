@@ -28,7 +28,7 @@ test('initial selected-verse study prompt requests contextual keyword and linkin
   assert.match(html, /For each significant linking word actually present, quote it with its verse/);
   assert.match(html, /classify its contextual function using the ten linking-word categories/);
   assert.match(html, /Do not invent words or force categories/);
-  assert.match(html, /Do not jump directly to life application/);
+  assert.match(html, /or jump directly to life application/);
 });
 
 test('default Analyze My Notes action begins with contextual keyword and linking-word analysis', () => {

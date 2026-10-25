@@ -352,6 +352,32 @@
     /* Touch-first phones may report a wide layout viewport (for example, with
        browser desktop-site mode enabled). Keep study controls compact there too. */
     @media (pointer: coarse) and (hover: none) {
+      /* Keep the Related Passages manager compact on phones. The dialog stays
+         fully usable, but long lists scroll inside a shorter sheet instead of
+         occupying nearly the entire viewport. */
+      #crossReferenceModal {
+        align-items: flex-end !important;
+        padding: .4rem !important;
+      }
+      #crossReferenceModal > section {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 72dvh !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain;
+        border-radius: 1rem 1rem .75rem .75rem !important;
+      }
+      #crossReferenceModal > section > div:first-child {
+        padding: .65rem .8rem !important;
+      }
+      #crossReferenceModal > section > div:nth-child(2) {
+        padding: .7rem !important;
+      }
+      #crossReferenceForm {
+        padding: .65rem !important;
+        gap: .55rem !important;
+      }
+      #crossReferenceList article { padding: .6rem !important; }
       #studyRelatedPassagesSection {
         padding: .5rem !important;
         gap: .35rem !important;

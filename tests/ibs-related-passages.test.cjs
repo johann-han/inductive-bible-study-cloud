@@ -1147,8 +1147,10 @@ test('Related-passage cards are collapsed by default on mobile and can be expand
   assert.match(indexHtml, /id="studyRelatedPassageList" class="space-y-2 is-mobile-collapsed"/);
 
   const { sandbox, document } = makeHarness();
-  sandbox.setupCrossReferenceWorkflow();
   const list = document.getElementById('studyRelatedPassageList');
+  // The fake DOM does not parse the HTML class attribute, so seed the initial markup state.
+  list.classList.add('is-mobile-collapsed');
+  sandbox.setupCrossReferenceWorkflow();
   const toggle = document.getElementById('toggleStudyRelatedPassagesBtn');
   const manage = document.getElementById('openStudyRelatedPassagesBtn');
 

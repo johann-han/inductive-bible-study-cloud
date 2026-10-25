@@ -1133,6 +1133,17 @@ test('PWA shell cache version advances for the related-passage dialog fix', () =
 });
 
 
+test('Related passage sheet has an accessible drag handle and adjustable phone height', () => {
+  assert.match(indexHtml, /id="crossReferenceSheetHandle"[^>]*aria-label="Resize Related Passages panel"/);
+  assert.match(indexHtml, /#crossReferenceSheetHandle\s*\{[\s\S]*?touch-action:\s*none;/);
+  assert.match(indexHtml, /height:\s*var\(--cross-reference-sheet-height, 60dvh\)/);
+  assert.match(indexHtml, /min-height:\s*35dvh !important/);
+  assert.match(indexHtml, /max-height:\s*90dvh !important/);
+  assert.match(indexHtml, /sheetHandle\.addEventListener\('pointermove'/);
+  assert.match(indexHtml, /sheetHandle\.addEventListener\('keydown'/);
+  assert.match(indexHtml, /setSheetHeight\(dragStartHeight \+ dragStartY - event\.clientY\)/);
+});
+
 test('Related passage Add/manage dialog stays within the phone viewport width', () => {
   assert.match(indexHtml, /@media \(max-width: 767px\)\s*\{[\s\S]*?#crossReferenceModal\s*\{[\s\S]*?width: 100vw !important;[\s\S]*?max-width: 100vw !important;[\s\S]*?box-sizing: border-box !important;[\s\S]*?overflow-x: hidden !important;/);
   assert.match(indexHtml, /#crossReferenceModal > section\s*\{[\s\S]*?width: 100% !important;[\s\S]*?max-width: calc\(100vw - 1rem\) !important;[\s\S]*?min-width: 0 !important;[\s\S]*?overflow-x: hidden !important;/);

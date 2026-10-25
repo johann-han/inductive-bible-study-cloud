@@ -38,19 +38,20 @@ test('related passages card is compact on phones while its list remains toggleab
 });
 
 
+
 test('IBS Home prevents horizontal viewport panning without changing reader gestures', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
-  assert.match(html, /html\\.ibs-home-view\\s*\\{[^}]*touch-action:\\s*pan-y pinch-zoom;/,
+  assert.match(html, /html\.ibs-home-view\s*\{[^}]*touch-action:\s*pan-y pinch-zoom;/,
     'the viewport root must prevent horizontal panning while keeping vertical scroll and pinch zoom');
-  assert.match(html, /html\\.ibs-home-view\\s*\\{[^}]*overscroll-behavior-x:\\s*none;/,
+  assert.match(html, /html\.ibs-home-view\s*\{[^}]*overscroll-behavior-x:\s*none;/,
     'horizontal overscroll must not chain into a blank area');
-  assert.match(html, /body\\.ibs-home-view > #studyDashboardHome\\s*\\{[^}]*min-width:\\s*0;[^}]*overflow-x:\\s*clip;[^}]*overscroll-behavior-x:\\s*none;/,
+  assert.match(html, /body\.ibs-home-view > #studyDashboardHome\s*\{[^}]*min-width:\s*0;[^}]*overflow-x:\s*clip;[^}]*overscroll-behavior-x:\s*none;/,
     'the Home dashboard must be clipped to the viewport');
-  assert.match(html, /document\\.documentElement\\.classList\\.add\\('ibs-home-view'\\)/,
+  assert.match(html, /document\.documentElement\.classList\.add\('ibs-home-view'\)/,
     'the initial Home route must set the viewport gesture state before first paint');
-  assert.match(html, /function showDashboardHome\\(\\)[\\s\\S]*?document\\.documentElement\\.classList\\.add\\('ibs-home-view'\\)/,
+  assert.match(html, /function showDashboardHome\(\)[\s\S]*?document\.documentElement\.classList\.add\('ibs-home-view'\)/,
     'returning to Home must restore the viewport gesture state');
-  assert.match(html, /function showBibleReader\\(\\)[\\s\\S]*?document\\.documentElement\\.classList\\.remove\\('ibs-home-view'\\)/,
+  assert.match(html, /function showBibleReader\(\)[\s\S]*?document\.documentElement\.classList\.remove\('ibs-home-view'\)/,
     'entering the Bible reader must remove the Home-only gesture restriction');
 });

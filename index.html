@@ -4787,7 +4787,7 @@ function renderStandardCrossReferenceList() {
       if (headerControlsPanel) {
         headerControlsPanel.addEventListener('click', event => {
           const notesButton = event.target.closest('#toggleWorkspaceMobile');
-          if (notesButton && window.innerWidth <= 767) {
+          if (notesButton && isTouchWorkspaceLayout()) {
             // The click that closes the phone's menu must also open Notes.
             // Delegate it here as a fallback in case the button's own handler
             // is stale or another control handler has already changed state.
@@ -4804,7 +4804,7 @@ function renderStandardCrossReferenceList() {
         if (event.key === 'Escape') setHeaderMenuOpen(false);
       });
       window.addEventListener('resize', () => {
-        if (window.matchMedia('(min-width: 768px)').matches) setHeaderMenuOpen(false);
+        if (!isTouchWorkspaceLayout() && window.matchMedia('(min-width: 768px)').matches) setHeaderMenuOpen(false);
       });
 
       // Full-text Bible search: live updates, canonical filtering, and pagination.
@@ -5271,7 +5271,7 @@ function renderStandardCrossReferenceList() {
             // Complete the action on the button itself: stop the generic menu
             // click handler, close the compact menu when present, and open Notes.
             event.stopPropagation();
-            if (window.innerWidth <= 767) setHeaderMenuOpen(false);
+            if (isTouchWorkspaceLayout()) setHeaderMenuOpen(false);
             setWorkspaceOpen(true);
             return;
           }

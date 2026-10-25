@@ -6,7 +6,8 @@ const path = require('node:path');
 test('related passages card is compact on phones while its list remains toggleable', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /<section id="studyRelatedPassagesSection"[^>]*>/);
-  assert.match(html, /function isTouchWorkspaceLayout\(\)[\s\S]*?screenWidth <= 1024[\s\S]*?maxTouchPoints[\s\S]*?classList\.toggle\('touch-workspace-layout', useMobileLayout\)/);
+  assert.match(html, /function isTouchWorkspaceLayout\(\)[\s\S]*?screenWidth <= 1024[\s\S]*?classList\.toggle\('touch-workspace-layout', useMobileLayout\)/);
+  assert.match(html, /function isTouchWorkspaceLayout\(\)[\s\S]*?maxTouchPoints/);
   assert.match(html, /touchDeviceWithWideViewport = hasTouch && screenWidth > 0 && screenWidth <= 1024/);
   assert.match(html, /document\.documentElement\.classList\.toggle\('touch-workspace-layout', useMobileLayout\)/);
   assert.match(html, /@media \(pointer: coarse\) and \(hover: none\)[\s\S]*?#studyRelatedPassageStatus\s*\{\s*display: none !important;/);

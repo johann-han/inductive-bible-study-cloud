@@ -5126,7 +5126,7 @@ function renderStandardCrossReferenceList() {
       if (toggleWorkspaceMobile) {
         toggleWorkspaceMobile.onclick = event => {
           event.preventDefault();
-          const isMobileLayout = isTouchWorkspaceLayout();
+          const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024 || isTouchWorkspaceLayout();
           const isOpen = workspacePanel &&
             workspacePanel.getAttribute('aria-hidden') === 'false' &&
             !workspacePanel.classList.contains('translate-x-full') &&
@@ -6407,7 +6407,7 @@ function renderStandardCrossReferenceList() {
       // Match the AI drawer's phone/tablet breakpoint. A browser may report a
       // layout viewport wider than 767 CSS pixels even when the menu is in its
       // compact layout; keeping this threshold aligned prevents a clipped side tab.
-      const isMobileLayout = isTouchWorkspaceLayout();
+      const isMobileLayout = typeof window !== 'undefined' && window.innerWidth <= 1024 || isTouchWorkspaceLayout();
       // A fixed drawer nested inside the reader's overflow-hidden flex container can
       // be clipped or painted below the reader. Move the panel to body on phone/tablet
       // layouts so its viewport positioning is independent of readerWorkspace.

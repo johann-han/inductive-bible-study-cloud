@@ -255,6 +255,17 @@
 
     /* Keep related-passage verse cards out of the way while writing on phones. */
     @media (max-width: 640px) {
+      #studyRelatedPassagesSection {
+        padding: .5rem !important;
+        gap: .35rem !important;
+      }
+      #studyRelatedPassagesSection > div:first-child {
+        align-items: center;
+      }
+      #studyRelatedPassagesSection > div:first-child > div:first-child > p:nth-child(2),
+      #studyRelatedPassageStatus {
+        display: none !important;
+      }
       #studyRelatedPassageList.is-mobile-collapsed { display: none; }
       #studyRelatedPassageList { gap: .35rem; }
       #studyRelatedPassageList article { padding: .5rem; }
@@ -958,7 +969,7 @@
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
-          <section class="rounded-lg border border-sky-200 bg-white p-2.5 space-y-1.5">
+          <section id="studyRelatedPassagesSection" class="rounded-lg border border-sky-200 bg-white p-2.5 space-y-1.5">
             <div class="flex items-center justify-between gap-2">
               <div class="min-w-0">
                 <p class="text-[11px] font-bold text-slate-800">Related passages</p>

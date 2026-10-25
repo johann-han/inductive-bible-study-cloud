@@ -603,7 +603,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
 test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v13'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v14'/);
 });
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
@@ -1041,4 +1041,12 @@ test('Related passage Add/manage dialog escapes transformed panels on mobile', (
 test('PWA shell cache version advances for the related-passage dialog fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
   assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v13'/);
+});
+
+
+test('Related passage Add/manage dialog stays within the phone viewport width', () => {
+  assert.match(indexHtml, /@media \(max-width: 767px\)\s*\{[\s\S]*?#crossReferenceModal\s*\{[\s\S]*?width: 100vw !important;[\s\S]*?max-width: 100vw !important;[\s\S]*?box-sizing: border-box !important;[\s\S]*?overflow-x: hidden !important;/);
+  assert.match(indexHtml, /#crossReferenceModal > section\s*\{[\s\S]*?width: 100% !important;[\s\S]*?max-width: calc\(100vw - 1rem\) !important;[\s\S]*?min-width: 0 !important;[\s\S]*?overflow-x: hidden !important;/);
+  assert.match(indexHtml, /#crossReferenceModal input,[\s\S]*?#crossReferenceModal select,[\s\S]*?#crossReferenceModal textarea\s*\{[\s\S]*?width: 100%;/);
+  assert.match(indexHtml, /#crossReferenceModal #crossReferenceModalTitle,[\s\S]*?overflow-wrap: anywhere;/);
 });

@@ -1,6 +1,6 @@
 /* Installable PWA shell for Inductive Bible Study Workspace.
    Never cache API requests, authentication responses, or user study data. */
-const CACHE_NAME = 'inductive-bible-study-shell-v12';
+const CACHE_NAME = 'inductive-bible-study-shell-v13';
 const APP_SHELL = [
   '/',
   '/index.html',

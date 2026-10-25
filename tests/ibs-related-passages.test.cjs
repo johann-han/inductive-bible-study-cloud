@@ -603,7 +603,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
 test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v12'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v13'/);
 });
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
@@ -1013,4 +1013,32 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
   assert.equal(restored.relatedPassages[0].stage, 'observe');
   assert.equal(restored.crossReferences[0].source.scope, 'study');
   assert.ok(events.filter(event => event === 'save-active-note').length >= 2);
+});
+
+
+test('Related passage Add/manage dialog escapes transformed panels on mobile', () => {
+  const openStart = indexHtml.indexOf('function openCrossReferenceModal(options = {})');
+  const openEnd = indexHtml.indexOf('async function openCrossReferencePassage', openStart);
+  assert.ok(openStart >= 0 && openEnd > openStart, 'cross-reference modal opener should exist');
+  const openSource = indexHtml.slice(openStart, openEnd);
+
+  assert.match(openSource, /if \(modal\.parentElement !== document\.body\) document\.body\.appendChild\(modal\)/,
+    'the dialog must escape transformed/overflow-clipping reader and Notes ancestors');
+  assert.match(openSource, /modal\.setAttribute\('aria-hidden', 'false'\)/);
+  assert.match(openSource, /window\.innerWidth > 767\) targetInput\.focus\(\)/,
+    'do not auto-open the mobile keyboard before the dialog is visible');
+
+  assert.match(indexHtml, /id="crossReferenceModal" class="hidden fixed inset-0 z-\[120\]/,
+    'the dialog should render above the mobile reader and Notes panels');
+
+  const setupStart = indexHtml.indexOf('function setupCrossReferenceWorkflow()');
+  const setupEnd = indexHtml.indexOf('function ', setupStart + 20);
+  const setupSource = indexHtml.slice(setupStart, setupEnd);
+  assert.match(setupSource, /modal\?\.setAttribute\('aria-hidden', 'true'\)/,
+    'close actions should synchronize the dialog accessibility state');
+});
+
+test('PWA shell cache version advances for the related-passage dialog fix', () => {
+  const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v13'/);
 });

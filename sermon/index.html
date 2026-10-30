@@ -1099,7 +1099,6 @@
                 this.renderSermonList();
                 this.loadCurrentSermon();
                 this.bindInductiveStudyImport();
-                this.updateAISettingsStatus();
                 this.updateKerygmaGuideContextLabel();
                 this.renderKerygmaGuideMessages();
                 this.renderIcons();
@@ -1137,10 +1136,36 @@
                 this.closeSettingsModal();
             }
 
+            async withCloudTimeout(operation, label, timeoutMs = 15000) {
+                let timeoutId;
+                try {
+                    return await Promise.race([
+                        operation,
+                        new Promise((_, reject) => {
+                            timeoutId = window.setTimeout(() => {
+                                reject(new Error(label + ' timed out after ' + Math.round(timeoutMs / 1000) + ' seconds. Refresh Kerygma and try again.'));
+                            }, timeoutMs);
+                        })
+                    ]);
+                } finally {
+                    if (timeoutId) window.clearTimeout(timeoutId);
+                }
+            }
+
             async ensureSupabaseClient() {
                 if (!this.supabaseConfigPromise) {
                     this.supabaseConfigPromise = (async () => {
-                        const response = await fetch('/api/config', { cache: 'no-store' });
+                        const controller = new AbortController();
+                        const configTimeout = window.setTimeout(() => controller.abort(), 12000);
+                        let response;
+                        try {
+                            response = await fetch('/api/config', { cache: 'no-store', signal: controller.signal });
+                        } catch (error) {
+                            if (error && error.name === 'AbortError') throw new Error('The Supabase configuration request timed out. The Render service did not respond within 12 seconds.');
+                            throw error;
+                        } finally {
+                            window.clearTimeout(configTimeout);
+                        }
                         if (!response.ok) throw new Error('The Supabase sign-in service is unavailable.');
                         const config = await response.json();
                         if (!config.supabaseUrl || !config.supabaseAnonKey) {
@@ -1238,8 +1263,13 @@
                     }
                     await this.syncCloudSermons();
                 } catch (error) {
-                    this.setCloudSyncStatus('Cloud unavailable — local copy retained', 'error');
+                    const message = error && error.message ? error.message : 'Unknown cloud initialisation error.';
+                    this.setCloudSyncStatus('Cloud connection failed: ' + message, 'error');
                     console.error('Kerygma cloud initialisation failed:', error);
+                } finally {
+                    // Keep Supabase auth calls sequential. Starting the AI check in initUI
+                    // at the same time as sermon sync can compete for the auth session lock.
+                    this.updateAISettingsStatus();
                 }
             }
 
@@ -1251,7 +1281,11 @@
 
                 this.cloudSyncInFlight = (async () => {
                     await this.ensureSupabaseClient();
-                    const sessionResult = await this.supabaseClient.auth.getSession();
+                    this.setCloudSyncStatus('Checking your IBS sign-in…', 'normal');
+                    const sessionResult = await this.withCloudTimeout(
+                        this.supabaseClient.auth.getSession(),
+                        'Supabase sign-in check'
+                    );
                     if (sessionResult.error) throw new Error('Could not read the IBS sign-in session.');
                     const session = sessionResult.data && sessionResult.data.session;
                     if (!session || !session.user || !session.user.id) {
@@ -1283,10 +1317,14 @@
                         localStorage.removeItem('kerygma_pending_cloud_deletions_owner_id');
                     }
 
-                    const cloudResult = await this.supabaseClient
-                        .from('kerygma_sermons')
-                        .select('sermon_id,sermon_data,updated_at,deleted_at')
-                        .eq('user_id', userId);
+                    this.setCloudSyncStatus('Loading your saved sermons…', 'normal');
+                    const cloudResult = await this.withCloudTimeout(
+                        this.supabaseClient
+                            .from('kerygma_sermons')
+                            .select('sermon_id,sermon_data,updated_at,deleted_at')
+                            .eq('user_id', userId),
+                        'Kerygma sermon database request'
+                    );
                     if (cloudResult.error) throw cloudResult.error;
 
                     const storedOwnerId = localStorage.getItem('kerygma_local_owner_id') || this.localSermonOwnerId || '';

@@ -505,7 +505,7 @@ const server = http.createServer(async (req, res) => {
       : filePath.endsWith('.png') ? 'image/png'
       : filePath.endsWith('.svg') ? 'image/svg+xml'
       : 'application/octet-stream';
-    const cacheControl = ['index.html', 'sw.js', 'manifest.webmanifest'].includes(path.basename(filePath)) ? 'no-cache' : 'public, max-age=3600';
+    const cacheControl = ['index.html', 'sw.js', 'manifest.webmanifest', 'cloud-sync.js'].includes(path.basename(filePath)) ? 'no-cache' : 'public, max-age=3600';
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheControl, 'X-Content-Type-Options': 'nosniff' });
     res.end(data);
   });

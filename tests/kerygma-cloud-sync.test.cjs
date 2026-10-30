@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   isDefaultSampleSermon,
   mergeSermons,
@@ -118,4 +120,13 @@ test('filters malformed optional related-passage verse collections', () => {
   assert.equal(packet.relatedPassages.length, 2);
   assert.deepEqual(packet.relatedPassages[0].verses, []);
   assert.deepEqual(packet.relatedPassages[1].verses, [{ number: 14, text: 'For...' }]);
+});
+
+
+test('loads the Kerygma cloud helper with a versioned, non-cacheable URL', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'sermon', 'index.html'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+
+  assert.ok(html.includes('src="/sermon/cloud-sync.js?v=298b222"'));
+  assert.ok(server.includes("'manifest.webmanifest', 'cloud-sync.js'"));
 });

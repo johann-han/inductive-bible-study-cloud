@@ -6,7 +6,8 @@ const {
   isDefaultSampleSermon,
   mergeSermons,
   buildUpsertRows,
-  buildTombstoneRows
+  buildTombstoneRows,
+  normalizeSourcePacketForDisplay
 } = require('../sermon/cloud-sync');
 
 const sample = {

@@ -55,9 +55,6 @@ create table if not exists public.kerygma_sermons (
   primary key (user_id, sermon_id)
 );
 
-create index if not exists kerygma_sermons_user_updated_idx
-  on public.kerygma_sermons (user_id, updated_at desc);
-
 alter table public.kerygma_sermons enable row level security;
 
 drop policy if exists "Users can read their own Kerygma sermons" on public.kerygma_sermons;

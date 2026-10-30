@@ -4,7 +4,8 @@
   "private": true,
   "description": "Standalone Inductive Bible Study app with OpenRouter AI Mentor and optional Supabase cloud sync",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

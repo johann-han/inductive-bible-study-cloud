@@ -493,6 +493,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed.' });
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === '/') pathname = '/index.html';
+  if (pathname === '/sermon' || pathname === '/sermon/') pathname = '/sermon/index.html';
   const filePath = path.resolve(__dirname, '.' + pathname);
   if (!filePath.startsWith(path.resolve(__dirname) + path.sep)) return send(res, 403, { error: 'Forbidden.' });
   fs.readFile(filePath, (err, data) => {

@@ -105,7 +105,62 @@
       });
   }
 
-  const api = { isDefaultSampleSermon, mergeSermons, buildUpsertRows, buildTombstoneRows };
+  // Older IBS source packets predate optional collections such as relatedPassages.
+  // Return a display-only safe view so opening an existing sermon never mutates its saved data.
+  function normalizeSourcePacketForDisplay(packet) {
+    if (!packet || typeof packet !== 'object' || Array.isArray(packet)) return null;
+
+    const sourceSections = packet.sections && typeof packet.sections === 'object' && !Array.isArray(packet.sections)
+      ? packet.sections
+      : {};
+    const sourceOutline = packet.passageOutline && typeof packet.passageOutline === 'object' && !Array.isArray(packet.passageOutline)
+      ? packet.passageOutline
+      : {};
+    const sourceVerseMaps = packet.verseMaps && typeof packet.verseMaps === 'object' && !Array.isArray(packet.verseMaps)
+      ? packet.verseMaps
+      : {};
+    const sourceStandard = packet.standardCrossReferences && typeof packet.standardCrossReferences === 'object' && !Array.isArray(packet.standardCrossReferences)
+      ? packet.standardCrossReferences
+      : {};
+
+    const relatedPassages = Array.isArray(packet.relatedPassages)
+      ? packet.relatedPassages
+          .filter(item => item && typeof item === 'object' && !Array.isArray(item))
+          .map(item => ({
+            ...item,
+            verses: Array.isArray(item.verses)
+              ? item.verses.filter(verse => verse && typeof verse === 'object' && !Array.isArray(verse))
+              : []
+          }))
+      : [];
+
+    return {
+      ...packet,
+      sections: {
+        observe: typeof sourceSections.observe === 'string' ? sourceSections.observe : '',
+        interpret: typeof sourceSections.interpret === 'string' ? sourceSections.interpret : '',
+        doctrine: typeof sourceSections.doctrine === 'string' ? sourceSections.doctrine : '',
+        discipleship: typeof sourceSections.discipleship === 'string' ? sourceSections.discipleship : ''
+      },
+      passageOutline: {
+        ...sourceOutline,
+        sections: Array.isArray(sourceOutline.sections)
+          ? sourceOutline.sections.filter(row => row && typeof row === 'object' && !Array.isArray(row))
+          : []
+      },
+      verseMaps: sourceVerseMaps,
+      scriptureMarkups: Array.isArray(packet.scriptureMarkups) ? packet.scriptureMarkups : [],
+      customCrossReferences: Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences : [],
+      relatedPassages,
+      standardCrossReferences: {
+        ...sourceStandard,
+        entries: Array.isArray(sourceStandard.entries) ? sourceStandard.entries : []
+      },
+      selectedVerses: Array.isArray(packet.selectedVerses) ? packet.selectedVerses : []
+    };
+  }
+
+  const api = { isDefaultSampleSermon, mergeSermons, buildUpsertRows, buildTombstoneRows, normalizeSourcePacketForDisplay };
   if (root) root.KerygmaCloudSync = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

@@ -6,7 +6,8 @@ const {
   isDefaultSampleSermon,
   mergeSermons,
   buildUpsertRows,
-  buildTombstoneRows
+  buildTombstoneRows,
+  normalizeSourcePacketForDisplay
 } = require('../sermon/cloud-sync');
 
 const sample = {
@@ -83,4 +84,38 @@ test('builds per-user upsert and deletion rows', () => {
   assert.equal(tombstones[0].user_id, 'user-1');
   assert.equal(tombstones[0].sermon_id, 's1');
   assert.equal(tombstones[0].deleted_at, '2026-10-30T13:00:00.000Z');
+});
+
+test('renders legacy IBS source packets with missing optional collections safely', () => {
+  const packet = normalizeSourcePacketForDisplay({
+    sermonPassage: 'Romans 2',
+    translation: 'KJV',
+    sections: { observe: 'Existing observation notes', interpret: 'Existing interpretation notes' },
+    passageOutline: { title: 'Romans 2' },
+    verseMaps: { '1': { verseText: 'Therefore...' } }
+  });
+
+  assert.equal(packet.sections.observe, 'Existing observation notes');
+  assert.equal(packet.sections.interpret, 'Existing interpretation notes');
+  assert.equal(packet.sections.doctrine, '');
+  assert.deepEqual(packet.passageOutline.sections, []);
+  assert.deepEqual(packet.scriptureMarkups, []);
+  assert.deepEqual(packet.customCrossReferences, []);
+  assert.deepEqual(packet.relatedPassages, []);
+  assert.deepEqual(packet.standardCrossReferences.entries, []);
+  assert.deepEqual(packet.selectedVerses, []);
+});
+
+test('filters malformed optional related-passage verse collections', () => {
+  const packet = normalizeSourcePacketForDisplay({
+    relatedPassages: [
+      { reference: 'Ephesians 2:12', verses: 'not-an-array' },
+      null,
+      { reference: 'Romans 2:14', verses: [{ number: 14, text: 'For...' }, null] }
+    ]
+  });
+
+  assert.equal(packet.relatedPassages.length, 2);
+  assert.deepEqual(packet.relatedPassages[0].verses, []);
+  assert.deepEqual(packet.relatedPassages[1].verses, [{ number: 14, text: 'For...' }]);
 });

@@ -127,6 +127,6 @@ test('loads the Kerygma cloud helper with a versioned, non-cacheable URL', () =>
   const html = fs.readFileSync(path.join(__dirname, '..', 'sermon', 'index.html'), 'utf8');
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
-  assert.match(html, /src="\\/sermon\\/cloud-sync\\.js\\?v=298b222"/);
-  assert.match(server, /'manifest\\.webmanifest', 'cloud-sync\\.js'/);
+  assert.ok(html.includes('src="/sermon/cloud-sync.js?v=298b222"'));
+  assert.ok(server.includes("'manifest.webmanifest', 'cloud-sync.js'"));
 });

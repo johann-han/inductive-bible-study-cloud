@@ -1065,6 +1065,7 @@
                 this.cloudSyncTimer = null;
                 this.cloudAuthSubscription = null;
                 this.cloudUserId = null;
+                this.localSermonOwnerId = localStorage.getItem('kerygma_local_owner_id') || '';
                 this.isApplyingCloudData = false;
                 this.pendingCloudDeletions = this.loadPendingCloudDeletions();
                 this.pendingInductiveStudyPacket = null;
@@ -1204,6 +1205,7 @@
                 const id = String(sermon.id);
                 this.pendingCloudDeletions = (this.pendingCloudDeletions || []).filter(entry => String(entry.sermon_id || entry.id || '') !== id);
                 this.pendingCloudDeletions.push({ sermon_id: id, sermon_data: sermon });
+                localStorage.setItem('kerygma_pending_cloud_deletions_owner_id', this.cloudUserId || this.localSermonOwnerId || '');
                 this.persistPendingCloudDeletions();
             }
 
@@ -1261,6 +1263,13 @@
                     const userId = session.user.id;
                     this.setCloudSyncStatus('Synchronising sermons…', 'normal');
 
+                    const deletionOwnerId = localStorage.getItem('kerygma_pending_cloud_deletions_owner_id') || '';
+                    if (deletionOwnerId && deletionOwnerId !== userId) {
+                        this.pendingCloudDeletions = [];
+                        this.persistPendingCloudDeletions();
+                        localStorage.removeItem('kerygma_pending_cloud_deletions_owner_id');
+                    }
+
                     const pendingRows = window.KerygmaCloudSync.buildTombstoneRows(
                         this.pendingCloudDeletions, userId, new Date().toISOString()
                     );
@@ -1271,6 +1280,7 @@
                         if (deletionResult.error) throw deletionResult.error;
                         this.pendingCloudDeletions = [];
                         this.persistPendingCloudDeletions();
+                        localStorage.removeItem('kerygma_pending_cloud_deletions_owner_id');
                     }
 
                     const cloudResult = await this.supabaseClient
@@ -1279,7 +1289,16 @@
                         .eq('user_id', userId);
                     if (cloudResult.error) throw cloudResult.error;
 
-                    const merged = window.KerygmaCloudSync.mergeSermons(this.sermons, cloudResult.data || []);
+                    const storedOwnerId = localStorage.getItem('kerygma_local_owner_id') || this.localSermonOwnerId || '';
+                    let localSermonsForMerge = this.sermons;
+                    if (storedOwnerId && storedOwnerId !== userId) {
+                        // Never upload one account's browser cache into another account's vault.
+                        try {
+                            localStorage.setItem('kerygma_sermons_backup_' + storedOwnerId, JSON.stringify(this.sermons));
+                        } catch (_) {}
+                        localSermonsForMerge = [];
+                    }
+                    const merged = window.KerygmaCloudSync.mergeSermons(localSermonsForMerge, cloudResult.data || []);
                     const previousCurrentId = this.currentSermonId;
                     this.isApplyingCloudData = true;
                     try {
@@ -1288,6 +1307,8 @@
                             ? previousCurrentId
                             : (merged[0] ? merged[0].id : null);
                         localStorage.setItem('kerygma_sermons', JSON.stringify(this.sermons));
+                        localStorage.setItem('kerygma_local_owner_id', userId);
+                        this.localSermonOwnerId = userId;
                         this.renderSermonList();
                         if (this.currentSermonId) this.loadCurrentSermon();
                     } finally {

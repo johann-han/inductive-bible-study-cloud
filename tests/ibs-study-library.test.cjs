@@ -105,3 +105,20 @@ test('Study Library search is case-insensitive and handles incomplete records sa
   assert.ok(buildSearchText({ book: 'Romans', chapter: 2, sections: { doctrine: 'Grace and Truth' } }).includes('grace and truth'));
   assert.equal(typeof buildSearchText(null), 'string');
 });
+
+test('Open Study in the Saved Studies library uses the shared navigator and opens Notes', () => {
+  const libraryStart = html.indexOf('    function renderStudyLibrary() {');
+  const handlerStart = html.indexOf("openButton.addEventListener('click', () => {", libraryStart);
+  const handlerEnd = html.indexOf("\n        });", handlerStart);
+  assert.ok(libraryStart >= 0 && handlerStart > libraryStart && handlerEnd > handlerStart,
+    'the Saved Studies Open study handler should exist');
+  const handler = html.slice(handlerStart, handlerEnd);
+  assert.match(handler, /openDashboardStudy\(record\.book,/,
+    'saved studies should use the shared passage navigator');
+  assert.match(handler, /openStudyPanel:\s*true/,
+    'opening a saved study should display its Notes panel');
+  assert.match(handler, /studyLibraryModal[\s\S]*classList\.add\('hidden'\)/,
+    'the library should close only after the study opens');
+  assert.doesNotMatch(handler, /appState\.currentBook\s*=/,
+    'the library should not maintain a separate, incomplete navigation path');
+});

@@ -113,7 +113,7 @@ test('Open Study in the Saved Studies library uses the shared navigator and open
   assert.ok(libraryStart >= 0 && handlerStart > libraryStart && handlerEnd > handlerStart,
     'the Saved Studies Open study handler should exist');
   const handler = html.slice(handlerStart, handlerEnd);
-  assert.match(handler, /openDashboardStudy\(record\.book,/,
+  assert.match(handler, /openDashboardStudy\(\s*record\.book,/,
     'saved studies should use the shared passage navigator');
   assert.match(handler, /openStudyPanel:\s*true/,
     'opening a saved study should display its Notes panel');

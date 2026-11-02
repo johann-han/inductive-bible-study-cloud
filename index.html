@@ -6604,23 +6604,16 @@ function renderStandardCrossReferenceList() {
         openButton.className = 'text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white rounded px-3 py-2';
         openButton.textContent = 'Open study';
         openButton.addEventListener('click', () => {
-          saveActiveStudyNote();
-          appState.currentBook = record.book;
-          appState.currentChapter = Number(record.chapter);
-          appState.activeNotesSection = NOTE_SECTION_LABELS[record.activeSection] ? record.activeSection : (filledSections[0] || 'observe');
-          const bookInfo = BIBLE_CANON.find(book => book.name === record.book);
-          if (bookInfo) appState.activeTab = bookInfo.testament;
-          const tabOT = document.getElementById('tabOT');
-          const tabNT = document.getElementById('tabNT');
-          if (tabOT && tabNT) {
-            tabOT.className = `flex-1 py-2 text-center border-b-2 ${appState.activeTab === 'OT' ? 'border-amber-600 text-amber-700 bg-white font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`;
-            tabNT.className = `flex-1 py-2 text-center border-b-2 ${appState.activeTab === 'NT' ? 'border-amber-600 text-amber-700 bg-white font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`;
-          }
-          renderChapterPills();
-          renderScripture();
-          renderBooksList();
-          loadActiveStudyNote();
-          document.getElementById('studyLibraryModal')?.classList.add('hidden');
+          const preferredSection = NOTE_SECTION_LABELS[record.activeSection]
+            ? record.activeSection
+            : (filledSections[0] || 'observe');
+          const opened = openDashboardStudy(
+            record.book,
+            record.chapter,
+            preferredSection,
+            { openStudyPanel: true }
+          );
+          if (opened) document.getElementById('studyLibraryModal')?.classList.add('hidden');
         });
         const copyButton = document.createElement('button');
         copyButton.type = 'button';

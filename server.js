@@ -284,6 +284,60 @@ function prepareOpenRouterResponseFormat(input) {
   };
 }
 
+
+const adminInviteBuckets = new Map();
+
+async function verifySupabaseRequestUser(req) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    return { error: 'The sign-in service is not configured.', status: 503 };
+  }
+  const match = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i);
+  if (!match) return { error: 'Sign in before using administrator tools.', status: 401 };
+  try {
+    const baseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
+    const response = await fetch(baseUrl + '/auth/v1/user', {
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + match[1]
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) return { error: 'Your sign-in session is invalid or has expired.', status: 401 };
+    const user = await response.json().catch(() => ({}));
+    if (!user || !user.id || !user.email) return { error: 'Could not verify your account.', status: 401 };
+    return { user };
+  } catch (_) {
+    return { error: 'Could not verify your sign-in session right now.', status: 503 };
+  }
+}
+
+function isConfiguredIbsAdmin(user) {
+  const allowed = String(process.env.IBS_ADMIN_EMAILS || '')
+    .split(',')
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean);
+  const email = String(user && user.email || '').trim().toLowerCase();
+  return !!email && allowed.includes(email);
+}
+
+function consumeAdminInviteLimit(userId) {
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000;
+  const limit = 5;
+  for (const [key, bucket] of adminInviteBuckets) {
+    if (now - bucket.windowStart >= windowMs) adminInviteBuckets.delete(key);
+  }
+  const bucket = adminInviteBuckets.get(userId) || { windowStart: now, count: 0 };
+  if (now - bucket.windowStart >= windowMs) {
+    bucket.windowStart = now;
+    bucket.count = 0;
+  }
+  if (bucket.count >= limit) return false;
+  bucket.count += 1;
+  adminInviteBuckets.set(userId, bucket);
+  return true;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (req.method === 'GET' && url.pathname === '/api/standard-cross-references') {
@@ -298,6 +352,66 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
       console.error('Standard cross-reference dataset fetch failed:', error.message || error);
       return send(res, 502, { error: 'Standard Bible cross-references are temporarily unavailable. Please try again.' });
+    }
+  }
+  if (req.method === 'GET' && url.pathname === '/api/admin/status') {
+    const auth = await verifySupabaseRequestUser(req);
+    if (auth.error) return send(res, auth.status || 401, { error: auth.error });
+    return send(res, 200, { isAdmin: isConfiguredIbsAdmin(auth.user) });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/invite') {
+    const auth = await verifySupabaseRequestUser(req);
+    if (auth.error) return send(res, auth.status || 401, { error: auth.error });
+    if (!isConfiguredIbsAdmin(auth.user)) return send(res, 403, { error: 'You are not authorised to invite IBS users.' });
+    if (!consumeAdminInviteLimit(auth.user.id)) return send(res, 429, { error: 'Invitation limit reached. Please wait before sending more invitations.' });
+
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (!serviceKey) return send(res, 503, { error: 'The server invitation service is not configured yet.' });
+
+    try {
+      const body = await readJson(req, 4096);
+      const email = String(body.email || '').trim().toLowerCase();
+      if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return send(res, 400, { error: 'Enter a valid email address.' });
+      }
+
+      const redirectTo = process.env.IBS_INVITE_REDIRECT_URL || 'https://study.woordvanlewe.co.za/';
+      let redirectUrl;
+      try {
+        redirectUrl = new URL(redirectTo);
+      } catch (_) {
+        return send(res, 503, { error: 'The invitation redirect URL is not valid.' });
+      }
+      if (redirectUrl.protocol !== 'https:' && redirectUrl.hostname !== 'localhost' && redirectUrl.hostname !== '127.0.0.1') {
+        return send(res, 503, { error: 'The invitation redirect URL must use HTTPS.' });
+      }
+
+      const baseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
+      const inviteEndpoint = new URL(baseUrl + '/auth/v1/invite');
+      inviteEndpoint.searchParams.set('redirect_to', redirectUrl.toString());
+      const response = await fetch(inviteEndpoint.toString(), {
+        method: 'POST',
+        headers: {
+          apikey: serviceKey,
+          Authorization: 'Bearer ' + serviceKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email }),
+        signal: AbortSignal.timeout(15000)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.warn('IBS invitation request rejected:', response.status, String(result.msg || result.message || result.error || 'Auth invitation failed').slice(0, 240));
+        return send(res, response.status === 429 ? 429 : 502, {
+          error: response.status === 429
+            ? 'The email invitation service is rate-limited. Please try again later.'
+            : 'Supabase could not send this invitation. Check the email address and Auth email configuration.'
+        });
+      }
+      return send(res, 200, { ok: true, message: 'Invitation email sent to ' + email + '.' });
+    } catch (error) {
+      console.error('IBS invitation failed:', error.message || error);
+      return send(res, 502, { error: 'The invitation could not be sent. Please try again.' });
     }
   }
   if (req.method === 'GET' && url.pathname === '/api/config') {

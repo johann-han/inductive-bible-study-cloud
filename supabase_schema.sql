@@ -24,25 +24,28 @@ drop policy if exists "Users can delete their own studies" on public.study_recor
 create policy "Users can read their own studies"
   on public.study_records for select
   to authenticated
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can insert their own studies"
   on public.study_records for insert
   to authenticated
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can update their own studies"
   on public.study_records for update
   to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can delete their own studies"
   on public.study_records for delete
   to authenticated
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
-grant select, insert, update, delete on public.study_records to authenticated;
+revoke all on table public.study_records from public;
+revoke all on table public.study_records from anon;
+revoke all on table public.study_records from authenticated;
+grant select, insert, update, delete on table public.study_records to authenticated;
 
 -- Kerygma cloud sermon vault
 -- Each user can read and modify only their own sermon records.
@@ -83,5 +86,7 @@ create policy "Users can delete their own Kerygma sermons"
   to authenticated
   using ((select auth.uid()) = user_id);
 
+revoke all on table public.kerygma_sermons from public;
 revoke all on table public.kerygma_sermons from anon;
+revoke all on table public.kerygma_sermons from authenticated;
 grant select, insert, update, delete on table public.kerygma_sermons to authenticated;

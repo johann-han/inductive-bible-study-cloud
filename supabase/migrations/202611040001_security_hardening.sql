@@ -6,10 +6,12 @@
 alter table public.study_records enable row level security;
 alter table public.kerygma_sermons enable row level security;
 
+revoke all on table public.study_records from public;
 revoke all on table public.study_records from anon;
 revoke all on table public.study_records from authenticated;
 grant select, insert, update, delete on table public.study_records to authenticated;
 
+revoke all on table public.kerygma_sermons from public;
 revoke all on table public.kerygma_sermons from anon;
 revoke all on table public.kerygma_sermons from authenticated;
 grant select, insert, update, delete on table public.kerygma_sermons to authenticated;

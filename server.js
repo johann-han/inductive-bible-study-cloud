@@ -317,7 +317,8 @@ function isConfiguredIbsAdmin(user) {
     .map(value => value.trim().toLowerCase())
     .filter(Boolean);
   const email = String(user && user.email || '').trim().toLowerCase();
-  return !!email && allowed.includes(email);
+  const emailConfirmed = !!(user && (user.email_confirmed_at || user.confirmed_at));
+  return emailConfirmed && !!email && allowed.includes(email);
 }
 
 function consumeAdminInviteLimit(userId) {

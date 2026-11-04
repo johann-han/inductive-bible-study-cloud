@@ -42,6 +42,7 @@ create policy "Users can delete their own studies"
   to authenticated
   using ((select auth.uid()) = user_id);
 
+revoke all on table public.study_records from public;
 revoke all on table public.study_records from anon;
 revoke all on table public.study_records from authenticated;
 grant select, insert, update, delete on table public.study_records to authenticated;
@@ -85,6 +86,7 @@ create policy "Users can delete their own Kerygma sermons"
   to authenticated
   using ((select auth.uid()) = user_id);
 
+revoke all on table public.kerygma_sermons from public;
 revoke all on table public.kerygma_sermons from anon;
 revoke all on table public.kerygma_sermons from anon;
 revoke all on table public.kerygma_sermons from authenticated;

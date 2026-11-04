@@ -46,6 +46,30 @@ After deployment:
 4. Sign in with the same account on both devices. Changes normally sync after typing pauses; use Sync studies now for a manual sync.
 5. Export Markdown backups until you have confirmed multi-device sync over several sessions.
 
+
+PART D — Invitation-only access (private beta)
+
+The deployed IBS application uses invitation-only account creation. Do not re-enable public signups while the beta is private.
+
+1. In Supabase Dashboard, open Authentication -> Settings and turn OFF "Allow new users to sign up". Existing users can still sign in. Administrator invitations are sent through the server-side Auth Admin API.
+2. In Render, add these environment variables to the existing IBS Node service:
+   - SUPABASE_SERVICE_ROLE_KEY: the Supabase service-role secret. This must remain server-side and must never be added to browser configuration, Git, or SUPABASE_ANON_KEY.
+   - IBS_ADMIN_EMAILS: the verified email address of the IBS administrator. Multiple administrator addresses may be comma-separated.
+   - IBS_INVITE_REDIRECT_URL: https://study.woordvanlewe.co.za/
+3. Keep SUPABASE_URL and SUPABASE_ANON_KEY configured as before. Redeploy the existing service after setting the environment variables.
+4. Sign in to IBS. The administrator invitation panel appears only for an authenticated account whose verified email is listed in IBS_ADMIN_EMAILS.
+5. Enter an approved person's email address and send the invitation. The server verifies the administrator session, applies a small invitation rate limit, and sends the invite through Supabase Auth.
+6. The invitee opens the email invitation link, returns to IBS, and uses the "Set or change your password" panel while signed in. They can then sign in normally on other devices.
+7. Test with a separate invited account before inviting a larger group. Confirm that the invitee can save their own studies and cannot read or change another user's records.
+
+The server also exposes only a boolean administrator status to the browser. The service-role key is never returned by /api/config. Non-administrators receive a 403 response from the invitation endpoint.
+
+For email invitations to people outside your Supabase organization, configure a reliable custom SMTP provider if the project's default Auth email sender does not deliver to those recipients. Keep email confirmation enabled.
+
+Enable leaked-password protection in Supabase Authentication -> Attack Protection. This rejects passwords known to have been compromised.
+
+Do not deploy invitation access until the Render environment variables are configured and the Supabase "Allow new users to sign up" setting has been turned off.
+
 DATA / SECURITY NOTES
 - Local notes stay in browser localStorage as a local copy. Supabase stores a separate cloud copy.
 - Row Level Security in supabase_schema.sql restricts reads and writes to the signed-in user's own records.

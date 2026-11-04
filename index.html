@@ -1491,6 +1491,13 @@
             </div>
           </form>
           <p class="text-xs text-slate-500 leading-relaxed">IBS access is by invitation only. Contact the administrator if you need an account. Your first sync merges this browser's saved studies with your cloud studies; signing in does not erase local notes.</p>
+          <section id="cloudPasswordSetupPanel" class="hidden rounded-xl border border-slate-200 bg-white p-3 space-y-2" aria-label="Set account password">
+            <div class="text-sm font-semibold text-slate-800">Set or change your password</div>
+            <label for="cloudNewPassword" class="block text-xs font-semibold text-slate-700">New password</label>
+            <input id="cloudNewPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="At least 8 characters" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <button id="cloudSavePasswordBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-white rounded-lg px-3 py-2 text-sm font-semibold">Save password</button>
+            <p id="cloudPasswordStatus" class="text-xs text-slate-600" role="status" aria-live="polite">After accepting an invitation, set a password here so you can sign in again later.</p>
+          </section>
           <section id="cloudAdminInvitePanel" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2" aria-label="Administrator invitation tools">
             <div class="text-sm font-bold text-slate-800">Administrator — invite a user</div>
             <label for="cloudInviteEmail" class="block text-xs font-semibold text-slate-700">Invitee email address</label>
@@ -7613,12 +7620,14 @@ function renderStandardCrossReferenceList() {
       const signOut = document.getElementById('cloudSignOutBtn');
       const syncNow = document.getElementById('cloudSyncNowBtn');
       const adminPanel = document.getElementById('cloudAdminInvitePanel');
+      const passwordPanel = document.getElementById('cloudPasswordSetupPanel');
       const signedIn = !!cloudSyncState.user;
       if (label) label.textContent = signedIn ? 'Sync' : 'Cloud';
       if (signIn) signIn.classList.toggle('hidden', signedIn);
       if (signOut) signOut.classList.toggle('hidden', !signedIn);
       if (syncNow) syncNow.classList.toggle('hidden', !signedIn);
       if (adminPanel) adminPanel.classList.toggle('hidden', !signedIn || !cloudSyncState.isAdmin);
+      if (passwordPanel) passwordPanel.classList.toggle('hidden', !signedIn);
       const password = document.getElementById('cloudPassword');
       const email = document.getElementById('cloudEmail');
       if (signedIn) {
@@ -7896,6 +7905,7 @@ function renderStandardCrossReferenceList() {
       const signOut = document.getElementById('cloudSignOutBtn');
       const syncNow = document.getElementById('cloudSyncNowBtn');
       const inviteButton = document.getElementById('cloudInviteSendBtn');
+      const passwordSaveButton = document.getElementById('cloudSavePasswordBtn');
       if (open && modal) open.addEventListener('click', () => modal.classList.remove('hidden'));
       if (close && modal) close.addEventListener('click', () => modal.classList.add('hidden'));
       if (modal) modal.addEventListener('click', event => { if (event.target === modal) modal.classList.add('hidden'); });
@@ -7907,7 +7917,7 @@ function renderStandardCrossReferenceList() {
         cloudSyncState.configured = !!(config.supabaseUrl && config.supabaseAnonKey);
         if (!cloudSyncState.configured) {
           setCloudStatus('Cloud sync is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY to the server environment, then restart or redeploy the app. Your local notes are still saving normally.', 'normal');
-          [signIn, signOut, syncNow, inviteButton].forEach(button => { if (button) button.disabled = true; });
+          [signIn, signOut, syncNow, inviteButton, passwordSaveButton].forEach(button => { if (button) button.disabled = true; });
           updateCloudAccountUI();
           return;
         }
@@ -7966,6 +7976,28 @@ function renderStandardCrossReferenceList() {
         finally { signIn.disabled = false; }
       });
 
+      if (passwordSaveButton) passwordSaveButton.addEventListener('click', async () => {
+        if (!cloudSyncState.client || !cloudSyncState.user) return;
+        const passwordInput = document.getElementById('cloudNewPassword');
+        const status = document.getElementById('cloudPasswordStatus');
+        const password = String(passwordInput?.value || '');
+        if (password.length < 8) {
+          if (status) status.textContent = 'Use a password with at least 8 characters.';
+          return;
+        }
+        passwordSaveButton.disabled = true;
+        if (status) status.textContent = 'Saving your password…';
+        try {
+          const { error } = await cloudSyncState.client.auth.updateUser({ password });
+          if (error) throw error;
+          if (passwordInput) passwordInput.value = '';
+          if (status) status.textContent = 'Your password has been saved. Use it the next time you sign in.';
+        } catch (error) {
+          if (status) status.textContent = error.message || 'The password could not be updated.';
+        } finally {
+          passwordSaveButton.disabled = false;
+        }
+      });
       if (inviteButton) inviteButton.addEventListener('click', async () => {
         if (!cloudSyncState.client || !cloudSyncState.user) return;
         const email = String(document.getElementById('cloudInviteEmail')?.value || '').trim().toLowerCase();

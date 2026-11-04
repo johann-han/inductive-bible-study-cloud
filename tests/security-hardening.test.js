@@ -9,7 +9,6 @@ const migration = fs.readFileSync(
   'utf8'
 );
 const bootstrap = fs.readFileSync(path.join(root, 'supabase_schema.sql'), 'utf8');
-
 const tables = ['study_records', 'kerygma_sermons'];
 
 test('client roles cannot access private IBS tables anonymously', () => {
@@ -24,7 +23,7 @@ test('authenticated users receive only the required CRUD table grants', () => {
     assert.match(migration, new RegExp('revoke\\s+all\\s+on\\s+table\\s+public\\.' + table + '\\s+from\\s+authenticated', 'i'));
     assert.match(migration, new RegExp('grant\\s+select\\s*,\\s*insert\\s*,\\s*update\\s*,\\s*delete\\s+on\\s+table\\s+public\\.' + table + '\\s+to\\s+authenticated', 'i'));
   }
-  assert.doesNotMatch(migration, /grant\\s+all\\s+on\\s+table\\s+public\\./i);
+  assert.doesNotMatch(migration, /grant\s+all\s+on\s+table\s+public\./i);
 });
 
 test('both tables retain SELECT, INSERT, UPDATE and DELETE row policies tied to auth.uid()', () => {
@@ -37,14 +36,14 @@ test('both tables retain SELECT, INSERT, UPDATE and DELETE row policies tied to 
       );
       const match = migration.match(policy);
       assert.ok(match, table + ' is missing its ' + operation.toUpperCase() + ' policy');
-      assert.match(match[0], /auth\\.uid\\(\\)/i);
-      assert.match(match[0], /\\(select\\s+auth\\.uid\\(\\)\\)/i);
+      assert.match(match[0], /auth\.uid\(\)/i);
+      assert.match(match[0], /\(select\s+auth\.uid\(\)\)/i);
     }
   }
 });
 
 test('security migration contains no data-destructive statements', () => {
-  assert.doesNotMatch(migration, /\\b(drop\\s+table|truncate\\s+table|delete\\s+from)\\b/i);
+  assert.doesNotMatch(migration, /\b(drop\s+table|truncate\s+table|delete\s+from)\b/i);
 });
 
 test('bootstrap schema retains matching grants and optimized per-user policy expressions', () => {
@@ -52,6 +51,6 @@ test('bootstrap schema retains matching grants and optimized per-user policy exp
     assert.match(bootstrap, new RegExp('revoke\\s+all\\s+on\\s+table\\s+public\\.' + table + '\\s+from\\s+public', 'i'));
     assert.match(bootstrap, new RegExp('grant\\s+select\\s*,\\s*insert\\s*,\\s*update\\s*,\\s*delete\\s+on\\s+(?:table\\s+)?public\\.' + table + '\\s+to\\s+authenticated', 'i'));
   }
-  assert.doesNotMatch(bootstrap, /using\\s*\\(auth\\.uid\\(\\)\\s*=\\s*user_id\\)/i);
-  assert.doesNotMatch(bootstrap, /with\\s+check\\s*\\(auth\\.uid\\(\\)\\s*=\\s*user_id\\)/i);
+  assert.doesNotMatch(bootstrap, /using\s*\(auth\.uid\(\)\s*=\s*user_id\)/i);
+  assert.doesNotMatch(bootstrap, /with\s+check\s*\(auth\.uid\(\)\s*=\s*user_id\)/i);
 });

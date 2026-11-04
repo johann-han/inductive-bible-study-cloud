@@ -1486,12 +1486,18 @@
             <input id="cloudPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="At least 8 characters" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-amber-600">
             <div class="flex flex-wrap gap-2 pt-1">
               <button id="cloudSignInBtn" type="button" class="bg-amber-600 hover:bg-amber-500 text-slate-950 rounded-lg px-3 py-2 text-sm font-bold">Sign in</button>
-              <button id="cloudSignUpBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-white rounded-lg px-3 py-2 text-sm font-semibold">Create account</button>
               <button id="cloudSignOutBtn" type="button" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold">Sign out</button>
               <button id="cloudSyncNowBtn" type="button" class="hidden bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg px-3 py-2 text-sm font-semibold">Sync studies now</button>
             </div>
           </form>
-          <p class="text-xs text-slate-500 leading-relaxed">First sync merges this browser's saved studies with cloud studies, choosing the most recently edited version of each chapter. Your local studies are not erased by signing in. Use a strong, unique password.</p>
+          <p class="text-xs text-slate-500 leading-relaxed">IBS access is by invitation only. Contact the administrator if you need an account. Your first sync merges this browser's saved studies with your cloud studies; signing in does not erase local notes.</p>
+          <section id="cloudAdminInvitePanel" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2" aria-label="Administrator invitation tools">
+            <div class="text-sm font-bold text-slate-800">Administrator — invite a user</div>
+            <label for="cloudInviteEmail" class="block text-xs font-semibold text-slate-700">Invitee email address</label>
+            <input id="cloudInviteEmail" type="email" autocomplete="off" maxlength="254" placeholder="person@example.com" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+            <button id="cloudInviteSendBtn" type="button" class="bg-amber-700 hover:bg-amber-600 text-white rounded-lg px-3 py-2 text-sm font-semibold">Send invitation</button>
+            <p id="cloudInviteStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Only send invitations to people you have approved.</p>
+          </section>
         </div>
       </section>
     </div>
@@ -5480,7 +5486,7 @@ function renderStandardCrossReferenceList() {
     const STUDY_TOMBSTONES_STORAGE_KEY = 'inductive-study-library-deleted-v1';
     // Keep `apply` as the stored key so existing Application notes remain available as Discipleship notes.
     const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' };
-    const cloudSyncState = { client: null, user: null, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };
+    const cloudSyncState = { client: null, user: null, isAdmin: false, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };
 
     function readStudyTombstones() {
       try {
@@ -7604,15 +7610,15 @@ function renderStandardCrossReferenceList() {
     function updateCloudAccountUI() {
       const label = document.getElementById('cloudAccountLabel');
       const signIn = document.getElementById('cloudSignInBtn');
-      const signUp = document.getElementById('cloudSignUpBtn');
       const signOut = document.getElementById('cloudSignOutBtn');
       const syncNow = document.getElementById('cloudSyncNowBtn');
+      const adminPanel = document.getElementById('cloudAdminInvitePanel');
       const signedIn = !!cloudSyncState.user;
       if (label) label.textContent = signedIn ? 'Sync' : 'Cloud';
       if (signIn) signIn.classList.toggle('hidden', signedIn);
-      if (signUp) signUp.classList.toggle('hidden', signedIn);
       if (signOut) signOut.classList.toggle('hidden', !signedIn);
       if (syncNow) syncNow.classList.toggle('hidden', !signedIn);
+      if (adminPanel) adminPanel.classList.toggle('hidden', !signedIn || !cloudSyncState.isAdmin);
       const password = document.getElementById('cloudPassword');
       const email = document.getElementById('cloudEmail');
       if (signedIn) {
@@ -7620,6 +7626,26 @@ function renderStandardCrossReferenceList() {
         if (password) password.value = '';
         if (email) email.disabled = true;
       } else if (email) email.disabled = false;
+    }
+
+    async function refreshCloudAdminStatus() {
+      cloudSyncState.isAdmin = false;
+      updateCloudAccountUI();
+      if (!cloudSyncState.client || !cloudSyncState.user) return;
+      try {
+        const { data, error } = await cloudSyncState.client.auth.getSession();
+        if (error || !data.session?.access_token) return;
+        const response = await fetch('/api/admin/status', {
+          headers: { Authorization: 'Bearer ' + data.session.access_token },
+          cache: 'no-store'
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        cloudSyncState.isAdmin = result.isAdmin === true;
+      } catch (error) {
+        console.warn('IBS administrator status could not be checked:', error);
+      }
+      updateCloudAccountUI();
     }
 
     function scheduleCloudStudySync() {
@@ -7867,9 +7893,9 @@ function renderStandardCrossReferenceList() {
       const close = document.getElementById('closeCloudAccountBtn');
       const form = document.getElementById('cloudAuthForm');
       const signIn = document.getElementById('cloudSignInBtn');
-      const signUp = document.getElementById('cloudSignUpBtn');
       const signOut = document.getElementById('cloudSignOutBtn');
       const syncNow = document.getElementById('cloudSyncNowBtn');
+      const inviteButton = document.getElementById('cloudInviteSendBtn');
       if (open && modal) open.addEventListener('click', () => modal.classList.remove('hidden'));
       if (close && modal) close.addEventListener('click', () => modal.classList.add('hidden'));
       if (modal) modal.addEventListener('click', event => { if (event.target === modal) modal.classList.add('hidden'); });
@@ -7881,7 +7907,7 @@ function renderStandardCrossReferenceList() {
         cloudSyncState.configured = !!(config.supabaseUrl && config.supabaseAnonKey);
         if (!cloudSyncState.configured) {
           setCloudStatus('Cloud sync is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY to the server environment, then restart or redeploy the app. Your local notes are still saving normally.', 'normal');
-          [signIn, signUp, signOut, syncNow].forEach(button => { if (button) button.disabled = true; });
+          [signIn, signOut, syncNow, inviteButton].forEach(button => { if (button) button.disabled = true; });
           updateCloudAccountUI();
           return;
         }
@@ -7891,22 +7917,30 @@ function renderStandardCrossReferenceList() {
         });
         cloudSyncState.client.auth.onAuthStateChange((event, session) => {
           cloudSyncState.user = session?.user || null;
+          if (!cloudSyncState.user) cloudSyncState.isAdmin = false;
           updateCloudAccountUI();
-          if (cloudSyncState.user && event === 'SIGNED_IN') {
-            setTimeout(() => syncCloudStudyLibrary().catch(error => setCloudStatus(`Sign-in succeeded, but sync failed: ${error.message}`, 'error')), 0);
-          } else if (!cloudSyncState.user && event === 'SIGNED_OUT') {
+          if (cloudSyncState.user) {
+            setTimeout(() => {
+              refreshCloudAdminStatus();
+              if (event === 'SIGNED_IN') {
+                syncCloudStudyLibrary().catch(error => setCloudStatus(`Sign-in succeeded, but sync failed: ${error.message}`, 'error'));
+              }
+            }, 0);
+          } else if (event === 'SIGNED_OUT') {
             setCloudStatus('Signed out. Your local notes remain saved on this device.', 'normal');
           }
         });
         const { data, error } = await cloudSyncState.client.auth.getSession();
         if (error) throw error;
         cloudSyncState.user = data.session?.user || null;
+        cloudSyncState.isAdmin = false;
         updateCloudAccountUI();
+        await refreshCloudAdminStatus();
         if (cloudSyncState.user) {
           setCloudStatus(`Signed in as ${cloudSyncState.user.email || 'your account'}. Checking for saved studies…`, 'normal');
           syncCloudStudyLibrary().catch(error => setCloudStatus(`Cloud sync failed: ${error.message}`, 'error'));
         } else {
-          setCloudStatus('Cloud service is ready. Sign in or create an account; this browser’s local studies will be merged on first sync.', 'normal');
+          setCloudStatus('Cloud service is ready. Sign in with an invited account; local studies will be merged on first sync.', 'normal');
         }
       } catch (error) {
         cloudSyncState.lastError = error.message || 'Cloud initialization failed.';
@@ -7931,19 +7965,38 @@ function renderStandardCrossReferenceList() {
         } catch (error) { setCloudStatus(error.message || 'Sign-in failed.', 'error'); }
         finally { signIn.disabled = false; }
       });
-      if (signUp) signUp.addEventListener('click', async () => {
-        if (!cloudSyncState.client) return setCloudStatus('Cloud sync is not configured. Add the Supabase settings to the server environment first.', 'error');
-        const credentials = getCredentials();
-        if (!credentials.email || credentials.password.length < 8) return setCloudStatus('Enter a valid email and a password of at least 8 characters.', 'error');
-        signUp.disabled = true;
-        setCloudStatus('Creating your account…', 'normal');
+
+      if (inviteButton) inviteButton.addEventListener('click', async () => {
+        if (!cloudSyncState.client || !cloudSyncState.user) return;
+        const email = String(document.getElementById('cloudInviteEmail')?.value || '').trim().toLowerCase();
+        const status = document.getElementById('cloudInviteStatus');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+          if (status) status.textContent = 'Enter a valid email address.';
+          return;
+        }
+        inviteButton.disabled = true;
+        if (status) status.textContent = 'Sending invitation…';
         try {
-          const { data, error } = await cloudSyncState.client.auth.signUp(credentials);
-          if (error) throw error;
-          if (data.session) setCloudStatus('Account created. Your studies are synchronising now.', 'success');
-          else setCloudStatus('Account request created. Check your email for the confirmation link, then return here and sign in.', 'success');
-        } catch (error) { setCloudStatus(error.message || 'Account creation failed.', 'error'); }
-        finally { signUp.disabled = false; }
+          const { data, error } = await cloudSyncState.client.auth.getSession();
+          if (error || !data.session?.access_token) throw new Error('Your session has expired. Please sign in again.');
+          const response = await fetch('/api/admin/invite', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + data.session.access_token
+            },
+            body: JSON.stringify({ email })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || 'The invitation could not be sent.');
+          if (status) status.textContent = result.message || 'Invitation sent.';
+          const input = document.getElementById('cloudInviteEmail');
+          if (input) input.value = '';
+        } catch (error) {
+          if (status) status.textContent = error.message || 'The invitation could not be sent.';
+        } finally {
+          inviteButton.disabled = false;
+        }
       });
       if (signOut) signOut.addEventListener('click', async () => {
         if (!cloudSyncState.client) return;
@@ -7951,6 +8004,7 @@ function renderStandardCrossReferenceList() {
           const { error } = await cloudSyncState.client.auth.signOut();
           if (error) throw error;
           cloudSyncState.user = null;
+          cloudSyncState.isAdmin = false;
           updateCloudAccountUI();
           setCloudStatus('Signed out. Your local notes remain saved on this device.', 'normal');
         } catch (error) { setCloudStatus(error.message || 'Sign-out failed.', 'error'); }

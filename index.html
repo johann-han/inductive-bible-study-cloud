@@ -1307,8 +1307,34 @@
     </main>
   </div>
 
+  <!-- HOME PAGE AUTHENTICATION -->
+  <main id="homeAuthPanel" class="flex-1 min-h-0 overflow-y-auto bg-slate-100 px-4 py-8 sm:px-6 sm:py-12" aria-labelledby="homeAuthTitle">
+    <section class="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <header class="bg-slate-900 px-6 py-7 text-white">
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">Woord van Lewe</p>
+        <h1 id="homeAuthTitle" class="mt-2 text-2xl font-bold">Inductive Bible Study</h1>
+        <p class="mt-2 text-sm leading-relaxed text-slate-300">Sign in to continue to your studies. Access is available to invited users only.</p>
+      </header>
+      <div class="space-y-4 p-6">
+        <div id="homeAuthStatus" class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700" role="status" aria-live="polite">Checking account access…</div>
+        <form id="homeAuthForm" class="space-y-3">
+          <div>
+            <label for="homeCloudEmail" class="mb-1 block text-sm font-semibold text-slate-700">Email address</label>
+            <input id="homeCloudEmail" type="email" autocomplete="username" required placeholder="you@example.com" class="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-amber-600 focus:outline-none">
+          </div>
+          <div>
+            <label for="homeCloudPassword" class="mb-1 block text-sm font-semibold text-slate-700">Password</label>
+            <input id="homeCloudPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password" class="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-amber-600 focus:outline-none">
+          </div>
+          <button id="homeSignInBtn" type="submit" disabled class="w-full rounded-lg bg-amber-600 px-4 py-3 font-bold text-slate-950 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50">Sign in</button>
+        </form>
+        <p class="text-xs leading-relaxed text-slate-500">Need an account? Contact the IBS administrator for an invitation. New public registrations are not available.</p>
+      </div>
+    </section>
+  </main>
+
   <!-- IBS STUDY DASHBOARD -->
-    <main id="studyDashboardHome" class="flex-1 min-h-0 overflow-y-auto bg-slate-100 px-3 py-4 sm:px-6 sm:py-8" aria-labelledby="studyDashboardTitle">
+    <main id="studyDashboardHome" style="display:none" class="flex-1 min-h-0 overflow-y-auto bg-slate-100 px-3 py-4 sm:px-6 sm:py-8" aria-labelledby="studyDashboardTitle">
       <section class="mx-auto w-full max-w-6xl min-h-full bg-slate-50 rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden">
         <header class="flex items-center justify-between gap-3 p-4 sm:p-6 bg-slate-900 text-white">
           <div class="min-w-0">
@@ -6801,6 +6827,11 @@ function renderStandardCrossReferenceList() {
     }
 
     function showBibleReader() {
+      if (!cloudSyncState.user) {
+        updateHomeAccessUI();
+        setHomeAuthStatus('Please sign in with your invited account to access the Bible study workspace.');
+        return;
+      }
       const home = document.getElementById('studyDashboardHome');
       const reader = document.getElementById('readerWorkspace');
       if (home) home.style.display = 'none';
@@ -7614,6 +7645,34 @@ function renderStandardCrossReferenceList() {
           : 'bg-slate-100 border-slate-200 text-slate-700');
     }
 
+    function setHomeAuthStatus(message, tone = 'normal') {
+      const el = document.getElementById('homeAuthStatus');
+      if (!el) return;
+      el.textContent = message;
+      el.className = 'rounded-lg border p-3 text-sm ' + (tone === 'error'
+        ? 'border-red-200 bg-red-50 text-red-800'
+        : tone === 'success'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          : 'border-slate-200 bg-slate-50 text-slate-700');
+    }
+
+    function updateHomeAccessUI() {
+      const authPanel = document.getElementById('homeAuthPanel');
+      const dashboard = document.getElementById('studyDashboardHome');
+      const reader = document.getElementById('readerWorkspace');
+      const signedIn = !!cloudSyncState.user;
+      if (authPanel) authPanel.style.display = signedIn ? 'none' : '';
+      if (dashboard) dashboard.style.display = signedIn && document.body.classList.contains('ibs-home-view') ? '' : 'none';
+      if (reader && !signedIn) reader.style.display = 'none';
+      if (!signedIn) {
+        document.body.classList.add('ibs-home-view');
+        document.documentElement.classList.add('ibs-home-view');
+        document.documentElement.classList.remove('ibs-study-view');
+      }
+      const button = document.getElementById('homeSignInBtn');
+      if (button) button.disabled = !cloudSyncState.client || !cloudSyncState.configured;
+    }
+
     function updateCloudAccountUI() {
       const label = document.getElementById('cloudAccountLabel');
       const signIn = document.getElementById('cloudSignInBtn');
@@ -7635,6 +7694,7 @@ function renderStandardCrossReferenceList() {
         if (password) password.value = '';
         if (email) email.disabled = true;
       } else if (email) email.disabled = false;
+      updateHomeAccessUI();
     }
 
     async function refreshCloudAdminStatus() {
@@ -7906,6 +7966,30 @@ function renderStandardCrossReferenceList() {
       const syncNow = document.getElementById('cloudSyncNowBtn');
       const inviteButton = document.getElementById('cloudInviteSendBtn');
       const passwordSaveButton = document.getElementById('cloudSavePasswordBtn');
+      const homeAuthForm = document.getElementById('homeAuthForm');
+      if (homeAuthForm) homeAuthForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        const email = String(document.getElementById('homeCloudEmail')?.value || '').trim();
+        const password = String(document.getElementById('homeCloudPassword')?.value || '');
+        const button = document.getElementById('homeSignInBtn');
+        if (!cloudSyncState.client || !email || !password) {
+          setHomeAuthStatus('Account access is still being initialized. Please wait a moment and try again.', 'error');
+          return;
+        }
+        if (button) button.disabled = true;
+        setHomeAuthStatus('Signing in securely…');
+        try {
+          const { error } = await cloudSyncState.client.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          const passwordInput = document.getElementById('homeCloudPassword');
+          if (passwordInput) passwordInput.value = '';
+          setHomeAuthStatus('Sign-in successful. Loading your studies…', 'success');
+        } catch (error) {
+          setHomeAuthStatus(error.message || 'Sign-in failed. Check your email and password.', 'error');
+        } finally {
+          if (button) button.disabled = !cloudSyncState.client || !cloudSyncState.configured;
+        }
+      });
       if (open && modal) open.addEventListener('click', () => modal.classList.remove('hidden'));
       if (close && modal) close.addEventListener('click', () => modal.classList.add('hidden'));
       if (modal) modal.addEventListener('click', event => { if (event.target === modal) modal.classList.add('hidden'); });
@@ -7916,6 +8000,8 @@ function renderStandardCrossReferenceList() {
         cloudSyncState.configLoaded = true;
         cloudSyncState.configured = !!(config.supabaseUrl && config.supabaseAnonKey);
         if (!cloudSyncState.configured) {
+          setHomeAuthStatus('Account sign-in is temporarily unavailable. Please contact the IBS administrator.', 'error');
+          updateHomeAccessUI();
           setCloudStatus('Cloud sync is not configured yet. Add SUPABASE_URL and SUPABASE_ANON_KEY to the server environment, then restart or redeploy the app. Your local notes are still saving normally.', 'normal');
           [signIn, signOut, syncNow, inviteButton, passwordSaveButton].forEach(button => { if (button) button.disabled = true; });
           updateCloudAccountUI();
@@ -7925,6 +8011,9 @@ function renderStandardCrossReferenceList() {
         cloudSyncState.client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
           auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         });
+        const homeSignInButton = document.getElementById('homeSignInBtn');
+        if (homeSignInButton) homeSignInButton.disabled = false;
+        setHomeAuthStatus('Sign in with the email address and password associated with your invitation.');
         cloudSyncState.client.auth.onAuthStateChange((event, session) => {
           cloudSyncState.user = session?.user || null;
           if (!cloudSyncState.user) cloudSyncState.isAdmin = false;
@@ -7955,6 +8044,8 @@ function renderStandardCrossReferenceList() {
       } catch (error) {
         cloudSyncState.lastError = error.message || 'Cloud initialization failed.';
         setCloudStatus(`Cloud setup could not be loaded: ${cloudSyncState.lastError}. Your local notes are unaffected.`, 'error');
+        setHomeAuthStatus('We could not connect to account sign-in. Please refresh the page or contact the IBS administrator.', 'error');
+        updateHomeAccessUI();
       }
 
       if (form) form.addEventListener('submit', event => event.preventDefault());

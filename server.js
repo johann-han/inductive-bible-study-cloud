@@ -389,7 +389,7 @@ async function sendIbsInvitation(email, serviceKey) {
   }
 
   try {
-    const baseUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '');
+    const baseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
     const inviteEndpoint = new URL(baseUrl + '/auth/v1/invite');
     inviteEndpoint.searchParams.set('redirect_to', redirectUrl.toString());
     const response = await fetch(inviteEndpoint.toString(), {
@@ -448,14 +448,14 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, message: accessRequestPublicMessage() });
       }
 
-      const fullName = String(body.fullName || '').replace(/\\s+/g, ' ').trim();
+      const fullName = String(body.fullName || '').replace(/\s+/g, ' ').trim();
       const email = String(body.email || '').trim().toLowerCase();
       const churchOrMinistry = String(body.churchOrMinistry || '').trim().slice(0, 160);
       const message = String(body.message || '').trim().slice(0, 600);
       if (fullName.length < 2 || fullName.length > 120) {
         return send(res, 400, { error: 'Enter your name (2–120 characters).' });
       }
-      if (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return send(res, 400, { error: 'Enter a valid email address.' });
       }
       if (String(body.churchOrMinistry || '').trim().length > 160 || String(body.message || '').trim().length > 600) {
@@ -465,7 +465,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 429, { error: 'A request for this email address was already submitted recently. Please try again later.' });
       }
 
-      const baseUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '');
+      const baseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
       const lookupUrl = new URL(baseUrl + '/rest/v1/ibs_access_requests');
       lookupUrl.searchParams.set('select', 'id');
       lookupUrl.searchParams.set('email', 'eq.' + email);
@@ -526,7 +526,7 @@ const server = http.createServer(async (req, res) => {
     const serviceKey = getSupabaseServiceKey();
     if (!serviceKey) return send(res, 503, { error: 'The administrator request service is not configured yet.' });
     try {
-      const requestsUrl = new URL(process.env.SUPABASE_URL.replace(/\\/+$/, '') + '/rest/v1/ibs_access_requests');
+      const requestsUrl = new URL(process.env.SUPABASE_URL.replace(/\/+$/, '') + '/rest/v1/ibs_access_requests');
       requestsUrl.searchParams.set('select', 'id,full_name,email,church_or_ministry,message,created_at,status');
       requestsUrl.searchParams.set('status', 'eq.pending');
       requestsUrl.searchParams.set('order', 'created_at.desc');
@@ -559,7 +559,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await readJson(req, 4096);
       const email = String(body.email || '').trim().toLowerCase();
-      if (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return send(res, 400, { error: 'Enter a valid email address.' });
       }
       const invitation = await sendIbsInvitation(email, serviceKey);
@@ -574,7 +574,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   const accessRequestAction = req.method === 'POST'
-    ? url.pathname.match(/^\\/api\\/admin\\/access-requests\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\\/(invite|decline)$/i)
+    ? url.pathname.match(/^\/api\/admin\/access-requests\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/(invite|decline)$/i)
     : null;
   if (accessRequestAction) {
     const auth = await verifySupabaseRequestUser(req);
@@ -587,7 +587,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const requestId = accessRequestAction[1];
       const action = accessRequestAction[2];
-      const baseUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '');
+      const baseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
       const lookupUrl = new URL(baseUrl + '/rest/v1/ibs_access_requests');
       lookupUrl.searchParams.set('select', 'id,email,status');
       lookupUrl.searchParams.set('id', 'eq.' + requestId);

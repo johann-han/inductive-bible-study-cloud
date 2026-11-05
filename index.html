@@ -6815,6 +6815,10 @@ function renderStandardCrossReferenceList() {
     }
 
     function showDashboardHome() {
+      if (!cloudSyncState.user) {
+        updateHomeAccessUI();
+        return;
+      }
       saveActiveStudyNote();
       const home = document.getElementById('studyDashboardHome');
       const reader = document.getElementById('readerWorkspace');

@@ -1342,9 +1342,16 @@
             <h2 id="studyDashboardTitle" class="text-xl sm:text-2xl font-bold mt-1">IBS Home</h2>
             <p class="text-sm text-slate-300 mt-1">Resume an unfinished study, review your progress, or choose a passage.</p>
           </div>
-          <button id="dashboardOpenReaderBtn" type="button" class="shrink-0 rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800" aria-label="Open Bible reader">Read Bible →</button>
+          <div class="flex flex-wrap items-center justify-end gap-2"><span id="homeSignedInEmail" class="text-xs text-slate-300"></span><button id="homeSignOutBtn" type="button" class="rounded-lg border border-slate-500 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">Sign out</button><button id="dashboardOpenReaderBtn" type="button" class="shrink-0 rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800" aria-label="Open Bible reader">Read Bible →</button></div>
         </header>
         <div class="p-3 sm:p-6 space-y-5">
+          <section id="cloudAdminInvitePanel" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2" aria-label="Administrator invitation tools">
+            <div class="text-sm font-bold text-slate-800">Administrator — invite a user</div>
+            <label for="cloudInviteEmail" class="block text-xs font-semibold text-slate-700">Invitee email address</label>
+            <input id="cloudInviteEmail" type="email" autocomplete="off" maxlength="254" placeholder="person@example.com" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+            <button id="cloudInviteSendBtn" type="button" class="bg-amber-700 hover:bg-amber-600 text-white rounded-lg px-3 py-2 text-sm font-semibold">Send invitation</button>
+            <p id="cloudInviteStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Only send invitations to people you have approved.</p>
+          </section>
           <section class="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Study overview">
             <article class="rounded-xl border border-slate-200 bg-white p-4">
               <p class="text-xs font-semibold text-slate-500">Saved passages</p>
@@ -1524,13 +1531,7 @@
             <button id="cloudSavePasswordBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-white rounded-lg px-3 py-2 text-sm font-semibold">Save password</button>
             <p id="cloudPasswordStatus" class="text-xs text-slate-600" role="status" aria-live="polite">After accepting an invitation, set a password here so you can sign in again later.</p>
           </section>
-          <section id="cloudAdminInvitePanel" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2" aria-label="Administrator invitation tools">
-            <div class="text-sm font-bold text-slate-800">Administrator — invite a user</div>
-            <label for="cloudInviteEmail" class="block text-xs font-semibold text-slate-700">Invitee email address</label>
-            <input id="cloudInviteEmail" type="email" autocomplete="off" maxlength="254" placeholder="person@example.com" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-            <button id="cloudInviteSendBtn" type="button" class="bg-amber-700 hover:bg-amber-600 text-white rounded-lg px-3 py-2 text-sm font-semibold">Send invitation</button>
-            <p id="cloudInviteStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Only send invitations to people you have approved.</p>
-          </section>
+
         </div>
       </section>
     </div>
@@ -7685,6 +7686,8 @@ function renderStandardCrossReferenceList() {
       const adminPanel = document.getElementById('cloudAdminInvitePanel');
       const passwordPanel = document.getElementById('cloudPasswordSetupPanel');
       const signedIn = !!cloudSyncState.user;
+      const homeEmail = document.getElementById('homeSignedInEmail');
+      if (homeEmail) homeEmail.textContent = signedIn ? (cloudSyncState.user.email || '') : '';
       if (label) label.textContent = signedIn ? 'Sync' : 'Cloud';
       if (signIn) signIn.classList.toggle('hidden', signedIn);
       if (signOut) signOut.classList.toggle('hidden', !signedIn);
@@ -7971,6 +7974,20 @@ function renderStandardCrossReferenceList() {
       const inviteButton = document.getElementById('cloudInviteSendBtn');
       const passwordSaveButton = document.getElementById('cloudSavePasswordBtn');
       const homeAuthForm = document.getElementById('homeAuthForm');
+      const homeSignOut = document.getElementById('homeSignOutBtn');
+      if (homeSignOut) homeSignOut.addEventListener('click', async () => {
+        if (!cloudSyncState.client) return;
+        try {
+          const { error } = await cloudSyncState.client.auth.signOut();
+          if (error) throw error;
+          cloudSyncState.user = null;
+          cloudSyncState.isAdmin = false;
+          updateCloudAccountUI();
+          setHomeAuthStatus('You have signed out. Your saved studies remain stored safely.', 'success');
+        } catch (error) {
+          setHomeAuthStatus(error.message || 'Sign-out failed. Please try again.', 'error');
+        }
+      });
       if (homeAuthForm) homeAuthForm.addEventListener('submit', async event => {
         event.preventDefault();
         const email = String(document.getElementById('homeCloudEmail')?.value || '').trim();

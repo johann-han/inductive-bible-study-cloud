@@ -29,8 +29,9 @@ test('invitation endpoint is authenticated, admin-only and rate-limited', () => 
   assert.match(route, /verifySupabaseRequestUser\(req\)/);
   assert.match(route, /isConfiguredIbsAdmin\(auth\.user\)/);
   assert.match(route, /consumeAdminInviteLimit\(auth\.user\.id\)/);
-  assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(route, /\/auth\/v1\/invite/);
+  assert.match(route, /getSupabaseServiceKey\(\)/);
+  assert.match(server, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(server, /\/auth\/v1\/invite/);
 });
 
 test('service-role credentials are not returned to browser configuration', () => {

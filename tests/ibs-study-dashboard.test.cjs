@@ -295,8 +295,10 @@ test('dashboard home is the initial view and its inline book/chapter chooser is 
   assert.match(html, /<body class="ibs-home-view/);
   assert.match(html, /id="studyDashboardHome"/);
   assert.match(html, /id="readerWorkspace"[^>]*style="display:none"/);
-  assert.match(html, /<\/main>\s*<\/div>\s*<!-- IBS STUDY DASHBOARD -->\s*<main id="studyDashboardHome"/,
-    'the dashboard must be a sibling of, not a child of, the hidden reader workspace');
+  assert.match(html, /<\/main>\s*<\/div>\s*<!-- HOME PAGE AUTHENTICATION -->\s*<main id="homeAuthPanel"/,
+    'the sign-in page must be a sibling of the hidden reader workspace');
+  assert.match(html, /<\/main>\s*<!-- IBS STUDY DASHBOARD -->\s*<main id="studyDashboardHome"/,
+    'the dashboard must remain a sibling of, not a child of, the hidden reader workspace');
   assert.match(html, /id="openDashboardBtn"[^>]*title="Return to IBS Home"/);
   assert.match(html, /id="dashboardBookSelect"/);
   assert.match(html, /id="dashboardChapterSelect"/);
@@ -359,6 +361,8 @@ function createDashboardViewHarness() {
   const events = [];
   const sandbox = {
     document,
+    cloudSyncState: { user: { email: 'test@example.com' } },
+    updateHomeAccessUI: () => events.push('update-home-access'),
     saveActiveStudyNote: () => events.push('save-active-note'),
     renderStudyDashboard: () => events.push('render-dashboard'),
     renderBooksList: () => events.push('render-books'),

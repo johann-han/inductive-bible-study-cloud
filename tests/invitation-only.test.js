@@ -72,3 +72,15 @@ test('study dashboard and Bible reader are gated behind an authenticated session
   assert.match(app, /function showBibleReader\(\) \{\s*if \(!cloudSyncState\.user\)/);
   assert.match(app, /if \(reader && !signedIn\) reader\.style\.display = 'none'/);
 });
+
+
+test('Home dashboard exposes administrator invitations and sign-out after login', () => {
+  const dashboardStart = app.indexOf('id="studyDashboardHome"');
+  const dashboardEnd = app.indexOf('<!-- LOCAL STUDY LIBRARY -->', dashboardStart);
+  assert.ok(dashboardStart >= 0 && dashboardEnd > dashboardStart, 'dashboard markup must exist');
+  const dashboard = app.slice(dashboardStart, dashboardEnd);
+  assert.match(dashboard, /id="cloudAdminInvitePanel"/);
+  assert.match(dashboard, /id="cloudInviteSendBtn"/);
+  assert.match(dashboard, /id="homeSignOutBtn"/);
+  assert.match(app, /homeSignOut\.addEventListener\('click'/);
+});

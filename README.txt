@@ -88,7 +88,7 @@ The request queue returns pending submissions only and is restricted to an authe
 DATA / SECURITY NOTES
 - Local notes stay in browser localStorage as a local copy. Supabase stores a separate cloud copy.
 - Row Level Security in supabase_schema.sql restricts reads and writes to the signed-in user's own records.
-- The Supabase URL and public anon/publishable key are not secret. Never use a Supabase service_role/secret key in this app.
+- The Supabase URL and public anon/publishable key are not secret. The service_role/secret key is used only by the Node server for administrator invitations and access-request storage; never expose it to browser code, public environment variables, or Git.
 - The OpenRouter key is read only by the Node server and is never sent through /api/config. When Supabase is configured, AI requests must include a valid signed-in session and are limited to 30 requests per account per 10-minute window by this server process. This is a basic guard, not a substitute for monitoring OpenRouter usage and spending limits.
 - First cloud sync merges records by their last-edit timestamps. If two devices edit the same chapter while offline, the most recently timestamped version wins; export important work as backup.
 - This package's cloud code has been syntax-checked, but it cannot complete a live authentication/database test until you configure your own Supabase project and host. Do not delete the old folder or browser storage until you have confirmed cloud sync.

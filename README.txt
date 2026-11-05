@@ -1,7 +1,7 @@
 INDUCTIVE BIBLE STUDY WORKSPACE — CLOUD SYNC PREPARATION (v5)
 
 What this version adds
-- Email/password sign-in and account creation through Supabase Auth.
+- Email/password sign-in through Supabase Auth; public self-registration is disabled for the invitation-only beta.
 - Cloud syncing for Observe, Interpret and Apply notes per book/chapter.
 - A merge of local and cloud studies on first sign-in, using most-recent edit time.
 - Deletion markers so a deleted chapter does not simply reappear at the next sync.
@@ -69,6 +69,21 @@ For email invitations to people outside your Supabase organization, configure a 
 Enable leaked-password protection in Supabase Authentication -> Attack Protection. This rejects passwords known to have been compromised.
 
 Do not deploy invitation access until the Render environment variables are configured and the Supabase "Allow new users to sign up" setting has been turned off.
+
+
+PART E — Request an IBS invitation
+
+The public sign-in page includes a "Request an invitation" form. A request is not an account and does not create a Supabase Auth user. The administrator reviews each request and sends an invitation only after approval.
+
+1. Apply the additive SQL migration in supabase/migrations/20261105190000_ibs_access_requests.sql to the existing IBS Supabase project before enabling the form for public use. The bootstrap file supabase_schema.sql also includes this table for new installations.
+2. Keep SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY) configured only in the existing Node hosting service. Never place it in browser code, NEXT_PUBLIC variables, or the repository.
+3. A visitor submits their name and email address. Church/ministry and a short explanation are optional.
+4. The server validates the submission, applies a per-email rate limit, and stores it in public.ibs_access_requests. The browser has no direct table privileges; RLS is enabled and only the service role is granted access.
+5. After signing in, an approved administrator sees the pending Access requests queue on the IBS Home dashboard. Refresh requests to load the latest submissions.
+6. Select "Approve and send invitation" to send the normal Supabase invitation and mark the request as invited, or "Decline" to close the request.
+7. The request form confirms receipt on screen. It does not send a separate notification email to the administrator, so the administrator should check the queue when reviewing new applications.
+
+The request queue returns pending submissions only and is restricted to an authenticated, verified administrator listed in IBS_ADMIN_EMAILS. Keep the public signup setting disabled.
 
 DATA / SECURITY NOTES
 - Local notes stay in browser localStorage as a local copy. Supabase stores a separate cloud copy.

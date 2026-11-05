@@ -29,8 +29,9 @@ test('invitation endpoint is authenticated, admin-only and rate-limited', () => 
   assert.match(route, /verifySupabaseRequestUser\(req\)/);
   assert.match(route, /isConfiguredIbsAdmin\(auth\.user\)/);
   assert.match(route, /consumeAdminInviteLimit\(auth\.user\.id\)/);
-  assert.match(route, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(route, /\/auth\/v1\/invite/);
+  assert.match(route, /getSupabaseServiceKey\(\)/);
+  assert.match(server, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(server, /\/auth\/v1\/invite/);
 });
 
 test('service-role credentials are not returned to browser configuration', () => {
@@ -84,3 +85,56 @@ test('Home dashboard exposes administrator invitations and sign-out after login'
   assert.match(dashboard, /id="homeSignOutBtn"/);
   assert.match(app, /homeSignOut\.addEventListener\('click'/);
 });
+
+test('public IBS access request form collects contact details without enabling public registration', () => {
+  assert.match(app, /id="homeAccessRequestForm"/);
+  assert.match(app, /id="homeAccessRequestName"[^>]*required/);
+  assert.match(app, /id="homeAccessRequestEmail"[^>]*type="email"[^>]*required/);
+  assert.match(app, /id="homeAccessRequestConsent"[^>]*required/);
+  assert.match(app, /Submitting it does not create an account/);
+  assert.match(app, /fetch\('\/api\/access-requests'/);
+  assert.doesNotMatch(app, /auth\.signUp\s*\(/);
+});
+
+test('public access request endpoint validates input, rate-limits requests and stores them server-side', () => {
+  const start = server.indexOf("url.pathname === '/api/access-requests'");
+  const end = server.indexOf("url.pathname === '/api/admin/status'", start);
+  assert.ok(start >= 0 && end > start, 'public request endpoint must exist before administrator routes');
+  const route = server.slice(start, end);
+  assert.match(route, /consumeAccessRequestLimit\(email\)/);
+  assert.match(route, /fullName\.length/);
+  assert.match(route, /ibs_access_requests/);
+  assert.match(route, /getSupabaseServiceKey\(\)/);
+  assert.match(route, /body\.website/);
+  assert.doesNotMatch(route, /auth\.signUp/);
+});
+
+test('access request records are private and available only to the server service role', () => {
+  const migrationPath = path.join(root, 'supabase', 'migrations', '20261105190000_ibs_access_requests.sql');
+  const migration = fs.readFileSync(migrationPath, 'utf8');
+  assert.match(migration, /create table if not exists public\.ibs_access_requests/i);
+  assert.match(migration, /enable row level security/i);
+  assert.match(migration, /revoke all on table public\.ibs_access_requests from anon/i);
+  assert.match(migration, /revoke all on table public\.ibs_access_requests from authenticated/i);
+  assert.match(migration, /grant select, insert, update, delete on table public\.ibs_access_requests to service_role/i);
+  assert.match(migration, /where status = 'pending'/i);
+});
+
+test('only an approved administrator can view and review access requests', () => {
+  assert.match(server, /url\.pathname === '\/api\/admin\/access-requests'/);
+  assert.match(server, /isConfiguredIbsAdmin\(auth\.user\)/);
+  assert.match(server, /accessRequestAction/);
+  assert.match(server, /sendIbsInvitation\(String\(request\.email/);
+  assert.match(server, /status: 'invited'/);
+  assert.match(server, /status: 'declined'/);
+});
+
+test('administrator dashboard renders pending request data safely and exposes review actions', () => {
+  assert.match(app, /id="ibsAccessRequestsPanel"/);
+  assert.match(app, /id="refreshIbsAccessRequestsBtn"/);
+  assert.match(app, /textContent = String\(request\.full_name/);
+  assert.match(app, /Approve and send invitation/);
+  assert.match(app, /reviewIbsAccessRequest\(request\.id, 'invite'/);
+  assert.match(app, /reviewIbsAccessRequest\(request\.id, 'decline'/);
+});
+

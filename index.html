@@ -1328,7 +1328,41 @@
           </div>
           <button id="homeSignInBtn" type="submit" disabled class="w-full rounded-lg bg-amber-600 px-4 py-3 font-bold text-slate-950 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50">Sign in</button>
         </form>
-        <p class="text-xs leading-relaxed text-slate-500">Need an account? Contact the IBS administrator for an invitation. New public registrations are not available.</p>
+        <details id="homeAccessRequestDetails" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <summary class="cursor-pointer select-none text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 rounded">Need IBS access? Request an invitation</summary>
+          <div class="mt-3 space-y-3">
+            <p class="text-xs leading-relaxed text-slate-600">Complete this form to request access to the Inductive Bible Study Workspace. The administrator will review your request. Submitting it does not create an account; approved applicants receive an invitation by email.</p>
+            <div id="homeAccessRequestStatus" class="hidden rounded-lg border p-3 text-sm" role="status" aria-live="polite"></div>
+            <form id="homeAccessRequestForm" class="space-y-3">
+              <div>
+                <label for="homeAccessRequestName" class="mb-1 block text-xs font-semibold text-slate-700">Full name</label>
+                <input id="homeAccessRequestName" name="fullName" type="text" autocomplete="name" required minlength="2" maxlength="120" placeholder="Your name" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-amber-600 focus:outline-none">
+              </div>
+              <div>
+                <label for="homeAccessRequestEmail" class="mb-1 block text-xs font-semibold text-slate-700">Email address</label>
+                <input id="homeAccessRequestEmail" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-amber-600 focus:outline-none">
+              </div>
+              <div>
+                <label for="homeAccessRequestMinistry" class="mb-1 block text-xs font-semibold text-slate-700">Church or ministry <span class="font-normal text-slate-400">(optional)</span></label>
+                <input id="homeAccessRequestMinistry" name="churchOrMinistry" type="text" maxlength="160" placeholder="Church or ministry name" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-amber-600 focus:outline-none">
+              </div>
+              <div>
+                <label for="homeAccessRequestMessage" class="mb-1 block text-xs font-semibold text-slate-700">Why would you like to use IBS? <span class="font-normal text-slate-400">(optional)</span></label>
+                <textarea id="homeAccessRequestMessage" name="message" rows="3" maxlength="600" placeholder="Tell us briefly about your Bible study or ministry." class="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-amber-600 focus:outline-none"></textarea>
+              </div>
+              <div class="absolute -left-[10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+                <label for="homeAccessRequestWebsite">Leave this field empty</label>
+                <input id="homeAccessRequestWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
+              </div>
+              <label class="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
+                <input id="homeAccessRequestConsent" type="checkbox" required class="mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+                <span>I understand that this is an access request only and that an account is created only after the administrator approves and sends an invitation.</span>
+              </label>
+              <button id="homeAccessRequestSubmitBtn" type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">Send access request</button>
+            </form>
+            <p class="text-[11px] leading-relaxed text-slate-500">Your details will be used only to review and respond to this IBS access request.</p>
+          </div>
+        </details>
       </div>
     </section>
   </main>
@@ -1351,6 +1385,17 @@
             <input id="cloudInviteEmail" type="email" autocomplete="off" maxlength="254" placeholder="person@example.com" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
             <button id="cloudInviteSendBtn" type="button" class="bg-amber-700 hover:bg-amber-600 text-white rounded-lg px-3 py-2 text-sm font-semibold">Send invitation</button>
             <p id="cloudInviteStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Only send invitations to people you have approved.</p>
+          </section>
+          <section id="ibsAccessRequestsPanel" class="hidden rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-3" aria-label="IBS access requests">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Access requests</h3>
+                <p id="ibsAccessRequestsCount" class="text-xs text-slate-600">Pending requests awaiting review</p>
+              </div>
+              <button id="refreshIbsAccessRequestsBtn" type="button" class="rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900 hover:bg-sky-100">Refresh requests</button>
+            </div>
+            <p id="ibsAccessRequestsStatus" class="text-xs text-slate-600" role="status" aria-live="polite">Loading requests…</p>
+            <div id="ibsAccessRequestsList" class="space-y-2"></div>
           </section>
           <section class="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Study overview">
             <article class="rounded-xl border border-slate-200 bg-white p-4">
@@ -7661,6 +7706,124 @@ function renderStandardCrossReferenceList() {
           : 'border-slate-200 bg-slate-50 text-slate-700');
     }
 
+    function setHomeAccessRequestStatus(message, tone = 'normal') {
+      const el = document.getElementById('homeAccessRequestStatus');
+      if (!el) return;
+      el.textContent = message;
+      el.className = 'rounded-lg border p-3 text-sm ' + (tone === 'error'
+        ? 'border-red-200 bg-red-50 text-red-800'
+        : tone === 'success'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          : 'border-slate-200 bg-slate-50 text-slate-700');
+    }
+
+    function renderIbsAccessRequests(requests) {
+      const list = document.getElementById('ibsAccessRequestsList');
+      const count = document.getElementById('ibsAccessRequestsCount');
+      if (!list) return;
+      const items = Array.isArray(requests) ? requests : [];
+      if (count) count.textContent = items.length + ' pending ' + (items.length === 1 ? 'request' : 'requests');
+      list.replaceChildren();
+
+      if (!items.length) {
+        const empty = document.createElement('p');
+        empty.className = 'rounded-lg border border-dashed border-sky-200 bg-white p-4 text-sm text-slate-600';
+        empty.textContent = 'There are no pending access requests.';
+        list.appendChild(empty);
+        return;
+      }
+
+      items.forEach(request => {
+        const card = document.createElement('article');
+        card.className = 'rounded-lg border border-slate-200 bg-white p-3 space-y-2';
+
+        const heading = document.createElement('h4');
+        heading.className = 'text-sm font-bold text-slate-900';
+        heading.textContent = String(request.full_name || 'Unnamed applicant');
+
+        const email = document.createElement('p');
+        email.className = 'text-xs font-semibold text-slate-700 break-all';
+        email.textContent = String(request.email || '');
+
+        const ministry = document.createElement('p');
+        ministry.className = 'text-xs text-slate-600';
+        ministry.textContent = request.church_or_ministry
+          ? 'Church or ministry: ' + String(request.church_or_ministry)
+          : 'Church or ministry: Not provided';
+
+        const message = document.createElement('p');
+        message.className = 'text-sm text-slate-700 whitespace-pre-wrap break-words';
+        message.textContent = request.message ? String(request.message) : 'No additional message.';
+
+        const date = document.createElement('p');
+        date.className = 'text-[11px] text-slate-500';
+        const created = request.created_at ? new Date(request.created_at) : null;
+        date.textContent = 'Submitted: ' + (created && !Number.isNaN(created.getTime()) ? created.toLocaleString() : 'Date unavailable');
+
+        const actions = document.createElement('div');
+        actions.className = 'flex flex-wrap gap-2 pt-1';
+
+        const invite = document.createElement('button');
+        invite.type = 'button';
+        invite.className = 'rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50';
+        invite.textContent = 'Approve and send invitation';
+        invite.addEventListener('click', () => reviewIbsAccessRequest(request.id, 'invite', invite));
+
+        const decline = document.createElement('button');
+        decline.type = 'button';
+        decline.className = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50';
+        decline.textContent = 'Decline';
+        decline.addEventListener('click', () => reviewIbsAccessRequest(request.id, 'decline', decline));
+
+        actions.append(invite, decline);
+        card.append(heading, email, ministry, message, date, actions);
+        list.appendChild(card);
+      });
+    }
+
+    async function refreshIbsAccessRequests() {
+      const status = document.getElementById('ibsAccessRequestsStatus');
+      if (!cloudSyncState.client || !cloudSyncState.isAdmin) return;
+      if (status) status.textContent = 'Loading pending access requests…';
+      try {
+        const { data, error } = await cloudSyncState.client.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Your administrator session has expired. Sign in again.');
+        const response = await fetch('/api/admin/access-requests', {
+          headers: { Authorization: 'Bearer ' + data.session.access_token },
+          cache: 'no-store'
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Access requests could not be loaded.');
+        renderIbsAccessRequests(result.requests);
+        if (status) status.textContent = 'Requests are visible only to an approved IBS administrator.';
+      } catch (error) {
+        if (status) status.textContent = error.message || 'Access requests could not be loaded.';
+      }
+    }
+
+    async function reviewIbsAccessRequest(requestId, action, button) {
+      const status = document.getElementById('ibsAccessRequestsStatus');
+      if (!cloudSyncState.client || !cloudSyncState.isAdmin || !requestId) return;
+      if (button) button.disabled = true;
+      if (status) status.textContent = action === 'invite' ? 'Sending the invitation…' : 'Declining the request…';
+      try {
+        const { data, error } = await cloudSyncState.client.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Your administrator session has expired. Sign in again.');
+        const response = await fetch('/api/admin/access-requests/' + encodeURIComponent(requestId) + '/' + action, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + data.session.access_token },
+          cache: 'no-store'
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'The access request could not be processed.');
+        if (status) status.textContent = result.message || 'The access request has been processed.';
+        await refreshIbsAccessRequests();
+      } catch (error) {
+        if (status) status.textContent = error.message || 'The access request could not be processed.';
+        if (button) button.disabled = false;
+      }
+    }
+
     function updateHomeAccessUI() {
       const authPanel = document.getElementById('homeAuthPanel');
       const dashboard = document.getElementById('studyDashboardHome');
@@ -7684,6 +7847,7 @@ function renderStandardCrossReferenceList() {
       const signOut = document.getElementById('cloudSignOutBtn');
       const syncNow = document.getElementById('cloudSyncNowBtn');
       const adminPanel = document.getElementById('cloudAdminInvitePanel');
+      const accessRequestsPanel = document.getElementById('ibsAccessRequestsPanel');
       const passwordPanel = document.getElementById('cloudPasswordSetupPanel');
       const signedIn = !!cloudSyncState.user;
       const homeEmail = document.getElementById('homeSignedInEmail');
@@ -7693,6 +7857,7 @@ function renderStandardCrossReferenceList() {
       if (signOut) signOut.classList.toggle('hidden', !signedIn);
       if (syncNow) syncNow.classList.toggle('hidden', !signedIn);
       if (adminPanel) adminPanel.classList.toggle('hidden', !signedIn || !cloudSyncState.isAdmin);
+      if (accessRequestsPanel) accessRequestsPanel.classList.toggle('hidden', !signedIn || !cloudSyncState.isAdmin);
       if (passwordPanel) passwordPanel.classList.toggle('hidden', !signedIn);
       const password = document.getElementById('cloudPassword');
       const email = document.getElementById('cloudEmail');
@@ -7722,6 +7887,7 @@ function renderStandardCrossReferenceList() {
         console.warn('IBS administrator status could not be checked:', error);
       }
       updateCloudAccountUI();
+      if (cloudSyncState.isAdmin) refreshIbsAccessRequests();
     }
 
     function scheduleCloudStudySync() {
@@ -7973,8 +8139,40 @@ function renderStandardCrossReferenceList() {
       const syncNow = document.getElementById('cloudSyncNowBtn');
       const inviteButton = document.getElementById('cloudInviteSendBtn');
       const passwordSaveButton = document.getElementById('cloudSavePasswordBtn');
+      const homeAccessRequestForm = document.getElementById('homeAccessRequestForm');
+      const homeAccessRequestSubmit = document.getElementById('homeAccessRequestSubmitBtn');
+      const refreshAccessRequestsButton = document.getElementById('refreshIbsAccessRequestsBtn');
       const homeAuthForm = document.getElementById('homeAuthForm');
       const homeSignOut = document.getElementById('homeSignOutBtn');
+      if (homeAccessRequestForm) homeAccessRequestForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        const payload = {
+          fullName: String(document.getElementById('homeAccessRequestName')?.value || '').trim(),
+          email: String(document.getElementById('homeAccessRequestEmail')?.value || '').trim(),
+          churchOrMinistry: String(document.getElementById('homeAccessRequestMinistry')?.value || '').trim(),
+          message: String(document.getElementById('homeAccessRequestMessage')?.value || '').trim(),
+          website: String(document.getElementById('homeAccessRequestWebsite')?.value || '').trim()
+        };
+        if (homeAccessRequestSubmit) homeAccessRequestSubmit.disabled = true;
+        setHomeAccessRequestStatus('Submitting your request securely…');
+        try {
+          const response = await fetch('/api/access-requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            cache: 'no-store'
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || 'Your request could not be submitted.');
+          homeAccessRequestForm.reset();
+          setHomeAccessRequestStatus(result.message || 'Your request has been received. The administrator will review it.', 'success');
+        } catch (error) {
+          setHomeAccessRequestStatus(error.message || 'Your request could not be submitted. Please try again.', 'error');
+        } finally {
+          if (homeAccessRequestSubmit) homeAccessRequestSubmit.disabled = false;
+        }
+      });
+      if (refreshAccessRequestsButton) refreshAccessRequestsButton.addEventListener('click', refreshIbsAccessRequests);
       if (homeSignOut) homeSignOut.addEventListener('click', async () => {
         if (!cloudSyncState.client) return;
         try {

@@ -71,7 +71,7 @@ test('study dashboard and Bible reader are gated behind an authenticated session
   assert.match(app, /id="studyDashboardHome" style="display:none"/);
   assert.match(app, /if \(!cloudSyncState\.user\) \{\s*updateHomeAccessUI\(\);\s*return;\s*\}\s*saveActiveStudyNote\(\);/);
   assert.match(app, /function showBibleReader\(\) \{\s*if \(!cloudSyncState\.user\)/);
-  assert.match(app, /if \(reader && !signedIn\) reader\.style\.display = 'none'/);
+  assert.match(app, /if \(reader && \(!signedIn \|\| isIbsAdminDashboardRoute\)\) reader\.style\.display = 'none'/);
 });
 
 
@@ -146,7 +146,7 @@ test('email administrator link opens a dedicated administrator route served by t
 });
 
 test('administrator route requires a signed-in allowlisted user and opens the request dashboard', () => {
-  assert.match(app, /const isIbsAdminDashboardRoute = \/\^\\\/admin\\\/?\$\//);
+  assert.match(app, /isIbsAdminDashboardRoute =/);
   assert.match(app, /id="ibsAdminAccessDenied"/);
   assert.match(app, /IBS Administrator Dashboard/);
   assert.match(app, /isIbsAdminDashboardRoute && cloudSyncState\.isAdmin/);

@@ -6312,7 +6312,10 @@ function renderStandardCrossReferenceList() {
       const relatedLines = [];
       related.forEach(item => {
         const itemStageIndex = WORKSPACE_STAGE_ORDER.indexOf(item.stage);
-        if (item.includedInStageNotes && itemStageIndex >= 0 && itemStageIndex < Math.max(0, stageIndex)) return;
+        // Do not send evidence created in a later stage backwards; if already included in its
+        // own stage notes, that stage's notes are the canonical source in the handoff.
+        if (itemStageIndex > Math.max(0, stageIndex)) return;
+        if (item.includedInStageNotes) return;
         const lines = [formatStudyRelatedPassageReference(item) + ' · ' +
           (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other)];
         if (item.note) lines.push('Connection note: ' + item.note);

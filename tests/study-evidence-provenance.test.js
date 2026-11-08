@@ -130,7 +130,7 @@ test('Supabase cloud conversion and merge preserve structured evidence links', (
 
   assert.ok(app.includes('evidenceLinks = normalizeStudyEvidenceLinks(rec.evidenceLinks)'));
   assert.ok(app.includes('evidenceLinks = []'));
-  assert.ok(app.includes('versionHistory, evidenceLinks }'));
+  assert.ok(app.includes('versionHistory, evidenceLinks, studyClaims }'));
   assert.ok(app.includes('_evidenceLinks: evidenceLinks'));
   assert.ok(app.includes('normalizeStudyEvidenceLinks(remote.sections?._evidenceLinks)'));
   assert.ok(app.includes('normalizeStudyEvidenceLinks(nextRow.sections?._evidenceLinks)'));

@@ -166,6 +166,7 @@ function makeHarness(selectedVerseValues = []) {
   );
   sandbox.normalizeStudyRelatedPassages = vm.runInNewContext('(' + normalizeSource + ')', sandbox);
   sandbox.normalizeStudyEvidenceLinks = value => Array.isArray(value) ? value : [];
+  sandbox.normalizeStudyClaims = value => Array.isArray(value) ? value : [];
   const legacySource = extractFunction(
     indexHtml,
     '    function relatedPassageFromCrossReference(ref) {',
@@ -667,7 +668,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
 test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v22'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v23'/);
 });
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
@@ -759,6 +760,22 @@ test('Related passage text and inclusion state survive cloud hydration and a loc
         targetStage: 'interpret',
         linkedAt: '2026-11-08T12:00:00.000Z'
       }],
+      _studyClaims: [{
+        id: 'claim-interpret-1',
+        stage: 'interpret',
+        statement: 'Paul identifies the unity of the body in this passage.',
+        supportLinks: [{
+          sourceId: 'verse-map-1',
+          sourceType: 'verse-map',
+          sourceTitle: 'Verse map · Romans 8:1',
+          sourceStage: 'observe',
+          sourceReference: 'Romans 8:1',
+          relationship: 'direct-support',
+          linkedAt: '2026-11-08T12:00:00.000Z'
+        }],
+        createdAt: '2026-11-08T12:00:00.000Z',
+        updatedAt: '2026-11-08T12:00:00.000Z'
+      }],
       _crossReferences: [{
         id: 'xref-related-1',
         source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
@@ -785,6 +802,12 @@ test('Related passage text and inclusion state survive cloud hydration and a loc
   assert.equal(hydrated.evidenceLinks[0].sourceType, 'verse-map');
   assert.equal(hydrated.evidenceLinks[0].sourceReference, 'Romans 8:1');
   assert.equal(hydrated.evidenceLinks[0].targetStage, 'interpret');
+  assert.equal(hydrated.studyClaims.length, 1);
+  assert.equal(hydrated.studyClaims[0].id, 'claim-interpret-1');
+  assert.equal(hydrated.studyClaims[0].stage, 'interpret');
+  assert.equal(hydrated.studyClaims[0].statement, 'Paul identifies the unity of the body in this passage.');
+  assert.equal(hydrated.studyClaims[0].supportLinks[0].sourceId, 'verse-map-1');
+  assert.equal(hydrated.studyClaims[0].supportLinks[0].relationship, 'direct-support');
   assert.match(hydrated.sections.observe, /Existing study observations\./);
   assert.match(hydrated.sections.observe, /\[Related passage: John 3:16-17\]/);
   assert.match(hydrated.sections.observe, /Connection: Shared theme or repeated idea/);
@@ -1006,6 +1029,22 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
       targetStage: 'interpret',
       linkedAt: '2026-11-08T12:00:00.000Z'
     }],
+    studyClaims: [{
+      id: 'claim-interpret-1',
+      stage: 'interpret',
+      statement: 'Paul identifies the unity of the body in this passage.',
+      supportLinks: [{
+        sourceId: 'verse-map-1',
+        sourceType: 'verse-map',
+        sourceTitle: 'Verse map · Romans 8:1',
+        sourceStage: 'observe',
+        sourceReference: 'Romans 8:1',
+        relationship: 'direct-support',
+        linkedAt: '2026-11-08T12:00:00.000Z'
+      }],
+      createdAt: '2026-11-08T12:00:00.000Z',
+      updatedAt: '2026-11-08T12:00:00.000Z'
+    }],
     activeSection: 'observe',
     updatedAt: '2026-10-24T12:00:00.000Z'
   };
@@ -1069,6 +1108,7 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
     studyRecordKey: (book, chapter) => (book && chapter) ? book + '::' + Number(chapter) : 'Romans::8',
     normalizeStudyRelatedPassages: relatedHarness.normalizeStudyRelatedPassages,
     normalizeStudyEvidenceLinks: value => Array.isArray(value) ? value : [],
+    normalizeStudyClaims: value => Array.isArray(value) ? value : [],
     normalizeVerseMaps: value => value && typeof value === 'object' && !Array.isArray(value) ? value : {},
     normalizePassageOutline: value => value && typeof value === 'object' ? value : null,
     normalizeStudyNoteVersionHistory: value => Array.isArray(value) ? value : [],
@@ -1108,6 +1148,10 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
   assert.equal(cloudRecord.sections._evidenceLinks[0].sourceId, 'verse-map-1');
   assert.equal(cloudRecord.sections._evidenceLinks[0].targetStage, 'interpret');
   assert.equal(cloudRecord.sections._evidenceLinks[0].sourceReference, 'Romans 8:1');
+  assert.equal(cloudRecord.sections._studyClaims.length, 1);
+  assert.equal(cloudRecord.sections._studyClaims[0].id, 'claim-interpret-1');
+  assert.equal(cloudRecord.sections._studyClaims[0].supportLinks[0].sourceId, 'verse-map-1');
+  assert.equal(cloudRecord.sections._studyClaims[0].supportLinks[0].relationship, 'direct-support');
   assert.equal(cloudRecord.sections._crossReferences[0].source.scope, 'study');
   assert.equal(cloudRecord.sections._crossReferences[0].relation, 'theme');
   assert.equal(cloudRecord.sections._crossReferences[0].note, 'God’s saving purpose.');
@@ -1132,6 +1176,11 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
   assert.equal(restored.evidenceLinks[0].sourceType, 'verse-map');
   assert.equal(restored.evidenceLinks[0].sourceReference, 'Romans 8:1');
   assert.equal(restored.evidenceLinks[0].targetStage, 'interpret');
+  assert.equal(restored.studyClaims.length, 1);
+  assert.equal(restored.studyClaims[0].id, 'claim-interpret-1');
+  assert.equal(restored.studyClaims[0].stage, 'interpret');
+  assert.equal(restored.studyClaims[0].supportLinks[0].sourceId, 'verse-map-1');
+  assert.equal(restored.studyClaims[0].supportLinks[0].relationship, 'direct-support');
   assert.match(restored.sections.observe, /Connection: Shared theme or repeated idea/);
   assert.match(restored.sections.observe, /Why it matters: God’s saving purpose\./);
   assert.equal(restored.crossReferences[0].source.scope, 'study');
@@ -1165,7 +1214,7 @@ test('Related passage Add/manage dialog escapes transformed panels on mobile', (
 
 test('PWA shell cache version advances for the related-passage dialog fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v22'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v23'/);
 });
 
 

@@ -1295,6 +1295,22 @@
               <p id="workspaceEvidenceHandoffStatus" class="text-[10px] text-slate-600" role="status" aria-live="polite">No evidence has been inserted.</p>
             </div>
           </details>
+          <details id="workspaceClaimEvidencePanel" class="rounded-lg border border-violet-200 bg-violet-50/60 p-2.5">
+            <summary class="cursor-pointer select-none flex items-center justify-between gap-2 text-[11px] font-bold text-violet-950">
+              <span>Link a statement to evidence</span>
+              <span id="workspaceClaimEvidenceCount" class="shrink-0 text-[10px] font-medium text-violet-700">0 linked statements</span>
+            </summary>
+            <p class="mt-2 text-[10px] leading-relaxed text-slate-600">Select a statement you wrote in the notes below, then choose the Scripture or study sources that support it. The relationship is classified so an inference is not mistaken for direct textual support.</p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <button id="workspaceCaptureClaimBtn" type="button" class="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-[10px] font-bold text-violet-800 hover:bg-violet-100">Use selected note text</button>
+              <span id="workspaceClaimDraftStatus" class="text-[10px] text-slate-500" role="status" aria-live="polite">No statement selected.</span>
+            </div>
+            <blockquote id="workspaceClaimDraftPreview" class="hidden mt-2 rounded-md border-l-2 border-violet-400 bg-white px-2.5 py-2 text-[10px] leading-relaxed text-slate-800 whitespace-pre-wrap"></blockquote>
+            <div id="workspaceClaimEvidenceSources" class="mt-2 space-y-2"></div>
+            <button id="workspaceSaveClaimLinksBtn" type="button" disabled class="mt-2 rounded-lg bg-violet-700 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50">Save statement and evidence links</button>
+            <p id="workspaceClaimEvidenceStatus" class="mt-1 text-[10px] text-slate-600" role="status" aria-live="polite">Choose at least one source to create a traceable link.</p>
+            <div id="workspaceStudyClaimsList" class="mt-3 space-y-2"></div>
+          </details>
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <div id="workspaceNoteMetaRow" class="flex flex-col gap-1">
             <div class="flex items-center justify-between gap-2 min-h-5 h-5">
@@ -5657,6 +5673,61 @@ function renderStandardCrossReferenceList() {
       return normalized.slice(-500);
     }
 
+    const CLAIM_EVIDENCE_RELATIONSHIPS = Object.freeze({
+      'direct-support': 'Direct textual support',
+      'contextual-support': 'Contextual support',
+      corroborating: 'Corroborating Scripture',
+      inference: 'Inference to assess'
+    });
+
+    function normalizeStudyClaims(value) {
+      if (!Array.isArray(value)) return [];
+      const normalized = [];
+      const seenIds = new Set();
+      const seenStatements = new Set();
+      value.forEach(entry => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
+        const id = String(entry.id || '').trim().slice(0, 120);
+        const stage = NOTE_SECTION_LABELS[entry.stage] ? entry.stage : null;
+        const statement = String(entry.statement || '').trim().slice(0, 2000);
+        if (!id || !stage || statement.length < 5 || seenIds.has(id)) return;
+        const statementKey = stage + '::' + statement;
+        if (seenStatements.has(statementKey)) return;
+        const links = [];
+        const seenSources = new Set();
+        (Array.isArray(entry.supportLinks) ? entry.supportLinks : []).slice(0, 50).forEach(link => {
+          if (!link || typeof link !== 'object' || Array.isArray(link)) return;
+          const sourceId = String(link.sourceId || '').trim().slice(0, 120);
+          const sourceType = String(link.sourceType || '').trim().slice(0, 80);
+          const relationship = CLAIM_EVIDENCE_RELATIONSHIPS[link.relationship] ? link.relationship : null;
+          if (!sourceId || !sourceType || !relationship || seenSources.has(sourceId)) return;
+          seenSources.add(sourceId);
+          links.push({
+            sourceId,
+            sourceType,
+            sourceTitle: String(link.sourceTitle || sourceId).trim().slice(0, 200),
+            sourceStage: NOTE_SECTION_LABELS[link.sourceStage] ? link.sourceStage : null,
+            sourceReference: String(link.sourceReference || '').trim().slice(0, 160),
+            relationship,
+            linkedAt: String(link.linkedAt || '').slice(0, 50)
+          });
+        });
+        if (!links.length) return;
+        seenIds.add(id);
+        seenStatements.add(statementKey);
+        normalized.push({
+          id,
+          stage,
+          statement,
+          supportLinks: links,
+          createdAt: String(entry.createdAt || '').slice(0, 50),
+          updatedAt: String(entry.updatedAt || entry.createdAt || '').slice(0, 50)
+        });
+      });
+      return normalized.slice(-500);
+    }
+
+    const workspaceClaimEvidenceState = { stage: null, statement: '' };
 
     const isIbsAdminDashboardRoute = /^\/admin\/?$/.test(window.location.pathname);
     const cloudSyncState = { client: null, user: null, isAdmin: false, adminStatusChecked: false, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };
@@ -6310,6 +6381,16 @@ function renderStandardCrossReferenceList() {
         });
       };
 
+      const passageId = passageReference.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      add(
+        'primary-passage-' + passageId,
+        'primary-scripture',
+        'Primary Scripture passage · ' + passageReference,
+        'Primary biblical text for this study. Consult the Bible Reader for the exact translation wording, verse context and paragraph flow.',
+        null,
+        passageReference
+      );
+
       WORKSPACE_STAGE_ORDER.slice(0, Math.max(0, stageIndex)).forEach(stage => {
         const notes = stripWorkspaceEvidenceHandoffBlocks(record.sections?.[stage]);
         if (notes) add('stage-' + stage, 'stage-notes', NOTE_SECTION_LABELS[stage] + ' notes', notes, stage);
@@ -6474,6 +6555,300 @@ function renderStandardCrossReferenceList() {
         : 'Insert or refresh only the labelled evidence block; preserve the rest of your notes';
     }
 
+    function captureWorkspaceClaimSelection() {
+      const area = document.getElementById('workspaceNoteArea');
+      const status = document.getElementById('workspaceClaimDraftStatus');
+      if (!area || typeof area.selectionStart !== 'number' || typeof area.selectionEnd !== 'number') return false;
+      const start = area.selectionStart;
+      const end = area.selectionEnd;
+      const statement = String(area.value || '').slice(start, end).trim();
+      const stage = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+      if (!statement || end <= start) {
+        if (status) status.textContent = 'Select the exact statement in your notes first.';
+        return false;
+      }
+      if (statement.length > 2000) {
+        if (status) status.textContent = 'Select a shorter statement (maximum 2,000 characters).';
+        return false;
+      }
+
+      const notes = String(area.value || '');
+      const startMarker = '[[IBS_EVIDENCE_HANDOFF_START:' + stage + ']]';
+      const endMarker = '[[IBS_EVIDENCE_HANDOFF_END:' + stage + ']]';
+      const blockStart = notes.indexOf(startMarker);
+      const blockEnd = notes.indexOf(endMarker);
+      if (blockStart >= 0 && blockEnd >= blockStart &&
+          start < blockEnd + endMarker.length && end > blockStart) {
+        if (status) status.textContent = 'Select a statement you wrote, not text inside the generated evidence block.';
+        return false;
+      }
+
+      workspaceClaimEvidenceState.stage = stage;
+      workspaceClaimEvidenceState.statement = statement;
+      const panel = document.getElementById('workspaceClaimEvidencePanel');
+      if (panel) panel.open = true;
+      renderWorkspaceClaimEvidencePanel();
+      if (status) status.textContent = 'Statement selected. Choose the sources and how each relates to it.';
+      return true;
+    }
+
+    function renderWorkspaceClaimEvidencePanel() {
+      const panel = document.getElementById('workspaceClaimEvidencePanel');
+      const count = document.getElementById('workspaceClaimEvidenceCount');
+      const draftStatus = document.getElementById('workspaceClaimDraftStatus');
+      const draftPreview = document.getElementById('workspaceClaimDraftPreview');
+      const sourceContainer = document.getElementById('workspaceClaimEvidenceSources');
+      const saveButton = document.getElementById('workspaceSaveClaimLinksBtn');
+      const status = document.getElementById('workspaceClaimEvidenceStatus');
+      const claimsList = document.getElementById('workspaceStudyClaimsList');
+      if (!panel || !sourceContainer || !saveButton || !claimsList) return;
+
+      const stage = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+      if (workspaceClaimEvidenceState.stage && workspaceClaimEvidenceState.stage !== stage) {
+        workspaceClaimEvidenceState.stage = null;
+        workspaceClaimEvidenceState.statement = '';
+      }
+      const record = readStudyLibrary()[studyRecordKey()] || null;
+      const claims = normalizeStudyClaims(record?.studyClaims);
+      if (count) count.textContent = claims.length + ' linked statement' + (claims.length === 1 ? '' : 's');
+      if (draftPreview) {
+        draftPreview.textContent = workspaceClaimEvidenceState.statement || '';
+        draftPreview.classList.toggle('hidden', !workspaceClaimEvidenceState.statement);
+      }
+      if (draftStatus && !workspaceClaimEvidenceState.statement) {
+        draftStatus.textContent = 'No statement selected.';
+      }
+      sourceContainer.replaceChildren();
+
+      if (workspaceClaimEvidenceState.statement && workspaceClaimEvidenceState.stage === stage) {
+        const sources = getWorkspaceEvidenceHandoffSources(record || {
+          book: appState.currentBook,
+          chapter: appState.currentChapter
+        }, stage);
+        if (!sources.length) {
+          const empty = document.createElement('p');
+          empty.className = 'text-[10px] text-slate-500';
+          empty.textContent = 'No evidence sources are available yet for this stage.';
+          sourceContainer.appendChild(empty);
+        }
+        sources.forEach(source => {
+          const card = document.createElement('article');
+          card.className = 'rounded-md border border-violet-100 bg-white p-2 space-y-1.5';
+          const row = document.createElement('div');
+          row.className = 'flex flex-wrap items-start gap-2';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'mt-0.5 shrink-0';
+          checkbox.dataset.claimSource = 'true';
+          checkbox.dataset.sourceId = source.id;
+          checkbox.id = 'claim-source-' + source.id.replace(/[^A-Za-z0-9_-]/g, '-');
+          const label = document.createElement('label');
+          label.htmlFor = checkbox.id;
+          label.className = 'min-w-0 flex-1 cursor-pointer';
+          const title = document.createElement('span');
+          title.className = 'block text-[10px] font-bold text-slate-800';
+          title.textContent = source.title;
+          const meta = document.createElement('span');
+          meta.className = 'block mt-0.5 text-[9px] text-slate-500';
+          meta.textContent = [
+            'ID: ' + source.id,
+            source.type,
+            source.sourceStage ? 'From ' + NOTE_SECTION_LABELS[source.sourceStage] : 'Primary passage or study tool',
+            source.reference || ''
+          ].filter(Boolean).join(' · ');
+          label.append(title, meta);
+          row.append(checkbox, label);
+
+          const relationshipRow = document.createElement('div');
+          relationshipRow.className = 'pl-5 flex flex-wrap items-center gap-2';
+          const relationshipLabel = document.createElement('label');
+          relationshipLabel.className = 'text-[9px] text-slate-600';
+          relationshipLabel.textContent = 'Relationship to statement';
+          const relationship = document.createElement('select');
+          relationship.className = 'min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-700';
+          relationship.dataset.claimRelationship = 'true';
+          relationship.dataset.sourceId = source.id;
+          Object.entries(CLAIM_EVIDENCE_RELATIONSHIPS).forEach(([value, text]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            relationship.appendChild(option);
+          });
+          relationshipRow.append(relationshipLabel, relationship);
+
+          const preview = document.createElement('details');
+          preview.className = 'ml-5';
+          const previewSummary = document.createElement('summary');
+          previewSummary.className = 'cursor-pointer text-[9px] text-violet-700';
+          previewSummary.textContent = 'Review source detail';
+          const previewBody = document.createElement('pre');
+          previewBody.className = 'mt-1 whitespace-pre-wrap break-words font-sans text-[9px] leading-relaxed text-slate-600';
+          previewBody.textContent = source.content;
+          preview.append(previewSummary, previewBody);
+          card.append(row, relationshipRow, preview);
+          sourceContainer.appendChild(card);
+        });
+        saveButton.disabled = false;
+        if (status) status.textContent = 'Select at least one source. Classify direct support, context, corroboration or inference separately.';
+      } else {
+        const empty = document.createElement('p');
+        empty.className = 'text-[10px] text-slate-500';
+        empty.textContent = 'Select a statement in your notes, then choose “Use selected note text”.';
+        sourceContainer.appendChild(empty);
+        saveButton.disabled = true;
+        if (status) status.textContent = 'No statement is ready to link yet.';
+      }
+
+      claimsList.replaceChildren();
+      if (!claims.length) {
+        const empty = document.createElement('p');
+        empty.className = 'border-t border-violet-100 pt-2 text-[10px] text-slate-500';
+        empty.textContent = 'No statements have been linked to evidence in this study yet.';
+        claimsList.appendChild(empty);
+        return;
+      }
+
+      const noteSections = record?.sections || {};
+      claims.slice().reverse().forEach(claim => {
+        const card = document.createElement('article');
+        card.className = 'border-t border-violet-100 pt-2 space-y-1.5';
+        const heading = document.createElement('div');
+        heading.className = 'flex items-start justify-between gap-2';
+        const statement = document.createElement('p');
+        statement.className = 'min-w-0 flex-1 text-[10px] font-semibold leading-relaxed text-slate-800';
+        statement.textContent = '“' + claim.statement + '”';
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'shrink-0 rounded border border-slate-200 bg-white px-2 py-1 text-[9px] font-semibold text-slate-600 hover:bg-slate-50';
+        remove.textContent = 'Remove links';
+        remove.title = 'Remove evidence links only; leave the note text unchanged';
+        remove.addEventListener('click', () => removeWorkspaceStudyClaim(claim.id));
+        heading.append(statement, remove);
+
+        const stillInNotes = String(noteSections[claim.stage] || '').includes(claim.statement);
+        const meta = document.createElement('p');
+        meta.className = 'text-[9px] ' + (stillInNotes ? 'text-slate-500' : 'font-semibold text-amber-700');
+        meta.textContent = NOTE_SECTION_LABELS[claim.stage] + ' · ' + claim.supportLinks.length + ' linked source' +
+          (claim.supportLinks.length === 1 ? '' : 's') +
+          (stillInNotes ? ' · statement found in notes' : ' · statement changed or moved; review this link');
+        const links = document.createElement('ul');
+        links.className = 'pl-3 space-y-0.5';
+        claim.supportLinks.forEach(link => {
+          const item = document.createElement('li');
+          item.className = 'text-[9px] text-slate-600';
+          item.textContent = '• ' + link.sourceTitle + (link.sourceReference ? ' · ' + link.sourceReference : '') +
+            ' — ' + (CLAIM_EVIDENCE_RELATIONSHIPS[link.relationship] || link.relationship);
+          links.appendChild(item);
+        });
+        card.append(heading, meta, links);
+        claimsList.appendChild(card);
+      });
+    }
+
+    function saveWorkspaceClaimEvidenceLinks() {
+      const stage = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+      const statement = String(workspaceClaimEvidenceState.statement || '').trim();
+      const status = document.getElementById('workspaceClaimEvidenceStatus');
+      const sourceContainer = document.getElementById('workspaceClaimEvidenceSources');
+      if (!statement || workspaceClaimEvidenceState.stage !== stage || !sourceContainer) {
+        if (status) status.textContent = 'Select a statement in the current stage before linking evidence.';
+        return false;
+      }
+
+      saveActiveStudyNote();
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      if (!record || !String(record.sections?.[stage] || '').includes(statement)) {
+        if (status) status.textContent = 'The selected statement is no longer present in the saved notes. Select it again before linking evidence.';
+        return false;
+      }
+
+      const sources = getWorkspaceEvidenceHandoffSources(record, stage);
+      const sourceById = new Map(sources.map(source => [source.id, source]));
+      const selected = Array.from(sourceContainer.querySelectorAll('input[data-claim-source="true"]:checked'));
+      if (!selected.length) {
+        if (status) status.textContent = 'Choose at least one evidence source.';
+        return false;
+      }
+      const relationships = new Map(Array.from(sourceContainer.querySelectorAll('select[data-claim-relationship="true"]'))
+        .map(select => [select.dataset.sourceId, select.value]));
+      const linkedAt = new Date().toISOString();
+      const supportLinks = [];
+      selected.forEach(checkbox => {
+        const source = sourceById.get(checkbox.dataset.sourceId);
+        const relationship = relationships.get(checkbox.dataset.sourceId);
+        if (!source || !CLAIM_EVIDENCE_RELATIONSHIPS[relationship]) return;
+        supportLinks.push({
+          sourceId: source.id,
+          sourceType: source.type,
+          sourceTitle: source.title,
+          sourceStage: source.sourceStage,
+          sourceReference: source.reference || '',
+          relationship,
+          linkedAt
+        });
+      });
+      if (!supportLinks.length) {
+        if (status) status.textContent = 'The selected sources are no longer available. Refresh the panel and select again.';
+        return false;
+      }
+
+      const claims = normalizeStudyClaims(record.studyClaims);
+      const existing = claims.find(claim => claim.stage === stage && claim.statement === statement);
+      const now = new Date().toISOString();
+      const nextClaim = {
+        id: existing?.id || ('claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9)),
+        stage,
+        statement,
+        supportLinks,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now
+      };
+      record.studyClaims = normalizeStudyClaims(claims.filter(claim => claim.id !== nextClaim.id).concat(nextClaim));
+      record.updatedAt = now;
+      library[key] = record;
+      if (!writeStudyLibrary(library)) {
+        if (status) status.textContent = 'The evidence links could not be saved locally. No changes were made to the saved record.';
+        return false;
+      }
+      scheduleCloudStudySync();
+      workspaceClaimEvidenceState.stage = null;
+      workspaceClaimEvidenceState.statement = '';
+      const draftStatus = document.getElementById('workspaceClaimDraftStatus');
+      if (draftStatus) draftStatus.textContent = 'Evidence links saved.';
+      renderWorkspaceClaimEvidencePanel();
+      renderWorkspaceEvidenceHandoff();
+      const direct = supportLinks.filter(link => link.relationship !== 'inference').length;
+      const inferences = supportLinks.length - direct;
+      if (status) status.textContent = supportLinks.length + ' source link' + (supportLinks.length === 1 ? '' : 's') +
+        ' saved for this statement (' + direct + ' supporting source' + (direct === 1 ? '' : 's') +
+        ', ' + inferences + ' inference to assess).';
+      const noteStatus = document.getElementById('noteSaveStatus');
+      if (noteStatus) noteStatus.textContent = cloudSyncState.user ? 'Evidence links saved locally · syncing…' : 'Evidence links saved locally';
+      return true;
+    }
+
+    function removeWorkspaceStudyClaim(claimId) {
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      if (!record) return false;
+      const claims = normalizeStudyClaims(record.studyClaims);
+      const nextClaims = claims.filter(claim => claim.id !== claimId);
+      if (nextClaims.length === claims.length) return false;
+      record.studyClaims = nextClaims;
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) return false;
+      scheduleCloudStudySync();
+      renderWorkspaceClaimEvidencePanel();
+      renderWorkspaceEvidenceHandoff();
+      const status = document.getElementById('workspaceClaimEvidenceStatus');
+      if (status) status.textContent = 'Evidence links removed. The statement remains in your notes.';
+      return true;
+    }
+
     function insertWorkspaceEvidenceHandoff() {
       saveActiveStudyNote();
       const stage = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
@@ -6633,6 +7008,7 @@ function renderStandardCrossReferenceList() {
       updateStudyRelatedPassageButton();
       updateWorkspaceStageNavigation();
       renderWorkspaceEvidenceHandoff();
+      renderWorkspaceClaimEvidencePanel();
     }
 
     function switchWorkspaceSection(section) {
@@ -6652,6 +7028,11 @@ function renderStandardCrossReferenceList() {
     function setupNotesPersistence() {
       const area = document.getElementById('workspaceNoteArea');
       if (!area) return;
+      document.getElementById('workspaceCaptureClaimBtn')?.addEventListener('click', captureWorkspaceClaimSelection);
+      document.getElementById('workspaceSaveClaimLinksBtn')?.addEventListener('click', saveWorkspaceClaimEvidenceLinks);
+      document.getElementById('workspaceClaimEvidencePanel')?.addEventListener('toggle', event => {
+        if (event.target.open) renderWorkspaceClaimEvidencePanel();
+      });
       area.addEventListener('input', () => {
         invalidateWorkspaceNoteFindMatches();
         updateWorkspaceWordCount(area.value);
@@ -6662,6 +7043,7 @@ function renderStandardCrossReferenceList() {
       area.addEventListener('blur', () => {
         saveActiveStudyNote();
         saveCurrentStudyNoteVersionSnapshot();
+        renderWorkspaceClaimEvidencePanel();
       });
       area.addEventListener('keydown', event => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
@@ -7765,6 +8147,8 @@ function renderStandardCrossReferenceList() {
           record.sections && (
             ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
             (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
+            (Array.isArray(record.evidenceLinks) && record.evidenceLinks.length > 0) ||
+            (Array.isArray(record.studyClaims) && record.studyClaims.length > 0) ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
             (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
           ))
@@ -7778,6 +8162,8 @@ function renderStandardCrossReferenceList() {
             apply: String(record.sections?.apply || '')
           },
           versionHistory: normalizeStudyNoteVersionHistory(record.versionHistory),
+          evidenceLinks: normalizeStudyEvidenceLinks(record.evidenceLinks),
+          studyClaims: normalizeStudyClaims(record.studyClaims),
           scriptureMarkups: Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups
             .filter(mark => mark && SCRIPTURE_MARKUP_TYPES[mark.type] &&
               Number.isInteger(mark.verse) && mark.verse > 0 &&
@@ -8011,6 +8397,57 @@ function renderStandardCrossReferenceList() {
           }
         }
 
+        let evidenceLinks = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'evidenceLinks')) {
+          if (!Array.isArray(item.evidenceLinks) || item.evidenceLinks.length > 500) {
+            setStudyBackupStatus(`The backup has invalid evidence-link data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          evidenceLinks = normalizeStudyEvidenceLinks(item.evidenceLinks);
+          if (evidenceLinks.length !== item.evidenceLinks.length) {
+            setStudyBackupStatus(`The backup has invalid evidence-link details for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
+        let studyClaims = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'studyClaims')) {
+          if (!Array.isArray(item.studyClaims) || item.studyClaims.length > 500) {
+            setStudyBackupStatus(`The backup has invalid claim-to-evidence data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          for (const claim of item.studyClaims) {
+            if (!claim || typeof claim !== 'object' || Array.isArray(claim) ||
+                typeof claim.id !== 'string' || !claim.id.trim() || claim.id.length > 120 ||
+                !NOTE_SECTION_LABELS[claim.stage] ||
+                typeof claim.statement !== 'string' || claim.statement.trim().length < 5 || claim.statement.length > 2000 ||
+                !Array.isArray(claim.supportLinks) || claim.supportLinks.length < 1 || claim.supportLinks.length > 50 ||
+                (claim.createdAt !== undefined && (typeof claim.createdAt !== 'string' || claim.createdAt.length > 50)) ||
+                (claim.updatedAt !== undefined && (typeof claim.updatedAt !== 'string' || claim.updatedAt.length > 50))) {
+              setStudyBackupStatus(`The backup has invalid claim-to-evidence details for ${book} ${chapter}. No changes were made.`, 'error');
+              return;
+            }
+            for (const link of claim.supportLinks) {
+              if (!link || typeof link !== 'object' || Array.isArray(link) ||
+                  typeof link.sourceId !== 'string' || !link.sourceId.trim() || link.sourceId.length > 120 ||
+                  typeof link.sourceType !== 'string' || !link.sourceType.trim() || link.sourceType.length > 80 ||
+                  (link.sourceTitle !== undefined && (typeof link.sourceTitle !== 'string' || link.sourceTitle.length > 200)) ||
+                  (link.sourceReference !== undefined && (typeof link.sourceReference !== 'string' || link.sourceReference.length > 160)) ||
+                  (link.sourceStage !== undefined && link.sourceStage !== null && !NOTE_SECTION_LABELS[link.sourceStage]) ||
+                  !CLAIM_EVIDENCE_RELATIONSHIPS[link.relationship] ||
+                  (link.linkedAt !== undefined && (typeof link.linkedAt !== 'string' || link.linkedAt.length > 50))) {
+                setStudyBackupStatus(`The backup has invalid claim evidence-source details for ${book} ${chapter}. No changes were made.`, 'error');
+                return;
+              }
+            }
+          }
+          studyClaims = normalizeStudyClaims(item.studyClaims);
+          if (studyClaims.length !== item.studyClaims.length) {
+            setStudyBackupStatus(`The backup has invalid claim-to-evidence details for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
         const key = studyRecordKey(book, chapter);
         if (seen.has(key)) {
           setStudyBackupStatus(`The backup contains ${book} ${chapter} more than once. No changes were made.`, 'error');
@@ -8034,6 +8471,8 @@ function renderStandardCrossReferenceList() {
             ...(Object.prototype.hasOwnProperty.call(item, 'verseMaps') ? { verseMaps } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'passageOutline') ? { passageOutline } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'versionHistory') ? { versionHistory } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'evidenceLinks') ? { evidenceLinks } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'studyClaims') ? { studyClaims } : {}),
             activeSection: NOTE_SECTION_LABELS[item.activeSection] ? item.activeSection : 'observe',
             updatedAt: new Date(updatedMs).toISOString()
           }
@@ -8070,6 +8509,10 @@ function renderStandardCrossReferenceList() {
         if (!Object.prototype.hasOwnProperty.call(incoming, 'passageOutline')) incoming.passageOutline = normalizePassageOutline(current?.passageOutline);
         // Older backups without Note History preserve any history already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'versionHistory')) incoming.versionHistory = normalizeStudyNoteVersionHistory(current?.versionHistory);
+        // Older backups without evidence provenance preserve links already saved locally.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'evidenceLinks')) incoming.evidenceLinks = normalizeStudyEvidenceLinks(current?.evidenceLinks);
+        // Older backups without claim links preserve the current study's claim relationships.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'studyClaims')) incoming.studyClaims = normalizeStudyClaims(current?.studyClaims);
         // Old backups without Doctrine preserve any Doctrine notes already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming.sections, 'doctrine')) incoming.sections.doctrine = String(current?.sections?.doctrine || '');
         const currentTime = Date.parse(current?.updatedAt || '') || 0;
@@ -8434,6 +8877,7 @@ function renderStandardCrossReferenceList() {
         passageOutline: normalizePassageOutline(row.sections?._passageOutline),
         versionHistory: normalizeStudyNoteVersionHistory(row.sections?._versionHistory),
         evidenceLinks: normalizeStudyEvidenceLinks(row.sections?._evidenceLinks),
+        studyClaims: normalizeStudyClaims(row.sections?._studyClaims),
         activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
         updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
       };
@@ -8491,7 +8935,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -8507,6 +8951,7 @@ function renderStandardCrossReferenceList() {
             passageOutline = null;
             versionHistory = [];
             evidenceLinks = [];
+            studyClaims = [];
           } else if (winner.record && winner.record.book) {
             const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
             book = rec.book;
@@ -8526,7 +8971,8 @@ function renderStandardCrossReferenceList() {
             passageOutline = normalizePassageOutline(rec.passageOutline);
             versionHistory = normalizeStudyNoteVersionHistory(rec.versionHistory);
             evidenceLinks = normalizeStudyEvidenceLinks(rec.evidenceLinks);
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks };
+            studyClaims = normalizeStudyClaims(rec.studyClaims);
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims };
           } else {
             continue;
           }
@@ -8534,7 +8980,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory, _evidenceLinks: evidenceLinks },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory, _evidenceLinks: evidenceLinks, _studyClaims: studyClaims },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -8556,7 +9002,8 @@ function renderStandardCrossReferenceList() {
             JSON.stringify(normalizeVerseMaps(remote.sections?._verseMaps)) === JSON.stringify(normalizeVerseMaps(nextRow.sections?._verseMaps)) &&
             JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline)) &&
             JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory)) &&
-            JSON.stringify(normalizeStudyEvidenceLinks(remote.sections?._evidenceLinks)) === JSON.stringify(normalizeStudyEvidenceLinks(nextRow.sections?._evidenceLinks));
+            JSON.stringify(normalizeStudyEvidenceLinks(remote.sections?._evidenceLinks)) === JSON.stringify(normalizeStudyEvidenceLinks(nextRow.sections?._evidenceLinks)) &&
+            JSON.stringify(normalizeStudyClaims(remote.sections?._studyClaims)) === JSON.stringify(normalizeStudyClaims(nextRow.sections?._studyClaims));
           if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 

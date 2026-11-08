@@ -138,3 +138,18 @@ test('administrator dashboard renders pending request data safely and exposes re
   assert.match(app, /reviewIbsAccessRequest\(request\.id, 'decline'/);
 });
 
+
+test('email administrator link opens a dedicated administrator route served by the IBS app', () => {
+  const notification = fs.readFileSync(path.join(root, 'lib', 'ibs-access-request-email.js'), 'utf8');
+  assert.match(notification, /DASHBOARD_URL = 'https:\/\/study\.woordvanlewe\.co\.za\/admin'/);
+  assert.match(server, /pathname === '\/admin' \|\| pathname === '\/admin\/'/);
+});
+
+test('administrator route requires a signed-in allowlisted user and opens the request dashboard', () => {
+  assert.match(app, /const isIbsAdminDashboardRoute = \/\^\\\/admin\\\/?\$\//);
+  assert.match(app, /id="ibsAdminAccessDenied"/);
+  assert.match(app, /IBS Administrator Dashboard/);
+  assert.match(app, /isIbsAdminDashboardRoute && cloudSyncState\.isAdmin/);
+  assert.match(app, /cloudSyncState\.adminStatusChecked/);
+  assert.match(app, /refreshIbsAccessRequests\(\)/);
+});

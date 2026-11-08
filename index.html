@@ -8146,6 +8146,8 @@ function renderStandardCrossReferenceList() {
           record.sections && (
             ['observe', 'interpret', 'doctrine', 'apply'].some(section => String(record.sections[section] || '').trim()) ||
             (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
+            (Array.isArray(record.evidenceLinks) && record.evidenceLinks.length > 0) ||
+            (Array.isArray(record.studyClaims) && record.studyClaims.length > 0) ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
             (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
           ))
@@ -8159,6 +8161,8 @@ function renderStandardCrossReferenceList() {
             apply: String(record.sections?.apply || '')
           },
           versionHistory: normalizeStudyNoteVersionHistory(record.versionHistory),
+          evidenceLinks: normalizeStudyEvidenceLinks(record.evidenceLinks),
+          studyClaims: normalizeStudyClaims(record.studyClaims),
           scriptureMarkups: Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups
             .filter(mark => mark && SCRIPTURE_MARKUP_TYPES[mark.type] &&
               Number.isInteger(mark.verse) && mark.verse > 0 &&
@@ -8392,6 +8396,32 @@ function renderStandardCrossReferenceList() {
           }
         }
 
+        let evidenceLinks = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'evidenceLinks')) {
+          if (!Array.isArray(item.evidenceLinks) || item.evidenceLinks.length > 500) {
+            setStudyBackupStatus(`The backup has invalid evidence-link data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          evidenceLinks = normalizeStudyEvidenceLinks(item.evidenceLinks);
+          if (evidenceLinks.length !== item.evidenceLinks.length) {
+            setStudyBackupStatus(`The backup has invalid evidence-link details for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
+        let studyClaims = [];
+        if (Object.prototype.hasOwnProperty.call(item, 'studyClaims')) {
+          if (!Array.isArray(item.studyClaims) || item.studyClaims.length > 500) {
+            setStudyBackupStatus(`The backup has invalid claim-to-evidence data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          studyClaims = normalizeStudyClaims(item.studyClaims);
+          if (studyClaims.length !== item.studyClaims.length) {
+            setStudyBackupStatus(`The backup has invalid claim-to-evidence details for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
         const key = studyRecordKey(book, chapter);
         if (seen.has(key)) {
           setStudyBackupStatus(`The backup contains ${book} ${chapter} more than once. No changes were made.`, 'error');
@@ -8415,6 +8445,8 @@ function renderStandardCrossReferenceList() {
             ...(Object.prototype.hasOwnProperty.call(item, 'verseMaps') ? { verseMaps } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'passageOutline') ? { passageOutline } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'versionHistory') ? { versionHistory } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'evidenceLinks') ? { evidenceLinks } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'studyClaims') ? { studyClaims } : {}),
             activeSection: NOTE_SECTION_LABELS[item.activeSection] ? item.activeSection : 'observe',
             updatedAt: new Date(updatedMs).toISOString()
           }
@@ -8451,6 +8483,10 @@ function renderStandardCrossReferenceList() {
         if (!Object.prototype.hasOwnProperty.call(incoming, 'passageOutline')) incoming.passageOutline = normalizePassageOutline(current?.passageOutline);
         // Older backups without Note History preserve any history already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'versionHistory')) incoming.versionHistory = normalizeStudyNoteVersionHistory(current?.versionHistory);
+        // Older backups without evidence provenance preserve links already saved locally.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'evidenceLinks')) incoming.evidenceLinks = normalizeStudyEvidenceLinks(current?.evidenceLinks);
+        // Older backups without claim links preserve the current study's claim relationships.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'studyClaims')) incoming.studyClaims = normalizeStudyClaims(current?.studyClaims);
         // Old backups without Doctrine preserve any Doctrine notes already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming.sections, 'doctrine')) incoming.sections.doctrine = String(current?.sections?.doctrine || '');
         const currentTime = Date.parse(current?.updatedAt || '') || 0;

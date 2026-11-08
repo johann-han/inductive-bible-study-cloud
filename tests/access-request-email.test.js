@@ -33,6 +33,7 @@ test('access request notification sends the expected administrator email through
     assert.deepEqual(payload.to, ['johann@woordvanlewe.co.za']);
     assert.match(payload.text, /Test Applicant/);
     assert.match(payload.text, /applicant@example.com/);
+    assert.match(payload.text, /Reason: I want to study Scripture\./);
     assert.match(payload.html, /https:\/\/study\.woordvanlewe\.co\.za\//);
   } finally {
     global.fetch = previous.fetch;
@@ -117,4 +118,19 @@ test('duplicate pending request retries its notification without inserting a sec
   assert.match(route, /if \(Array\.isArray\(existing\) && existing\.length\) \{[\s\S]*?const pendingRequest = existing\[0\];[\s\S]*?await sendAccessRequestNotification\(\{[\s\S]*?pendingRequest\.full_name[\s\S]*?pendingRequest\.email/);
   assert.match(route, /if \(!notification\.ok\) console\.warn\('Pending IBS access request notification retry was not sent\.'\)/);
   assert.match(route, /return send\(res, 200, \{ ok: true, message: accessRequestPublicMessage\(\) \}\)/);
+});
+
+test('repeat submissions update the saved pending request reason before retrying notification', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const start = server.indexOf("url.pathname === '/api/access-requests'");
+  const end = server.indexOf("url.pathname === '/api/admin/status'", start);
+  assert.ok(start >= 0 && end > start);
+  const route = server.slice(start, end);
+  assert.match(route, /method: 'PATCH'/);
+  assert.match(route, /message: message \|\| null/);
+  assert.match(route, /const savedRequest = updatedRows\[0\]/);
+  assert.match(route, /message: savedRequest\.message/);
+  assert.match(route, /updateUrl\.searchParams\.set\('status', 'eq\.pending'\)/);
 });

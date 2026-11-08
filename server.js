@@ -468,7 +468,7 @@ const server = http.createServer(async (req, res) => {
 
       const baseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
       const lookupUrl = new URL(baseUrl + '/rest/v1/ibs_access_requests');
-      lookupUrl.searchParams.set('select', 'id');
+      lookupUrl.searchParams.set('select', 'id,full_name,email,church_or_ministry,message');
       lookupUrl.searchParams.set('email', 'eq.' + email);
       lookupUrl.searchParams.set('status', 'eq.pending');
       lookupUrl.searchParams.set('limit', '1');
@@ -482,6 +482,17 @@ const server = http.createServer(async (req, res) => {
       }
       const existing = await lookup.json().catch(() => []);
       if (Array.isArray(existing) && existing.length) {
+        // A repeat submission does not create a duplicate record, but it does retry
+        // the administrator notification for the existing pending request.
+        const pendingRequest = existing[0];
+        const notification = await sendAccessRequestNotification({
+          fullName: pendingRequest.full_name,
+          email: pendingRequest.email,
+          churchOrMinistry: pendingRequest.church_or_ministry,
+          message: pendingRequest.message,
+          requestId: pendingRequest.id
+        });
+        if (!notification.ok) console.warn('Pending IBS access request notification retry was not sent.');
         return send(res, 200, { ok: true, message: accessRequestPublicMessage() });
       }
 

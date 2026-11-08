@@ -127,7 +127,7 @@ The stage experience should provide guidance and optional review criteria withou
 | Phase | Workstream | Deliverable | Order |
 |---|---|---|---|
 | 1 | Evidence provenance foundation | Add structured source identifiers and evidence-link metadata to the existing handoff. Preserve it through local/cloud sync. No schema migration. | Current start |
-| 2 | Claim-to-evidence links | Let the student select a statement, attach one or more evidence sources, classify the relationship, and review stale or changed statements. | Implemented in PR #165 · deployment pending |
+| 2 | Claim-to-evidence links | Let the student select a statement, attach one or more evidence sources, classify the relationship, and review stale or changed statements. | Merged in PR #165 · live deployment unverified |
 | 3 | Stage methodology | Improve prompts, stage guidance, review criteria and completion states without turning study into a forced form. | After Phase 2 |
 | 4 | AI Mentor reliability | Use active-stage context, source metadata, original-language evidence and verification rules in AI prompts and response checks. | After Phase 3 |
 | 5 | Research resources | Add attributed reference sources, translation comparison and richer contextual/theme research in manageable modules. | Parallel, controlled |
@@ -163,7 +163,7 @@ The metadata must survive the existing local-storage and Supabase JSON round-tri
 
 | Area | Current position | Next verification | Status |
 |---|---|---|---|
-| Evidence-driven workflow | PR #164 established source provenance; PR #165 adds statement-to-evidence links with direct, contextual, corroborating and inference classifications. | Verify the production commit, then test evidence adequacy and begin guided methodology improvements. | Phases 1–2 implemented · deployment pending |
+| Evidence-driven workflow | PR #164 established source provenance; PR #165 adds statement-to-evidence links with direct, contextual, corroborating and inference classifications. | Verify the production commit, then test evidence adequacy and begin guided methodology improvements. | Phases 1–2 merged · live deployment unverified |
 | Guided methodology | Four inductive stages already exist. | Review stage-specific prompts and boundaries. | Planned |
 | AI Study Mentor | AI Mentor and stage guidance already exist. | Audit stage adherence, quotation accuracy and evidence grounding. | Planned |
 | Research environment | Strong's, morphology, word studies and cross-references exist. | Map missing resources and source/licensing requirements. | Planned |
@@ -178,6 +178,6 @@ The metadata must survive the existing local-storage and Supabase JSON round-tri
 | 2026-11-08 · PR #162 | Compacted the empty Related passages panel. | IBS and IBS/Kerygma regression workflows passed. |
 | 2026-11-08 · PR #163 | Placed Related passages control beside the study word count. | IBS and IBS/Kerygma regression workflows passed. |
 | 2026-11-08 · PR #164 | Added structured source provenance to handoffs and stored links in the existing `study_records.sections._evidenceLinks` JSON payload; no migration. | IBS #31 and IBS/Kerygma #363 passed, including a local → cloud → local evidence-link round-trip test. |
-| 2026-11-08 · PR #165 | Added selected-statement evidence linking, relationship classifications, stale-statement review, and local/cloud/backup persistence for claims. | IBS #36 and IBS/Kerygma #369 passed before final validation refinements; final checks pending. |
+| 2026-11-08 · PR #165 | Added selected-statement evidence linking, relationship classifications, stale-statement review, and local/cloud/backup persistence for claims. | IBS Regression #40 and IBS/Kerygma #373 passed; merged as `29ec6e0`. Render deployment not yet verified. |
 
 **Platform success criterion:** A student can move from a biblical passage to a carefully reasoned interpretation, a defensible doctrinal conclusion and a faithful response, while being able to inspect the Scripture and research evidence behind every important step.

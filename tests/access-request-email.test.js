@@ -34,7 +34,7 @@ test('access request notification sends the expected administrator email through
     assert.match(payload.text, /Test Applicant/);
     assert.match(payload.text, /applicant@example.com/);
     assert.match(payload.text, /Reason: I want to study Scripture\./);
-    assert.match(payload.html, /https:\/\/study\.woordvanlewe\.co\.za\//);
+    assert.match(payload.html, /https:\/\/study\.woordvanlewe\.co\.za\/admin/);
   } finally {
     global.fetch = previous.fetch;
     for (const [key, value] of Object.entries({

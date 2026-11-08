@@ -91,3 +91,16 @@ test('notification escapes applicant-provided content before inserting it into H
     if (previous.from === undefined) delete process.env.IBS_NOTIFICATION_FROM; else process.env.IBS_NOTIFICATION_FROM = previous.from;
   }
 });
+
+test('saved access requests trigger a non-blocking administrator notification', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const start = server.indexOf("url.pathname === '/api/access-requests'");
+  const end = server.indexOf("url.pathname === '/api/admin/status'", start);
+  assert.ok(start >= 0 && end > start);
+  const route = server.slice(start, end);
+  assert.match(route, /await sendAccessRequestNotification\(\{/);
+  assert.match(route, /if \(!notification\.ok\) console\.warn/);
+  assert.match(route, /return send\(res, 200, \{ ok: true, message: accessRequestPublicMessage\(\) \}\)/);
+});

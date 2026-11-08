@@ -100,14 +100,17 @@ test('related passages stay compact when empty and remain available through Add 
   const sectionEnd = app.indexOf('</section>', sectionStart);
   assert.ok(sectionStart >= 0 && sectionEnd > sectionStart);
   const markup = app.slice(sectionStart, sectionEnd + '</section>'.length);
-  assert.ok(markup.includes('p-0 m-0 space-y-0'));
+  assert.ok(app.includes('id="workspaceNoteMetaRow" class="flex flex-col gap-1"'));
+  assert.ok(markup.includes('id="workspaceWordCount"'));
   assert.ok(markup.includes('min-h-5 h-5'));
-  assert.ok(markup.includes('px-2 py-0.5 text-[10px]'));
   assert.ok(markup.includes('id="openStudyRelatedPassagesBtn"'));
+  assert.ok(markup.includes('aria-label="Add or manage related passages for this study"'));
+  assert.ok(markup.includes('px-2 py-0.5 text-[10px]'));
+  assert.ok(app.includes('id="workspaceWordCount"') && app.indexOf('id="workspaceWordCount"') < app.indexOf('id="studyRelatedPassagesSection"'));
   assert.ok(app.includes('min-height: 0 !important;'));
   assert.ok(app.includes('border-width: 0 !important;'));
   assert.ok(markup.includes('id="studyRelatedPassageStatus" class="sr-only'));
-  assert.ok(markup.includes('id="studyRelatedPassageList" class="hidden space-y-2'));
+  assert.ok(app.includes('id="studyRelatedPassageList" class="hidden space-y-2'));
 
   const render = functionSource('renderStudyRelatedPassageList');
   assert.ok(render.includes("list.classList.add('hidden', 'is-mobile-collapsed')"));

@@ -482,17 +482,40 @@ const server = http.createServer(async (req, res) => {
       }
       const existing = await lookup.json().catch(() => []);
       if (Array.isArray(existing) && existing.length) {
-        // A repeat submission does not create a duplicate record, but it does retry
-        // the administrator notification for the existing pending request.
+        // Keep a single pending row, but refresh its applicant details from this
+        // submission so updated reason/ministry text is saved and included in email.
         const pendingRequest = existing[0];
-        const notification = await sendAccessRequestNotification({
-          fullName: pendingRequest.full_name,
-          email: pendingRequest.email,
-          churchOrMinistry: pendingRequest.church_or_ministry,
-          message: pendingRequest.message,
-          requestId: pendingRequest.id
+        const updateUrl = new URL(baseUrl + '/rest/v1/ibs_access_requests');
+        updateUrl.searchParams.set('id', 'eq.' + pendingRequest.id);
+        updateUrl.searchParams.set('status', 'eq.pending');
+        const update = await fetch(updateUrl.toString(), {
+          method: 'PATCH',
+          headers: getSupabaseRestHeaders(serviceKey, 'return=representation'),
+          body: JSON.stringify({
+            full_name: fullName,
+            email,
+            church_or_ministry: churchOrMinistry || null,
+            message: message || null
+          }),
+          signal: AbortSignal.timeout(10000)
         });
-        if (!notification.ok) console.warn('Pending IBS access request notification retry was not sent.');
+        if (!update.ok) {
+          console.error('IBS pending access request update failed:', update.status, (await update.text()).slice(0, 240));
+          return send(res, 503, { error: 'Your request could not be updated. Please try again later.' });
+        }
+        const updatedRows = await update.json().catch(() => []);
+        // The request may have been reviewed while the repeat submission was in flight.
+        if (Array.isArray(updatedRows) && updatedRows.length) {
+          const savedRequest = updatedRows[0];
+          const notification = await sendAccessRequestNotification({
+            fullName: savedRequest.full_name,
+            email: savedRequest.email,
+            churchOrMinistry: savedRequest.church_or_ministry,
+            message: savedRequest.message,
+            requestId: savedRequest.id
+          });
+          if (!notification.ok) console.warn('Pending IBS access request notification retry was not sent.');
+        }
         return send(res, 200, { ok: true, message: accessRequestPublicMessage() });
       }
 
@@ -850,6 +873,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed.' });
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === '/') pathname = '/index.html';
+  if (pathname === '/admin' || pathname === '/admin/') pathname = '/index.html';
   if (pathname === '/sermon' || pathname === '/sermon/') pathname = '/sermon/index.html';
   const filePath = path.resolve(__dirname, '.' + pathname);
   if (!filePath.startsWith(path.resolve(__dirname) + path.sep)) return send(res, 403, { error: 'Forbidden.' });

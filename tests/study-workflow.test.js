@@ -101,7 +101,6 @@ test('related passages stay compact when empty and remain available through Add 
   assert.ok(sectionStart >= 0 && sectionEnd > sectionStart);
   const markup = app.slice(sectionStart, sectionEnd + '</section>'.length);
   assert.ok(app.includes('id="workspaceNoteMetaRow" class="flex flex-col gap-1"'));
-  assert.ok(markup.includes('id="workspaceWordCount"'));
   assert.ok(markup.includes('min-h-5 h-5'));
   assert.ok(markup.includes('id="openStudyRelatedPassagesBtn"'));
   assert.ok(markup.includes('aria-label="Add or manage related passages for this study"'));

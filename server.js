@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { removeNonConnectorEntries } = require('./mentor-response');
+const { sendAccessRequestNotification } = require('./lib/ibs-access-request-email');
 
 function loadEnv() {
   const envPath = path.join(__dirname, '.env');
@@ -504,6 +505,14 @@ const server = http.createServer(async (req, res) => {
         console.error('IBS access request insert failed:', insert.status, detail.slice(0, 240));
         return send(res, 503, { error: 'Your request could not be saved. Please try again later.' });
       }
+      const notification = await sendAccessRequestNotification({
+        fullName,
+        email,
+        churchOrMinistry,
+        message,
+        requestId: null
+      });
+      if (!notification.ok) console.warn('IBS access request was saved, but administrator email notification was not sent.');
       return send(res, 200, { ok: true, message: accessRequestPublicMessage() });
     } catch (error) {
       return send(res, error.statusCode || 502, {
@@ -848,4 +857,3 @@ const server = http.createServer(async (req, res) => {
   });
 });
 const HOST = process.env.HOST || '0.0.0.0';
-server.listen(PORT, HOST, () => console.log(`Inductive Bible Study app listening on ${HOST}:${PORT}`));

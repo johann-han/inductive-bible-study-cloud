@@ -9,8 +9,17 @@ const app = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 function functionSource(name) {
   const start = app.indexOf('    function ' + name + '(');
   assert.notEqual(start, -1, 'Expected function ' + name + ' to exist');
-  const next = app.indexOf('\n    function ', start + 10);
-  return app.slice(start, next < 0 ? app.length : next).trim();
+  const openingBrace = app.indexOf('{', start);
+  assert.notEqual(openingBrace, -1, 'Expected a function body for ' + name);
+  let depth = 0;
+  for (let i = openingBrace; i < app.length; i++) {
+    if (app[i] === '{') depth++;
+    else if (app[i] === '}') {
+      depth--;
+      if (depth === 0) return app.slice(start, i + 1).trim();
+    }
+  }
+  assert.fail('Unclosed function body for ' + name);
 }
 
 function plain(value) {

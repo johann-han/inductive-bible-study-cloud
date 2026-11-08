@@ -100,8 +100,12 @@ test('related passages stay compact when empty and remain available through Add 
   const sectionEnd = app.indexOf('</section>', sectionStart);
   assert.ok(sectionStart >= 0 && sectionEnd > sectionStart);
   const markup = app.slice(sectionStart, sectionEnd + '</section>'.length);
-  assert.ok(markup.includes('px-2.5 py-1.5 space-y-0'));
+  assert.ok(markup.includes('p-0 m-0 space-y-0'));
+  assert.ok(markup.includes('min-h-5 h-5'));
+  assert.ok(markup.includes('px-2 py-0.5 text-[10px]'));
   assert.ok(markup.includes('id="openStudyRelatedPassagesBtn"'));
+  assert.ok(app.includes('min-height: 0 !important;'));
+  assert.ok(app.includes('border-width: 0 !important;'));
   assert.ok(markup.includes('id="studyRelatedPassageStatus" class="sr-only'));
   assert.ok(markup.includes('id="studyRelatedPassageList" class="hidden space-y-2'));
 

@@ -8815,6 +8815,7 @@ function renderStandardCrossReferenceList() {
         passageOutline: normalizePassageOutline(row.sections?._passageOutline),
         versionHistory: normalizeStudyNoteVersionHistory(row.sections?._versionHistory),
         evidenceLinks: normalizeStudyEvidenceLinks(row.sections?._evidenceLinks),
+        studyClaims: normalizeStudyClaims(row.sections?._studyClaims),
         activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
         updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
       };
@@ -8872,7 +8873,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -8888,6 +8889,7 @@ function renderStandardCrossReferenceList() {
             passageOutline = null;
             versionHistory = [];
             evidenceLinks = [];
+            studyClaims = [];
           } else if (winner.record && winner.record.book) {
             const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
             book = rec.book;
@@ -8907,7 +8909,8 @@ function renderStandardCrossReferenceList() {
             passageOutline = normalizePassageOutline(rec.passageOutline);
             versionHistory = normalizeStudyNoteVersionHistory(rec.versionHistory);
             evidenceLinks = normalizeStudyEvidenceLinks(rec.evidenceLinks);
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks };
+            studyClaims = normalizeStudyClaims(rec.studyClaims);
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims };
           } else {
             continue;
           }
@@ -8915,7 +8918,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory, _evidenceLinks: evidenceLinks },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory, _evidenceLinks: evidenceLinks, _studyClaims: studyClaims },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -8937,7 +8940,8 @@ function renderStandardCrossReferenceList() {
             JSON.stringify(normalizeVerseMaps(remote.sections?._verseMaps)) === JSON.stringify(normalizeVerseMaps(nextRow.sections?._verseMaps)) &&
             JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline)) &&
             JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory)) &&
-            JSON.stringify(normalizeStudyEvidenceLinks(remote.sections?._evidenceLinks)) === JSON.stringify(normalizeStudyEvidenceLinks(nextRow.sections?._evidenceLinks));
+            JSON.stringify(normalizeStudyEvidenceLinks(remote.sections?._evidenceLinks)) === JSON.stringify(normalizeStudyEvidenceLinks(nextRow.sections?._evidenceLinks)) &&
+            JSON.stringify(normalizeStudyClaims(remote.sections?._studyClaims)) === JSON.stringify(normalizeStudyClaims(nextRow.sections?._studyClaims));
           if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 

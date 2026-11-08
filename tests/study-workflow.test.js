@@ -59,6 +59,8 @@ test('the handoff gathers earlier-stage notes and saved passage evidence', () =>
     'record.scriptureMarkups',
     'normalizeVerseMaps(record.verseMaps)',
     'getStudyRelatedPassageState(record)',
+    'if (itemStageIndex > Math.max(0, stageIndex)) return;',
+    'if (item.includedInStageNotes) return;',
     'record.crossReferences',
     'VERSE_MAP_CONTENT_FIELDS'
   ]) {

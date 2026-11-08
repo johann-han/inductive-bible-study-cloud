@@ -6381,6 +6381,16 @@ function renderStandardCrossReferenceList() {
         });
       };
 
+      const passageId = passageReference.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      add(
+        'primary-passage-' + passageId,
+        'primary-scripture',
+        'Primary Scripture passage · ' + passageReference,
+        'Primary biblical text for this study. Consult the Bible Reader for the exact translation wording, verse context and paragraph flow.',
+        null,
+        passageReference
+      );
+
       WORKSPACE_STAGE_ORDER.slice(0, Math.max(0, stageIndex)).forEach(stage => {
         const notes = stripWorkspaceEvidenceHandoffBlocks(record.sections?.[stage]);
         if (notes) add('stage-' + stage, 'stage-notes', NOTE_SECTION_LABELS[stage] + ' notes', notes, stage);

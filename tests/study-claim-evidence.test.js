@@ -7,8 +7,10 @@ const vm = require('node:vm');
 const app = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 function functionSource(name) {
-  const start = app.indexOf('    function ' + name + '(');
-  assert.notEqual(start, -1, 'Expected function ' + name + ' to exist');
+  const pattern = new RegExp('\\\\b(?:async\\\\s+)?function\\\\s+' + name + '\\\\(');
+  const match = pattern.exec(app);
+  assert.ok(match, 'Expected function ' + name + ' to exist');
+  const start = match.index;
   const openingBrace = app.indexOf('{', start);
   assert.notEqual(openingBrace, -1, 'Expected a function body for ' + name);
   let depth = 0;

@@ -106,7 +106,7 @@ test('saved access requests trigger a non-blocking administrator notification', 
   assert.match(route, /return send\(res, 200, \{ ok: true, message: accessRequestPublicMessage\(\) \}\)/);
 });
 
-test('duplicate pending request retries its notification without inserting a second record', () => {
+test('duplicate pending request refreshes saved details before retrying notification without a second insert', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
@@ -114,10 +114,13 @@ test('duplicate pending request retries its notification without inserting a sec
   const end = server.indexOf("url.pathname === '/api/admin/status'", start);
   assert.ok(start >= 0 && end > start);
   const route = server.slice(start, end);
-  assert.match(route, /lookupUrl\.searchParams\.set\('select', 'id,full_name,email,church_or_ministry,message'\)/);
-  assert.match(route, /if \(Array\.isArray\(existing\) && existing\.length\) \{[\s\S]*?const pendingRequest = existing\[0\];[\s\S]*?await sendAccessRequestNotification\(\{[\s\S]*?pendingRequest\.full_name[\s\S]*?pendingRequest\.email/);
-  assert.match(route, /if \(!notification\.ok\) console\.warn\('Pending IBS access request notification retry was not sent\.'\)/);
-  assert.match(route, /return send\(res, 200, \{ ok: true, message: accessRequestPublicMessage\(\) \}\)/);
+  assert.match(route, /lookupUrl\\.searchParams\\.set\\('select', 'id,full_name,email,church_or_ministry,message'\\)/);
+  assert.match(route, /method: 'PATCH'/);
+  assert.match(route, /updateUrl\\.searchParams\\.set\\('status', 'eq\\.pending'\\)/);
+  assert.match(route, /message: message \\|\\| null/);
+  assert.match(route, /const savedRequest = updatedRows\\[0\\]/);
+  assert.match(route, /await sendAccessRequestNotification\\(\\{[\\s\\S]*?savedRequest\\.full_name[\\s\\S]*?savedRequest\\.email[\\s\\S]*?savedRequest\\.message/);
+  assert.match(route, /if \\(!notification\\.ok\\) console\\.warn\\('Pending IBS access request notification retry was not sent\\.'\\)/);
 });
 
 test('repeat submissions update the saved pending request reason before retrying notification', () => {

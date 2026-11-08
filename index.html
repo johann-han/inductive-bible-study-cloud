@@ -7043,6 +7043,7 @@ function renderStandardCrossReferenceList() {
       area.addEventListener('blur', () => {
         saveActiveStudyNote();
         saveCurrentStudyNoteVersionSnapshot();
+        renderWorkspaceClaimEvidencePanel();
       });
       area.addEventListener('keydown', event => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {

@@ -1285,19 +1285,19 @@
           </details>
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
-          <section id="studyRelatedPassagesSection" class="rounded-lg border border-sky-200 bg-white p-2.5 space-y-1.5">
-            <div class="flex items-center justify-between gap-2">
+          <section id="studyRelatedPassagesSection" class="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 space-y-0" title="Manage saved related passages for this study">
+            <div class="flex items-center justify-between gap-2 min-h-7">
               <div class="min-w-0">
                 <p class="text-[11px] font-bold text-slate-800">Related passages</p>
-                <p class="text-[10px] text-slate-500">Verse text and connection notes saved as study material.</p>
+                <p class="sr-only text-[10px] text-slate-500">Verse text and connection notes saved as study material.</p>
               </div>
               <div class="flex shrink-0 items-center gap-1.5">
-                <button id="toggleStudyRelatedPassagesBtn" type="button" aria-controls="studyRelatedPassageList" aria-expanded="false" class="sm:hidden rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700">Show passages</button>
+                <button id="toggleStudyRelatedPassagesBtn" type="button" aria-controls="studyRelatedPassageList" aria-expanded="false" class="hidden sm:hidden rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700">Show passages</button>
                 <button id="openStudyRelatedPassagesBtn" type="button" class="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100">Add / manage <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-[1rem] justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
               </div>
             </div>
-            <p id="studyRelatedPassageStatus" class="text-[10px] text-slate-500" role="status" aria-live="polite">Related verses are saved with this study.</p>
-            <div id="studyRelatedPassageList" class="space-y-2 is-mobile-collapsed"></div>
+            <p id="studyRelatedPassageStatus" class="sr-only text-[10px] text-slate-500" role="status" aria-live="polite">Related verses are saved with this study.</p>
+            <div id="studyRelatedPassageList" class="hidden space-y-2 is-mobile-collapsed"></div>
           </section>
           <div id="workspaceNoteFind" class="space-y-1">
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
@@ -2878,17 +2878,25 @@
 
     function renderStudyRelatedPassageList(record, entries) {
       const list = document.getElementById('studyRelatedPassageList');
+      const toggleButton = document.getElementById('toggleStudyRelatedPassagesBtn');
       if (!list) return;
+      const safeEntries = Array.isArray(entries) ? entries : [];
       list.replaceChildren();
-      if (!entries.length) {
-        const empty = document.createElement('p');
-        empty.className = 'text-[10px] text-slate-500';
-        empty.textContent = 'No related verse text has been added to this study yet.';
-        list.appendChild(empty);
+      if (!safeEntries.length) {
+        // An empty list adds no information while writing, so keep it out of the layout.
+        // The Add / manage action remains available and will reveal the list when entries exist.
+        list.classList.add('hidden', 'is-mobile-collapsed');
+        if (toggleButton) {
+          toggleButton.classList.add('hidden');
+          toggleButton.setAttribute('aria-expanded', 'false');
+          toggleButton.textContent = 'Show passages';
+        }
         return;
       }
 
-      entries.forEach(item => {
+      list.classList.remove('hidden');
+      if (toggleButton) toggleButton.classList.remove('hidden');
+      safeEntries.forEach(item => {
         const card = document.createElement('article');
         card.className = 'rounded-lg border border-sky-100 bg-sky-50/50 p-2 space-y-1.5';
         const title = document.createElement('p');

@@ -93,3 +93,22 @@ test('the Home resume action continues to open the Observation stage', () => {
   assert.ok(app.includes("openDashboardStudy(resumeEntry.book, resumeEntry.chapter, 'observe', { openStudyPanel: true })"));
   assert.ok(app.includes("continueButton.textContent = resumeEntry ? 'Resume Observe Study'"));
 });
+
+
+test('related passages stay compact when empty and remain available through Add / manage', () => {
+  const sectionStart = app.indexOf('<section id="studyRelatedPassagesSection"');
+  const sectionEnd = app.indexOf('</section>', sectionStart);
+  assert.ok(sectionStart >= 0 && sectionEnd > sectionStart);
+  const markup = app.slice(sectionStart, sectionEnd + '</section>'.length);
+  assert.ok(markup.includes('px-2.5 py-1.5 space-y-0'));
+  assert.ok(markup.includes('id="openStudyRelatedPassagesBtn"'));
+  assert.ok(markup.includes('id="studyRelatedPassageStatus" class="sr-only'));
+  assert.ok(markup.includes('id="studyRelatedPassageList" class="hidden space-y-2'));
+
+  const render = functionSource('renderStudyRelatedPassageList');
+  assert.ok(render.includes("list.classList.add('hidden', 'is-mobile-collapsed')"));
+  assert.ok(render.includes("toggleButton.classList.add('hidden')"));
+  assert.ok(render.includes("list.classList.remove('hidden')"));
+  assert.ok(render.includes("toggleButton.classList.remove('hidden')"));
+  assert.ok(!render.includes('No related verse text has been added to this study yet.'));
+});

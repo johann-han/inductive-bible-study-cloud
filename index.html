@@ -7008,6 +7008,7 @@ function renderStandardCrossReferenceList() {
       updateStudyRelatedPassageButton();
       updateWorkspaceStageNavigation();
       renderWorkspaceEvidenceHandoff();
+      renderWorkspaceClaimEvidencePanel();
     }
 
     function switchWorkspaceSection(section) {
@@ -7027,6 +7028,11 @@ function renderStandardCrossReferenceList() {
     function setupNotesPersistence() {
       const area = document.getElementById('workspaceNoteArea');
       if (!area) return;
+      document.getElementById('workspaceCaptureClaimBtn')?.addEventListener('click', captureWorkspaceClaimSelection);
+      document.getElementById('workspaceSaveClaimLinksBtn')?.addEventListener('click', saveWorkspaceClaimEvidenceLinks);
+      document.getElementById('workspaceClaimEvidencePanel')?.addEventListener('toggle', event => {
+        if (event.target.open) renderWorkspaceClaimEvidencePanel();
+      });
       area.addEventListener('input', () => {
         invalidateWorkspaceNoteFindMatches();
         updateWorkspaceWordCount(area.value);

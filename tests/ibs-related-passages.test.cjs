@@ -165,6 +165,7 @@ function makeHarness(selectedVerseValues = []) {
     '    function formatStudyRelatedPassageReference(item) {'
   );
   sandbox.normalizeStudyRelatedPassages = vm.runInNewContext('(' + normalizeSource + ')', sandbox);
+  sandbox.normalizeStudyEvidenceLinks = value => Array.isArray(value) ? value : [];
   const legacySource = extractFunction(
     indexHtml,
     '    function relatedPassageFromCrossReference(ref) {',
@@ -666,7 +667,7 @@ test('Phone Notes tap directly opens the panel and closes the phone menu', () =>
 
 test('PWA shell cache version advances for the direct-open Notes fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v21'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v22'/);
 });
 
 test('AI Study Guide drawer has reliable explicit mobile open and close states', () => {
@@ -1042,6 +1043,7 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
     writeStudyTombstones: value => { tombstones = JSON.parse(JSON.stringify(value)); return true; },
     studyRecordKey: (book, chapter) => (book && chapter) ? book + '::' + Number(chapter) : 'Romans::8',
     normalizeStudyRelatedPassages: relatedHarness.normalizeStudyRelatedPassages,
+    normalizeStudyEvidenceLinks: value => Array.isArray(value) ? value : [],
     normalizeVerseMaps: value => value && typeof value === 'object' && !Array.isArray(value) ? value : {},
     normalizePassageOutline: value => value && typeof value === 'object' ? value : null,
     normalizeStudyNoteVersionHistory: value => Array.isArray(value) ? value : [],
@@ -1129,7 +1131,7 @@ test('Related passage Add/manage dialog escapes transformed panels on mobile', (
 
 test('PWA shell cache version advances for the related-passage dialog fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v21'/);
+  assert.match(serviceWorker, /const CACHE_NAME = 'inductive-bible-study-shell-v22'/);
 });
 
 

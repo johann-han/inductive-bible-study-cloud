@@ -1248,6 +1248,16 @@
           <button id="closeWorkspaceMobile" type="button" aria-label="Close study notes" class="px-3 text-slate-500 hover:text-slate-900 font-bold text-base">&times;</button>
         </div>
 
+        <div id="workspaceWorkflowProgress" class="border-b border-slate-200 bg-slate-50 px-3 py-2">
+          <div class="flex items-center justify-between gap-2 text-[10px]">
+            <span id="workspaceStageStepLabel" class="font-bold text-slate-700">Step 1 of 4 · Observe</span>
+            <span id="workspaceStageNotesStatus" class="text-slate-500">0 of 4 stages have notes</span>
+          </div>
+          <div id="workspaceStageProgressTrack" role="progressbar" aria-label="Inductive study workflow progress" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" class="mt-2 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+            <div id="workspaceStageProgressFill" class="h-full rounded-full bg-amber-500 transition-all" style="width:25%"></div>
+          </div>
+        </div>
+
         <div class="p-3 bg-white border-b border-slate-200 flex items-center justify-between">
           <span class="text-xs font-bold text-amber-800 truncate pr-2" id="workspaceNoteTitle">Genesis 1 - Observe Notes</span>
           <div class="flex items-center space-x-2 shrink-0">
@@ -1261,6 +1271,18 @@
         </div>
 
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
+          <details id="workspaceEvidenceHandoff" class="rounded-lg border border-sky-200 bg-sky-50/70 p-2.5">
+            <summary class="cursor-pointer select-none flex items-center justify-between gap-2 text-[11px] font-bold text-sky-950">
+              <span id="workspaceEvidenceHandoffTitle">Evidence carried forward into Observe</span>
+              <span id="workspaceEvidenceHandoffMeta" class="shrink-0 text-[10px] font-medium text-sky-700">No earlier material yet</span>
+            </summary>
+            <p id="workspaceEvidenceHandoffIntro" class="mt-2 text-[10px] leading-relaxed text-slate-600">Review evidence from earlier stages and saved study tools. Source material stays separate unless you choose to insert it into your notes.</p>
+            <div id="workspaceEvidenceHandoffContent" class="mt-2 space-y-2"></div>
+            <div class="mt-2 flex flex-col gap-1.5">
+              <button id="workspaceInsertEvidenceBtn" type="button" disabled class="self-start rounded-lg border border-sky-300 bg-white px-3 py-2 text-[10px] font-bold text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">Insert evidence into current stage</button>
+              <p id="workspaceEvidenceHandoffStatus" class="text-[10px] text-slate-600" role="status" aria-live="polite">No evidence has been inserted.</p>
+            </div>
+          </details>
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
           <section id="studyRelatedPassagesSection" class="rounded-lg border border-sky-200 bg-white p-2.5 space-y-1.5">
@@ -1294,6 +1316,16 @@
           </div>
           <button id="groupDuplicateAiHeadingsBtn" type="button" class="hidden self-start text-[11px] font-semibold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg px-3 py-2" title="Group repeated AI verse headings without deleting any response text">Group repeated AI verse headings</button>
           <p id="workspaceStudyPrompt" class="text-xs text-slate-600 bg-slate-100 rounded-lg px-3 py-2 leading-relaxed" aria-live="polite">Observe: What does the passage actually say? Notice repeated words, people, places, commands, contrasts, and connections before explaining their meaning.</p>
+          <div id="workspaceStageNavigation" class="rounded-lg border border-slate-200 bg-white p-2.5 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-semibold text-slate-600">Move through the inductive study</span>
+              <span id="workspaceStageNavigationStatus" class="text-[10px] text-slate-500">Your notes save as you move.</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="workspacePreviousStageBtn" type="button" disabled title="You are at the first stage" class="rounded-lg border border-slate-300 bg-white px-2 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45">← Previous</button>
+              <button id="workspaceNextStageBtn" type="button" title="Continue to the next inductive stage" class="rounded-lg bg-amber-600 px-2 py-2 text-[10px] font-bold text-white hover:bg-amber-500">Continue to Interpretation →</button>
+            </div>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button id="askAiToReviewNotesBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs py-2 rounded font-bold border border-slate-700 flex items-center justify-center space-x-1 transition shadow-sm">
               <span>✨ Ask AI to Guide My Active Notes</span>
@@ -5578,6 +5610,7 @@ function renderStandardCrossReferenceList() {
     const STUDY_TOMBSTONES_STORAGE_KEY = 'inductive-study-library-deleted-v1';
     // Keep `apply` as the stored key so existing Application notes remain available as Discipleship notes.
     const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' };
+    const WORKSPACE_STAGE_ORDER = Object.freeze(['observe', 'interpret', 'doctrine', 'apply']);
     const isIbsAdminDashboardRoute = /^\/admin\/?$/.test(window.location.pathname);
     const cloudSyncState = { client: null, user: null, isAdmin: false, adminStatusChecked: false, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };
 
@@ -5877,7 +5910,8 @@ function renderStandardCrossReferenceList() {
         doctrine: 'Doctrine: What theological truth follows from the passage’s meaning? State what the text supports about God, humanity, salvation, or Christian life. Distinguish explicit teaching from careful inference, and test conclusions against the wider biblical context.',
         apply: 'Discipleship: In light of the established meaning and doctrine, what should believers understand, change, practise, or teach? Make the response specific and supported by the passage.'
       };
-      prompt.textContent = prompts[appState.activeNotesSection] || prompts.observe;
+      const basePrompt = prompts[appState.activeNotesSection] || prompts.observe;
+      prompt.textContent = basePrompt + ' Review the Evidence carried forward panel before drawing conclusions. It shows source material from earlier stages and saved study tools; insert it into these notes only when you have checked that it is relevant and accurate.';
     }
 
     const STUDY_NOTE_VERSION_LIMIT = 8;
@@ -6158,13 +6192,310 @@ function renderStandardCrossReferenceList() {
 
     function updateWorkspaceSectionButtons() {
       const map = { observe: 'wsTabObserve', interpret: 'wsTabInterpret', doctrine: 'wsTabDoctrine', apply: 'wsTabApply' };
+      const record = readStudyLibrary()[studyRecordKey()] || null;
       Object.entries(map).forEach(([section, id]) => {
         const button = document.getElementById(id);
         if (!button) return;
         const selected = section === appState.activeNotesSection;
-        button.className = `flex-1 py-3 text-center border-b-2 ${selected ? 'border-amber-600 text-amber-700 bg-slate-50 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900'}`;
+        const hasNotes = !!String(record?.sections?.[section] || '').trim();
+        const index = WORKSPACE_STAGE_ORDER.indexOf(section);
+        button.textContent = NOTE_SECTION_LABELS[section] + (hasNotes ? ' ✓' : '');
+        button.className = 'flex-1 py-3 text-center border-b-2 ' +
+          (selected ? 'border-amber-600 text-amber-700 bg-slate-50 font-bold' : 'border-transparent text-slate-600 hover:text-slate-900');
         button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        button.setAttribute('aria-current', selected ? 'step' : 'false');
+        button.setAttribute('aria-label', 'Step ' + (index + 1) + ' of 4: ' + NOTE_SECTION_LABELS[section] +
+          (hasNotes ? ', saved notes' : ', no notes yet'));
+        button.title = 'Open ' + NOTE_SECTION_LABELS[section] + (hasNotes ? ' · notes saved' : ' · no notes yet');
       });
+    }
+
+    function updateWorkspaceStageNavigation() {
+      const section = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+      const index = Math.max(0, WORKSPACE_STAGE_ORDER.indexOf(section));
+      const record = readStudyLibrary()[studyRecordKey()] || null;
+      const filled = WORKSPACE_STAGE_ORDER.filter(key => String(record?.sections?.[key] || '').trim()).length;
+      const step = document.getElementById('workspaceStageStepLabel');
+      const notes = document.getElementById('workspaceStageNotesStatus');
+      const track = document.getElementById('workspaceStageProgressTrack');
+      const fill = document.getElementById('workspaceStageProgressFill');
+      const previous = document.getElementById('workspacePreviousStageBtn');
+      const next = document.getElementById('workspaceNextStageBtn');
+      const status = document.getElementById('workspaceStageNavigationStatus');
+      if (step) step.textContent = 'Step ' + (index + 1) + ' of 4 · ' + NOTE_SECTION_LABELS[section];
+      if (notes) notes.textContent = filled + ' of 4 stages have notes';
+      if (track) {
+        track.setAttribute('aria-valuenow', String(index + 1));
+        track.setAttribute('aria-valuetext', 'Step ' + (index + 1) + ' of 4: ' + NOTE_SECTION_LABELS[section]);
+      }
+      if (fill) fill.style.width = (((index + 1) / WORKSPACE_STAGE_ORDER.length) * 100) + '%';
+      if (previous) {
+        previous.disabled = index === 0;
+        previous.textContent = index ? '← Previous: ' + NOTE_SECTION_LABELS[WORKSPACE_STAGE_ORDER[index - 1]] : '← First stage';
+        previous.title = index ? 'Return to ' + NOTE_SECTION_LABELS[WORKSPACE_STAGE_ORDER[index - 1]] : 'You are at the first stage';
+      }
+      if (next) {
+        const finalStage = index === WORKSPACE_STAGE_ORDER.length - 1;
+        const target = WORKSPACE_STAGE_ORDER[(index + 1) % WORKSPACE_STAGE_ORDER.length];
+        next.textContent = finalStage ? 'Return to Observe ↺' : 'Continue to ' + NOTE_SECTION_LABELS[target] + ' →';
+        next.title = finalStage ? 'Return to Observation to review the passage evidence' :
+          'Continue to ' + NOTE_SECTION_LABELS[target] + ' with the evidence carried forward';
+      }
+      if (status) status.textContent = filled + ' of 4 stages have notes · moving stages saves your current notes';
+    }
+
+    function stripWorkspaceEvidenceHandoffBlocks(value) {
+      const markerPattern = /^\[\[IBS_EVIDENCE_HANDOFF_START:(observe|interpret|doctrine|apply)\]\][\s\S]*?^\[\[IBS_EVIDENCE_HANDOFF_END:\1\]\][ \t]*(?:\r?\n)?/gm;
+      return String(value || '').replace(markerPattern, '').trim();
+    }
+
+    function getWorkspaceEvidenceHandoffSources(record, targetStage) {
+      if (!record || typeof record !== 'object') return [];
+      const stageIndex = WORKSPACE_STAGE_ORDER.indexOf(targetStage);
+      const sources = [];
+      const add = (id, title, content) => {
+        const text = String(content || '').trim();
+        if (text) sources.push({ id, title, content: text });
+      };
+
+      WORKSPACE_STAGE_ORDER.slice(0, Math.max(0, stageIndex)).forEach(stage => {
+        const notes = stripWorkspaceEvidenceHandoffBlocks(record.sections?.[stage]);
+        if (notes) add('stage-' + stage, NOTE_SECTION_LABELS[stage] + ' notes', notes);
+      });
+
+      const outline = normalizePassageOutline(record.passageOutline);
+      if (outline) {
+        const parts = [];
+        if (outline.title.trim()) parts.push(outline.title.trim());
+        outline.sections.forEach((item, index) => {
+          const details = [];
+          if (item.verseRange) details.push('Verses: ' + item.verseRange);
+          if (item.majorIdea) details.push('Main idea: ' + item.majorIdea);
+          if (item.supportingDetails) details.push('Supporting details: ' + item.supportingDetails);
+          parts.push((index + 1) + '. ' + (item.heading || 'Outline section') +
+            (details.length ? '\n' + details.join('\n') : ''));
+        });
+        add('passage-outline', 'Passage outline', parts.join('\n\n'));
+      }
+
+      const marks = Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups : [];
+      if (marks.length) {
+        const lines = marks.slice(0, 250).map(mark => {
+          const type = SCRIPTURE_MARKUP_TYPES[mark?.type]?.label || String(mark?.type || 'Scripture mark');
+          const reference = String(record.book || '') + ' ' + Number(record.chapter) + ':' + Number(mark?.verse || 0);
+          const translation = String(mark?.translation || 'Translation not recorded');
+          const quote = String(mark?.quote || '').trim();
+          return reference + ' · ' + type + ' · ' + translation + (quote ? ' — “' + quote + '”' : '');
+        });
+        add('scripture-markups', 'Marked Scripture', lines.join('\n'));
+      }
+
+      const verseMaps = normalizeVerseMaps(record.verseMaps);
+      const mapLines = [];
+      const mapLabels = {
+        context: 'Context', keyWords: 'Key words and relationships', wordStudies: 'Word studies',
+        translationComparison: 'Translation comparison', crossReferences: 'Cross-references',
+        meaningSummary: 'Meaning summary', response: 'Response'
+      };
+      Object.entries(verseMaps).forEach(([verse, entry]) => {
+        const lines = [String(record.book || '') + ' ' + Number(record.chapter) + ':' + verse +
+          (entry.translation ? ' (' + entry.translation + ')' : '')];
+        if (entry.verseText.trim()) lines.push('Scripture: ' + entry.verseText.trim());
+        VERSE_MAP_CONTENT_FIELDS.forEach(field => {
+          if (String(entry[field] || '').trim()) lines.push((mapLabels[field] || field) + ': ' + String(entry[field]).trim());
+        });
+        if (lines.length > 1) mapLines.push(lines.join('\n'));
+      });
+      add('verse-maps', 'Verse maps', mapLines.join('\n\n'));
+
+      const related = getStudyRelatedPassageState(record).entries;
+      const relatedLines = [];
+      related.forEach(item => {
+        const itemStageIndex = WORKSPACE_STAGE_ORDER.indexOf(item.stage);
+        if (item.includedInStageNotes && itemStageIndex >= 0 && itemStageIndex < Math.max(0, stageIndex)) return;
+        const lines = [formatStudyRelatedPassageReference(item) + ' · ' +
+          (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other)];
+        if (item.note) lines.push('Connection note: ' + item.note);
+        if (item.verses.length) {
+          lines.push(item.translation + ' text:');
+          item.verses.forEach(verse => lines.push(verse.number + '. ' + verse.text));
+        } else if (item.textLoadError) {
+          lines.push('Verse text could not be loaded; the saved connection note remains available.');
+        }
+        relatedLines.push(lines.join('\n'));
+      });
+      add('related-passages', 'Related passages', relatedLines.join('\n\n'));
+
+      const verseReferences = (Array.isArray(record.crossReferences) ? record.crossReferences : [])
+        .filter(ref => ref?.source && ref?.target && ref.source.verse != null);
+      if (verseReferences.length) {
+        const lines = verseReferences.slice(0, 250).map(ref => {
+          const source = String(ref.source.book || record.book || '') + ' ' +
+            Number(ref.source.chapter || record.chapter) + ':' + Number(ref.source.verse);
+          const end = Number.isInteger(ref.target.endVerse) && ref.target.endVerse > ref.target.startVerse
+            ? '–' + ref.target.endVerse : '';
+          const targetVerse = Number.isInteger(ref.target.startVerse) ? ':' + ref.target.startVerse + end : '';
+          const target = String(ref.target.book || '') + ' ' + Number(ref.target.chapter) + targetVerse;
+          return source + ' → ' + target + ' · ' +
+            (CROSS_REFERENCE_RELATIONS[ref.relation] || CROSS_REFERENCE_RELATIONS.other) +
+            (ref.note ? '\nConnection note: ' + ref.note : '');
+        });
+        add('verse-cross-references', 'Verse-level cross-references', lines.join('\n'));
+      }
+      return sources;
+    }
+
+    function renderWorkspaceEvidenceHandoff() {
+      const details = document.getElementById('workspaceEvidenceHandoff');
+      const title = document.getElementById('workspaceEvidenceHandoffTitle');
+      const meta = document.getElementById('workspaceEvidenceHandoffMeta');
+      const intro = document.getElementById('workspaceEvidenceHandoffIntro');
+      const content = document.getElementById('workspaceEvidenceHandoffContent');
+      const button = document.getElementById('workspaceInsertEvidenceBtn');
+      const status = document.getElementById('workspaceEvidenceHandoffStatus');
+      if (!details || !content || !button) return;
+
+      const stage = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+      const stageLabel = NOTE_SECTION_LABELS[stage];
+      const record = readStudyLibrary()[studyRecordKey()] || null;
+      const sources = getWorkspaceEvidenceHandoffSources(record, stage);
+      const startMarker = '[[IBS_EVIDENCE_HANDOFF_START:' + stage + ']]';
+      const endMarker = '[[IBS_EVIDENCE_HANDOFF_END:' + stage + ']]';
+      const notes = String(record?.sections?.[stage] || '');
+      const hasStart = notes.includes(startMarker);
+      const hasEnd = notes.includes(endMarker);
+      const malformed = hasStart !== hasEnd || (hasStart &&
+        (notes.indexOf(endMarker) < notes.indexOf(startMarker) ||
+         notes.indexOf(startMarker) !== notes.lastIndexOf(startMarker) ||
+         notes.indexOf(endMarker) !== notes.lastIndexOf(endMarker)));
+
+      if (title) title.textContent = 'Evidence carried forward into ' + stageLabel;
+      if (meta) meta.textContent = sources.length + ' source' + (sources.length === 1 ? '' : 's');
+      if (intro) intro.textContent = stage === 'observe'
+        ? 'Start with the passage. This panel also gathers saved outlines, marked Scripture, verse maps and related passages for reference.'
+        : 'Review notes from earlier stages together with saved passage evidence. Nothing is copied or changed unless you choose to insert it.';
+      content.replaceChildren();
+      sources.forEach(source => {
+        const card = document.createElement('details');
+        card.className = 'rounded-md border border-sky-100 bg-white px-2.5 py-2';
+        const summary = document.createElement('summary');
+        summary.className = 'cursor-pointer text-[10px] font-bold text-slate-800';
+        summary.textContent = source.title;
+        const body = document.createElement('pre');
+        body.className = 'mt-2 whitespace-pre-wrap break-words font-sans text-[10px] leading-relaxed text-slate-700';
+        body.textContent = source.content;
+        card.append(summary, body);
+        content.appendChild(card);
+      });
+
+      button.disabled = !sources.length || malformed || !record;
+      button.textContent = hasStart && hasEnd
+        ? 'Update evidence block in ' + stageLabel + ' notes'
+        : 'Insert evidence into ' + stageLabel + ' notes';
+      if (status) status.textContent = malformed
+        ? 'A previous evidence block has incomplete markers. It will not be changed automatically; your notes are safe.'
+        : hasStart && hasEnd
+          ? 'A generated evidence block is already in these notes. Updating changes only that labelled block.'
+          : sources.length
+            ? 'The evidence will be appended as a labelled block. Your existing notes remain in place.'
+            : 'There is no earlier-stage or saved evidence to carry forward yet.';
+      button.title = malformed
+        ? 'The existing block needs to be checked before it can be refreshed'
+        : 'Insert or refresh only the labelled evidence block; preserve the rest of your notes';
+    }
+
+    function insertWorkspaceEvidenceHandoff() {
+      saveActiveStudyNote();
+      const stage = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      const status = document.getElementById('workspaceEvidenceHandoffStatus');
+      if (!record) {
+        if (status) status.textContent = 'Save some study notes or evidence first. No changes were made.';
+        return false;
+      }
+      const sources = getWorkspaceEvidenceHandoffSources(record, stage);
+      if (!sources.length) {
+        if (status) status.textContent = 'There is no earlier-stage or saved evidence to insert yet.';
+        return false;
+      }
+
+      const startMarker = '[[IBS_EVIDENCE_HANDOFF_START:' + stage + ']]';
+      const endMarker = '[[IBS_EVIDENCE_HANDOFF_END:' + stage + ']]';
+      const currentNotes = String(record.sections?.[stage] || '');
+      const startCount = currentNotes.split(startMarker).length - 1;
+      const endCount = currentNotes.split(endMarker).length - 1;
+      if (startCount !== endCount || startCount > 1) {
+        if (status) status.textContent = 'The existing evidence block could not be identified safely. No changes were made to your notes.';
+        return false;
+      }
+
+      const lines = [
+        startMarker,
+        'EVIDENCE CARRIED FORWARD INTO ' + NOTE_SECTION_LABELS[stage].toLocaleUpperCase(),
+        'Passage: ' + record.book + ' ' + Number(record.chapter),
+        'The following source material was available when this stage was prepared. Confirm each item against its source and context.'
+      ];
+      sources.forEach(source => lines.push('', '--- ' + source.title + ' ---', source.content));
+      lines.push(endMarker);
+      const block = lines.join('\n');
+
+      let updatedNotes;
+      if (startCount === 1) {
+        const startIndex = currentNotes.indexOf(startMarker);
+        const endIndex = currentNotes.indexOf(endMarker);
+        if (endIndex < startIndex) {
+          if (status) status.textContent = 'The existing evidence block has an invalid order. No changes were made.';
+          return false;
+        }
+        updatedNotes = currentNotes.slice(0, startIndex) + block + currentNotes.slice(endIndex + endMarker.length);
+      } else {
+        updatedNotes = (currentNotes.trim() ? currentNotes.replace(/\s*$/, '\n\n') : '') + block;
+      }
+      if (updatedNotes === currentNotes) {
+        if (status) status.textContent = 'The evidence block is already up to date.';
+        return true;
+      }
+
+      saveStudyNoteVersionSnapshot(record);
+      record.sections = { observe: '', interpret: '', doctrine: '', apply: '', ...(record.sections || {}) };
+      record.sections[stage] = updatedNotes;
+      record.activeSection = stage;
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) {
+        if (status) status.textContent = 'The evidence block could not be saved. Your previous notes remain unchanged.';
+        return false;
+      }
+
+      const area = document.getElementById('workspaceNoteArea');
+      if (area) area.value = updatedNotes;
+      updateWorkspaceWordCount(updatedNotes);
+      updateDuplicateAiHeadingControl(updatedNotes);
+      updateWorkspaceVerseStudyNavigator(updatedNotes);
+      updateWorkspaceSectionButtons();
+      updateWorkspaceStageNavigation();
+      scheduleCloudStudySync();
+      renderWorkspaceEvidenceHandoff();
+      if (status) status.textContent = 'Evidence inserted into ' + NOTE_SECTION_LABELS[stage] + '. Your earlier notes and source records were preserved.';
+      const noteStatus = document.getElementById('noteSaveStatus');
+      if (noteStatus) noteStatus.textContent = cloudSyncState.user ? 'Evidence saved locally · syncing…' : 'Evidence saved locally';
+      return true;
+    }
+
+    function persistWorkspaceActiveSection() {
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      if (!record || !NOTE_SECTION_LABELS[appState.activeNotesSection]) return false;
+      if (record.activeSection === appState.activeNotesSection) return false;
+      record.activeSection = appState.activeNotesSection;
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) return false;
+      scheduleCloudStudySync();
+      return true;
     }
 
     function loadActiveStudyNote(options = {}) {
@@ -6201,14 +6532,22 @@ function renderStandardCrossReferenceList() {
       if (status) status.textContent = record.updatedAt ? 'Saved locally' : 'Not saved yet';
       updateWorkspaceSectionButtons();
       updateStudyRelatedPassageButton();
+      updateWorkspaceStageNavigation();
+      renderWorkspaceEvidenceHandoff();
     }
 
     function switchWorkspaceSection(section) {
-      if (!NOTE_SECTION_LABELS[section]) return;
+      if (!NOTE_SECTION_LABELS[section] || section === appState.activeNotesSection) return;
+      const previousIndex = WORKSPACE_STAGE_ORDER.indexOf(appState.activeNotesSection);
+      const nextIndex = WORKSPACE_STAGE_ORDER.indexOf(section);
       saveActiveStudyNote();
       appState.activeNotesSection = section;
       saveLastActiveStudy();
+      persistWorkspaceActiveSection();
       loadActiveStudyNote();
+      const evidencePanel = document.getElementById('workspaceEvidenceHandoff');
+      if (evidencePanel && nextIndex > previousIndex) evidencePanel.open = true;
+      if (evidencePanel && nextIndex < previousIndex) evidencePanel.open = false;
     }
 
     function setupNotesPersistence() {
@@ -6310,6 +6649,20 @@ function renderStandardCrossReferenceList() {
       Object.entries(sectionButtons).forEach(([section, button]) => {
         if (button) button.addEventListener('click', () => switchWorkspaceSection(section));
       });
+
+      const previousStageButton = document.getElementById('workspacePreviousStageBtn');
+      const nextStageButton = document.getElementById('workspaceNextStageBtn');
+      const insertEvidenceButton = document.getElementById('workspaceInsertEvidenceBtn');
+      previousStageButton?.addEventListener('click', () => {
+        const index = WORKSPACE_STAGE_ORDER.indexOf(appState.activeNotesSection);
+        if (index > 0) switchWorkspaceSection(WORKSPACE_STAGE_ORDER[index - 1]);
+      });
+      nextStageButton?.addEventListener('click', () => {
+        const index = WORKSPACE_STAGE_ORDER.indexOf(appState.activeNotesSection);
+        const target = WORKSPACE_STAGE_ORDER[(index + 1) % WORKSPACE_STAGE_ORDER.length];
+        switchWorkspaceSection(target);
+      });
+      insertEvidenceButton?.addEventListener('click', insertWorkspaceEvidenceHandoff);
       loadActiveStudyNote();
     }
 
@@ -6867,6 +7220,7 @@ function renderStandardCrossReferenceList() {
       const bookSearch = document.getElementById('bookSearchInput');
       if (bookSearch) bookSearch.value = '';
       saveLastActiveStudy();
+      persistWorkspaceActiveSection();
       const mobileBackdrop = document.getElementById('mobileBackdrop');
       if (!options.openStudyPanel) mobileBackdrop?.classList.add('hidden');
       showBibleReader();

@@ -857,3 +857,4 @@ const server = http.createServer(async (req, res) => {
   });
 });
 const HOST = process.env.HOST || '0.0.0.0';
+server.listen(PORT, HOST, () => console.log(`Inductive Bible Study app listening on ${HOST}:${PORT}`));

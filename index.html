@@ -407,8 +407,11 @@
       }
       #crossReferenceList article { padding: .6rem !important; }
       #studyRelatedPassagesSection {
-        padding: .5rem !important;
-        gap: .35rem !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        min-height: 0 !important;
+        border-width: 0 !important;
       }
       #studyRelatedPassagesSection > div:first-child {
         align-items: center;
@@ -526,7 +529,13 @@
       padding: .55rem .45rem 6.5rem;
       font-size: 15px;
     }
-    html.touch-workspace-layout #studyRelatedPassagesSection { padding: .5rem !important; gap: .35rem !important; }
+    html.touch-workspace-layout #studyRelatedPassagesSection {
+      padding: 0 !important;
+      margin: 0 !important;
+      gap: 0 !important;
+      min-height: 0 !important;
+      border-width: 0 !important;
+    }
     html.touch-workspace-layout #studyRelatedPassagesSection > div:first-child { align-items: center; }
     html.touch-workspace-layout #studyRelatedPassagesSection > div:first-child > div:first-child > p:nth-child(2),
     html.touch-workspace-layout #studyRelatedPassageStatus { display: none !important; }
@@ -545,8 +554,11 @@
     /* Keep related-passage verse cards out of the way while writing on phones. */
     @media (max-width: 640px) {
       #studyRelatedPassagesSection {
-        padding: .5rem !important;
-        gap: .35rem !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        min-height: 0 !important;
+        border-width: 0 !important;
       }
       #studyRelatedPassagesSection > div:first-child {
         align-items: center;
@@ -1284,21 +1296,17 @@
             </div>
           </details>
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
-          <p id="workspaceWordCount" class="text-[11px] text-slate-500 text-right px-1" aria-live="polite">Observe: 0 words</p>
-          <section id="studyRelatedPassagesSection" class="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 space-y-0" title="Manage saved related passages for this study">
-            <div class="flex items-center justify-between gap-2 min-h-7">
-              <div class="min-w-0">
-                <p class="text-[11px] font-bold text-slate-800">Related passages</p>
-                <p class="sr-only text-[10px] text-slate-500">Verse text and connection notes saved as study material.</p>
-              </div>
-              <div class="flex shrink-0 items-center gap-1.5">
-                <button id="toggleStudyRelatedPassagesBtn" type="button" aria-controls="studyRelatedPassageList" aria-expanded="false" class="hidden sm:hidden rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700">Show passages</button>
-                <button id="openStudyRelatedPassagesBtn" type="button" class="shrink-0 rounded-lg border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-800 hover:bg-sky-100">Add / manage <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-[1rem] justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
-              </div>
+          <div id="workspaceNoteMetaRow" class="flex flex-col gap-1">
+            <div class="flex items-center justify-between gap-2 min-h-5 h-5">
+              <p id="workspaceWordCount" class="m-0 px-1 text-left text-[10px] text-slate-500" aria-live="polite">Observe: 0 words</p>
+              <section id="studyRelatedPassagesSection" class="m-0 flex h-5 shrink-0 items-center gap-1 border-0 bg-transparent p-0" title="Add or manage saved related passages for this study">
+                <button id="openStudyRelatedPassagesBtn" type="button" aria-label="Add or manage related passages for this study" title="Add or manage related passages for this study" class="shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold leading-4 text-sky-800 hover:bg-sky-100">Related passages <span id="studyRelatedPassageCount" class="ml-1 inline-flex min-w-4 justify-center rounded-full bg-white px-1 text-sky-800">0</span></button>
+                <button id="toggleStudyRelatedPassagesBtn" type="button" aria-controls="studyRelatedPassageList" aria-expanded="false" class="hidden rounded-md border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">Show passages</button>
+                <p id="studyRelatedPassageStatus" class="sr-only" role="status" aria-live="polite">Related verses are saved with this study.</p>
+              </section>
             </div>
-            <p id="studyRelatedPassageStatus" class="sr-only text-[10px] text-slate-500" role="status" aria-live="polite">Related verses are saved with this study.</p>
             <div id="studyRelatedPassageList" class="hidden space-y-2 is-mobile-collapsed"></div>
-          </section>
+          </div>
           <div id="workspaceNoteFind" class="space-y-1">
             <label for="workspaceNoteFindInput" class="block text-[11px] font-semibold text-slate-600">Find in current section</label>
             <div class="flex items-center gap-2">

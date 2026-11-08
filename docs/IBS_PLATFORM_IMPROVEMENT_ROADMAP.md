@@ -163,7 +163,7 @@ The metadata must survive the existing local-storage and Supabase JSON round-tri
 
 | Area | Current position | Next verification | Status |
 |---|---|---|---|
-| Evidence-driven workflow | Existing handoff gathers stage notes and saved passage tools. Structured provenance is the first enhancement. | Verify source identity, source details and local/cloud round-trip. | In progress |
+| Evidence-driven workflow | PR #164 adds structured provenance IDs, source types, originating stages and passage references; per-verse tools now have separate source identities. | Merge and verify the exact Render production commit; then continue with claim-to-evidence links. | Implemented in PR #164 · deployment pending |
 | Guided methodology | Four inductive stages already exist. | Review stage-specific prompts and boundaries. | Planned |
 | AI Study Mentor | AI Mentor and stage guidance already exist. | Audit stage adherence, quotation accuracy and evidence grounding. | Planned |
 | Research environment | Strong's, morphology, word studies and cross-references exist. | Map missing resources and source/licensing requirements. | Planned |
@@ -177,6 +177,6 @@ The metadata must survive the existing local-storage and Supabase JSON round-tri
 | 2026-11-08 · PR #161 | Added guided stage progress/navigation and optional evidence handoff. | IBS and IBS/Kerygma regression workflows passed. |
 | 2026-11-08 · PR #162 | Compacted the empty Related passages panel. | IBS and IBS/Kerygma regression workflows passed. |
 | 2026-11-08 · PR #163 | Placed Related passages control beside the study word count. | IBS and IBS/Kerygma regression workflows passed. |
-| Next · Phase 1 | Add structured source provenance and cloud round-trip support. | Pending implementation and regression verification. |
+| 2026-11-08 · PR #164 | Added structured source provenance to handoffs and stored links in the existing `study_records.sections._evidenceLinks` JSON payload; no migration. | IBS #31 and IBS/Kerygma #363 passed, including a local → cloud → local evidence-link round-trip test. Merge/deployment confirmation pending. |
 
 **Platform success criterion:** A student can move from a biblical passage to a carefully reasoned interpretation, a defensible doctrinal conclusion and a faithful response, while being able to inspect the Scripture and research evidence behind every important step.

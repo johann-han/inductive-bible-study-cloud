@@ -276,6 +276,8 @@ test('claim and evidence links persist through cloud sync and full backup/restor
   const backupRestore = functionSource('restoreFullStudyBackup');
   assert.ok(backupRestore.includes('normalizeStudyClaims(item.studyClaims)'));
   assert.ok(backupRestore.includes('normalizeStudyEvidenceLinks(item.evidenceLinks)'));
+  assert.ok(backupRestore.includes('claim.supportLinks.length < 1'));
+  assert.ok(backupRestore.includes('CLAIM_EVIDENCE_RELATIONSHIPS[link.relationship]'));
   assert.ok(backupRestore.includes('normalizeStudyClaims(current?.studyClaims)'));
   assert.ok(backupRestore.includes('normalizeStudyEvidenceLinks(current?.evidenceLinks)'));
 });

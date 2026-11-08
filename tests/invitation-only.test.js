@@ -71,7 +71,7 @@ test('study dashboard and Bible reader are gated behind an authenticated session
   assert.match(app, /id="studyDashboardHome" style="display:none"/);
   assert.match(app, /if \(!cloudSyncState\.user\) \{\s*updateHomeAccessUI\(\);\s*return;\s*\}\s*saveActiveStudyNote\(\);/);
   assert.match(app, /function showBibleReader\(\) \{\s*if \(!cloudSyncState\.user\)/);
-  assert.match(app, /if \(reader && !signedIn\) reader\.style\.display = 'none'/);
+  assert.match(app, /if \(reader && \(!signedIn \|\| isIbsAdminDashboardRoute\)\) reader\.style\.display = 'none'/);
 });
 
 
@@ -138,3 +138,18 @@ test('administrator dashboard renders pending request data safely and exposes re
   assert.match(app, /reviewIbsAccessRequest\(request\.id, 'decline'/);
 });
 
+
+test('email administrator link opens a dedicated administrator route served by the IBS app', () => {
+  const notification = fs.readFileSync(path.join(root, 'lib', 'ibs-access-request-email.js'), 'utf8');
+  assert.match(notification, /DASHBOARD_URL = 'https:\/\/study\.woordvanlewe\.co\.za\/admin'/);
+  assert.match(server, /pathname === '\/admin' \|\| pathname === '\/admin\/'/);
+});
+
+test('administrator route requires a signed-in allowlisted user and opens the request dashboard', () => {
+  assert.match(app, /isIbsAdminDashboardRoute =/);
+  assert.match(app, /id="ibsAdminAccessDenied"/);
+  assert.match(app, /IBS Administrator Dashboard/);
+  assert.match(app, /isIbsAdminDashboardRoute && cloudSyncState\.isAdmin/);
+  assert.match(app, /cloudSyncState\.adminStatusChecked/);
+  assert.match(app, /refreshIbsAccessRequests\(\)/);
+});

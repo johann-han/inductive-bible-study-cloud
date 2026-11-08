@@ -8415,6 +8415,31 @@ function renderStandardCrossReferenceList() {
             setStudyBackupStatus(`The backup has invalid claim-to-evidence data for ${book} ${chapter}. No changes were made.`, 'error');
             return;
           }
+          for (const claim of item.studyClaims) {
+            if (!claim || typeof claim !== 'object' || Array.isArray(claim) ||
+                typeof claim.id !== 'string' || !claim.id.trim() || claim.id.length > 120 ||
+                !NOTE_SECTION_LABELS[claim.stage] ||
+                typeof claim.statement !== 'string' || claim.statement.trim().length < 5 || claim.statement.length > 2000 ||
+                !Array.isArray(claim.supportLinks) || claim.supportLinks.length < 1 || claim.supportLinks.length > 50 ||
+                (claim.createdAt !== undefined && (typeof claim.createdAt !== 'string' || claim.createdAt.length > 50)) ||
+                (claim.updatedAt !== undefined && (typeof claim.updatedAt !== 'string' || claim.updatedAt.length > 50))) {
+              setStudyBackupStatus(`The backup has invalid claim-to-evidence details for ${book} ${chapter}. No changes were made.`, 'error');
+              return;
+            }
+            for (const link of claim.supportLinks) {
+              if (!link || typeof link !== 'object' || Array.isArray(link) ||
+                  typeof link.sourceId !== 'string' || !link.sourceId.trim() || link.sourceId.length > 120 ||
+                  typeof link.sourceType !== 'string' || !link.sourceType.trim() || link.sourceType.length > 80 ||
+                  (link.sourceTitle !== undefined && (typeof link.sourceTitle !== 'string' || link.sourceTitle.length > 200)) ||
+                  (link.sourceReference !== undefined && (typeof link.sourceReference !== 'string' || link.sourceReference.length > 160)) ||
+                  (link.sourceStage !== undefined && link.sourceStage !== null && !NOTE_SECTION_LABELS[link.sourceStage]) ||
+                  !CLAIM_EVIDENCE_RELATIONSHIPS[link.relationship] ||
+                  (link.linkedAt !== undefined && (typeof link.linkedAt !== 'string' || link.linkedAt.length > 50))) {
+                setStudyBackupStatus(`The backup has invalid claim evidence-source details for ${book} ${chapter}. No changes were made.`, 'error');
+                return;
+              }
+            }
+          }
           studyClaims = normalizeStudyClaims(item.studyClaims);
           if (studyClaims.length !== item.studyClaims.length) {
             setStudyBackupStatus(`The backup has invalid claim-to-evidence details for ${book} ${chapter}. No changes were made.`, 'error');

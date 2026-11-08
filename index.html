@@ -6331,45 +6331,48 @@ function renderStandardCrossReferenceList() {
       }
 
       const marks = Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups : [];
-      if (marks.length) {
-        const lines = marks.slice(0, 250).map(mark => {
-          const type = SCRIPTURE_MARKUP_TYPES[mark?.type]?.label || String(mark?.type || 'Scripture mark');
-          const reference = String(record.book || '') + ' ' + Number(record.chapter) + ':' + Number(mark?.verse || 0);
-          const translation = String(mark?.translation || 'Translation not recorded');
-          const quote = String(mark?.quote || '').trim();
-          return reference + ' · ' + type + ' · ' + translation + (quote ? ' — “' + quote + '”' : '');
-        });
-        add('scripture-markups', 'scripture-markup', 'Marked Scripture', lines.join('\n'), null);
-      }
+      marks.slice(0, 250).forEach((mark, index) => {
+        const type = SCRIPTURE_MARKUP_TYPES[mark?.type]?.label || String(mark?.type || 'Scripture mark');
+        const verse = Number(mark?.verse || 0);
+        const reference = String(record.book || '') + ' ' + Number(record.chapter) + ':' + verse;
+        const translation = String(mark?.translation || 'Translation not recorded');
+        const quote = String(mark?.quote || '').trim();
+        const rawId = String(mark?.id || ('verse-' + verse + '-' + String(mark?.type || 'mark') + '-' + index));
+        const sourceId = 'scripture-markup-' + rawId.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 80);
+        const content = reference + ' · ' + type + ' · ' + translation + (quote ? ' — “' + quote + '”' : '');
+        add(sourceId, 'scripture-markup', reference + ' · ' + type, content, null, reference);
+      });
 
       const verseMaps = normalizeVerseMaps(record.verseMaps);
-      const mapLines = [];
       const mapLabels = {
-        context: 'Context', keyWords: 'Key words and relationships', wordStudies: 'Word studies',
-        translationComparison: 'Translation comparison', crossReferences: 'Cross-references',
-        meaningSummary: 'Meaning summary', response: 'Response'
+        context: 'Context',
+        keyWords: 'Key words and relationships',
+        wordStudies: 'Word studies',
+        translationComparison: 'Translation comparison',
+        crossReferences: 'Cross-references',
+        meaningSummary: 'Meaning summary',
+        response: 'Response'
       };
       Object.entries(verseMaps).forEach(([verse, entry]) => {
-        const lines = [String(record.book || '') + ' ' + Number(record.chapter) + ':' + verse +
-          (entry.translation ? ' (' + entry.translation + ')' : '')];
+        const reference = String(record.book || '') + ' ' + Number(record.chapter) + ':' + verse;
+        const lines = [reference + (entry.translation ? ' (' + entry.translation + ')' : '')];
         if (entry.verseText.trim()) lines.push('Scripture: ' + entry.verseText.trim());
         VERSE_MAP_CONTENT_FIELDS.forEach(field => {
           if (String(entry[field] || '').trim()) lines.push((mapLabels[field] || field) + ': ' + String(entry[field]).trim());
         });
-        if (lines.length > 1) mapLines.push(lines.join('\n'));
+        if (lines.length > 1) add('verse-map-' + verse, 'verse-map', 'Verse map · ' + reference, lines.join('\n'), null, reference);
       });
-      add('verse-maps', 'verse-map', 'Verse maps', mapLines.join('\n\n'), null);
 
       const related = getStudyRelatedPassageState(record).entries;
-      const relatedLines = [];
       related.forEach(item => {
         const itemStageIndex = WORKSPACE_STAGE_ORDER.indexOf(item.stage);
         // Do not send evidence created in a later stage backwards; if already included in its
         // own stage notes, that stage's notes are the canonical source in the handoff.
         if (itemStageIndex > Math.max(0, stageIndex)) return;
         if (item.includedInStageNotes) return;
-        const lines = [formatStudyRelatedPassageReference(item) + ' · ' +
-          (CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other)];
+        const reference = formatStudyRelatedPassageReference(item);
+        const relation = CROSS_REFERENCE_RELATIONS[item.relation] || CROSS_REFERENCE_RELATIONS.other;
+        const lines = [reference + ' · ' + relation];
         if (item.note) lines.push('Connection note: ' + item.note);
         if (item.verses.length) {
           lines.push(item.translation + ' text:');
@@ -6377,26 +6380,26 @@ function renderStandardCrossReferenceList() {
         } else if (item.textLoadError) {
           lines.push('Verse text could not be loaded; the saved connection note remains available.');
         }
-        relatedLines.push(lines.join('\n'));
+        const itemId = String(item.id || (reference + '-' + item.relation)).replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 88);
+        add('related-passage-' + itemId, 'related-passage', reference + ' · ' + relation,
+          lines.join('\n'), NOTE_SECTION_LABELS[item.stage] ? item.stage : null, reference);
       });
-      add('related-passages', 'related-passage', 'Related passages', relatedLines.join('\n\n'), null);
 
       const verseReferences = (Array.isArray(record.crossReferences) ? record.crossReferences : [])
         .filter(ref => ref?.source && ref?.target && ref.source.verse != null);
-      if (verseReferences.length) {
-        const lines = verseReferences.slice(0, 250).map(ref => {
-          const source = String(ref.source.book || record.book || '') + ' ' +
-            Number(ref.source.chapter || record.chapter) + ':' + Number(ref.source.verse);
-          const end = Number.isInteger(ref.target.endVerse) && ref.target.endVerse > ref.target.startVerse
-            ? '–' + ref.target.endVerse : '';
-          const targetVerse = Number.isInteger(ref.target.startVerse) ? ':' + ref.target.startVerse + end : '';
-          const target = String(ref.target.book || '') + ' ' + Number(ref.target.chapter) + targetVerse;
-          return source + ' → ' + target + ' · ' +
-            (CROSS_REFERENCE_RELATIONS[ref.relation] || CROSS_REFERENCE_RELATIONS.other) +
-            (ref.note ? '\nConnection note: ' + ref.note : '');
-        });
-        add('verse-cross-references', 'verse-cross-reference', 'Verse-level cross-references', lines.join('\n'), null);
-      }
+      verseReferences.slice(0, 250).forEach((ref, index) => {
+        const source = String(ref.source.book || record.book || '') + ' ' +
+          Number(ref.source.chapter || record.chapter) + ':' + Number(ref.source.verse);
+        const end = Number.isInteger(ref.target.endVerse) && ref.target.endVerse > ref.target.startVerse
+          ? '–' + ref.target.endVerse : '';
+        const targetVerse = Number.isInteger(ref.target.startVerse) ? ':' + ref.target.startVerse + end : '';
+        const target = String(ref.target.book || '') + ' ' + Number(ref.target.chapter) + targetVerse;
+        const relation = CROSS_REFERENCE_RELATIONS[ref.relation] || CROSS_REFERENCE_RELATIONS.other;
+        const content = source + ' → ' + target + ' · ' + relation + (ref.note ? '\nConnection note: ' + ref.note : '');
+        const rawId = String(ref.id || (source + '-' + target + '-' + index));
+        const sourceId = 'verse-cross-reference-' + rawId.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 80);
+        add(sourceId, 'verse-cross-reference', source + ' → ' + target, content, null, source + ' → ' + target);
+      });
       return sources;
     }
 

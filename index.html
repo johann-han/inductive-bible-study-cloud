@@ -5627,6 +5627,37 @@ function renderStandardCrossReferenceList() {
     // Keep `apply` as the stored key so existing Application notes remain available as Discipleship notes.
     const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' };
     const WORKSPACE_STAGE_ORDER = Object.freeze(['observe', 'interpret', 'doctrine', 'apply']);
+
+    function normalizeStudyEvidenceLinks(value) {
+      if (!Array.isArray(value)) return [];
+      const normalized = [];
+      const seen = new Set();
+      value.forEach(entry => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
+        const targetStage = NOTE_SECTION_LABELS[entry.targetStage] ? entry.targetStage : null;
+        const sourceId = String(entry.sourceId || '').trim().slice(0, 120);
+        const sourceType = String(entry.sourceType || '').trim().slice(0, 80);
+        if (!targetStage || !sourceId || !sourceType) return;
+        const identity = targetStage + '::' + sourceId;
+        if (seen.has(identity)) return;
+        seen.add(identity);
+        const sourceStage = NOTE_SECTION_LABELS[entry.sourceStage] ? entry.sourceStage : null;
+        const linkedAt = String(entry.linkedAt || '').slice(0, 50);
+        normalized.push({
+          id: String(entry.id || ('evlink-' + targetStage + '-' + sourceId)).slice(0, 180),
+          sourceId,
+          sourceType,
+          sourceTitle: String(entry.sourceTitle || sourceId).trim().slice(0, 200),
+          sourceStage,
+          sourceReference: String(entry.sourceReference || '').trim().slice(0, 120),
+          targetStage,
+          linkedAt
+        });
+      });
+      return normalized.slice(-500);
+    }
+
+
     const isIbsAdminDashboardRoute = /^\/admin\/?$/.test(window.location.pathname);
     const cloudSyncState = { client: null, user: null, isAdmin: false, adminStatusChecked: false, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };
 
@@ -6269,14 +6300,19 @@ function renderStandardCrossReferenceList() {
       if (!record || typeof record !== 'object') return [];
       const stageIndex = WORKSPACE_STAGE_ORDER.indexOf(targetStage);
       const sources = [];
-      const add = (id, title, content) => {
+      const passageReference = String(record.book || '') + ' ' + Number(record.chapter || 0);
+      const add = (id, type, title, content, sourceStage = null, reference = passageReference) => {
         const text = String(content || '').trim();
-        if (text) sources.push({ id, title, content: text });
+        if (text) sources.push({
+          id, type, title, content: text,
+          sourceStage: NOTE_SECTION_LABELS[sourceStage] ? sourceStage : null,
+          reference: String(reference || '').trim().slice(0, 120)
+        });
       };
 
       WORKSPACE_STAGE_ORDER.slice(0, Math.max(0, stageIndex)).forEach(stage => {
         const notes = stripWorkspaceEvidenceHandoffBlocks(record.sections?.[stage]);
-        if (notes) add('stage-' + stage, NOTE_SECTION_LABELS[stage] + ' notes', notes);
+        if (notes) add('stage-' + stage, 'stage-notes', NOTE_SECTION_LABELS[stage] + ' notes', notes, stage);
       });
 
       const outline = normalizePassageOutline(record.passageOutline);
@@ -6291,7 +6327,7 @@ function renderStandardCrossReferenceList() {
           parts.push((index + 1) + '. ' + (item.heading || 'Outline section') +
             (details.length ? '\n' + details.join('\n') : ''));
         });
-        add('passage-outline', 'Passage outline', parts.join('\n\n'));
+        add('passage-outline', 'passage-outline', 'Passage outline', parts.join('\n\n'), null);
       }
 
       const marks = Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups : [];
@@ -6303,7 +6339,7 @@ function renderStandardCrossReferenceList() {
           const quote = String(mark?.quote || '').trim();
           return reference + ' · ' + type + ' · ' + translation + (quote ? ' — “' + quote + '”' : '');
         });
-        add('scripture-markups', 'Marked Scripture', lines.join('\n'));
+        add('scripture-markups', 'scripture-markup', 'Marked Scripture', lines.join('\n'), null);
       }
 
       const verseMaps = normalizeVerseMaps(record.verseMaps);
@@ -6322,7 +6358,7 @@ function renderStandardCrossReferenceList() {
         });
         if (lines.length > 1) mapLines.push(lines.join('\n'));
       });
-      add('verse-maps', 'Verse maps', mapLines.join('\n\n'));
+      add('verse-maps', 'verse-map', 'Verse maps', mapLines.join('\n\n'), null);
 
       const related = getStudyRelatedPassageState(record).entries;
       const relatedLines = [];
@@ -6343,7 +6379,7 @@ function renderStandardCrossReferenceList() {
         }
         relatedLines.push(lines.join('\n'));
       });
-      add('related-passages', 'Related passages', relatedLines.join('\n\n'));
+      add('related-passages', 'related-passage', 'Related passages', relatedLines.join('\n\n'), null);
 
       const verseReferences = (Array.isArray(record.crossReferences) ? record.crossReferences : [])
         .filter(ref => ref?.source && ref?.target && ref.source.verse != null);
@@ -6359,7 +6395,7 @@ function renderStandardCrossReferenceList() {
             (CROSS_REFERENCE_RELATIONS[ref.relation] || CROSS_REFERENCE_RELATIONS.other) +
             (ref.note ? '\nConnection note: ' + ref.note : '');
         });
-        add('verse-cross-references', 'Verse-level cross-references', lines.join('\n'));
+        add('verse-cross-references', 'verse-cross-reference', 'Verse-level cross-references', lines.join('\n'), null);
       }
       return sources;
     }
@@ -6378,6 +6414,8 @@ function renderStandardCrossReferenceList() {
       const stageLabel = NOTE_SECTION_LABELS[stage];
       const record = readStudyLibrary()[studyRecordKey()] || null;
       const sources = getWorkspaceEvidenceHandoffSources(record, stage);
+      const savedEvidenceLinks = normalizeStudyEvidenceLinks(record?.evidenceLinks)
+        .filter(link => link.targetStage === stage);
       const startMarker = '[[IBS_EVIDENCE_HANDOFF_START:' + stage + ']]';
       const endMarker = '[[IBS_EVIDENCE_HANDOFF_END:' + stage + ']]';
       const notes = String(record?.sections?.[stage] || '');
@@ -6389,7 +6427,8 @@ function renderStandardCrossReferenceList() {
          notes.indexOf(endMarker) !== notes.lastIndexOf(endMarker)));
 
       if (title) title.textContent = 'Evidence carried forward into ' + stageLabel;
-      if (meta) meta.textContent = sources.length + ' source' + (sources.length === 1 ? '' : 's');
+      if (meta) meta.textContent = sources.length + ' source' + (sources.length === 1 ? '' : 's') +
+        ' · ' + savedEvidenceLinks.length + ' linked';
       if (intro) intro.textContent = stage === 'observe'
         ? 'Start with the passage. This panel also gathers saved outlines, marked Scripture, verse maps and related passages for reference.'
         : 'Review notes from earlier stages together with saved passage evidence. Nothing is copied or changed unless you choose to insert it.';
@@ -6400,10 +6439,19 @@ function renderStandardCrossReferenceList() {
         const summary = document.createElement('summary');
         summary.className = 'cursor-pointer text-[10px] font-bold text-slate-800';
         summary.textContent = source.title;
+        const origin = document.createElement('p');
+        origin.className = 'mt-1 text-[9px] text-slate-500';
+        const originParts = [
+          'Source ID: ' + source.id,
+          'Type: ' + source.type,
+          source.sourceStage ? 'From: ' + NOTE_SECTION_LABELS[source.sourceStage] : 'From: passage study tool',
+          source.reference ? 'Reference: ' + source.reference : ''
+        ].filter(Boolean);
+        origin.textContent = originParts.join(' · ');
         const body = document.createElement('pre');
         body.className = 'mt-2 whitespace-pre-wrap break-words font-sans text-[10px] leading-relaxed text-slate-700';
         body.textContent = source.content;
-        card.append(summary, body);
+        card.append(summary, origin, body);
         content.appendChild(card);
       });
 
@@ -6456,7 +6504,17 @@ function renderStandardCrossReferenceList() {
         'Passage: ' + record.book + ' ' + Number(record.chapter),
         'The following source material was available when this stage was prepared. Confirm each item against its source and context.'
       ];
-      sources.forEach(source => lines.push('', '--- ' + source.title + ' ---', source.content));
+      sources.forEach(source => {
+        lines.push(
+          '',
+          '--- SOURCE: ' + source.title + ' ---',
+          'Source ID: ' + source.id,
+          'Source type: ' + source.type,
+          'Origin: ' + (source.sourceStage ? NOTE_SECTION_LABELS[source.sourceStage] : 'Passage study tool'),
+          'Reference: ' + (source.reference || (record.book + ' ' + Number(record.chapter))),
+          source.content
+        );
+      });
       lines.push(endMarker);
       const block = lines.join('\n');
 
@@ -6472,12 +6530,29 @@ function renderStandardCrossReferenceList() {
       } else {
         updatedNotes = (currentNotes.trim() ? currentNotes.replace(/\s*$/, '\n\n') : '') + block;
       }
-      if (updatedNotes === currentNotes) {
-        if (status) status.textContent = 'The evidence block is already up to date.';
+      const linkedAt = new Date().toISOString();
+      const nextStageEvidenceLinks = sources.map(source => ({
+        id: 'evlink-' + stage + '-' + source.id,
+        sourceId: source.id,
+        sourceType: source.type,
+        sourceTitle: source.title,
+        sourceStage: source.sourceStage,
+        sourceReference: source.reference || (record.book + ' ' + Number(record.chapter)),
+        targetStage: stage,
+        linkedAt
+      }));
+      const preservedEvidenceLinks = normalizeStudyEvidenceLinks(record.evidenceLinks)
+        .filter(link => link.targetStage !== stage);
+      const nextEvidenceLinks = normalizeStudyEvidenceLinks(preservedEvidenceLinks.concat(nextStageEvidenceLinks));
+      const evidenceLinksChanged = JSON.stringify(normalizeStudyEvidenceLinks(record.evidenceLinks)) !==
+        JSON.stringify(nextEvidenceLinks);
+      if (updatedNotes === currentNotes && !evidenceLinksChanged) {
+        if (status) status.textContent = 'The evidence block and its source links are already up to date.';
         return true;
       }
 
-      saveStudyNoteVersionSnapshot(record);
+      if (updatedNotes !== currentNotes) saveStudyNoteVersionSnapshot(record);
+      record.evidenceLinks = nextEvidenceLinks;
       record.sections = { observe: '', interpret: '', doctrine: '', apply: '', ...(record.sections || {}) };
       record.sections[stage] = updatedNotes;
       record.activeSection = stage;
@@ -6497,7 +6572,9 @@ function renderStandardCrossReferenceList() {
       updateWorkspaceStageNavigation();
       scheduleCloudStudySync();
       renderWorkspaceEvidenceHandoff();
-      if (status) status.textContent = 'Evidence inserted into ' + NOTE_SECTION_LABELS[stage] + '. Your earlier notes and source records were preserved.';
+      if (status) status.textContent = 'Evidence inserted into ' + NOTE_SECTION_LABELS[stage] + ' with ' +
+        nextStageEvidenceLinks.length + ' source link' + (nextStageEvidenceLinks.length === 1 ? '' : 's') +
+        '. Your earlier notes and source records were preserved.';
       const noteStatus = document.getElementById('noteSaveStatus');
       if (noteStatus) noteStatus.textContent = cloudSyncState.user ? 'Evidence saved locally · syncing…' : 'Evidence saved locally';
       return true;
@@ -8353,6 +8430,7 @@ function renderStandardCrossReferenceList() {
         verseMaps: normalizeVerseMaps(row.sections?._verseMaps),
         passageOutline: normalizePassageOutline(row.sections?._passageOutline),
         versionHistory: normalizeStudyNoteVersionHistory(row.sections?._versionHistory),
+        evidenceLinks: normalizeStudyEvidenceLinks(row.sections?._evidenceLinks),
         activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
         updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
       };
@@ -8410,7 +8488,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -8425,6 +8503,7 @@ function renderStandardCrossReferenceList() {
             verseMaps = {};
             passageOutline = null;
             versionHistory = [];
+            evidenceLinks = [];
           } else if (winner.record && winner.record.book) {
             const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
             book = rec.book;
@@ -8443,7 +8522,8 @@ function renderStandardCrossReferenceList() {
             verseMaps = normalizeVerseMaps(rec.verseMaps);
             passageOutline = normalizePassageOutline(rec.passageOutline);
             versionHistory = normalizeStudyNoteVersionHistory(rec.versionHistory);
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory };
+            evidenceLinks = normalizeStudyEvidenceLinks(rec.evidenceLinks);
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks };
           } else {
             continue;
           }
@@ -8451,7 +8531,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory, _evidenceLinks: evidenceLinks },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -8472,7 +8552,8 @@ function renderStandardCrossReferenceList() {
             JSON.stringify(normalizeStudyRelatedPassages(remote.sections?._relatedPassages)) === JSON.stringify(normalizeStudyRelatedPassages(nextRow.sections?._relatedPassages)) &&
             JSON.stringify(normalizeVerseMaps(remote.sections?._verseMaps)) === JSON.stringify(normalizeVerseMaps(nextRow.sections?._verseMaps)) &&
             JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline)) &&
-            JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory));
+            JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory)) &&
+            JSON.stringify(normalizeStudyEvidenceLinks(remote.sections?._evidenceLinks)) === JSON.stringify(normalizeStudyEvidenceLinks(nextRow.sections?._evidenceLinks));
           if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 

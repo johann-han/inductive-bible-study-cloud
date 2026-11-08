@@ -104,3 +104,17 @@ test('saved access requests trigger a non-blocking administrator notification', 
   assert.match(route, /if \(!notification\.ok\) console\.warn/);
   assert.match(route, /return send\(res, 200, \{ ok: true, message: accessRequestPublicMessage\(\) \}\)/);
 });
+
+test('duplicate pending request retries its notification without inserting a second record', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const start = server.indexOf("url.pathname === '/api/access-requests'");
+  const end = server.indexOf("url.pathname === '/api/admin/status'", start);
+  assert.ok(start >= 0 && end > start);
+  const route = server.slice(start, end);
+  assert.match(route, /lookupUrl\.searchParams\.set\('select', 'id,full_name,email,church_or_ministry,message'\)/);
+  assert.match(route, /if \(Array\.isArray\(existing\) && existing\.length\) \{[\s\S]*?const pendingRequest = existing\[0\];[\s\S]*?await sendAccessRequestNotification\(\{[\s\S]*?pendingRequest\.full_name[\s\S]*?pendingRequest\.email/);
+  assert.match(route, /if \(!notification\.ok\) console\.warn\('Pending IBS access request notification retry was not sent\.'\)/);
+  assert.match(route, /return send\(res, 200, \{ ok: true, message: accessRequestPublicMessage\(\) \}\)/);
+});

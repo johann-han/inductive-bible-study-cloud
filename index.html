@@ -1295,6 +1295,22 @@
               <p id="workspaceEvidenceHandoffStatus" class="text-[10px] text-slate-600" role="status" aria-live="polite">No evidence has been inserted.</p>
             </div>
           </details>
+          <details id="workspaceClaimEvidencePanel" class="rounded-lg border border-violet-200 bg-violet-50/60 p-2.5">
+            <summary class="cursor-pointer select-none flex items-center justify-between gap-2 text-[11px] font-bold text-violet-950">
+              <span>Link a statement to evidence</span>
+              <span id="workspaceClaimEvidenceCount" class="shrink-0 text-[10px] font-medium text-violet-700">0 linked statements</span>
+            </summary>
+            <p class="mt-2 text-[10px] leading-relaxed text-slate-600">Select a statement you wrote in the notes below, then choose the Scripture or study sources that support it. The relationship is classified so an inference is not mistaken for direct textual support.</p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <button id="workspaceCaptureClaimBtn" type="button" class="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-[10px] font-bold text-violet-800 hover:bg-violet-100">Use selected note text</button>
+              <span id="workspaceClaimDraftStatus" class="text-[10px] text-slate-500" role="status" aria-live="polite">No statement selected.</span>
+            </div>
+            <blockquote id="workspaceClaimDraftPreview" class="hidden mt-2 rounded-md border-l-2 border-violet-400 bg-white px-2.5 py-2 text-[10px] leading-relaxed text-slate-800 whitespace-pre-wrap"></blockquote>
+            <div id="workspaceClaimEvidenceSources" class="mt-2 space-y-2"></div>
+            <button id="workspaceSaveClaimLinksBtn" type="button" disabled class="mt-2 rounded-lg bg-violet-700 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50">Save statement and evidence links</button>
+            <p id="workspaceClaimEvidenceStatus" class="mt-1 text-[10px] text-slate-600" role="status" aria-live="polite">Choose at least one source to create a traceable link.</p>
+            <div id="workspaceStudyClaimsList" class="mt-3 space-y-2"></div>
+          </details>
           <textarea id="workspaceNoteArea" placeholder="Record your inductive observations, connecting words, and personal applications here..." class="flex-1 w-full bg-white text-slate-900 text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-amber-600 resize-none font-mono leading-relaxed min-h-[180px] lg:min-h-[200px]"></textarea>
           <div id="workspaceNoteMetaRow" class="flex flex-col gap-1">
             <div class="flex items-center justify-between gap-2 min-h-5 h-5">
@@ -5657,6 +5673,61 @@ function renderStandardCrossReferenceList() {
       return normalized.slice(-500);
     }
 
+    const CLAIM_EVIDENCE_RELATIONSHIPS = Object.freeze({
+      'direct-support': 'Direct textual support',
+      'contextual-support': 'Contextual support',
+      corroborating: 'Corroborating Scripture',
+      inference: 'Inference to assess'
+    });
+
+    function normalizeStudyClaims(value) {
+      if (!Array.isArray(value)) return [];
+      const normalized = [];
+      const seenIds = new Set();
+      const seenStatements = new Set();
+      value.forEach(entry => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
+        const id = String(entry.id || '').trim().slice(0, 120);
+        const stage = NOTE_SECTION_LABELS[entry.stage] ? entry.stage : null;
+        const statement = String(entry.statement || '').trim().slice(0, 2000);
+        if (!id || !stage || statement.length < 5 || seenIds.has(id)) return;
+        const statementKey = stage + '::' + statement;
+        if (seenStatements.has(statementKey)) return;
+        const links = [];
+        const seenSources = new Set();
+        (Array.isArray(entry.supportLinks) ? entry.supportLinks : []).slice(0, 50).forEach(link => {
+          if (!link || typeof link !== 'object' || Array.isArray(link)) return;
+          const sourceId = String(link.sourceId || '').trim().slice(0, 120);
+          const sourceType = String(link.sourceType || '').trim().slice(0, 80);
+          const relationship = CLAIM_EVIDENCE_RELATIONSHIPS[link.relationship] ? link.relationship : null;
+          if (!sourceId || !sourceType || !relationship || seenSources.has(sourceId)) return;
+          seenSources.add(sourceId);
+          links.push({
+            sourceId,
+            sourceType,
+            sourceTitle: String(link.sourceTitle || sourceId).trim().slice(0, 200),
+            sourceStage: NOTE_SECTION_LABELS[link.sourceStage] ? link.sourceStage : null,
+            sourceReference: String(link.sourceReference || '').trim().slice(0, 160),
+            relationship,
+            linkedAt: String(link.linkedAt || '').slice(0, 50)
+          });
+        });
+        if (!links.length) return;
+        seenIds.add(id);
+        seenStatements.add(statementKey);
+        normalized.push({
+          id,
+          stage,
+          statement,
+          supportLinks: links,
+          createdAt: String(entry.createdAt || '').slice(0, 50),
+          updatedAt: String(entry.updatedAt || entry.createdAt || '').slice(0, 50)
+        });
+      });
+      return normalized.slice(-500);
+    }
+
+    const workspaceClaimEvidenceState = { stage: null, statement: '' };
 
     const isIbsAdminDashboardRoute = /^\/admin\/?$/.test(window.location.pathname);
     const cloudSyncState = { client: null, user: null, isAdmin: false, adminStatusChecked: false, configLoaded: false, configured: false, syncing: false, syncTimer: null, lastError: '', lastSuccessfulSyncAt: 0 };

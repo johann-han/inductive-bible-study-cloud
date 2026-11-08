@@ -749,6 +749,16 @@ test('Related passage text and inclusion state survive cloud hydration and a loc
       doctrine: '',
       apply: '',
       _relatedPassages: [relatedItem],
+      _evidenceLinks: [{
+        id: 'evlink-interpret-verse-map-8-1',
+        sourceId: 'verse-map-1',
+        sourceType: 'verse-map',
+        sourceTitle: 'Verse map · Romans 8:1',
+        sourceStage: 'observe',
+        sourceReference: 'Romans 8:1',
+        targetStage: 'interpret',
+        linkedAt: '2026-11-08T12:00:00.000Z'
+      }],
       _crossReferences: [{
         id: 'xref-related-1',
         source: { book: 'Romans', chapter: 8, verse: null, scope: 'study' },
@@ -770,6 +780,11 @@ test('Related passage text and inclusion state survive cloud hydration and a loc
   assert.equal(hydrated.relatedPassages[0].stage, 'observe');
   assert.equal(hydrated.relatedPassages[0].relation, 'theme');
   assert.equal(hydrated.relatedPassages[0].note, 'God’s saving purpose.');
+  assert.equal(hydrated.evidenceLinks.length, 1);
+  assert.equal(hydrated.evidenceLinks[0].sourceId, 'verse-map-1');
+  assert.equal(hydrated.evidenceLinks[0].sourceType, 'verse-map');
+  assert.equal(hydrated.evidenceLinks[0].sourceReference, 'Romans 8:1');
+  assert.equal(hydrated.evidenceLinks[0].targetStage, 'interpret');
   assert.match(hydrated.sections.observe, /Existing study observations\./);
   assert.match(hydrated.sections.observe, /\[Related passage: John 3:16-17\]/);
   assert.match(hydrated.sections.observe, /Connection: Shared theme or repeated idea/);
@@ -981,6 +996,16 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
     verseMaps: {},
     passageOutline: null,
     versionHistory: [],
+    evidenceLinks: [{
+      id: 'evlink-interpret-verse-map-8-1',
+      sourceId: 'verse-map-1',
+      sourceType: 'verse-map',
+      sourceTitle: 'Verse map · Romans 8:1',
+      sourceStage: 'observe',
+      sourceReference: 'Romans 8:1',
+      targetStage: 'interpret',
+      linkedAt: '2026-11-08T12:00:00.000Z'
+    }],
     activeSection: 'observe',
     updatedAt: '2026-10-24T12:00:00.000Z'
   };
@@ -1079,6 +1104,10 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
   assert.equal(cloudRecord.sections._relatedPassages[0].stage, 'observe');
   assert.equal(cloudRecord.sections._relatedPassages[0].relation, 'theme');
   assert.equal(cloudRecord.sections._relatedPassages[0].note, 'God’s saving purpose.');
+  assert.equal(cloudRecord.sections._evidenceLinks.length, 1);
+  assert.equal(cloudRecord.sections._evidenceLinks[0].sourceId, 'verse-map-1');
+  assert.equal(cloudRecord.sections._evidenceLinks[0].targetStage, 'interpret');
+  assert.equal(cloudRecord.sections._evidenceLinks[0].sourceReference, 'Romans 8:1');
   assert.equal(cloudRecord.sections._crossReferences[0].source.scope, 'study');
   assert.equal(cloudRecord.sections._crossReferences[0].relation, 'theme');
   assert.equal(cloudRecord.sections._crossReferences[0].note, 'God’s saving purpose.');
@@ -1098,6 +1127,11 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
   assert.equal(restored.relatedPassages[0].stage, 'observe');
   assert.equal(restored.relatedPassages[0].relation, 'theme');
   assert.equal(restored.relatedPassages[0].note, 'God’s saving purpose.');
+  assert.equal(restored.evidenceLinks.length, 1);
+  assert.equal(restored.evidenceLinks[0].sourceId, 'verse-map-1');
+  assert.equal(restored.evidenceLinks[0].sourceType, 'verse-map');
+  assert.equal(restored.evidenceLinks[0].sourceReference, 'Romans 8:1');
+  assert.equal(restored.evidenceLinks[0].targetStage, 'interpret');
   assert.match(restored.sections.observe, /Connection: Shared theme or repeated idea/);
   assert.match(restored.sections.observe, /Why it matters: God’s saving purpose\./);
   assert.equal(restored.crossReferences[0].source.scope, 'study');

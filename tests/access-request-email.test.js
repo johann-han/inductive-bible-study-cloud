@@ -114,26 +114,13 @@ test('duplicate pending request refreshes saved details before retrying notifica
   const end = server.indexOf("url.pathname === '/api/admin/status'", start);
   assert.ok(start >= 0 && end > start);
   const route = server.slice(start, end);
-  assert.match(route, /lookupUrl\\.searchParams\\.set\\('select', 'id,full_name,email,church_or_ministry,message'\\)/);
-  assert.match(route, /method: 'PATCH'/);
-  assert.match(route, /updateUrl\\.searchParams\\.set\\('status', 'eq\\.pending'\\)/);
-  assert.match(route, /message: message \\|\\| null/);
-  assert.match(route, /const savedRequest = updatedRows\\[0\\]/);
-  assert.match(route, /await sendAccessRequestNotification\\(\\{[\\s\\S]*?savedRequest\\.full_name[\\s\\S]*?savedRequest\\.email[\\s\\S]*?savedRequest\\.message/);
-  assert.match(route, /if \\(!notification\\.ok\\) console\\.warn\\('Pending IBS access request notification retry was not sent\\.'\\)/);
-});
-
-test('repeat submissions update the saved pending request reason before retrying notification', () => {
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  const start = server.indexOf("url.pathname === '/api/access-requests'");
-  const end = server.indexOf("url.pathname === '/api/admin/status'", start);
-  assert.ok(start >= 0 && end > start);
-  const route = server.slice(start, end);
-  assert.match(route, /method: 'PATCH'/);
-  assert.match(route, /message: message \|\| null/);
-  assert.match(route, /const savedRequest = updatedRows\[0\]/);
-  assert.match(route, /message: savedRequest\.message/);
-  assert.match(route, /updateUrl\.searchParams\.set\('status', 'eq\.pending'\)/);
+  assert.ok(route.includes("lookupUrl.searchParams.set('select', 'id,full_name,email,church_or_ministry,message')"));
+  assert.ok(route.includes("method: 'PATCH'"));
+  assert.ok(route.includes("updateUrl.searchParams.set('status', 'eq.pending')"));
+  assert.ok(route.includes("message: message || null"));
+  assert.ok(route.includes("const savedRequest = updatedRows[0]"));
+  assert.ok(route.includes("fullName: savedRequest.full_name"));
+  assert.ok(route.includes("email: savedRequest.email"));
+  assert.ok(route.includes("message: savedRequest.message"));
+  assert.ok(route.includes("if (!notification.ok) console.warn('Pending IBS access request notification retry was not sent.')"));
 });

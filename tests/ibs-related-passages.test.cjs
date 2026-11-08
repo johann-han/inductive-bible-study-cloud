@@ -1154,14 +1154,17 @@ test('Related passage Add/manage dialog stays within the phone viewport width', 
 test('Related-passage cards are collapsed by default on mobile and can be expanded without affecting Add / manage', () => {
   assert.match(indexHtml, /#studyRelatedPassageList\.is-mobile-collapsed\s*\{\s*display:\s*none;\s*\}/);
   assert.match(indexHtml, /id="toggleStudyRelatedPassagesBtn"[^>]*aria-controls="studyRelatedPassageList"[^>]*aria-expanded="false"/);
-  assert.match(indexHtml, /id="studyRelatedPassageList" class="space-y-2 is-mobile-collapsed"/);
+  assert.match(indexHtml, /id="studyRelatedPassageList" class="hidden space-y-2 is-mobile-collapsed"/);
 
   const { sandbox, document } = makeHarness();
   const list = document.getElementById('studyRelatedPassageList');
-  // The fake DOM does not parse the HTML class attribute, so seed the initial markup state.
+  // Simulate a study with saved entries: rendering those entries removes the empty-state
+  // hidden class, while mobile still starts with the list collapsed.
+  list.classList.remove('hidden');
   list.classList.add('is-mobile-collapsed');
   sandbox.setupCrossReferenceWorkflow();
   const toggle = document.getElementById('toggleStudyRelatedPassagesBtn');
+  toggle.classList.remove('hidden');
   const manage = document.getElementById('openStudyRelatedPassagesBtn');
 
   assert.equal(list.classList.contains('is-mobile-collapsed'), true);

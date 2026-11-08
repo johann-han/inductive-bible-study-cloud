@@ -7220,7 +7220,7 @@ function renderStandardCrossReferenceList() {
       const bookSearch = document.getElementById('bookSearchInput');
       if (bookSearch) bookSearch.value = '';
       saveLastActiveStudy();
-      persistWorkspaceActiveSection();
+      if (typeof persistWorkspaceActiveSection === 'function') persistWorkspaceActiveSection();
       const mobileBackdrop = document.getElementById('mobileBackdrop');
       if (!options.openStudyPanel) mobileBackdrop?.classList.add('hidden');
       showBibleReader();

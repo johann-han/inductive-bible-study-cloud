@@ -13,22 +13,29 @@ $env:HELLOAO_TIMEOUT_MS=30000
 node scripts/audit-helloao-interlinear.mjs
 \`\`\`
 
-The script defaults to four concurrent requests and two retries. It uses the dataset books endpoint to discover chapters dynamically.
+To preserve the full report in a file on Windows PowerShell, use:
 
-The published dataset metadata currently documents 66 books, 1,189 chapters, 31,102 verses and 443,625 word records. The script reports the live metadata and compares its retrieved word count when the total is available.
+\`\`\`powershell
+cmd /c "node scripts/audit-helloao-interlinear.mjs > helloao-global-audit.json"
+\`\`\`
+
+The script defaults to four concurrent requests and two retries. It uses the dataset books endpoint to discover chapters dynamically.
 
 ## What it measures
 
 - Chapter, verse and word coverage overall and per book.
 - Hebrew, Aramaic and Greek counts from each word's explicit \`language\` field.
 - Unknown language values.
-- Presence/null counts for documented interlinear fields.
+- Presence/null counts for documented interlinear fields, split by explicit language.
+- Missing fields by book and chapter, with chapter-level gap records included only where at least one field is absent.
+- Strong's prefixes by explicit language.
+- Strong's values classified separately as missing or present-but-nonstandard.
 - Token-level \`lemma\` or \`lemmaId\` presence.
-- Strong's prefixes, separately and cross-tabulated against explicit language.
 - Repeated \`pos\` and \`bsbPos\` values within a verse as diagnostics.
 
 ## Safeguards
 
+- Missing-field counts identify where to investigate; they do not automatically establish source errors.
 - Strong's prefixes are not used to infer language.
 - Prefix-by-language counts are descriptive diagnostics, not proof of lexical mappings.
 - The documented interlinear word schema does not include a lemma field.

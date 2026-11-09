@@ -6,12 +6,12 @@
   'use strict';
 
   function normalizeStrongs(value) {
-    const match = String(value || '').trim().toUpperCase().match(/^([HG])(\\d{1,5})[A-Z]?$/);
+    const match = String(value || '').trim().toUpperCase().match(/^([HG])(\d{1,5})[A-Z]?$/);
     return match ? match[1] + match[2].padStart(4, '0') : null;
   }
 
   function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
+    return value.replace(/[.*+?^$()|[\]{}\\]/g, '\\$&');
   }
 
   function mapVerseWordsToAnnotations(verseText, words) {
@@ -30,7 +30,7 @@
 
     for (const word of orderedWords) {
       const strongs = normalizeStrongs(word && word.strongs);
-      const gloss = String(word && word.gloss || '').trim().replace(/\\s+/g, ' ');
+      const gloss = String(word && word.gloss || '').trim().replace(/\s+/g, ' ');
       if (!strongs || !gloss) continue;
 
       const phrasePattern = gloss.split(' ').map(escapeRegExp).join('\\s+');

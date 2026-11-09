@@ -41,3 +41,18 @@ test('reports unknown language and repeated positions without inferring language
  assert.equal(stats.strongsByLanguage.hebrew.H,1); assert.equal(stats.duplicatePosWithinVerse,1);
  assert.equal(stats.duplicateBsbPosWithinVerse,0);
 });
+test('separates missing Strong’s values from present nonstandard values by language',()=>{
+ const stats=createStats();
+ addChapterToStats(stats,{chapter:{content:[{verse:1,words:[
+  word({strongs:null}),
+  word({pos:2,strongs:'',language:'aramaic'}),
+  word({pos:3,strongs:'X123',language:'hebrew'}),
+  word({pos:4,strongs:'G123',language:'greek'})
+ ]}] }},'TEST 3');
+ assert.deepEqual(stats.strongsOtherBreakdown.hebrew,{missing:1,nonstandard:1});
+ assert.deepEqual(stats.strongsOtherBreakdown.aramaic,{missing:1,nonstandard:0});
+ assert.deepEqual(stats.strongsOtherBreakdown.greek,{missing:0,nonstandard:0});
+ assert.equal(stats.missingFieldsByLanguage.hebrew.strongs,1);
+ assert.equal(stats.missingFieldsByLanguage.aramaic.strongs,1);
+ assert.equal(stats.strongsPrefixes.other,3);
+});

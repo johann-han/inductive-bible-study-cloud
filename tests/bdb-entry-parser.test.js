@@ -11,7 +11,7 @@ test('normalizes BDB Strong\'s identifiers without guessing the language', () =>
   assert.equal(normalizeBdbStrongs('not-a-number'), null);
 });
 
-test('parses a primary Hebrew headword and its first Strong\'s mapping', () => {
+test('parses a Hebrew headword without promoting heading references to verified mappings', () => {
   const html = `
     <h1><entry>BDB430</entry> [<entry onclick="sn('H430')">H430</entry>]</h1>
     <language>Biblical Hebrew</language>
@@ -24,8 +24,6 @@ test('parses a primary Hebrew headword and its first Strong\'s mapping', () => {
     partOfSpeech: 'noun masculine plural',
     primaryGloss: 'God',
     headingStrongIds: ['H0430'],
-    primaryStrongId: 'H0430',
-    additionalStrongIds: [],
     needsEditorialCheck: false
   });
 });

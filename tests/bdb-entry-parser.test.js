@@ -109,7 +109,7 @@ test('parses structured BDB JSON while preserving separate sense records', () =>
 });
 
 test('parses BDB mapping CSV as unverified references, never primary Strong\'s mappings', () => {
-  const csv = 'bdb,strongs,LemmaGuess\\nBDB2100,H3068,יהוה\\nBDB2100,H3069,יהוה\\nBDB2100,H0430,יהוה\\nBDB108,H0120,אָדָם';
+  const csv = 'bdb,strongs,LemmaGuess\nBDB2100,H3068,יהוה\nBDB2100,H3069,יהוה\nBDB2100,H0430,יהוה\nBDB108,H0120,אָדָם';
   const rows = parseBdbMappingCsv(csv);
   assert.equal(rows.length, 4);
   assert.deepEqual(rows.filter(row => row.entryId === 'BDB2100').map(row => row.strongsId), ['H3068', 'H3069', 'H0430']);

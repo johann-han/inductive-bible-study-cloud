@@ -1776,6 +1776,8 @@
     </div>
   </div>
 
+  <script src="/js/helloao-bsb-interlinear.js"></script>
+
   <script>
     // 66 Books Canon Data Structure
     const BIBLE_CANON = [
@@ -2351,6 +2353,36 @@
             if (verses.length) {
               const verseTexts = verses.map(item => item.text);
               appState.scriptureSource = 'helloao-bsb';
+
+              // Load the Berean interlinear as a separate research layer. Its glosses
+              // are matched conservatively to the exact BSB verse text; unmatched words
+              // remain untagged rather than receiving guessed Strong's numbers.
+              try {
+                if (window.HelloaoBsbInterlinear) {
+                  const interlinearResponse = await fetchWithTimeout(
+                    `https://bible.helloao.org/api/d/bsb-interlinear/${bookId}/${chapter}.json`,
+                    7000
+                  );
+                  if (interlinearResponse.ok) {
+                    const interlinearData = await interlinearResponse.json();
+                    appState.currentWordAnnotations = window.HelloaoBsbInterlinear.mapChapterToAnnotations(
+                      verses,
+                      interlinearData?.chapter?.content
+                    );
+                    const hasAnnotations = Object.values(appState.currentWordAnnotations)
+                      .some(entries => Array.isArray(entries) && entries.length > 0);
+                    appState.annotationSource = hasAnnotations
+                      ? 'HelloAO BSB interlinear · Berean tables / STEPBible Strong’s data'
+                      : null;
+                  }
+                }
+              } catch (interlinearError) {
+                // Bible text remains available if supplementary interlinear data fails.
+                appState.currentWordAnnotations = Object.create(null);
+                appState.annotationSource = null;
+                console.warn('BSB interlinear data could not be loaded; displaying unannotated text.', interlinearError);
+              }
+
               scriptureChapterCache.set(cacheKey, {
                 verses: verseTexts,
                 annotations: appState.currentWordAnnotations,
@@ -4527,8 +4559,13 @@ function renderStandardCrossReferenceList() {
         const firstId = ids[0];
         const safeWord = escapeHTML(word);
         const safeWordAttr = escapeHTML(word);
-        html += `<span class="strongs-word" role="button" tabindex="0" data-strongs="${firstId}" data-word="${safeWordAttr}" title="Open ${ids.join(', ')}">${safeWord}</span>`;
-        html += `<sup class="strongs-tag" role="button" tabindex="0" data-strongs="${firstId}" data-word="${safeWordAttr}" title="Open ${ids.join(', ')}">${ids.map(escapeHTML).join('/')}</sup>`;
+        const interlinearDetails = annotation.originalText
+          ? [annotation.originalText, annotation.transliteration, annotation.parsingFull || annotation.parsing]
+            .filter(Boolean).join(' · ')
+          : '';
+        const annotationTitle = escapeHTML(interlinearDetails || `Open ${ids.join(', ')}`);
+        html += `<span class="strongs-word" role="button" tabindex="0" data-strongs="${firstId}" data-word="${safeWordAttr}" title="${annotationTitle}">${safeWord}</span>`;
+        html += `<sup class="strongs-tag" role="button" tabindex="0" data-strongs="${firstId}" data-word="${safeWordAttr}" title="${annotationTitle}">${ids.map(escapeHTML).join('/')}</sup>`;
         cursor = annotation.end;
       }
       html += escapeHTML(source.slice(cursor));
@@ -4699,7 +4736,7 @@ function renderStandardCrossReferenceList() {
         const annotations = appState.currentWordAnnotations[String(vNum)] || [];
         const renderedText = annotations.length
           ? formatAnnotatedScriptureText(verseText, annotations, appState.strongsActive)
-          : (appState.scriptureSource === 'helloao-kjv'
+          : (['helloao-kjv', 'helloao-bsb'].includes(appState.scriptureSource)
               ? escapeHTML(verseText)
               : formatScriptureText(verseText, appState.strongsActive));
 

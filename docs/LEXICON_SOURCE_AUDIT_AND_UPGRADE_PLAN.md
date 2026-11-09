@@ -4,7 +4,7 @@
 
 Upgrade the Strong's word-study modal from a single short lexicon feed to a layered, source-labelled lexical reference. Preserve the existing Strong's identifiers, original-language interlinear data, morphology, TAHOT alignment, study notes, and saved studies.
 
-This is an audit and implementation plan. It does not authorize replacing data until each source has passed format, coverage, alignment, quality, and licensing checks.
+This is an audit and implementation plan. It does not authorize replacing data until each source has passed format, coverage, alignment, quality, and licensing checks. Project source restriction: Open Scriptures material is explicitly excluded; see the source exclusion section.
 
 ## Findings in the current application
 
@@ -20,23 +20,19 @@ The current production entry point is the root `index.html`.
 
 ## Recommended source architecture
 
-### Hebrew: BDB Enhanced, connected through Open Scriptures
+### Hebrew: BDB Enhanced with an independently verified Strong's mapping
 
-Primary source candidate: Brown–Driver–Briggs (BDB), using the unfoldingWord BDB Enhanced entries for richer sense and stem structure, with the Open Scriptures Hebrew Lexicon's `LexicalIndex.xml` as the Strong's-to-lexical-entry bridge.
+Primary source candidate: Brown–Driver–Briggs (BDB), using the unfoldingWord BDB Enhanced entries for richer sense and stem structure. Strong's-to-BDB mappings must be derived only from the BDB Enhanced project's own documented mapping data or independently verified against its primary entry records. No Open Scriptures mapping, index, corpus, API, or derivative is permitted.
 
 Why this pairing:
 - BDB is a fuller scholarly Hebrew lexicon than a brief Strong's gloss.
-- The Open Scriptures lexical index explicitly connects BDB entries and Strong's numbers.
-- The Open Scriptures project describes its index as the bridge between Strong's accessibility and BDB's fuller treatment.
-- Open Scriptures data is CC BY 4.0; attribution to the Open Scriptures Hebrew Bible Project is required.
 - The BDB text is public domain; enhancements in the unfoldingWord dataset are CC BY 4.0 and require a link to that repository.
 
 Sources:
-- https://github.com/openscriptures/HebrewLexicon
 - https://github.com/unfoldingWord/Brown-Driver-Briggs-Enhanced
 
 Implementation caution:
-- Do not assume Strong's numbers and BDB headwords are one-to-one. Follow the supplied lexical index/mapping and retain multiple mappings where the data supports them.
+- Do not assume Strong's numbers and BDB headwords are one-to-one. Audit the BDB Enhanced project's own mapping file and confirm every mapping against the actual BDB entry; retain multiple mappings only when supported by the entry data.
 - Preserve sense boundaries, stem labels, subsenses, and source cross-references when available.
 - The Enhanced repository contains placeholder images for some ancient-language material; do not represent those image-only fields as searchable Unicode text.
 - Evaluate the BibleAquifer JSON/Markdown BDB edition as an alternative ingestion format, but inspect its documented provenance and known transcription limitations before selecting it as the canonical source.
@@ -85,7 +81,7 @@ Source:
 1. Receive a validated Strong's ID and any verified word-level context (language, lemma, transliteration, morphology, passage).
 2. Resolve the language from reliable metadata. Never infer language from the H/G prefix alone when Aramaic/Hebrew distinctions are material.
 3. Query the language-appropriate primary lexicon:
-   - Hebrew: Open Scriptures lexical index -> BDB Enhanced entry.
+   - Hebrew: independently verified BDB Enhanced Strong's mapping -> BDB Enhanced entry.
    - Biblical Aramaic: verified Aramaic BDB entry; specialist Aramaic resource only when a sound mapping exists.
    - Greek: verified Greek lemma -> Abbott-Smith entry.
 4. If the primary source has no verified match, query the secondary STEPBible brief entry and label it as secondary.
@@ -107,7 +103,7 @@ Source:
 ## Audit and acceptance checklist before data integration
 
 - [ ] Confirm source file versions/commits and record pinned upstream revisions.
-- [ ] Parse BDB Enhanced and Open Scriptures XML/index into a reproducible local format.
+- [ ] Parse BDB Enhanced data and its own documented mapping into a reproducible local format; do not ingest Open Scriptures data.
 - [ ] Measure Strong's-to-BDB mapping coverage, including multiple mappings and unmapped entries.
 - [ ] Verify representative Hebrew entries (e.g. H0430, H0120, H0121) against upstream source records.
 - [ ] Verify Biblical Aramaic entries from Daniel and Ezra separately from Hebrew entries.
@@ -120,6 +116,10 @@ Source:
 - [ ] Confirm KJV annotations, BSB interlinear annotations, morphology, TAHOT alignment, saved studies, and notes remain unchanged.
 - [ ] Run the complete repository test suite and require green CI before merge.
 - [ ] Verify the deployed modal in Genesis 1, Daniel 2, Matthew 1, and John 1.
+
+## Explicit source exclusion
+
+Open Scriptures is prohibited as a source for this project. Do not use, import, link, cite as a data provider, or depend on its scripture resources, lexicons, indexes, mappings, APIs, datasets, or derivative datasets. This exclusion applies even if a particular file is described as public domain or openly licensed. Do not substitute a mirror or repackaging of Open Scriptures material under another provider name. If a candidate dataset's provenance is uncertain, pause and verify its origin before considering it.
 
 ## Non-goals
 

@@ -1761,12 +1761,12 @@
         <div>
           <h4 class="font-bold text-slate-700 uppercase text-[10px] tracking-wider mb-1">Biblical Usage & Source Record</h4>
           <p id="strongsKjvUsage" class="text-slate-600">Loading usage...</p>
-          <a id="strongsSourceLink" class="hidden inline-block mt-2 text-amber-800 underline font-semibold" href="#" target="_blank" rel="noopener noreferrer">Open STEPBible source record (JSON)</a>
+          <a id="strongsSourceLink" class="hidden inline-block mt-2 text-amber-800 underline font-semibold" href="#" target="_blank" rel="noopener noreferrer">Open lexicon source record</a>
         </div>
 
         <div class="text-[10px] text-slate-400 border-t border-slate-200 pt-2 flex items-center justify-between">
           <span>Engine: Online lexicon lookup</span>
-          <span>Source: STEPBible (CC BY 4.0)</span>
+          <span id="strongsSourceLabel">Source attribution will appear here.</span>
         </div>
       </div>
 
@@ -4626,6 +4626,7 @@ function renderStandardCrossReferenceList() {
       const gloss = document.getElementById('strongsGloss');
       const usage = document.getElementById('strongsKjvUsage');
       const sourceLink = document.getElementById('strongsSourceLink');
+      const sourceLabel = document.getElementById('strongsSourceLabel');
 
       if (sourceLink) {
         sourceLink.classList.add('hidden');
@@ -4654,7 +4655,8 @@ function renderStandardCrossReferenceList() {
       if (pos) pos.textContent = entry.pos || 'Not supplied by source';
       if (gloss) gloss.textContent = entry.gloss || 'No gloss supplied by source';
       if (def) def.textContent = entry.def || 'No definition supplied by source.';
-      if (usage) usage.textContent = `${entry.usage || 'No usage note supplied.'} Source: ${entry.source || 'Unspecified'}`;
+      if (usage) usage.textContent = entry.usage || 'No contextual usage note supplied by this lexicon.';
+      if (sourceLabel) sourceLabel.textContent = entry.source ? `Source: ${entry.source}` : 'Source attribution unavailable.';
       if (sourceLink && typeof entry.sourceUrl === 'string' && entry.sourceUrl.startsWith('https://')) {
         try {
           const parsedSourceUrl = new URL(entry.sourceUrl);

@@ -38,16 +38,25 @@ async function fetchChapter(book, chapter) {
 }
 
 function extractWords(payload, label) {
-  if (!payload || !Array.isArray(payload.chapterContent)) {
-    throw new Error(`${label}: expected chapterContent array; response schema differs from the documented integration shape`);
+  // HelloAO DatasetBookChapter nests verse records under chapter.content.
+  const verses = payload && payload.chapter && payload.chapter.content;
+  if (!Array.isArray(verses)) {
+    const topLevelKeys = payload && typeof payload === 'object' ? Object.keys(payload) : [];
+    const chapterKeys = payload && payload.chapter && typeof payload.chapter === 'object'
+      ? Object.keys(payload.chapter)
+      : [];
+    throw new Error(
+      `${label}: expected chapter.content array; top-level keys=[${topLevelKeys.join(', ')}], ` +
+      `chapter keys=[${chapterKeys.join(', ')}]`
+    );
   }
   const words = [];
-  for (const item of payload.chapterContent) {
-    if (item && Array.isArray(item.words)) {
-      for (const word of item.words) words.push(word);
+  for (const verse of verses) {
+    if (verse && Array.isArray(verse.words)) {
+      for (const word of verse.words) words.push(word);
     }
   }
-  if (!words.length) throw new Error(`${label}: no interlinear word records found`);
+  if (!words.length) throw new Error(`${label}: chapter.content contained no interlinear word records`);
   return words;
 }
 

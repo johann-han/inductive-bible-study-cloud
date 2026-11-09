@@ -26,7 +26,7 @@ The script checks these representative passages:
 | Matthew 1 | Greek |
 | John 1 | Greek |
 
-It reports per-passage token counts, explicit language counts, unknown language values, presence/null counts for the documented interlinear fields, Strong's prefix counts, and whether a token-level `lemma` or `lemmaId` appears in the live payload.
+The response is a `DatasetBookChapter`: verse records are nested at `chapter.content`, and each interlinear verse record contains `verse` and `words`. The audit script reads that documented nesting (not a top-level `chapterContent` property).\n\nIt reports per-passage token counts, explicit language counts, unknown language values, presence/null counts for the documented interlinear fields, Strong's prefix counts, and whether a token-level `lemma` or `lemmaId` appears in the live payload.
 
 ## Interpretation safeguards
 

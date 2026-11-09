@@ -39,6 +39,17 @@ async function runPool(items,worker,concurrency) {
  await Promise.all(Array.from({length:Math.min(concurrency,items.length)},()=>runWorker()));
  return results;
 }
+function summarizeChapterGaps(stats) {
+ const missingFields=Object.fromEntries(Object.entries(stats.fieldStats)
+  .filter(([,counts])=>counts.nullOrMissing>0)
+  .map(([field,counts])=>[field,counts.nullOrMissing]));
+ const hasMissing=Object.keys(missingFields).length>0;
+ return hasMissing?{
+  missingFields,
+  missingFieldsByLanguage:stats.missingFieldsByLanguage,
+  strongsOtherBreakdown:stats.strongsOtherBreakdown
+ }:null;
+}
 const booksPayload=await fetchWithRetry(API_BASE+'/d/bsb-interlinear/books.json');
 const books=booksPayload&&booksPayload.books;
 const targets=buildChapterTargets(books);
@@ -50,34 +61,44 @@ const chapterResults=await runPool(targets,async target=>{
  const url=API_BASE+'/d/bsb-interlinear/'+target.book+'/'+target.chapter+'.json';
  try {
   const payload=await fetchWithRetry(url);
+  const chapterStats=createStats();
+  addChapterToStats(chapterStats,payload,label);
   addChapterToStats(overall,payload,label);
   addChapterToStats(perBook.get(target.book).stats,payload,label);
-  return {passage:label,success:true};
+  return {passage:label,success:true,gaps:summarizeChapterGaps(chapterStats)};
  } catch(error) {
   return {passage:label,success:false,error:error instanceof Error?error.message:String(error)};
  }
 },CONCURRENCY);
 const failures=chapterResults.filter(result=>!result.success);
+const chapterFieldGaps=chapterResults.filter(result=>result.success&&result.gaps)
+ .map(result=>({passage:result.passage,...result.gaps}));
 const booksReport=[...perBook.values()].map(({book,expectedChapters,stats})=>({
  book,expectedChapters,chaptersSucceeded:stats.chaptersSucceeded,
  chaptersFailed:expectedChapters-stats.chaptersSucceeded,verses:stats.verses,
- totalWords:stats.totalWords,byLanguage:stats.byLanguage,unknownLanguageCount:stats.unknownLanguageCount
+ totalWords:stats.totalWords,byLanguage:stats.byLanguage,unknownLanguageCount:stats.unknownLanguageCount,
+ fieldCoverage:stats.fieldStats,missingFieldsByLanguage:stats.missingFieldsByLanguage,
+ strongsOtherBreakdown:stats.strongsOtherBreakdown
 }));
 const expectedChapters=Number.isInteger(datasetMeta.totalNumberOfChapters)?datasetMeta.totalNumberOfChapters:targets.length;
 const expectedWords=Number.isInteger(datasetMeta.totalNumberOfWords)?datasetMeta.totalNumberOfWords:null;
 const report={
- audit:'HelloAO BSB interlinear global structural coverage audit',
+ audit:'HelloAO BSB interlinear global structural and missing-field distribution audit',
  retrievedAt:new Date().toISOString(),apiBase:API_BASE,dataset:'bsb-interlinear',
  datasetMetadata:{numberOfBooks:datasetMeta.numberOfBooks??books.length,expectedChapters,expectedVerses:datasetMeta.totalNumberOfVerses??null,expectedWords},
  requestConfiguration:{concurrency:CONCURRENCY,retries:RETRIES,timeoutMs:TIMEOUT_MS},
  coverage:{booksListed:books.length,chaptersListed:targets.length,chaptersSucceeded:overall.chaptersSucceeded,chaptersFailed:failures.length,versesRetrieved:overall.verses,wordsRetrieved:overall.totalWords,expectedWords,wordCountMatchesDatasetMetadata:expectedWords===null?null:overall.totalWords===expectedWords},
  languageCounts:overall.byLanguage,unknownLanguageCount:overall.unknownLanguageCount,
- requiredFieldCoverage:overall.fieldStats,lemmaField:overall.lemmaField,
+ requiredFieldCoverage:overall.fieldStats,missingFieldsByLanguage:overall.missingFieldsByLanguage,
+ lemmaField:overall.lemmaField,
  strongsPrefixes:overall.strongsPrefixes,strongsPrefixesByExplicitLanguage:overall.strongsByLanguage,
+ strongsOtherBreakdown:overall.strongsOtherBreakdown,
  alignmentDiagnostics:{duplicatePosWithinVerse:overall.duplicatePosWithinVerse,duplicateBsbPosWithinVerse:overall.duplicateBsbPosWithinVerse,invalidWordRecords:overall.invalidWordRecords},
- perBook:booksReport,failures,
+ perBook:booksReport,chapterFieldGaps,failures,
  interpretation:[
   'This is a global structural audit of all chapters listed by the live bsb-interlinear books endpoint.',
+  'Missing-field counts are reported by explicit language, book and chapter; they are not automatically classified as source errors.',
+  'Strong’s other values are separated into genuinely missing values and present but nonstandard values.',
   'Language counts use only each word record explicit language field. Strong’s prefixes are reported separately and are not used to infer language.',
   'Strong’s-prefix counts by explicit language are descriptive diagnostics, not proof of lexical or language mappings.',
   'Missing lemma/lemmaId fields are consistent with the currently documented InterlinearWord schema.',

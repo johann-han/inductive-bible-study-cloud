@@ -37,6 +37,8 @@ The process exits non-zero if any chapter fails. Review `coverage` and `failures
 
 - `fullPopulationSummary.greekStrongEntries` lists each Greek Strong's value represented among missing-gloss records, sorted by occurrence count. It includes morphology counts and book/text examples to support source verification.
 - `fullPopulationSummary.greekParsingFullCounts` gives the exact morphology distribution for those records.
+- `fullPopulationSummary.greekBeyondCoreFunctionWords` separately aggregates records whose `parsingFull` is not Article, Conjunction, Adverb or Preposition. Its `strongEntries` retain occurrence counts, morphology, books and representative source text for prioritising manual lexical review.
+- This separation is a triage aid only: morphology labels do not establish lexical meaning, lemma identity or the correctness of a Strong's-to-lemma mapping.
 - `fullPopulationSummary.byLanguage` distinguishes records with and without Strong's identifiers.
 - A Strong's identifier is an index for investigation, not proof that a separate lexicon's entry is the correct gloss for every token.
 - Treat patterns as hypotheses requiring source-level verification. A missing gloss is not automatically a defect, and no missing value should be filled from another lexicon without an independently verified mapping and attribution.

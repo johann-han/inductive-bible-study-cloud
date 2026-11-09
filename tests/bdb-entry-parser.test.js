@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseBdbEntryHtml, normalizeBdbStrongs } = require('../lib/bdb-entry-parser');
+const { parseBdbEntryHtml, parseBdbEntryJson, parseBdbMappingCsv, normalizeBdbStrongs } = require('../lib/bdb-entry-parser');
 
 test('normalizes BDB Strong\'s identifiers without guessing the language', () => {
   assert.equal(normalizeBdbStrongs('H430'), 'H0430');
@@ -38,8 +38,8 @@ test('does not mistake Strong\'s references in an article heading for the primar
     <p><bdbheb>יהוה</bdbheb><pos>proper name</pos><primary>Yahweh</primary></p>
   `;
   const entry = parseBdbEntryHtml(html);
-  assert.equal(entry.primaryStrongId, 'H3068');
-  assert.deepEqual(entry.additionalStrongIds, ['H3069', 'H0430']);
+  assert.deepEqual(entry.headingStrongIds, ['H3068', 'H3069', 'H0430']);
+  assert.equal(Object.hasOwn(entry, 'primaryStrongId'), false);
   assert.equal(entry.lemma, 'יהוה');
 });
 
@@ -51,8 +51,8 @@ test('preserves multiple Strong\'s identifiers attached to one headword', () => 
     <p><bdbheb>אָדָם</bdbheb><pos>noun masculine</pos><primary>man, mankind</primary></p>
   `;
   const entry = parseBdbEntryHtml(html);
-  assert.equal(entry.primaryStrongId, 'H0120');
-  assert.deepEqual(entry.additionalStrongIds, ['H0121']);
+  assert.deepEqual(entry.headingStrongIds, ['H0120', 'H0121']);
+  assert.equal(Object.hasOwn(entry, 'primaryStrongId'), false);
 });
 
 test('keeps homonymous BDB articles separate even when they share a Strong\'s number', () => {
@@ -68,8 +68,8 @@ test('keeps homonymous BDB articles separate even when they share a Strong\'s nu
   `;
   const first = parseBdbEntryHtml(create);
   const second = parseBdbEntryHtml(beFat);
-  assert.equal(first.primaryStrongId, 'H1254');
-  assert.equal(second.primaryStrongId, 'H1254');
+  assert.deepEqual(first.headingStrongIds, ['H1254']);
+  assert.deepEqual(second.headingStrongIds, ['H1254']);
   assert.notEqual(first.entryId, second.entryId);
   assert.notEqual(first.primaryGloss, second.primaryGloss);
 });
@@ -89,4 +89,37 @@ test('identifies Biblical Aramaic entries and editorial-check markers', () => {
 
 test('rejects HTML without a BDB entry heading', () => {
   assert.equal(parseBdbEntryHtml('<p>not a BDB entry</p>'), null);
+});
+
+
+test('parses structured BDB JSON while preserving separate sense records', () => {
+  const entry = parseBdbEntryJson('BDB108', {
+    head_word: 'אָדָם',
+    pos: 'noun masculine',
+    primary: 'man, mankind',
+    description: 'human being',
+    senses: [
+      { number: 1, primary: null, description: 'human being' },
+      { number: 3, primary: 'Adam', description: 'first man' }
+    ]
+  });
+  assert.equal(entry.entryId, 'BDB108');
+  assert.equal(entry.lemma, 'אָדָם');
+  assert.equal(entry.primaryGloss, 'man, mankind');
+  assert.equal(entry.senses.length, 2);
+  assert.equal(entry.senses[1].primary, 'Adam');
+});
+
+test('parses BDB mapping CSV as unverified references, never primary Strong\'s mappings', () => {
+  const csv = 'bdb,strongs,LemmaGuess\\nBDB2100,H3068,יהוה\\nBDB2100,H3069,יהוה\\nBDB2100,H0430,יהוה\\nBDB108,H0120,אָדָם';
+  const rows = parseBdbMappingCsv(csv);
+  assert.equal(rows.length, 4);
+  assert.deepEqual(rows.filter(row => row.entryId === 'BDB2100').map(row => row.strongsId), ['H3068', 'H3069', 'H0430']);
+  assert.ok(rows.every(row => row.classification === 'unverified-reference'));
+  assert.equal(rows.some(row => Object.hasOwn(row, 'primaryStrongId')), false);
+});
+
+test('rejects invalid BDB JSON identifiers and malformed CSV headers', () => {
+  assert.equal(parseBdbEntryJson('H0430', { head_word: 'אֱלֹהִים' }), null);
+  assert.deepEqual(parseBdbMappingCsv('entry,strongs,lemma'), []);
 });

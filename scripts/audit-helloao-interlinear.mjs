@@ -53,13 +53,13 @@ function extractWords(payload, label) {
 
 function summarize(words) {
   const byLanguage = Object.fromEntries(LANGUAGES.map(language => [language, 0]));
-  const unknownLanguageCount = 0;
+  let unknownLanguageCount = 0;
   const fieldStats = Object.fromEntries(REQUIRED_FIELDS.map(field => [field, { present: 0, nullOrMissing: 0 }]));
-  const strongsPrefixes = { H: 0, G: 0, other: 0 };
+  const strongsPrefixes = { H: 0, G: 0, other: 0 };\n  const lemmaField = { present: 0, nullOrMissing: 0 };
   for (const word of words) {
     if (LANGUAGES.includes(word.language)) byLanguage[word.language] += 1;
     else unknownLanguageCount += 1;
-    for (const field of REQUIRED_FIELDS) {
+    if (isPresent(word.lemma) || isPresent(word.lemmaId)) lemmaField.present += 1;\n    else lemmaField.nullOrMissing += 1;\n    for (const field of REQUIRED_FIELDS) {
       if (isPresent(word[field])) fieldStats[field].present += 1;
       else fieldStats[field].nullOrMissing += 1;
     }
@@ -68,7 +68,7 @@ function summarize(words) {
     else if (strongs.startsWith('G')) strongsPrefixes.G += 1;
     else strongsPrefixes.other += 1;
   }
-  return { totalWords: words.length, byLanguage, unknownLanguageCount, fieldStats, strongsPrefixes };
+  return { totalWords: words.length, byLanguage, unknownLanguageCount, fieldStats, lemmaField, strongsPrefixes };
 }
 
 const results = [];

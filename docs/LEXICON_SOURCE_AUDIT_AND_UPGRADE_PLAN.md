@@ -197,3 +197,18 @@ Sources:
 - **Existing STEPBible:** retain as a clearly labelled secondary source during migration until each language/source has measured coverage and passed verification.
 
 No source listed here is permitted to import Open Scriptures material or derivatives. All source files and dependencies must have independently verified provenance.
+
+
+### Correction: BDB heading order and CSV rows are not verified primary mappings
+
+A further direct inspection of `bdbToStrongsMapping.csv` shows that even the lemma-guess column cannot establish that every Strong's number on a row is the lexical identifier for that BDB article. For example, BDB2100 (יהוה) is listed with H3068 and H3069, but also H1961, H0430, H0589, H2022, and H6635, all carrying the same lemma guess יהוה. Those extra numbers are references associated with the article, not valid evidence that all those Strong's entries share the BDB headword.
+
+Therefore, the first Strong's number in a BDB HTML heading must **not** be automatically labelled the primary mapping either. Heading order alone is not sufficient proof.
+
+The parser was corrected in PR #173:
+- HTML parsing now returns `headingStrongIds` only; it does not nominate a primary Strong's ID.
+- JSON parsing preserves the structured headword, part of speech, primary gloss, description, and individual senses.
+- CSV parsing labels every row `unverified-reference`; it never emits a verified or primary mapping.
+- Mapping validation must be established independently from trusted original-language lemma data and corroborated against the BDB article. Ambiguous and multiple mappings remain unresolved until evidence is recorded.
+
+This correction supersedes any earlier wording in this plan that implied the first heading identifier or CSV row could be used as the primary Strong's mapping.

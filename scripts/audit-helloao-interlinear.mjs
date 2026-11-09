@@ -1,125 +1,89 @@
 #!/usr/bin/env node
 /**
- * Read-only spot audit of the published HelloAO BSB interlinear chapter payloads.
- *
+ * Read-only global structural audit of every published HelloAO BSB interlinear chapter.
  * Run: node scripts/audit-helloao-interlinear.mjs
- * Optional: HELLOAO_API_BASE=https://bible.helloao.org/api node ...
- *
- * This reports structural coverage only. It does not infer dictionary lemmas,
- * validate Strong's-to-lexicon mappings, or persist downloaded Bible content.
+ * Optional: HELLOAO_API_BASE, HELLOAO_CONCURRENCY, HELLOAO_RETRIES, HELLOAO_TIMEOUT_MS
  */
-
-const API_BASE = (process.env.HELLOAO_API_BASE || 'https://bible.helloao.org/api').replace(/\/$/, '');
-const PASSAGES = [
-  ['GEN', 1, 'Hebrew sample'],
-  ['DAN', 2, 'Aramaic sample'],
-  ['EZR', 4, 'Biblical Aramaic sample'],
-  ['EZR', 5, 'Biblical Aramaic sample'],
-  ['EZR', 6, 'Biblical Aramaic sample'],
-  ['EZR', 7, 'Biblical Aramaic sample'],
-  ['MAT', 1, 'Greek sample'],
-  ['JHN', 1, 'Greek sample']
-];
-const REQUIRED_FIELDS = [
-  'pos', 'bsbPos', 'language', 'text', 'transliteration',
-  'parsing', 'parsingFull', 'strongs', 'gloss'
-];
-const LANGUAGES = ['hebrew', 'aramaic', 'greek'];
-
-function isPresent(value) {
-  return value !== undefined && value !== null && value !== '';
+import auditModule from '../lib/helloao-interlinear-audit.cjs';
+const {addChapterToStats,buildChapterTargets,createStats}=auditModule;
+const API_BASE=(process.env.HELLOAO_API_BASE||'https://bible.helloao.org/api').replace(/\/$/,'');
+const CONCURRENCY=Math.max(1,Math.min(10,Number.parseInt(process.env.HELLOAO_CONCURRENCY||'4',10)||4));
+const RETRIES=Math.max(0,Math.min(5,Number.parseInt(process.env.HELLOAO_RETRIES||'2',10)||0));
+const TIMEOUT_MS=Math.max(5000,Number.parseInt(process.env.HELLOAO_TIMEOUT_MS||'30000',10)||30000);
+async function fetchJson(url) {
+ const response=await fetch(url,{headers:{accept:'application/json'},signal:AbortSignal.timeout(TIMEOUT_MS)});
+ if(!response.ok) throw new Error('HTTP '+response.status+' for '+url);
+ return response.json();
 }
-
-async function fetchChapter(book, chapter) {
-  const url = `${API_BASE}/d/bsb-interlinear/${book}/${chapter}.json`;
-  const response = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(30000) });
-  if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
-  return response.json();
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function fetchWithRetry(url) {
+ let lastError;
+ for(let attempt=0;attempt<=RETRIES;attempt++) {
+  try { return await fetchJson(url); }
+  catch(error) { lastError=error; if(attempt<RETRIES) await delay(500*(2**attempt)); }
+ }
+ throw lastError;
 }
-
-function extractWords(payload, label) {
-  // HelloAO DatasetBookChapter nests verse records under chapter.content.
-  const verses = payload && payload.chapter && payload.chapter.content;
-  if (!Array.isArray(verses)) {
-    const topLevelKeys = payload && typeof payload === 'object' ? Object.keys(payload) : [];
-    const chapterKeys = payload && payload.chapter && typeof payload.chapter === 'object'
-      ? Object.keys(payload.chapter)
-      : [];
-    throw new Error(
-      `${label}: expected chapter.content array; top-level keys=[${topLevelKeys.join(', ')}], ` +
-      `chapter keys=[${chapterKeys.join(', ')}]`
-    );
+async function runPool(items,worker,concurrency) {
+ let cursor=0,completed=0;
+ const results=new Array(items.length);
+ async function runWorker() {
+  while(true) {
+   const index=cursor++;
+   if(index>=items.length) return;
+   results[index]=await worker(items[index]);
+   completed++;
+   if(completed%100===0||completed===items.length) process.stderr.write('Audited '+completed+'/'+items.length+' chapters\n');
   }
-  const words = [];
-  for (const verse of verses) {
-    if (verse && Array.isArray(verse.words)) {
-      for (const word of verse.words) words.push(word);
-    }
-  }
-  if (!words.length) throw new Error(`${label}: chapter.content contained no interlinear word records`);
-  return words;
+ }
+ await Promise.all(Array.from({length:Math.min(concurrency,items.length)},()=>runWorker()));
+ return results;
 }
-
-function summarize(words) {
-  const byLanguage = Object.fromEntries(LANGUAGES.map(language => [language, 0]));
-  let unknownLanguageCount = 0;
-  const fieldStats = Object.fromEntries(REQUIRED_FIELDS.map(field => [field, { present: 0, nullOrMissing: 0 }]));
-  const strongsPrefixes = { H: 0, G: 0, other: 0 };
-  const lemmaField = { present: 0, nullOrMissing: 0 };
-  for (const word of words) {
-    if (LANGUAGES.includes(word.language)) byLanguage[word.language] += 1;
-    else unknownLanguageCount += 1;
-    if (isPresent(word.lemma) || isPresent(word.lemmaId)) lemmaField.present += 1;
-    else lemmaField.nullOrMissing += 1;
-    for (const field of REQUIRED_FIELDS) {
-      if (isPresent(word[field])) fieldStats[field].present += 1;
-      else fieldStats[field].nullOrMissing += 1;
-    }
-    const strongs = String(word.strongs || '').toUpperCase();
-    if (strongs.startsWith('H')) strongsPrefixes.H += 1;
-    else if (strongs.startsWith('G')) strongsPrefixes.G += 1;
-    else strongsPrefixes.other += 1;
-  }
-  return { totalWords: words.length, byLanguage, unknownLanguageCount, fieldStats, lemmaField, strongsPrefixes };
-}
-
-const results = [];
-const failures = [];
-for (const [book, chapter, sampleType] of PASSAGES) {
-  const label = `${book} ${chapter}`;
-  try {
-    const payload = await fetchChapter(book, chapter);
-    const words = extractWords(payload, label);
-    results.push({
-      passage: label,
-      sampleType,
-      retrievedAt: new Date().toISOString(),
-      dataset: 'bsb-interlinear',
-      book: payload.book || book,
-      chapter: payload.chapter || chapter,
-      wordStats: summarize(words)
-    });
-  } catch (error) {
-    failures.push({ passage: label, error: error instanceof Error ? error.message : String(error) });
-  }
-}
-
-const report = {
-  audit: 'HelloAO BSB interlinear live-payload structural spot check',
-  retrievedAt: new Date().toISOString(),
-  apiBase: API_BASE,
-  passagesRequested: PASSAGES.map(([book, chapter]) => `${book} ${chapter}`),
-  passagesSucceeded: results.length,
-  passagesFailed: failures.length,
-  results,
-  failures,
-  interpretation: [
-    'Counts describe only the retrieved sample payloads.',
-    'language is counted from the explicit token field; Strong’s prefixes are reported separately and are not used to infer language.',
-    'A missing lemma field is expected under the currently documented InterlinearWord schema.',
-    'No dictionary lemma or Strong’s-to-BDB mapping is inferred or verified by this audit.'
-  ]
+const booksPayload=await fetchWithRetry(API_BASE+'/d/bsb-interlinear/books.json');
+const books=booksPayload&&booksPayload.books;
+const targets=buildChapterTargets(books);
+const datasetMeta=booksPayload.dataset||{};
+const overall=createStats();
+const perBook=new Map(books.map(book=>[book.id,{book:book.id,expectedChapters:book.numberOfChapters,stats:createStats()}]));
+const chapterResults=await runPool(targets,async target=>{
+ const label=target.book+' '+target.chapter;
+ const url=API_BASE+'/d/bsb-interlinear/'+target.book+'/'+target.chapter+'.json';
+ try {
+  const payload=await fetchWithRetry(url);
+  addChapterToStats(overall,payload,label);
+  addChapterToStats(perBook.get(target.book).stats,payload,label);
+  return {passage:label,success:true};
+ } catch(error) {
+  return {passage:label,success:false,error:error instanceof Error?error.message:String(error)};
+ }
+},CONCURRENCY);
+const failures=chapterResults.filter(result=>!result.success);
+const booksReport=[...perBook.values()].map(({book,expectedChapters,stats})=>({
+ book,expectedChapters,chaptersSucceeded:stats.chaptersSucceeded,
+ chaptersFailed:expectedChapters-stats.chaptersSucceeded,verses:stats.verses,
+ totalWords:stats.totalWords,byLanguage:stats.byLanguage,unknownLanguageCount:stats.unknownLanguageCount
+}));
+const expectedChapters=Number.isInteger(datasetMeta.totalNumberOfChapters)?datasetMeta.totalNumberOfChapters:targets.length;
+const expectedWords=Number.isInteger(datasetMeta.totalNumberOfWords)?datasetMeta.totalNumberOfWords:null;
+const report={
+ audit:'HelloAO BSB interlinear global structural coverage audit',
+ retrievedAt:new Date().toISOString(),apiBase:API_BASE,dataset:'bsb-interlinear',
+ datasetMetadata:{numberOfBooks:datasetMeta.numberOfBooks??books.length,expectedChapters,expectedVerses:datasetMeta.totalNumberOfVerses??null,expectedWords},
+ requestConfiguration:{concurrency:CONCURRENCY,retries:RETRIES,timeoutMs:TIMEOUT_MS},
+ coverage:{booksListed:books.length,chaptersListed:targets.length,chaptersSucceeded:overall.chaptersSucceeded,chaptersFailed:failures.length,versesRetrieved:overall.verses,wordsRetrieved:overall.totalWords,expectedWords,wordCountMatchesDatasetMetadata:expectedWords===null?null:overall.totalWords===expectedWords},
+ languageCounts:overall.byLanguage,unknownLanguageCount:overall.unknownLanguageCount,
+ requiredFieldCoverage:overall.fieldStats,lemmaField:overall.lemmaField,
+ strongsPrefixes:overall.strongsPrefixes,strongsPrefixesByExplicitLanguage:overall.strongsByLanguage,
+ alignmentDiagnostics:{duplicatePosWithinVerse:overall.duplicatePosWithinVerse,duplicateBsbPosWithinVerse:overall.duplicateBsbPosWithinVerse,invalidWordRecords:overall.invalidWordRecords},
+ perBook:booksReport,failures,
+ interpretation:[
+  'This is a global structural audit of all chapters listed by the live bsb-interlinear books endpoint.',
+  'Language counts use only each word record explicit language field. Strong’s prefixes are reported separately and are not used to infer language.',
+  'Strong’s-prefix counts by explicit language are descriptive diagnostics, not proof of lexical or language mappings.',
+  'Missing lemma/lemmaId fields are consistent with the currently documented InterlinearWord schema.',
+  'No dictionary lemma or Strong’s-to-BDB/Abbott-Smith mapping is inferred or verified.',
+  'Duplicate position counts are diagnostics for manual review, not automatic proof of invalid alignment.'
+ ]
 };
-
-process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-if (failures.length) process.exitCode = 1;
+process.stdout.write(JSON.stringify(report,null,2)+'\n');
+if(failures.length||overall.chaptersSucceeded!==targets.length) process.exitCode=1;

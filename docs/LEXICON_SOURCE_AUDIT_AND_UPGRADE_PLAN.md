@@ -128,3 +128,72 @@ Open Scriptures is prohibited as a source for this project. Do not use, import, 
 - Do not replace Bible translation text providers as part of this lexicon task.
 - Do not remove STEPBible until the replacement sources have passed the coverage and regression checks.
 - Do not modify `main` directly; use a feature branch and PR.
+
+
+## Follow-up data and provenance audit (9 November 2026)
+
+### BDB Enhanced: source structure and mapping caution
+
+The upstream BDB Enhanced repository documents that:
+- The base lexicon data was taken from `eliranwong/unabridged-BDB-Hebrew-lexicon`.
+- Its own enhancement work marks sense/stem boundaries, primary and secondary glosses, subsenses, and related typographic distinctions.
+- Individual entry HTML files are intended for quality assurance.
+- The original BDB is public domain; repository enhancements are CC BY and require a link to the repository.
+- Some ancient-language material remains image placeholders rather than Unicode transcription.
+
+The repository's `bdbToStrongsMapping.csv` must **not** be treated as a direct one-to-one Strong's-to-entry table. It records Strong's references occurring in entry material, including secondary/cross-reference numbers. A check of the raw file found 10,636 rows, 8,619 distinct Strong's IDs, and many Strong's IDs associated with more than one BDB article. For example, H0430 appears in BDB430 (the Elohim article), but also in articles whose primary headwords are Yahweh and halal. Those additional appearances are references, not independent H0430 headword definitions.
+
+Verified sample entry headings:
+- BDB430 identifies H430 and its headword אֱלֹהִים.
+- BDB108 identifies H120 and H121 under the single headword אָדָם.
+- BDB1300 and BDB1303 both identify H1254 but represent distinct homonymous entries (create / be fat).
+- BDB2100's primary headword is יהוה and its heading also contains Strong's references such as H430; this demonstrates why all numbers in the mapping CSV cannot be treated as primary mappings.
+
+**Required ingestion rule:** parse each individual BDB entry's own heading and lexical headword, language, and article structure. Treat the CSV as a discovery/cross-reference aid only. Verify each Strong's mapping against the actual entry headword and the word's verified lemma/language from IBS data. Preserve genuine homonyms as separate entries. Do not collapse multiple BDB articles into one definition or map a Strong's ID solely because it occurs anywhere in an article.
+
+Primary source:
+- https://github.com/unfoldingWord/Brown-Driver-Briggs-Enhanced
+- Base dataset provenance: https://github.com/eliranwong/unabridged-BDB-Hebrew-lexicon
+
+### Greek: Abbott-Smith quality gate and supplementary candidates
+
+Abbott-Smith remains a strong candidate for a substantial New Testament Greek lexicon, and its TEI text/markup is declared public domain by its project. However, the project history also warns that errors may remain and that only a small portion of the printed pages had been checked in its earlier completion notes. The project has a 1.1 release with minor corrections. Therefore:
+- Pin a release, not the mutable repository head.
+- Parse the release TEI and compare representative entries against scans or reliable printed copies before using it as an authoritative primary display.
+- Preserve entry divisions, etymology, related entries, and references.
+- Do not treat an automated TEI parse as proof that every entry is error-free.
+
+Primary source candidate:
+- https://github.com/translatable-exegetical-tools/Abbott-Smith
+- https://translatable-exegetical-tools.github.io/Abbott-Smith/
+
+Additional Strong's-keyed Greek candidates for comparison:
+- **Thayer's Greek-English Lexicon (1889):** a full public-domain work with 5,521 Strong's-keyed entries in a community digitization. Its own README warns that transcription artifacts may remain. Use only after spot-checking against a reliable scan; do not assume the community digitization is error-free. https://github.com/imbennyhim/Every-Promise-Thayers
+- **Dodson Greek Lexicon:** public-domain XML/CSV, Strong's keyed, but intentionally concise and therefore a supplementary quick-gloss source rather than a replacement for a full lexicon. Its CSV includes Greek headword, Strong's number, brief gloss, and longer gloss. https://github.com/biblicalhumanities/Dodson-Greek-Lexicon
+
+Recommended Greek display model after verification: Abbott-Smith as the detailed lemma-based resource; Thayer as a Strong's-keyed supplementary reference after transcription QA; Dodson as an optional concise gloss. Keep each source distinct and credited. Do not merge their definitions into one synthetic paragraph.
+
+### Aramaic: CAL scope and limits
+
+The Comprehensive Aramaic Lexicon (CAL), hosted by Hebrew Union College, describes itself as an ongoing text base covering Aramaic dialects from the earliest period through the 13th century CE, with over 40,000 headwords and millions of lexically parsed words. CAL explicitly says it is a work in progress, not a completed dictionary. The CAL data files published through IDS are CC BY 4.0.
+
+This makes CAL a valuable specialist supplementary resource, but not a ready-made Strong's-keyed Biblical Aramaic lexicon. Before integration:
+- Confirm which CAL dictionary and headword records cover Biblical Aramaic in Daniel and Ezra.
+- Establish a documented lemma/orthographic mapping from IBS interlinear data to CAL headwords.
+- Do not map by English gloss or Strong's number alone.
+- Keep CAL corpus attestations and dictionary definitions distinct.
+- Show the retrieval date because CAL is an ongoing resource.
+- Preserve IDS/CAL attribution and CC BY 4.0 terms.
+
+Sources:
+- https://cal.huc.edu/
+- https://ids.clld.org/contributors/comprehensivearamaiclexicondatafiles
+
+### Revised recommendation
+
+- **Hebrew:** BDB Enhanced, with entry-level headword/language validation; its CSV is not a direct mapping authority.
+- **Biblical Aramaic:** BDB's explicitly labelled Biblical Aramaic entries first; CAL as a separately identified corpus/lexical supplement after lemma mapping and coverage checks.
+- **Greek:** Abbott-Smith as the detailed candidate subject to TEI QA; compare Thayer as a Strong's-keyed supplement and Dodson as a concise gloss source.
+- **Existing STEPBible:** retain as a clearly labelled secondary source during migration until each language/source has measured coverage and passed verification.
+
+No source listed here is permitted to import Open Scriptures material or derivatives. All source files and dependencies must have independently verified provenance.

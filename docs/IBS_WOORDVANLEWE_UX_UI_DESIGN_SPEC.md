@@ -177,10 +177,38 @@ Each phase should be a small, reviewable PR with screenshots and explicit accept
 - Mobile-specific viewport and overflow handling already exists; any shell redesign must preserve and regression-test it.
 - The existing platform roadmap already requires Scripture-first design, stage separation, evidence provenance, user control and responsive workspace improvements. This document extends that roadmap; it does not replace it.
 
-## 10. Outstanding evidence before coding
+## 10. Evidence gathered from the 12 November 2026 screen recording
 
-- Extract exact colours, fonts and logo assets from the current live Woord van Lewe WordPress theme.
-- Capture desktop and mobile screenshots of the live IBS Home, Bible reader, active study stages, research panels and Kerygma.
+The recording shows the live IBS Home and the current Woord van Lewe homepage in the same browser session. The website's visible design language is now confirmed at the visual level:
+
+- Deep forest-green identity in the announcement strip, primary dark sections and calls to action.
+- Warm ivory/off-white page surfaces and muted beige section backgrounds.
+- Sage/soft green secondary surfaces and restrained muted-gold details.
+- Dark green/near-black body text, with refined high-contrast serif display headings and clean sans-serif supporting text.
+- Editorial composition: generous whitespace, clear section rhythm, restrained borders and understated cards.
+- The logo combines an open-book symbol with the Woord van Lewe name and the descriptor “Bybelse dissipelskap”.
+- Brand language centres on Scripture, Christ, obedience and biblical discipleship; IBS should feel like the practical study environment of this identity.
+
+The recording does not expose the website's CSS values, font file names or asset URLs. Exact HEX values and font-family names remain unverified and must be extracted from the site's stylesheet/theme before they are committed as tokens.
+
+### Current IBS Home observations
+
+- The page already has a useful hierarchy: administrator access controls, study statistics, “Pick up where you left off”, recent passages, and the four inductive stages.
+- The fixed dark navy header and bright orange buttons are visually disconnected from the forest-green/ivory website identity.
+- The large pale-yellow resume panel draws attention, but its visual weight competes with the actual next action. Rework it as a calm, clear “Continue your study” feature with a single dominant action.
+- Administrator invitation and access-request tools are prominent on the same page as the student's study dashboard. Keep administrator functions available but visually subordinate/collapsible so they do not dominate routine study.
+- The four-stage overview is useful, but should read as one connected study path with clear progress and a visible active/resume stage.
+- Recent studies, statistics and the stage overview should use a more consistent spacing and surface system, with less nested-card appearance.
+- The video confirms the current active study is Romans 1 and that the resume action is labelled “Resume Observe Study”. Preserve this behaviour and verify its destination during implementation.
+
+### Existing application context confirmed from the live page
+
+The current application exposes Bible translation and passage controls, Strong's toggle, Notes, Sync, AI Guide, saved studies, stage navigation, evidence carry-forward, related passages, Bible search, lexicon and Kerygma access. These are existing product capabilities, not candidates for removal during visual refinement.
+
+## 11. Outstanding evidence before implementation
+
+- Extract exact colours, fonts and logo asset URLs from the current live Woord van Lewe WordPress theme.
+- Capture or inspect mobile IBS Home, Bible reader, active study stages, research panels and Kerygma.
 - Map current navigation/actions to existing functions and routes.
 - Identify CSS selectors and components responsible for the reported visual inconsistencies.
 - Establish a screenshot baseline before the first visual PR.

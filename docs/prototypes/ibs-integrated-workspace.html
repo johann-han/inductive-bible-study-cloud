@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IBS Integrated Study Workspace — UX Prototype</title>
+<style>
+:root{--forest:#183f35;--forest-2:#245447;--sage:#e7eee8;--sage-2:#f1f5f0;--ivory:#faf8f1;--paper:#fffefa;--ink:#202b26;--muted:#68736c;--line:#dce2da;--gold:#b18a48;--gold-pale:#f4eddd;--shadow:0 12px 32px rgba(26,49,39,.08)}
+*{box-sizing:border-box}body{margin:0;background:var(--ivory);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button{font:inherit;cursor:pointer}.topbar{height:64px;background:var(--forest);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:16px}.brand{display:flex;align-items:center;gap:12px;min-width:0}.brandmark{width:36px;height:36px;border:1px solid rgba(255,255,255,.38);border-radius:9px;display:grid;place-items:center;color:#ead9b5;font-family:Georgia,serif;font-size:20px}.brandname{font:600 18px Georgia,serif;letter-spacing:.2px}.brandtag{font-size:10px;color:#d5e0d8;letter-spacing:1.4px;text-transform:uppercase}.top-actions{display:flex;gap:8px;align-items:center}.top-actions button{border:1px solid rgba(255,255,255,.25);border-radius:7px;background:transparent;color:white;padding:7px 11px;font-size:12px}.top-actions .primary{background:#e6d5b0;color:#243d32;border-color:#e6d5b0;font-weight:700}.contextbar{background:var(--paper);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}.eyebrow{font-size:10px;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);font-weight:700}.passage{font:600 21px Georgia,serif;color:var(--forest);margin-top:2px}.context-meta{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}.pill{padding:5px 9px;border:1px solid var(--line);border-radius:99px;background:#fff}.layout{max-width:1600px;margin:auto;padding:18px 20px 30px;display:grid;grid-template-columns:minmax(300px, .95fr) minmax(460px,1.2fr);gap:16px;align-items:stretch}.panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);min-width:0;overflow:hidden}.panel-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px}.panel-title{font:600 19px Georgia,serif;color:var(--forest)}.subtle{color:var(--muted);font-size:12px}.reader-tools{display:flex;gap:6px;flex-wrap:wrap}.reader-tools button,.quiet-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 9px;color:var(--forest);font-size:11px}.reader-content{padding:22px 25px 28px;max-height:calc(100vh - 230px);overflow:auto}.chapter-label{font:italic 14px Georgia,serif;color:var(--gold);margin-bottom:16px}.verse{display:grid;grid-template-columns:24px 1fr;gap:8px;margin:0 0 15px;max-width:68ch}.verse-no{font-size:11px;color:var(--gold);font-weight:700;padding-top:3px}.verse p{margin:0;font:17px/1.8 Georgia,serif}.verse.selected p{background:#f6f0e2;box-shadow:0 0 0 4px #f6f0e2;border-radius:2px}.reader-foot{border-top:1px solid var(--line);padding:10px 18px;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:8px}.study{display:flex;flex-direction:column}.stage-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:10px;background:var(--sage-2);border-bottom:1px solid var(--line)}.stage{border:1px solid transparent;background:transparent;border-radius:8px;padding:9px 5px;text-align:left;color:var(--muted)}.stage small{display:block;font-size:10px;opacity:.8}.stage strong{font-size:12px}.stage.active{background:var(--forest);color:#fff;box-shadow:0 3px 8px rgba(24,63,53,.18)}.stage.done:not(.active){border-color:#cbd8ce;background:#fff;color:var(--forest)}.study-body{padding:18px;display:flex;flex-direction:column;gap:14px;min-height:560px}.stage-intro{background:var(--sage-2);border-left:3px solid var(--gold);padding:12px 14px;border-radius:0 8px 8px 0}.stage-intro strong{display:block;color:var(--forest);font:600 16px Georgia,serif;margin-bottom:3px}.editor-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.editor-head label{font-weight:700;color:var(--forest)}.save-state{font-size:11px;color:var(--muted)}textarea{width:100%;min-height:220px;resize:vertical;border:1px solid var(--line);border-radius:8px;background:#fffefa;padding:14px;color:var(--ink);font:14px/1.7 Georgia,serif;outline:none}textarea:focus{border-color:var(--forest-2);box-shadow:0 0 0 3px rgba(36,84,71,.1)}.support-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.support{border:1px solid var(--line);border-radius:8px;padding:11px;background:#fff}.support strong{display:block;color:var(--forest);font-size:12px;margin-bottom:3px}.support span{font-size:11px;color:var(--muted)}.support button{display:block;margin-top:8px;border:0;background:transparent;padding:0;color:var(--forest-2);font-size:11px;font-weight:700}.study-footer{border-top:1px solid var(--line);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px}.progress{font-size:11px;color:var(--muted)}.actions{display:flex;gap:7px}.actions button{border:1px solid var(--line);border-radius:7px;background:#fff;padding:8px 12px;color:var(--forest);font-size:12px}.actions .next{background:var(--forest);border-color:var(--forest);color:#fff;font-weight:700}.mobile-switch{display:none}.note{max-width:1600px;margin:0 auto;padding:0 20px 22px;color:var(--muted);font-size:11px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.reader-content{max-height:42vh}.study-body{min-height:0}.mobile-switch{display:flex;gap:6px;padding:10px 20px 0}.mobile-switch button{flex:1;padding:9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--forest);font-size:12px}.mobile-switch button.active{background:var(--forest);color:white}.layout.mobile-study .reader{display:none}.layout.mobile-scripture .study{display:none}}
+@media(max-width:560px){.topbar{height:58px;padding:0 12px}.brandname{font-size:16px}.brandtag{font-size:8px}.top-actions button:not(.primary){display:none}.contextbar{padding:12px;align-items:flex-start;flex-direction:column}.passage{font-size:19px}.layout{padding:10px 10px 20px;gap:10px}.mobile-switch{padding:10px 10px 0}.panel-head{padding:13px}.reader-content{padding:17px 15px;max-height:52vh}.verse p{font-size:16px}.study-body{padding:13px;gap:11px}.stage-nav{padding:7px;gap:2px}.stage{padding:8px 3px}.stage strong{font-size:10px}.stage small{font-size:9px}.support-grid{grid-template-columns:1fr}.study-footer{padding:10px 12px}.actions button{padding:7px 9px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+ <div class="brand"><div class="brandmark">⌂</div><div><div class="brandname">Woord van Lewe</div><div class="brandtag">Bybelse dissipelskap</div></div></div>
+ <div class="top-actions"><button>Study library</button><button>Research</button><button class="primary">AI Study Guide</button></div>
+</header>
+<section class="contextbar">
+ <div><div class="eyebrow">Inductive study workspace</div><div class="passage">Genesis 1 · The Creation Account</div></div>
+ <div class="context-meta"><span class="pill">Berean Standard Bible</span><span class="pill">Old Testament</span></div>
+</section>
+<div class="mobile-switch"><button class="active" data-view="scripture">Scripture</button><button data-view="study">Study workspace</button></div>
+<main class="layout mobile-scripture" id="layout">
+ <section class="panel reader" id="reader">
+  <div class="panel-head"><div><div class="eyebrow">Read the text</div><div class="panel-title">Scripture</div></div><div class="reader-tools"><button>−</button><button>Aa</button><button>+</button><button>Cross-references</button></div></div>
+  <div class="reader-content"><div class="chapter-label">Genesis 1 · Berean Standard Bible</div>
+   <div class="verse"><span class="verse-no">1</span><p>In the beginning God created the heavens and the earth.</p></div>
+   <div class="verse selected"><span class="verse-no">2</span><p>Now the earth was formless and void, and darkness was over the surface of the deep. And the Spirit of God was hovering over the surface of the waters.</p></div>
+   <div class="verse"><span class="verse-no">3</span><p>And God said, “Let there be light,” and there was light.</p></div>
+   <div class="verse"><span class="verse-no">4</span><p>And God saw that the light was good, and He separated the light from the darkness.</p></div>
+   <div class="verse"><span class="verse-no">5</span><p>God called the light “day,” and the darkness He called “night.” And there was evening, and there was morning—the first day.</p></div>
+  </div>
+  <div class="reader-foot"><span>Selected: Genesis 1:2</span><span>Verse actions · Mark · Copy · Study</span></div>
+ </section>
+ <section class="panel study" id="study">
+  <div class="panel-head"><div><div class="eyebrow">Your work on this passage</div><div class="panel-title">Study workspace</div></div><span class="pill subtle">Step 1 of 4</span></div>
+  <nav class="stage-nav" aria-label="Inductive study stages">
+   <button class="stage active" data-stage="observe"><small>01</small><strong>Observe</strong></button>
+   <button class="stage" data-stage="interpret"><small>02</small><strong>Interpret</strong></button>
+   <button class="stage" data-stage="doctrine"><small>03</small><strong>Doctrine</strong></button>
+   <button class="stage" data-stage="apply"><small>04</small><strong>Discipleship</strong></button>
+  </nav>
+  <div class="study-body">
+   <div class="stage-intro"><strong id="stage-title">What does the passage say?</strong><span id="stage-description" class="subtle">Examine the text carefully. Notice repeated words, contrasts, connecting words, structure and details before drawing conclusions.</span></div>
+   <div class="editor-head"><label for="notes">My observations</label><span class="save-state">Prototype · local example only</span></div>
+   <textarea id="notes" aria-label="Study notes">Observe the description of the earth before the first recorded command.
+
+• The earth is described as formless and void.
+• Darkness is over the surface of the deep.
+• The Spirit of God is described as hovering over the waters.
+• Verse 3 begins with God's spoken command.</textarea>
+   <div class="support-grid">
+    <div class="support"><strong>Evidence from Scripture</strong><span>Earlier-stage notes and linked verses remain visible as traceable evidence.</span><button type="button">Review evidence →</button></div>
+    <div class="support"><strong>Research & related passages</strong><span>Cross-references, word studies and related passages sit alongside the active task.</span><button type="button">Open research →</button></div>
+    <div class="support"><strong>Statement evidence links</strong><span>Connect a selected statement in your notes to its supporting source.</span><button type="button">Link a statement →</button></div>
+    <div class="support"><strong>AI Hermeneutic Guide</strong><span>Ask a question about this passage; review any response before adding it to your notes.</span><button type="button">Ask about this passage →</button></div>
+   </div>
+  </div>
+  <div class="study-footer"><span class="progress">Stage progress · Observe selected</span><div class="actions"><button>Save</button><button class="next" id="next-stage">Next stage →</button></div></div>
+ </section>
+</main>
+<div class="note">Visual structure prototype only. It does not connect to the live Bible text, study records, Supabase, AI service or existing IBS actions. Colours and typography are provisional until the live Woord van Lewe design tokens are extracted.</div>
+<script>
+const copy={
+observe:["What does the passage say?","Examine the text carefully. Notice repeated words, contrasts, connecting words, structure and details before drawing conclusions.","My observations"],
+interpret:["What does the passage mean?","Interpret the author's meaning in context. Consider the literary flow, historical setting, audience and how the details support the main point.","My interpretation"],
+doctrine:["What does this teach about God and truth?","Identify theological truths grounded in the passage. Distinguish what the text states from conclusions that require wider biblical support.","Biblical doctrine"],
+apply:["How should this shape discipleship?","Respond faithfully to the meaning of the passage. Form specific, Scripture-shaped convictions and actions without detaching application from context.","Discipleship response"]
+};
+let current="observe";
+function selectStage(key){current=key;document.querySelectorAll(".stage").forEach(b=>b.classList.toggle("active",b.dataset.stage===key));document.getElementById("stage-title").textContent=copy[key][0];document.getElementById("stage-description").textContent=copy[key][1];document.querySelector("label[for=notes]").textContent=copy[key][2];document.querySelector(".study-footer .progress").textContent="Stage progress · "+copy[key][2]+" selected";}
+document.querySelectorAll(".stage").forEach(b=>b.addEventListener("click",()=>selectStage(b.dataset.stage)));
+document.getElementById("next-stage").addEventListener("click",()=>{const keys=Object.keys(copy);selectStage(keys[(keys.indexOf(current)+1)%keys.length]);});
+document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>{document.getElementById("layout").className="layout mobile-"+b.dataset.view;document.querySelectorAll("[data-view]").forEach(x=>x.classList.toggle("active",x===b));}));
+</script>
+</body>
+</html>

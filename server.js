@@ -881,6 +881,8 @@ const server = http.createServer(async (req, res) => {
     if (err) return send(res, 404, { error: 'Not found.' });
     const type = filePath.endsWith('.html') ? 'text/html; charset=utf-8'
       : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8'
+      : filePath.endsWith('.css') ? 'text/css; charset=utf-8'
+      : filePath.endsWith('.woff2') ? 'font/woff2'
       : filePath.endsWith('.webmanifest') ? 'application/manifest+json; charset=utf-8'
       : filePath.endsWith('.json') ? 'application/json; charset=utf-8'
       : filePath.endsWith('.png') ? 'image/png'

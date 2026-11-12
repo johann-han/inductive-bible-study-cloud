@@ -167,6 +167,7 @@ function makeHarness(selectedVerseValues = []) {
   sandbox.normalizeStudyRelatedPassages = vm.runInNewContext('(' + normalizeSource + ')', sandbox);
   sandbox.normalizeStudyEvidenceLinks = value => Array.isArray(value) ? value : [];
   sandbox.normalizeStudyClaims = value => Array.isArray(value) ? value : [];
+  sandbox.normalizeStudyStageReviews = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const legacySource = extractFunction(
     indexHtml,
     '    function relatedPassageFromCrossReference(ref) {',

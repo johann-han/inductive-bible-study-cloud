@@ -639,7 +639,7 @@
       body.integrated-workspace-preview #expandWorkspaceBtn,
       body.integrated-workspace-preview #toggleWorkspaceMobile { display: none !important; }
       /* Preserve the reader's established full-screen mode over preview layout rules. */
-      body.integrated-workspace-preview.reader-fullscreen-mode #workspacePanel { display: none !important; }
+      body.reader-fullscreen-mode #readerWorkspace > main > #workspacePanel { display: none !important; }
     }
     @media (max-width: 1024px) {
       body.integrated-workspace-preview #readerWorkspace > main > #workspacePanel {

@@ -634,9 +634,12 @@
         height: auto !important;
         max-height: none !important;
       }
-      body.integrated-workspace-preview #workspaceResizeHandle { display: none !important; }
-      body.integrated-workspace-preview #closeWorkspaceMobile { display: none; }
-      body.integrated-workspace-preview #toggleWorkspaceMobile { opacity: .65; }
+      body.integrated-workspace-preview #workspaceResizeHandle,
+      body.integrated-workspace-preview #closeWorkspaceMobile,
+      body.integrated-workspace-preview #expandWorkspaceBtn,
+      body.integrated-workspace-preview #toggleWorkspaceMobile { display: none !important; }
+      /* Preserve the reader's established full-screen mode over preview layout rules. */
+      body.integrated-workspace-preview.reader-fullscreen-mode #workspacePanel { display: none !important; }
     }
     @media (max-width: 1024px) {
       body.integrated-workspace-preview #readerWorkspace > main > #workspacePanel {

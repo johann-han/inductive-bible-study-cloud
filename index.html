@@ -29,6 +29,20 @@
         document.documentElement.classList.toggle('touch-workspace-layout', useMobileLayout);
       };
       applyTouchWorkspaceLayout();
+      if (new URLSearchParams(window.location.search).get('integratedWorkspace') === '1') {
+        document.documentElement.classList.add('integrated-workspace-preview');
+        document.addEventListener('DOMContentLoaded', () => {
+          document.body.classList.add('integrated-workspace-preview');
+          if (window.innerWidth > 1024 && !document.documentElement.classList.contains('touch-workspace-layout')) {
+            const panel = document.getElementById('workspacePanel');
+            const toggle = document.getElementById('toggleWorkspaceMobile');
+            panel?.classList.remove('hidden', 'translate-x-full', 'workspace-mobile-closed');
+            panel?.setAttribute('aria-hidden', 'false');
+            toggle?.setAttribute('aria-expanded', 'true');
+            toggle?.setAttribute('title', 'Study workspace is visible');
+          }
+        }, { once: true });
+      }
       window.addEventListener('resize', applyTouchWorkspaceLayout, { passive: true });
       window.addEventListener('orientationchange', applyTouchWorkspaceLayout, { passive: true });
     })();
@@ -579,6 +593,55 @@
       }
       #navSelectBtn #currentPassageLabel { max-width: 5.8rem; }
       #toggleStrongsBtn, #toggleWorkspaceMobile, #cloudAccountBtn, #toggleAiBtn { font-size: 10px; }
+    }
+
+    /* Opt-in integrated study workspace preview. Enable with ?integratedWorkspace=1.
+       This keeps the existing DOM and note editor intact; mobile retains its drawer. */
+    @media (min-width: 1025px) {
+      body.integrated-workspace-preview #readerWorkspace > main {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: stretch;
+        min-width: 0;
+      }
+      body.integrated-workspace-preview #readerWorkspace > main > section:first-child {
+        flex: 1 1 56%;
+        width: 56%;
+        min-width: 0;
+      }
+      body.integrated-workspace-preview #readerWorkspace > main > #workspacePanel {
+        position: relative !important;
+        inset: auto !important;
+        display: flex !important;
+        flex: 0 1 44%;
+        width: 44% !important;
+        min-width: 360px;
+        max-width: 52% !important;
+        height: auto !important;
+        max-height: none !important;
+        transform: none !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        z-index: 1 !important;
+        border-left: 1px solid #e2e8f0;
+        box-shadow: none !important;
+      }
+      body.integrated-workspace-preview #workspacePanel.workspace-expanded {
+        position: relative !important;
+        inset: auto !important;
+        width: 44% !important;
+        max-width: 52% !important;
+        height: auto !important;
+        max-height: none !important;
+      }
+      body.integrated-workspace-preview #workspaceResizeHandle { display: none !important; }
+      body.integrated-workspace-preview #closeWorkspaceMobile { display: none; }
+      body.integrated-workspace-preview #toggleWorkspaceMobile { opacity: .65; }
+    }
+    @media (max-width: 1024px) {
+      body.integrated-workspace-preview #readerWorkspace > main > #workspacePanel {
+        /* Explicitly retain the established touch/mobile presentation. */
+      }
     }
 
     @media (min-width: 641px) and (max-width: 1023px) {

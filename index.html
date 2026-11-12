@@ -598,18 +598,18 @@
     /* Opt-in integrated study workspace preview. Enable with ?integratedWorkspace=1.
        This keeps the existing DOM and note editor intact; mobile retains its drawer. */
     @media (min-width: 1025px) {
-      body.integrated-workspace-preview #readerWorkspace > main {
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #readerWorkspace > main {
         display: flex !important;
         flex-direction: row !important;
         align-items: stretch;
         min-width: 0;
       }
-      body.integrated-workspace-preview #readerWorkspace > main > section:first-child {
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #readerWorkspace > main > section:first-child {
         flex: 1 1 56%;
         width: 56%;
         min-width: 0;
       }
-      body.integrated-workspace-preview #readerWorkspace > main > #workspacePanel {
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #readerWorkspace > main > #workspacePanel {
         position: relative !important;
         inset: auto !important;
         display: flex !important;
@@ -626,7 +626,7 @@
         border-left: 1px solid #e2e8f0;
         box-shadow: none !important;
       }
-      body.integrated-workspace-preview #workspacePanel.workspace-expanded {
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #workspacePanel.workspace-expanded {
         position: relative !important;
         inset: auto !important;
         width: 44% !important;
@@ -634,10 +634,10 @@
         height: auto !important;
         max-height: none !important;
       }
-      body.integrated-workspace-preview #workspaceResizeHandle,
-      body.integrated-workspace-preview #closeWorkspaceMobile,
-      body.integrated-workspace-preview #expandWorkspaceBtn,
-      body.integrated-workspace-preview #toggleWorkspaceMobile { display: none !important; }
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #workspaceResizeHandle,
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #closeWorkspaceMobile,
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #expandWorkspaceBtn,
+      html:not(.touch-workspace-layout) body.integrated-workspace-preview #toggleWorkspaceMobile { display: none !important; }
       /* Preserve the reader's established full-screen mode over preview layout rules. */
       body.reader-fullscreen-mode #readerWorkspace > main > #workspacePanel { display: none !important; }
     }

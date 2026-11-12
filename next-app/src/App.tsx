@@ -33,7 +33,10 @@ function Icon({ name }: { name: string }) {
 }
 export default function App() {
   const [stage, setStage] = useState<Stage>('observe');
-  const [note, setNote] = useState('');
+  const [notesByStage, setNotesByStage] = useState<Record<Stage, string>>({ observe: '', interpret: '', doctrine: '', apply: '' });
+  const [notesFontSize, setNotesFontSize] = useState(17);
+  const [completedStages, setCompletedStages] = useState<Set<Stage>>(new Set());
+  const note = notesByStage[stage];
   const [selected, setSelected] = useState('1');
   const [showGuidance, setShowGuidance] = useState(true);
   const [showLibrary, setShowLibrary] = useState(false);
@@ -61,12 +64,12 @@ export default function App() {
     <main className="main-area">
       <header className="topbar">
         <div className="crumbs"><span>My studies</span><Icon name="chevron"/><strong>Genesis 1</strong></div>
-        <div className="top-actions"><span className="sync-status"><i/> All changes saved</span><button className="soft-button"><Icon name="spark"/> AI Guide</button><button className="profile">J</button></div>
+        <div className="top-actions"><span className="sync-status"><i/> Preview · local draft</span><button className="soft-button"><Icon name="spark"/> AI Guide</button><button className="profile">J</button></div>
       </header>
       {showLibrary ? <section className="library-view"><div className="eyebrow">YOUR LIBRARY</div><h1>Study library</h1><p>Return to a study or begin a new passage.</p><div className="study-card"><div><span className="tag">IN PROGRESS</span><h3>Genesis 1 — Creation</h3><p>Last studied today · Observation</p></div><button className="primary-button" onClick={() => setShowLibrary(false)}>Resume study</button></div></section> :
       <div className="study-page">
         <section className="study-heading"><div><div className="eyebrow">INDUCTIVE STUDY <span>•</span> OLD TESTAMENT</div><h1>Genesis <em>1</em></h1><p>Creation · The beginning of all things</p></div><div className="heading-actions"><button className="soft-button">KJV <span>⌄</span></button><button className="outline-button">Passage options</button></div></section>
-        <nav className="stage-nav" aria-label="Study stages">{stages.map((s,i) => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} onClick={() => setStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{i<stages.findIndex(x=>x.id===stage) && <span className="stage-done">✓</span>}</button>)}</nav>
+        <nav className="stage-nav" aria-label="Study stages">{stages.map((s,i) => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} onClick={() => setStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{completedStages.has(s.id) && <span className="stage-done">✓</span>}</button>)}</nav>
         <div className="workspace">
           <section className="scripture-panel">
             <div className="panel-heading"><div><span className="eyebrow">SCRIPTURE</span><h2>Genesis 1</h2></div><div className="reader-tools"><button className="tool-button" onClick={() => setFontSize(v=>Math.max(16,v-1))}>A−</button><button className="tool-button" onClick={() => setFontSize(v=>Math.min(25,v+1))}>A+</button><button className="tool-button">KJV</button></div></div>
@@ -79,10 +82,10 @@ export default function App() {
             <div className="stage-question"><div className="question-icon">?</div><div className="question-copy"><strong>{current.question}</strong><p>{current.hint}</p></div><button className="collapse-button" onClick={()=>setShowGuidance(!showGuidance)}>{showGuidance?'Hide':'Show'} guidance</button></div>
             {showGuidance && <div className="guidance-content"><p>{stage==='observe'?'Record what the text explicitly states. Trace repeated words, people, places, time markers, contrasts, commands and linking words. Avoid explaining meaning or moving to application.':stage==='interpret'?'Examine context, structure, grammar, keywords and linking words. Explain how the author develops the thought and support conclusions from the text.':stage==='doctrine'?'Synthesize what the passage teaches about God, humanity, creation and the wider biblical witness. Distinguish explicit teaching from inference.':'Identify a faithful response grounded in the passage. Make it specific, considered and connected to the meaning established in the earlier stages.'}</p></div>}
             <div className="evidence-strip"><div><span className="evidence-dot"/> <strong>Evidence from earlier stages</strong></div><span>{stage==='observe'?'No earlier-stage evidence yet':'Available when linked'}</span></div>
-            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><span>{wordCount} words</span></div>
-            <textarea id="study-notes" value={note} onChange={e=>setNote(e.target.value)} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nRecord your observations and connect each conclusion to the passage.'}/>
+            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><span>{wordCount} words</span></div></div>
+            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setNotesByStage(prev=>({...prev,[stage]:e.target.value}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nRecord your observations and connect each conclusion to the passage.'}/>
             <div className="editor-footer"><span>Draft stays in this preview only</span><span>Text size {fontSize}px</span></div>
-            <div className="stage-footer"><button className="outline-button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" onClick={()=>move(1)} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
+            <div className="stage-footer"><button className="outline-button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" onClick={()=>{setCompletedStages(prev=>new Set(prev).add(stage));move(1);}} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
           </section>
         </div>
       </div>}

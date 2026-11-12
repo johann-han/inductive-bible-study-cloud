@@ -6,9 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "build:next": "vite build --config next-app/vite.config.ts"
+    "build:next": "vite build --config next-app/vite.config.ts",
+    "check:next": "tsc -p next-app/tsconfig.json"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

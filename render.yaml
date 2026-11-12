@@ -3,7 +3,7 @@ services:
     name: inductive-bible-study-workspace
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm run build:next
     startCommand: npm start
     healthCheckPath: /healthz
     # Configure OPENROUTER_API_KEY, SUPABASE_URL and SUPABASE_ANON_KEY

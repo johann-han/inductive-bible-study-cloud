@@ -355,3 +355,53 @@ A phase is accepted only when:
 - Validate the proposed work-area groupings against the full set of existing application features.
 
 **Definition of done:** IBS has a coherent Woord van Lewe visual identity, a clear and efficient study workflow, readable Scripture, accessible research tools and dependable responsive behaviour, with all existing data and capabilities preserved. The interface guides the inductive study method rather than requiring users to manage a collection of disconnected tools.
+
+
+## 14. Source-level interaction audit — 12 November 2026
+
+The live source has now been inspected beyond the initial header and CSS. This changes the implementation recommendation: several important workflow capabilities already exist in the application and should be exposed more coherently rather than rebuilt.
+
+### Existing capabilities confirmed in the current `main` source
+
+- The Bible reader has a canon browser, OT/NT switching, book search, chapter navigation, translation selection and a dedicated reading container.
+- Verse selection supports semantic Scripture marking, selected-verse actions, copying, cross-reference linking, verse mapping and sending selected verses to AI.
+- The reader exposes chapter cross-references, standard Bible cross-references and passage outline tools.
+- The study panel already has four stage tabs, a stage progress indicator, stage guidance, review criteria and an optional reviewed state.
+- An evidence handoff panel already exists. It distinguishes earlier material from the current stage and requires explicit insertion into notes.
+- A statement-to-evidence linking panel already exists, including a selected-note-text workflow, source selection and saved claim links.
+- Notes have export, report, sermon-source export, version history, save status, word count and find-in-section controls.
+- Related passages are already attached to the study, with a compact display and a separate manager.
+- The AI Mentor is a separate drawer and the notes workspace is a separate resizable panel.
+
+These existing capabilities must be preserved and become part of the new interaction model. Do not build a second evidence handoff, claim-linking system, stage-progress model or notes editor.
+
+### Structural issues visible in the markup
+
+1. **The Bible reader and study workspace are split into different surfaces.** The reader occupies the main workspace, while the four-stage study method lives in a fixed panel that slides in from the right. This makes the study method feel secondary to the Bible reader rather than the organising structure of the active study.
+2. **The four stages are compressed into narrow tabs.** They provide navigation but little persistent explanation of the current task, prior-stage evidence or the next step.
+3. **The study panel contains many stacked layers.** Stage guidance, evidence handoff, claim evidence, a large note field, related passages, find controls and export/history actions all compete vertically. Some content is useful but should be contextual or collapsible.
+4. **The reader toolbar is crowded.** Passage selection, translation, Strong's, notes, cloud sync, AI, Bible search, outline, cross-reference tools and verse selection actions are spread across multiple toolbars and menus.
+5. **Verse actions duplicate concepts across locations.** The chapter toolbar and selected-verse bar both expose related research actions. Their relationship should be simplified so actions appear in the context where they are relevant.
+6. **The AI Mentor is visually and structurally separate.** It should become a contextual research/assistant view attached to the active passage or selected verse, with explicit controls for accepting content into study notes.
+7. **The mobile CSS has accumulated many overrides.** There are overlapping breakpoints, touch-device detection, fixed full-screen states, drawer transforms, special desktop-site mode handling and panel-specific exceptions. Any redesign must reduce—not add to—this complexity.
+8. **The brand identity is hardcoded in many places.** The header, buttons, status surfaces, focus states and panel colours use repeated Tailwind slate/amber/sky/violet/emerald classes and fixed CSS colours. A central token system is needed, but functional markup colours must remain distinct.
+
+### Important correction to the redesign plan
+
+The application already contains meaningful stage guidance and evidence provenance. The problem is that these capabilities are distributed inside a secondary notes panel and are not presented as the main study journey.
+
+The first prototype should therefore test a different composition of existing capabilities:
+
+- Keep the Scripture passage and active study stage in one shared workspace.
+- Make the stage and its purpose persistently visible.
+- Give the current stage's notes and evidence the primary working surface.
+- Show carried-forward evidence as a clear, reviewable source list, not as another large block competing with the note editor.
+- Move claim-to-evidence linking, research, AI, outlines and exports into contextual tools or secondary views.
+- Keep one clear set of verse actions that appears only when a verse is selected.
+- On mobile, show the passage or the active stage as the primary task, with a simple switch between them; open research as a sheet or full-screen view.
+
+### Phase 0 audit conclusion
+
+The most important design decision is to stop treating the right-hand notes drawer as the whole study workspace. The current implementation separates the passage from the stage work. The redesign should integrate those into one study environment while retaining the existing underlying data and functions.
+
+This is a structural UX change, not a framework rewrite. The source currently uses a single HTML page, inline styles and JavaScript-driven panels. Implementation must respect that architecture and proceed in small, testable changes.

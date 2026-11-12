@@ -1109,6 +1109,7 @@ test('Cloud sync round trip preserves related passage verse text and stage inclu
     normalizeStudyRelatedPassages: relatedHarness.normalizeStudyRelatedPassages,
     normalizeStudyEvidenceLinks: value => Array.isArray(value) ? value : [],
     normalizeStudyClaims: value => Array.isArray(value) ? value : [],
+    normalizeStudyStageReviews: value => value && typeof value === 'object' && !Array.isArray(value) ? value : {},
     normalizeVerseMaps: value => value && typeof value === 'object' && !Array.isArray(value) ? value : {},
     normalizePassageOutline: value => value && typeof value === 'object' ? value : null,
     normalizeStudyNoteVersionHistory: value => Array.isArray(value) ? value : [],

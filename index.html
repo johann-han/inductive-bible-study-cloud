@@ -6456,7 +6456,10 @@ function renderStandardCrossReferenceList() {
       writeStudyTombstones(tombstones);
       const saved = writeStudyLibrary(library);
       if (status && saved) status.textContent = cloudSyncState.user ? 'Saved locally · syncing…' : 'Saved locally';
-      if (saved) scheduleCloudStudySync();
+      if (saved) {
+        scheduleCloudStudySync();
+        updateWorkspaceStageNavigation();
+      }
     }
 
     function updateWorkspaceSectionButtons() {

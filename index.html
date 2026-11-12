@@ -1283,6 +1283,16 @@
         </div>
 
         <div class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto">
+          <section id="workspaceStageGuidance" class="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 space-y-2" aria-labelledby="workspaceStageGuidanceTitle">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0"><p class="text-[10px] font-bold uppercase tracking-wide text-amber-900">Stage method</p><h3 id="workspaceStageGuidanceTitle" class="text-xs font-bold text-slate-900">Observation · What does the passage actually say?</h3></div>
+              <span id="workspaceStageReviewStatus" class="shrink-0 rounded-full border border-slate-300 bg-white px-2 py-1 text-[9px] font-semibold text-slate-600">Not started</span>
+            </div>
+            <p id="workspaceStageGuidanceIntro" class="text-[10px] leading-relaxed text-slate-700">Describe what is present in the text before explaining what it means.</p>
+            <div id="workspaceStageGuidancePrompts" class="space-y-1 text-[10px] leading-relaxed text-slate-700"></div>
+            <details class="rounded-md border border-amber-200 bg-white/80 p-2"><summary class="cursor-pointer text-[10px] font-semibold text-amber-950">Optional review points</summary><ul id="workspaceStageReviewCriteria" class="mt-2 list-disc space-y-1 pl-4 text-[10px] leading-relaxed text-slate-600"></ul></details>
+            <div class="flex items-center justify-between gap-2"><p id="workspaceStageReviewHelp" class="text-[9px] leading-relaxed text-slate-500">Review is optional; it does not certify that the study is complete.</p><button id="workspaceMarkStageReviewedBtn" type="button" class="shrink-0 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">Mark reviewed</button></div>
+          </section>
           <details id="workspaceEvidenceHandoff" class="rounded-lg border border-sky-200 bg-sky-50/70 p-2.5">
             <summary class="cursor-pointer select-none flex items-center justify-between gap-2 text-[11px] font-bold text-sky-950">
               <span id="workspaceEvidenceHandoffTitle">Evidence carried forward into Observe</span>
@@ -5683,6 +5693,103 @@ function renderStandardCrossReferenceList() {
     const NOTE_SECTION_LABELS = { observe: 'Observe', interpret: 'Interpret', doctrine: 'Doctrine', apply: 'Discipleship' };
     const WORKSPACE_STAGE_ORDER = Object.freeze(['observe', 'interpret', 'doctrine', 'apply']);
 
+    const WORKSPACE_STAGE_GUIDANCE = Object.freeze({
+      observe: {
+        title: 'Observation · What does the passage actually say?',
+        intro: 'Describe what is present in the text before explaining what it means. Let the passage, not assumptions, set the agenda.',
+        prompts: [
+          'Notice the literary and immediate context: who is speaking, to whom, where, when and why?',
+          'Mark repeated words, key terms, linking words, contrasts, comparisons, commands, questions and cause-and-effect relationships.',
+          'Trace people, actions, time markers, place references, paragraph movement and the structure of the passage.',
+          'Record what the text explicitly states separately from questions, implications and first impressions.'
+        ],
+        review: [
+          'Have I observed the whole passage in its immediate context?',
+          'Have I noticed important repeated words, connectors and relationships?',
+          'Have I distinguished what the text says from what I think it means?',
+          'Have I recorded questions without prematurely answering them?'
+        ]
+      },
+      interpret: {
+        title: 'Interpretation · What did the author communicate?',
+        intro: 'Explain the meaning intended in the original context. Build interpretation from the observations and the author’s flow of thought.',
+        prompts: [
+          'Consider the historical setting, audience, purpose, genre and literary context of the book and passage.',
+          'Follow the paragraph argument and explain how linking words, grammar, clauses and key terms shape the meaning.',
+          'Use original-language tools to clarify usage and syntax in context; do not treat a Strong’s gloss as the meaning of every occurrence.',
+          'Compare plausible interpretations with the surrounding context and wider biblical usage; identify what remains uncertain.'
+        ],
+        review: [
+          'Does my explanation account for the immediate context and the author’s flow of thought?',
+          'Have I supported key conclusions with textual details rather than isolated words?',
+          'Have I distinguished the author’s meaning from modern application?',
+          'Have I acknowledged credible alternatives or unresolved questions?'
+        ]
+      },
+      doctrine: {
+        title: 'Doctrine · What does the passage teach?',
+        intro: 'Move from the passage’s contextual meaning to a carefully stated biblical principle. Do not make the text say more than it establishes.',
+        prompts: [
+          'State the central theological truth or principle that follows from the passage’s meaning.',
+          'Identify what the passage teaches about God, humanity, sin, salvation, the church or faithful living, as relevant.',
+          'Use other Scriptures to clarify and corroborate the principle while preserving each passage’s own context.',
+          'Define the boundaries of the conclusion: what is explicit, what is inferred and what the passage does not settle.'
+        ],
+        review: [
+          'Does the stated principle arise from the passage’s interpretation?',
+          'Have supporting Scriptures been read in their own contexts?',
+          'Have I distinguished direct teaching from inference?',
+          'Have I avoided making a broader doctrinal claim than the evidence supports?'
+        ]
+      },
+      apply: {
+        title: 'Discipleship · How should we respond?',
+        intro: 'Respond faithfully to the meaning and teaching of the passage. Application follows interpretation and doctrine; it must not replace them.',
+        prompts: [
+          'Consider the appropriate response in worship, trust, repentance, obedience, character, relationships or service.',
+          'Ask how the passage challenges false beliefs, priorities, habits or attitudes in its original and present contexts.',
+          'Make responses concrete and proportionate to the text; identify who should act, what response is needed and when.',
+          'Consider both personal and communal implications without forcing an application the passage does not support.'
+        ],
+        review: [
+          'Does each response follow from the passage’s meaning and teaching?',
+          'Is the response specific, realistic and faithful to the text?',
+          'Have I considered both personal and communal dimensions where relevant?',
+          'Have I avoided turning a descriptive detail into an unsupported command?'
+        ]
+      }
+    });
+
+    function normalizeStudyStageReviews(value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+      const normalized = {};
+      WORKSPACE_STAGE_ORDER.forEach(stage => {
+        const entry = value[stage];
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
+        const reviewedAt = typeof entry.reviewedAt === 'string' ? entry.reviewedAt.slice(0, 50) : '';
+        const noteHash = typeof entry.noteHash === 'string' ? entry.noteHash.slice(0, 16) : '';
+        if (reviewedAt && noteHash) normalized[stage] = { reviewedAt, noteHash };
+      });
+      return normalized;
+    }
+
+    function getWorkspaceNoteFingerprint(value) {
+      const text = String(value || '');
+      let hash = 2166136261;
+      for (let index = 0; index < text.length; index++) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16).padStart(8, '0');
+    }
+
+    function getWorkspaceStageStatus(record, stage) {
+      const note = String(record?.sections?.[stage] || '').trim();
+      if (!note) return 'not-started';
+      const review = normalizeStudyStageReviews(record?.stageReviews)[stage];
+      return review && review.noteHash === getWorkspaceNoteFingerprint(note.trim()) ? 'reviewed' : 'in-progress';
+    }
+
     function normalizeStudyEvidenceLinks(value) {
       if (!Array.isArray(value)) return [];
       const normalized = [];
@@ -5840,8 +5947,9 @@ function renderStandardCrossReferenceList() {
         }
       }
       const record = library[key];
-      if (!record) return { book, chapter, sections: { observe: '', interpret: '', doctrine: '', apply: '' }, activeSection: 'observe', updatedAt: null };
+      if (!record) return { book, chapter, sections: { observe: '', interpret: '', doctrine: '', apply: '' }, stageReviews: {}, activeSection: 'observe', updatedAt: null };
       record.sections = record.sections || {};
+      record.stageReviews = normalizeStudyStageReviews(record.stageReviews);
       record.sections.observe = record.sections.observe || '';
       record.sections.interpret = record.sections.interpret || '';
       record.sections.doctrine = record.sections.doctrine || '';
@@ -6333,6 +6441,10 @@ function renderStandardCrossReferenceList() {
       const valueChanged = String(prior.sections[appState.activeNotesSection] || '') !== area.value;
       const sectionChanged = prior.activeSection !== appState.activeNotesSection;
       if (existing && !valueChanged && !sectionChanged) return;
+      if (valueChanged && prior.stageReviews) {
+        prior.stageReviews = normalizeStudyStageReviews(prior.stageReviews);
+        delete prior.stageReviews[appState.activeNotesSection];
+      }
       // Keep the previously saved text before applying a meaningful change.
       if (valueChanged) saveStudyNoteVersionSnapshot(prior);
       prior.sections[appState.activeNotesSection] = area.value;
@@ -6344,7 +6456,10 @@ function renderStandardCrossReferenceList() {
       writeStudyTombstones(tombstones);
       const saved = writeStudyLibrary(library);
       if (status && saved) status.textContent = cloudSyncState.user ? 'Saved locally · syncing…' : 'Saved locally';
-      if (saved) scheduleCloudStudySync();
+      if (saved) {
+        scheduleCloudStudySync();
+        updateWorkspaceStageNavigation();
+      }
     }
 
     function updateWorkspaceSectionButtons() {
@@ -6372,6 +6487,8 @@ function renderStandardCrossReferenceList() {
       const index = Math.max(0, WORKSPACE_STAGE_ORDER.indexOf(section));
       const record = readStudyLibrary()[studyRecordKey()] || null;
       const filled = WORKSPACE_STAGE_ORDER.filter(key => String(record?.sections?.[key] || '').trim()).length;
+      const reviewed = WORKSPACE_STAGE_ORDER.filter(key => getWorkspaceStageStatus(record, key) === 'reviewed').length;
+      const stageStatus = getWorkspaceStageStatus(record, section);
       const step = document.getElementById('workspaceStageStepLabel');
       const notes = document.getElementById('workspaceStageNotesStatus');
       const track = document.getElementById('workspaceStageProgressTrack');
@@ -6398,7 +6515,80 @@ function renderStandardCrossReferenceList() {
         next.title = finalStage ? 'Return to Observation to review the passage evidence' :
           'Continue to ' + NOTE_SECTION_LABELS[target] + ' with the evidence carried forward';
       }
-      if (status) status.textContent = filled + ' of 4 stages have notes · moving stages saves your current notes';
+      if (status) status.textContent = filled + ' of 4 stages have notes · ' + reviewed + ' reviewed · moving stages saves your current notes';
+      const reviewBadge = document.getElementById('workspaceStageReviewStatus');
+      const reviewButton = document.getElementById('workspaceMarkStageReviewedBtn');
+      const reviewHelp = document.getElementById('workspaceStageReviewHelp');
+      if (reviewBadge) {
+        reviewBadge.textContent = stageStatus === 'reviewed' ? 'Reviewed' : stageStatus === 'in-progress' ? 'In progress' : 'Not started';
+        reviewBadge.className = 'shrink-0 rounded-full border px-2 py-1 text-[9px] font-semibold ' +
+          (stageStatus === 'reviewed' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' :
+            stageStatus === 'in-progress' ? 'border-amber-300 bg-white text-amber-800' : 'border-slate-300 bg-white text-slate-600');
+      }
+      if (reviewButton) {
+        reviewButton.disabled = stageStatus === 'not-started';
+        reviewButton.textContent = stageStatus === 'reviewed' ? 'Reviewed ✓' : 'Mark reviewed';
+        reviewButton.setAttribute('aria-pressed', stageStatus === 'reviewed' ? 'true' : 'false');
+      }
+      if (reviewHelp) reviewHelp.textContent = stageStatus === 'reviewed'
+        ? 'Reviewed ' + (normalizeStudyStageReviews(record?.stageReviews)[section]?.reviewedAt || '').slice(0, 10) + ' · editing these notes returns the stage to In progress.'
+        : stageStatus === 'in-progress'
+          ? 'Review is optional. Mark this stage reviewed when you are satisfied with your notes.'
+          : 'Add notes before reviewing this stage. Review is optional and does not certify completion.';
+      renderWorkspaceStageGuidance(section);
+    }
+
+    function renderWorkspaceStageGuidance(stage) {
+      const guidance = WORKSPACE_STAGE_GUIDANCE[stage] || WORKSPACE_STAGE_GUIDANCE.observe;
+      const title = document.getElementById('workspaceStageGuidanceTitle');
+      const intro = document.getElementById('workspaceStageGuidanceIntro');
+      const prompts = document.getElementById('workspaceStageGuidancePrompts');
+      const criteria = document.getElementById('workspaceStageReviewCriteria');
+      if (title) title.textContent = guidance.title;
+      if (intro) intro.textContent = guidance.intro;
+      if (prompts) {
+        prompts.replaceChildren();
+        guidance.prompts.forEach(prompt => {
+          const item = document.createElement('p');
+          item.className = 'leading-relaxed';
+          item.textContent = '• ' + prompt;
+          prompts.appendChild(item);
+        });
+      }
+      if (criteria) {
+        criteria.replaceChildren();
+        guidance.review.forEach(point => {
+          const item = document.createElement('li');
+          item.textContent = point;
+          criteria.appendChild(item);
+        });
+      }
+    }
+
+    function markWorkspaceStageReviewed() {
+      saveActiveStudyNote();
+      const stage = NOTE_SECTION_LABELS[appState.activeNotesSection] ? appState.activeNotesSection : 'observe';
+      const library = readStudyLibrary();
+      const key = studyRecordKey();
+      const record = library[key];
+      const note = String(record?.sections?.[stage] || '');
+      const status = document.getElementById('workspaceStageReviewHelp');
+      if (!record || !note.trim()) {
+        if (status) status.textContent = 'Add notes to this stage before marking it reviewed.';
+        return false;
+      }
+      record.stageReviews = normalizeStudyStageReviews(record.stageReviews);
+      record.stageReviews[stage] = { reviewedAt: new Date().toISOString(), noteHash: getWorkspaceNoteFingerprint(note.trim()) };
+      record.updatedAt = new Date().toISOString();
+      library[key] = record;
+      if (!writeStudyLibrary(library)) {
+        if (status) status.textContent = 'The review status could not be saved. Your notes were not changed.';
+        return false;
+      }
+      scheduleCloudStudySync();
+      updateWorkspaceStageNavigation();
+      if (status) status.textContent = 'Stage marked reviewed. Editing its notes will return it to In progress.';
+      return true;
     }
 
     function stripWorkspaceEvidenceHandoffBlocks(value) {
@@ -7067,6 +7257,7 @@ function renderStandardCrossReferenceList() {
     function setupNotesPersistence() {
       const area = document.getElementById('workspaceNoteArea');
       if (!area) return;
+      document.getElementById('workspaceMarkStageReviewedBtn')?.addEventListener('click', markWorkspaceStageReviewed);
       document.getElementById('workspaceCaptureClaimBtn')?.addEventListener('click', captureWorkspaceClaimSelection);
       document.getElementById('workspaceSaveClaimLinksBtn')?.addEventListener('click', saveWorkspaceClaimEvidenceLinks);
       document.getElementById('workspaceClaimEvidencePanel')?.addEventListener('toggle', event => {
@@ -8188,6 +8379,7 @@ function renderStandardCrossReferenceList() {
             (Array.isArray(record.versionHistory) && record.versionHistory.length > 0) ||
             (Array.isArray(record.evidenceLinks) && record.evidenceLinks.length > 0) ||
             (Array.isArray(record.studyClaims) && record.studyClaims.length > 0) ||
+            Object.keys(normalizeStudyStageReviews(record.stageReviews)).length > 0 ||
             (Array.isArray(record.scriptureMarkups) && record.scriptureMarkups.length > 0) ||
             (Array.isArray(record.crossReferences) && record.crossReferences.length > 0) || (Array.isArray(record.relatedPassages) && record.relatedPassages.length > 0) || Object.keys(normalizeVerseMaps(record.verseMaps)).length > 0 || hasSavedPassageOutline(record.passageOutline)
           ))
@@ -8203,6 +8395,7 @@ function renderStandardCrossReferenceList() {
           versionHistory: normalizeStudyNoteVersionHistory(record.versionHistory),
           evidenceLinks: normalizeStudyEvidenceLinks(record.evidenceLinks),
           studyClaims: normalizeStudyClaims(record.studyClaims),
+          stageReviews: normalizeStudyStageReviews(record.stageReviews),
           scriptureMarkups: Array.isArray(record.scriptureMarkups) ? record.scriptureMarkups
             .filter(mark => mark && SCRIPTURE_MARKUP_TYPES[mark.type] &&
               Number.isInteger(mark.verse) && mark.verse > 0 &&
@@ -8487,6 +8680,20 @@ function renderStandardCrossReferenceList() {
           }
         }
 
+        let stageReviews = {};
+        if (Object.prototype.hasOwnProperty.call(item, 'stageReviews')) {
+          if (!item.stageReviews || typeof item.stageReviews !== 'object' || Array.isArray(item.stageReviews) ||
+              Object.keys(item.stageReviews).some(stage => !WORKSPACE_STAGE_ORDER.includes(stage))) {
+            setStudyBackupStatus(`The backup has invalid stage-review data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+          stageReviews = normalizeStudyStageReviews(item.stageReviews);
+          if (Object.keys(stageReviews).length !== Object.keys(item.stageReviews).length) {
+            setStudyBackupStatus(`The backup has invalid stage-review data for ${book} ${chapter}. No changes were made.`, 'error');
+            return;
+          }
+        }
+
         const key = studyRecordKey(book, chapter);
         if (seen.has(key)) {
           setStudyBackupStatus(`The backup contains ${book} ${chapter} more than once. No changes were made.`, 'error');
@@ -8512,6 +8719,7 @@ function renderStandardCrossReferenceList() {
             ...(Object.prototype.hasOwnProperty.call(item, 'versionHistory') ? { versionHistory } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'evidenceLinks') ? { evidenceLinks } : {}),
             ...(Object.prototype.hasOwnProperty.call(item, 'studyClaims') ? { studyClaims } : {}),
+            ...(Object.prototype.hasOwnProperty.call(item, 'stageReviews') ? { stageReviews } : {}),
             activeSection: NOTE_SECTION_LABELS[item.activeSection] ? item.activeSection : 'observe',
             updatedAt: new Date(updatedMs).toISOString()
           }
@@ -8550,6 +8758,8 @@ function renderStandardCrossReferenceList() {
         if (!Object.prototype.hasOwnProperty.call(incoming, 'versionHistory')) incoming.versionHistory = normalizeStudyNoteVersionHistory(current?.versionHistory);
         // Older backups without evidence provenance preserve links already saved locally.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'evidenceLinks')) incoming.evidenceLinks = normalizeStudyEvidenceLinks(current?.evidenceLinks);
+        // Older backups without stage review metadata preserve the current review states.
+        if (!Object.prototype.hasOwnProperty.call(incoming, 'stageReviews')) incoming.stageReviews = normalizeStudyStageReviews(current?.stageReviews);
         // Older backups without claim links preserve the current study's claim relationships.
         if (!Object.prototype.hasOwnProperty.call(incoming, 'studyClaims')) incoming.studyClaims = normalizeStudyClaims(current?.studyClaims);
         // Old backups without Doctrine preserve any Doctrine notes already saved locally.
@@ -8917,6 +9127,7 @@ function renderStandardCrossReferenceList() {
         versionHistory: normalizeStudyNoteVersionHistory(row.sections?._versionHistory),
         evidenceLinks: normalizeStudyEvidenceLinks(row.sections?._evidenceLinks),
         studyClaims: normalizeStudyClaims(row.sections?._studyClaims),
+        stageReviews: normalizeStudyStageReviews(row.sections?._stageReviews),
         activeSection: NOTE_SECTION_LABELS[row.active_section] ? row.active_section : 'observe',
         updatedAt: row.updated_at || row.deleted_at || new Date().toISOString()
       };
@@ -8974,7 +9185,7 @@ function renderStandardCrossReferenceList() {
             return a.kind === 'deleted' ? -1 : 1;
           });
           const winner = candidates[0];
-          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims;
+          let book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims, stageReviews;
           if (winner.kind === 'deleted') {
             const split = key.lastIndexOf('::');
             book = winner.record?.book || remote?.book || key.slice(0, split);
@@ -8991,6 +9202,7 @@ function renderStandardCrossReferenceList() {
             versionHistory = [];
             evidenceLinks = [];
             studyClaims = [];
+            stageReviews = {};
           } else if (winner.record && winner.record.book) {
             const rec = winner.source === 'remote' ? cloudRowToRecord(winner.record) : winner.record;
             book = rec.book;
@@ -9011,7 +9223,8 @@ function renderStandardCrossReferenceList() {
             versionHistory = normalizeStudyNoteVersionHistory(rec.versionHistory);
             evidenceLinks = normalizeStudyEvidenceLinks(rec.evidenceLinks);
             studyClaims = normalizeStudyClaims(rec.studyClaims);
-            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims };
+            stageReviews = normalizeStudyStageReviews(rec.stageReviews);
+            mergedLibrary[key] = { book, chapter, sections, activeSection, updatedAt, scriptureMarkups, crossReferences, relatedPassages, verseMaps, passageOutline, versionHistory, evidenceLinks, studyClaims, stageReviews };
           } else {
             continue;
           }
@@ -9019,7 +9232,7 @@ function renderStandardCrossReferenceList() {
             user_id: cloudSyncState.user.id,
             book,
             chapter,
-            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory, _evidenceLinks: evidenceLinks, _studyClaims: studyClaims },
+            sections: { ...sections, _scriptureMarkups: scriptureMarkups, _crossReferences: crossReferences, _relatedPassages: relatedPassages, _verseMaps: verseMaps, _passageOutline: passageOutline, _versionHistory: versionHistory, _evidenceLinks: evidenceLinks, _studyClaims: studyClaims, _stageReviews: stageReviews },
             active_section: activeSection,
             updated_at: updatedAt,
             deleted_at: winner.kind === 'deleted' ? updatedAt : null
@@ -9042,7 +9255,8 @@ function renderStandardCrossReferenceList() {
             JSON.stringify(normalizePassageOutline(remote.sections?._passageOutline)) === JSON.stringify(normalizePassageOutline(nextRow.sections?._passageOutline)) &&
             JSON.stringify(normalizeStudyNoteVersionHistory(remote.sections?._versionHistory)) === JSON.stringify(normalizeStudyNoteVersionHistory(nextRow.sections?._versionHistory)) &&
             JSON.stringify(normalizeStudyEvidenceLinks(remote.sections?._evidenceLinks)) === JSON.stringify(normalizeStudyEvidenceLinks(nextRow.sections?._evidenceLinks)) &&
-            JSON.stringify(normalizeStudyClaims(remote.sections?._studyClaims)) === JSON.stringify(normalizeStudyClaims(nextRow.sections?._studyClaims));
+            JSON.stringify(normalizeStudyClaims(remote.sections?._studyClaims)) === JSON.stringify(normalizeStudyClaims(nextRow.sections?._studyClaims)) &&
+            JSON.stringify(normalizeStudyStageReviews(remote.sections?._stageReviews)) === JSON.stringify(normalizeStudyStageReviews(nextRow.sections?._stageReviews));
           if (!remoteAlreadyMatches) rowsToUpsert.push(nextRow);
         }
 

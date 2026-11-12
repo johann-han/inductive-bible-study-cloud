@@ -118,3 +118,62 @@ test('related passages stay compact when empty and remain available through Add 
   assert.ok(render.includes("toggleButton.classList.remove('hidden')"));
   assert.ok(!render.includes('No related verse text has been added to this study yet.'));
 });
+
+
+test('each inductive stage has distinct text-led guidance and optional review criteria', () => {
+  for (const stage of ['observe', 'interpret', 'doctrine', 'apply']) {
+    assert.ok(app.includes(stage + ': {'), 'Missing guidance for ' + stage);
+  }
+  assert.ok(app.includes('WORKSPACE_STAGE_GUIDANCE'));
+  assert.ok(app.includes('Optional review points'));
+  assert.ok(app.includes('Review is optional'));
+  assert.ok(app.includes('do not treat a Strong’s gloss as the meaning of every occurrence'));
+  assert.ok(app.includes('Application follows interpretation and doctrine'));
+});
+
+test('stage review status is optional, note-specific and invalidated when notes change', () => {
+  const normalizer = functionSource('normalizeStudyStageReviews');
+  assert.ok(normalizer.includes('WORKSPACE_STAGE_ORDER'));
+  assert.ok(normalizer.includes('reviewedAt'));
+  assert.ok(normalizer.includes('noteHash'));
+
+  const fingerprint = functionSource('getWorkspaceNoteFingerprint');
+  assert.ok(fingerprint.includes('Math.imul'));
+  const status = functionSource('getWorkspaceStageStatus');
+  assert.ok(status.includes("if (!note) return 'not-started'"));
+  assert.ok(status.includes("? 'reviewed' : 'in-progress'"));
+
+  const save = functionSource('saveActiveStudyNote');
+  assert.ok(save.includes('delete prior.stageReviews[appState.activeNotesSection]'));
+  assert.ok(save.includes('updateWorkspaceStageNavigation()'));
+
+  // Review state is not a prerequisite for moving between stages.
+  const navigation = functionSource('updateWorkspaceStageNavigation');
+  assert.ok(navigation.includes('next.disabled = finalStage') === false);
+  assert.ok(!navigation.includes('stageStatus !=='));
+});
+
+test('stage review metadata survives local/cloud sync and backup restore', () => {
+  const cloud = functionSource('cloudRowToRecord');
+  assert.ok(cloud.includes('normalizeStudyStageReviews(row.sections?._stageReviews)'));
+
+  assert.ok(app.includes('_stageReviews: stageReviews'));
+  assert.ok(app.includes('remote.sections?._stageReviews'));
+
+  const backup = functionSource('exportFullStudyBackup');
+  assert.ok(backup.includes('stageReviews: normalizeStudyStageReviews(record.stageReviews)'));
+
+  assert.ok(app.includes('invalid stage-review data'));
+  assert.ok(app.includes("hasOwnProperty.call(item, 'stageReviews')"));
+  assert.ok(app.includes('incoming.stageReviews = normalizeStudyStageReviews(current?.stageReviews)'));
+});
+
+test('review action requires saved notes and records a fingerprint rather than certifying completion', () => {
+  const source = functionSource('markWorkspaceStageReviewed');
+  assert.ok(source.includes('if (!record || !note.trim())'));
+  assert.ok(source.includes('noteHash: getWorkspaceNoteFingerprint(note.trim())'));
+  assert.ok(source.includes('reviewedAt: new Date().toISOString()'));
+  assert.ok(source.includes('scheduleCloudStudySync()'));
+  assert.ok(source.includes('does not certify') === false);
+  assert.ok(app.includes('Review is optional; it does not certify that the study is complete.'));
+});

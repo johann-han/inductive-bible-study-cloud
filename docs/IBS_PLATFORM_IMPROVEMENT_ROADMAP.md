@@ -164,7 +164,7 @@ The metadata must survive the existing local-storage and Supabase JSON round-tri
 | Area | Current position | Next verification | Status |
 |---|---|---|---|
 | Evidence-driven workflow | PR #164 established source provenance; PR #165 adds statement-to-evidence links with direct, contextual, corroborating and inference classifications. | Verify the production commit, then test evidence adequacy and begin guided methodology improvements. | Phases 1–2 merged · live deployment unverified |
-| Guided methodology | Four inductive stages already exist. | Review stage-specific prompts and boundaries. | Planned |
+| Guided methodology | Four stages now have distinct text-led prompts, optional review criteria and note-specific review states. Reviewed status is invalidated when notes change and is stored in the existing study JSON payload. | Run IBS and IBS/Kerygma CI; verify local/cloud/backup round-trips and mobile layout before merge. | In PR · Phase 3 implementation |
 | AI Study Mentor | AI Mentor and stage guidance already exist. | Audit stage adherence, quotation accuracy and evidence grounding. | Planned |
 | Research environment | Strong's, morphology, word studies and cross-references exist. | Map missing resources and source/licensing requirements. | Planned |
 | Reports and output | Exports and Kerygma integration already exist. | Verify generated output preserves sources and provenance. | Planned |
@@ -181,3 +181,13 @@ The metadata must survive the existing local-storage and Supabase JSON round-tri
 | 2026-11-08 · PR #165 | Added selected-statement evidence linking, relationship classifications, stale-statement review, and local/cloud/backup persistence for claims. | IBS Regression #40 and IBS/Kerygma #373 passed; merged as `29ec6e0`. Render deployment not yet verified. |
 
 **Platform success criterion:** A student can move from a biblical passage to a carefully reasoned interpretation, a defensible doctrinal conclusion and a faithful response, while being able to inspect the Scripture and research evidence behind every important step.
+
+
+### 2026-11-12 · Phase 3 implementation
+
+- Added stage-specific guidance for Observation, Interpretation, Doctrine and Discipleship.
+- Added optional review criteria and Not started / In progress / Reviewed status.
+- Reviewed status is tied to a fingerprint of the stage notes; editing the notes invalidates the review.
+- Stored review metadata in the existing study-record JSON and included it in cloud sync and version-1 backup/restore without a schema migration.
+- Review is optional and does not block movement between stages or imply that the passage is fully understood.
+- Pending: automated CI and production verification.

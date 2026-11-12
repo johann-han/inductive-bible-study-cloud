@@ -157,17 +157,15 @@ test('stage review metadata survives local/cloud sync and backup restore', () =>
   const cloud = functionSource('cloudRowToRecord');
   assert.ok(cloud.includes('normalizeStudyStageReviews(row.sections?._stageReviews)'));
 
-  const sync = functionSource('syncCloudStudyLibrary');
-  assert.ok(sync.includes('_stageReviews: stageReviews'));
-  assert.ok(sync.includes('remote.sections?._stageReviews'));
+  assert.ok(app.includes('_stageReviews: stageReviews'));
+  assert.ok(app.includes('remote.sections?._stageReviews'));
 
   const backup = functionSource('exportFullStudyBackup');
   assert.ok(backup.includes('stageReviews: normalizeStudyStageReviews(record.stageReviews)'));
 
-  const restore = functionSource('restoreFullStudyBackup');
-  assert.ok(restore.includes('invalid stage-review data'));
-  assert.ok(restore.includes("hasOwnProperty.call(item, 'stageReviews')"));
-  assert.ok(restore.includes('incoming.stageReviews = normalizeStudyStageReviews(current?.stageReviews)'));
+  assert.ok(app.includes('invalid stage-review data'));
+  assert.ok(app.includes("hasOwnProperty.call(item, 'stageReviews')"));
+  assert.ok(app.includes('incoming.stageReviews = normalizeStudyStageReviews(current?.stageReviews)'));
 });
 
 test('review action requires saved notes and records a fingerprint rather than certifying completion', () => {

@@ -20,7 +20,7 @@ import { readPreviewMarkup, SCRIPTURE_MARKUP_TYPES, toggleVerseMarkup, writePrev
 import { addPreviewCrossReference, deletePreviewCrossReference, formatCrossReference, readPreviewCrossReferences, writePreviewCrossReferences } from './lib/cross-references.mjs';
 import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
-import { getStandardCrossReferences, loadStandardCrossReferences, STANDARD_XREF_SOURCE } from './lib/standard-cross-references.mjs';
+import { loadStandardCrossReferences, STANDARD_XREF_SOURCE } from './lib/standard-cross-references.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -160,10 +160,10 @@ export default function App() {
     const sourceTranslation = translation === 'KJV' ? 'KJV' : 'BSB';
     setStandardReferencesStatus('loading');
     setStandardReferencesError('');
-    loadStandardCrossReferences(sourceTranslation, { signal: controller.signal })
+    loadStandardCrossReferences(sourceTranslation, { signal: controller.signal, book, chapter })
       .then(rows => {
         if (controller.signal.aborted) return;
-        setStandardCrossReferences(getStandardCrossReferences(rows, { book, chapter }));
+        setStandardCrossReferences(rows);
         setStandardReferencesStatus('loaded');
       })
       .catch(error => {

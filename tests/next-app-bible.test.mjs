@@ -341,7 +341,7 @@ test('stage evidence handoff excludes the active and future stages and ignores b
     apply: 'Act faithfully.'
   };
   assert.deepEqual(getPreviewStageEvidence(draft, 'doctrine'), [
-    { stage: 'interpret', text: 'The argument develops from the opening observation.', wordCount: 8 }
+    { stage: 'interpret', text: 'The argument develops from the opening observation.', wordCount: 7 }
   ]);
   assert.deepEqual(getPreviewStageEvidence(draft, 'observe'), []);
   assert.deepEqual(getPreviewStageEvidence(draft, 'unknown'), []);

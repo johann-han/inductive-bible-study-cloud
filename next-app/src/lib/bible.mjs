@@ -190,7 +190,7 @@ export function getPreviewStageEvidence(draft, activeStage) {
     result.push({
       stage: stage,
       text: text,
-      wordCount: text.split(/\\s+/).length
+      wordCount: text.split(/\s+/).length
     });
     return result;
   }, []);

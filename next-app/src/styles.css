@@ -237,3 +237,16 @@
 .reference-preview-open svg{width:12px;height:12px}
 .reference-preview-hint{font-size:10px;color:#87948a;margin:8px 0 0}
 @media(max-width:560px){.reference-verse-popover{padding:12px}.reference-preview-verse{grid-template-columns:18px minmax(0,1fr);gap:7px}.reference-preview-open{grid-column:2;padding-top:0}}
+
+
+/* Word- and phrase-level observation markings */
+.verse p{user-select:text;-webkit-user-select:text;cursor:text}
+.word-markup{padding:0 .035em;border-radius:3px;color:inherit;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.word-markup-key-word{background:#f5e7b9;text-decoration:underline;text-decoration-color:#b58a3d;text-decoration-thickness:1px;text-underline-offset:3px}
+.word-markup-repeated-idea{background:#dcece0;text-decoration:underline;text-decoration-style:double;text-decoration-color:#4d8060;text-underline-offset:3px}
+.word-markup-contrast{background:#f3dfd7;text-decoration:underline;text-decoration-color:#b66e54;text-decoration-thickness:2px;text-underline-offset:3px}
+.word-markup-command{background:#e6e1f1;text-decoration:underline;text-decoration-color:#78639d;text-decoration-thickness:2px;text-underline-offset:3px}
+.word-markup-promise{background:#f6edc9;text-decoration:underline;text-decoration-color:#a98537;text-decoration-thickness:2px;text-underline-offset:3px}
+.word-markup-question{background:#dce9f2;text-decoration:underline;text-decoration-color:#547e9d;text-decoration-style:dotted;text-underline-offset:3px}
+.markup-toolbar-heading>span{max-width:65%;text-align:right;line-height:1.5}
+@media(max-width:560px){.markup-toolbar-heading>span{max-width:100%;text-align:left}}

@@ -456,7 +456,7 @@ export default function App() {
               <div className="verse-action-buttons">
                 <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()}><span aria-hidden="true">▢</span>{selectedVerseRecords.length === 1 ? "Copy verse" : "Copy verses"}</button>
                 <button type="button" className="verse-action" onClick={() => setShowAddToStudy(value => !value)} disabled={!selectedVerseRecord}><span aria-hidden="true">＋</span>Add to study</button>
-                <button type="button" className="verse-action" onClick={openVerseCrossReference} disabled={!selectedVerseRecord}><span aria-hidden="true">↗</span>Link passage</button>
+                <button type="button" className="verse-action" onClick={openVerseCrossReference} disabled={!selectedVerseRecord || selectedVerseRecords.length > 1} title={selectedVerseRecords.length > 1 ? "Link passage is available when one verse is selected." : "Link selected verse to another passage"}><span aria-hidden="true">↗</span>{selectedVerseRecords.length > 1 ? "Link one verse" : "Link passage"}</button>
                 <button type="button" className="verse-action" onClick={addVerseAsObservation} disabled={!selectedVerseRecord}><span aria-hidden="true">✎</span>Add observation</button>
               </div>
               {showAddToStudy && <div className="add-to-study-panel">

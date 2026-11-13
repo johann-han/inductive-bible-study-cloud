@@ -263,7 +263,7 @@ test('preview study library lists only non-empty draft records with active stage
   assert.deepEqual(entries.map(entry => entry.book + '|' + entry.chapter), ['Genesis|1', 'John|1']);
   assert.equal(entries[0].activeStage, 'doctrine');
   assert.equal(entries[0].stageCount, 2);
-  assert.equal(entries[0].wordCount, 4);
+  assert.equal(entries[0].wordCount, 5);
   assert.match(entries[0].preview, /God is Creator/);
   assert.equal(entries[1].activeStage, 'interpret');
   assert.equal(entries[1].stageCount, 2);

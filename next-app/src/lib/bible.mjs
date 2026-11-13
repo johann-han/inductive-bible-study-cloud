@@ -162,7 +162,7 @@ export function listPreviewDraftEntries(drafts) {
     const previewText = (activeText || notes[latestWrittenStage] || '').trim();
     const wordCount = writtenStages.reduce(function (total, stage) {
       const content = notes[stage].trim();
-      return total + (content ? content.split(/\\s+/).length : 0);
+      return total + (content ? content.split(/\s+/).length : 0);
     }, 0);
     return {
       book: book,

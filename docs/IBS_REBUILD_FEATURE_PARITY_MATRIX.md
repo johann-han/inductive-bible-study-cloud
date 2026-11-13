@@ -55,7 +55,7 @@ The CI workflow runs `npm test` on Node 22. The rebuild must keep this workflow 
 
 ## Rebuild implementation status
 
-**Reviewed at commit:** `a771f2781faa8741f176a430d2e1781301d1d495`
+**Reviewed at commit:** `8884d142c4277b3ab563c86912a8585e8db77f67`
 
 | Area | Status in next-generation branch | Boundary / remaining work |
 |---|---|---|
@@ -68,7 +68,7 @@ The CI workflow runs `npm test` on Node 22. The rebuild must keep this workflow 
 | Preview Overview dashboard | Implemented locally only | Overview is now the preview landing view, with accurate draft/stage/word totals, saved preview drafts and direct navigation to the reader/library. It explicitly identifies browser-only data and is not the authenticated production home. |
 | Cloud study adapter | Pure conversion layer implemented and tested | Preserves four stage bodies and known/unknown JSONB fields; no Supabase client, network calls or writes. |
 | Doctrine active stage | Compatibility mapping proposed and unit-tested | Uses `sections._activeStage` and constrained `active_section='interpret'`. Must not be enabled until legacy-client metadata loss and rollout compatibility are resolved. |
-| Authentication / user identity | Not integrated | Must wait for an isolated preview Supabase target and reviewed server session flow. |
+| Authentication / user identity | Contract inventoried; not integrated | Invitation-only Supabase sign-in/session, access-request and admin authorization routes are mapped. Wait for an isolated preview Supabase target before integration or credential-based tests. |
 | Production study library and sync | Not integrated | Must be built against the verified cloud/local contract and safely tested with isolated data. |
 | Evidence handoff, cross-references, markup, backup/restore | Not integrated | Existing behaviour remains in production; new-app parity is outstanding. |
 | AI Mentor and Kerygma | Not integrated | Preserve current server routes and cloud sermon contracts; reintroduce after authenticated data context is safe. |
@@ -94,13 +94,19 @@ The CI workflow runs `npm test` on Node 22. The rebuild must keep this workflow 
 8. Kerygma sermon records and IBS source links must remain intact.
 9. No production data migration is allowed as part of the initial UI rebuild.
 
-## Known unresolved discovery items
+## Confirmed Phase 0 inventories
 
-- Exact inventory of all localStorage/sessionStorage keys and sql.js database tables.
-- Complete API route catalogue and request/response schemas from `server.js`.
-- Complete mapping of current DOM controls/events to domain capabilities.
-- Exact Woord van Lewe CSS colour values, font-family names and logo asset references from the live WordPress theme.
-- Preview service environment isolation and safe Supabase target.
-- Browser-level acceptance baseline for desktop, tablet and mobile.
+- Legacy browser keys, including workspace-width preference and the per-passage legacy note-key pattern, are inventoried in IBS_REBUILD_PHASE0_AUDIT.md.
+- The SQL.js in-memory schema is inventoried: lexicon and word_map, with its bounded seed data.
+- Server API route and authentication/authorization contracts are inventoried in IBS_REBUILD_PHASE0_AUDIT.md.
+- Cloud study records are browser-Supabase operations under RLS; no separate study REST route exists.
 
-These are Phase 0 blockers. Do not begin write-capable data integration until the relevant contracts are documented and the preview database target is verified.
+## Remaining discovery and release gates
+
+- Finish mapping current DOM controls/events to domain capabilities and confirm request/response payload schemas where a new client will call them.
+- Confirm exact Woord van Lewe font/logo assets if the rebuild needs to match them; the current visual baseline has already been accepted.
+- Provision and verify an isolated IBS staging Supabase project and confirm Render PR-preview environment variables target only it (or remain absent).
+- Resolve Doctrine active-stage compatibility and legacy unknown-JSON preservation across mixed client versions.
+- Complete browser-level acceptance for desktop, tablet and mobile, including accessibility and PWA install/update behaviour.
+
+Do not begin write-capable cloud integration until the staging target and compatibility contracts are independently verified.

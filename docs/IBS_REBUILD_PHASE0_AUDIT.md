@@ -15,6 +15,22 @@
 - Four study sections are represented as \`observe\`, \`interpret\`, \`doctrine\`, and \`apply\`.
 - The current cloud payload stores notes and metadata in \`study_records.sections\` JSONB. Existing metadata includes scripture markups, cross-references, related passages, verse maps, passage outline, version history, evidence links, study claims, and stage reviews.
 
+
+### Browser storage and local database inventory
+A direct source inventory of the production index.html found these browser-persistence contracts:
+- `inductive-study-library-v1`: local study records.
+- `inductive-study-library-deleted-v1`: local deletion tombstones; sync uses timestamps and deletion wins on ties.
+- `inductive-bible-study-last-reading-v1`: last book, chapter and translation.
+- `inductive-bible-study-last-active-study-v1`: last active book, chapter and study section.
+- `inductive-notes:{book}:{chapter}:{OT|NT}`: legacy per-passage note keys, read during migration into the study library.
+- `inductive-bible-study-workspace-width-v1`: adjustable workspace width.
+
+No sessionStorage or native indexedDB access was found in the inspected application source. The SQL.js setup creates a fresh in-memory SQLite database at app initialization; no database persistence was found in that initialization path. It defines two tables:
+- lexicon(id, lemma, translit, phonetic, pos, gloss, def, usage, source).
+- word_map(word, strong_id).
+
+The source seeds 12 explicit lexicon rows and 43 English-word-to-Strong's mappings. This is a small legacy lookup aid, not comprehensive lexical coverage and not a persistent user database. The rebuild's HelloAO / STEPBible Strong's layer is separate from these seed rows.
+
 ### Live Supabase schema observation
 The connected IBS project exposes three public tables:
 - \`study_records\`, with row-level security enabled and ownership scoped by \`user_id\`.
@@ -32,6 +48,34 @@ The live \`study_records.active_section\` check constraint permits only \`observ
 - ASV, WEB, and BBE are loaded through \`bible-api.com\` using a translation query parameter.
 - KJV retains the existing \`bible-api.com\` fallback if the HelloAO primary source is unavailable.
 - The existing last-read browser key is \`inductive-bible-study-last-reading-v1\`; the new reader reads and writes the same shape: book, chapter, translation.
+
+## Existing Node server API and identity contract
+
+The current server.js route inventory was inspected read-only:
+
+| Route | Method | Access and behaviour |
+|---|---|---|
+| /healthz | GET | Public health check; returns service status only. |
+| /api/config | GET | Public settings only: Supabase URL, anon key and AI-provider availability. Service-role and AI-provider secrets are not returned. |
+| /api/standard-cross-references | GET | Public validated TSV dataset; cached for six hours with stale-while-revalidate. |
+| /api/access-requests | POST | Public invitation request; validated and rate-limited, stored via server-only service role. Does not create an Auth account. |
+| /api/admin/status | GET | Requires verified Supabase bearer session; admin also requires confirmed email in IBS_ADMIN_EMAILS. |
+| /api/admin/access-requests | GET | Confirmed configured admin only; returns up to 50 pending requests. |
+| /api/admin/invite | POST | Confirmed configured admin only; server-side invitation, rate-limited. |
+| /api/admin/access-requests/:id/invite | POST | Confirmed configured admin only; sends invitation and marks request invited. |
+| /api/admin/access-requests/:id/decline | POST | Confirmed configured admin only; marks pending request declined. |
+| /api/mentor | POST | AI Mentor route; rate-limited and session-verified whenever cloud auth is configured. |
+| /api/sermon-ai | POST | Kerygma AI route; requires configured AI and Supabase auth, with per-user rate limiting. |
+
+There is no application-owned REST endpoint for study records. The signed-in browser Supabase client reads and upserts public.study_records directly; row-level security scopes those operations to the current auth.uid(). Kerygma uses its own Supabase cloud-sync path for public.kerygma_sermons. The PR-preview API guard blocks every /api/* route until a dedicated staging target exists.
+
+### Authentication lifecycle inspected
+- The browser requests /api/config, then initializes Supabase JS v2 with persistent sessions, automatic token refresh and invitation redirect detection.
+- Sign-in uses signInWithPassword; sign-out uses signOut; session recovery uses getSession; UI state follows onAuthStateChange.
+- There is no public auth.signUp() flow. New accounts are provisioned through server-side invitations by a configured administrator.
+- Invited users may submit an access request, but that only creates a pending request for review; it does not create an account.
+- Admin status is checked server-side against the configured, confirmed-email allowlist. Client-side user metadata is not admin authority.
+- The new UI must reproduce invitation-only sign-in/out, invitation callback/password setup, session-expiry handling and admin gating. These remain unimplemented until staging is isolated.
 
 ## This implementation milestone
 
@@ -60,16 +104,17 @@ The PR-preview server now checks Render's `IS_PULL_REQUEST=true` flag before rou
 Until a dedicated IBS staging backend is provisioned and explicitly configured on the PR preview service:
 - do not enable sign-in, cloud study sync, admin actions, access requests or AI API calls in the preview;
 - do not run write-capable tests against the production IBS project;
+- do not point the PR preview at the live production Supabase project, even for read-only user-library testing;
 - keep the new UI's study records isolated to the preview-specific browser storage key.
 
 ## Remaining blockers and next phases
 
-1. Inspect the complete login/session lifecycle and ensure a preview Supabase target is isolated before adding even read access to user records.
-2. Design a Doctrine active-stage compatibility contract that preserves older client sync behaviour and unknown JSON fields. This needs tests against the existing cloud row shape before any data adapter is enabled.
-3. Inventory and port related passages, study markup, claims/evidence, verse maps, outlines, export, backup/restore, note history, search, and deletion/recovery.
-4. Reconnect KJV/BSB interlinear and Strong's annotations with source provenance and verified word offsets.
-5. Reconnect AI Mentor and Kerygma through their existing server endpoints and current context contracts.
-6. Add route-level and browser-level tests for auth, passage navigation, notes, sync, stage transitions and recovery.
+1. Provision and verify an isolated IBS staging project; only then use it for sign-in, cloud sync and admin integration testing.
+2. Design a Doctrine active-stage compatibility contract that preserves older-client sync behaviour and unknown JSON fields. The legacy serializer can discard unknown JSONB keys, so _activeStage is not yet a safe cross-version marker.
+3. Finish mapping DOM controls to domain capabilities and port related passages, markup, claims/evidence, verse maps, outlines, export, backup/restore, note history, search, deletion/recovery and panel preferences.
+4. Complete original-language parity: Greek/Hebrew/Aramaic morphology, original-script interlinear displays, lexical usage and morphology-to-token mapping beyond the current KJV/BSB Strong's layer.
+5. Reconnect AI Mentor and Kerygma through existing server endpoints and current context contracts, using isolated staging data.
+6. Add route-level and browser-level tests for invitation-only auth, passage navigation, notes, sync, stage transitions, backup/restore and mobile accessibility.
 
 ## Safety gates
 - Keep this PR draft and separate from \`main\`.

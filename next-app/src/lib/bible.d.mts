@@ -40,7 +40,19 @@ export interface BibleChapter {
   annotations: Record<string, WordAnnotation[]>;
 }
 export type StudyStage = 'observe' | 'interpret' | 'doctrine' | 'apply';
-export type PreviewDrafts = Record<string, Record<StudyStage, string>>;
+export interface PreviewStudyDraft extends Record<StudyStage, string> {
+  activeStage: StudyStage;
+}
+export interface PreviewDraftEntry {
+  book: string;
+  chapter: number;
+  activeStage: StudyStage;
+  writtenStages: StudyStage[];
+  stageCount: number;
+  wordCount: number;
+  preview: string;
+}
+export type PreviewDrafts = Record<string, PreviewStudyDraft>;
 export interface SavedPassage {
   book: string;
   chapter: number;
@@ -52,6 +64,7 @@ export declare const LAST_READING_STORAGE_KEY: string;
 export declare const PREVIEW_DRAFTS_STORAGE_KEY: string;
 export declare function getBibleBook(name: string): BibleBook | undefined;
 export declare function readPreviewDrafts(storage?: Storage): PreviewDrafts;
+export declare function listPreviewDraftEntries(drafts: PreviewDrafts): PreviewDraftEntry[];
 export declare function writePreviewDrafts(drafts: PreviewDrafts, storage?: Storage): boolean;
 export declare function readSavedPassage(storage?: Storage): SavedPassage | null;
 export declare function writeSavedPassage(passage: SavedPassage, storage?: Storage): boolean;

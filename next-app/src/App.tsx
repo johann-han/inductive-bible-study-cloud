@@ -6,12 +6,13 @@ import {
   fetchBibleChapter,
   fetchStrongsLexicon,
   getBibleBook,
+  listPreviewDraftEntries,
   readPreviewDrafts,
   readSavedPassage,
   writePreviewDrafts,
   writeSavedPassage
 } from './lib/bible.mjs';
-import type { BibleChapter, BibleTranslation, PreviewDrafts, StrongLexiconEntry, StudyStage, WordAnnotation } from './lib/bible.mjs';
+import type { BibleChapter, BibleTranslation, PreviewDraftEntry, PreviewDrafts, PreviewStudyDraft, StrongLexiconEntry, StudyStage, WordAnnotation } from './lib/bible.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -95,15 +96,31 @@ export default function App() {
   const lexiconRequestRef = useRef(0);
   const [showGuidance, setShowGuidance] = useState(true);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
 
   const current = stages.find(s => s.id === stage)!;
   const passageDraftKey = book + '|' + chapter;
-  const emptyNotes: Record<Stage, string> = { observe: '', interpret: '', doctrine: '', apply: '' };
+  const emptyNotes: PreviewStudyDraft = { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' };
   const notesByStage = draftsByPassage[passageDraftKey] || emptyNotes;
   const note = notesByStage[stage];
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
   const bookInfo = getBibleBook(book)!;
+  const allPreviewLibraryEntries = useMemo(() => listPreviewDraftEntries(draftsByPassage), [draftsByPassage]);
+  const visiblePreviewLibraryEntries = useMemo(() => {
+    const query = libraryQuery.trim().toLocaleLowerCase();
+    if (!query) return allPreviewLibraryEntries;
+    return allPreviewLibraryEntries.filter(entry =>
+      (entry.book + ' ' + entry.chapter).toLocaleLowerCase().includes(query) ||
+      entry.preview.toLocaleLowerCase().includes(query) ||
+      entry.writtenStages.some(item => stages.find(candidate => candidate.id === item)?.label.toLocaleLowerCase().includes(query))
+    );
+  }, [allPreviewLibraryEntries, libraryQuery]);
+
+
+  useEffect(() => {
+    setStage(draftsByPassage[passageDraftKey]?.activeStage || 'observe');
+  }, [passageDraftKey]);
 
   useEffect(() => {
     setDraftSaveStatus('saving');
@@ -140,9 +157,28 @@ export default function App() {
     return () => controller.abort();
   }, [book, chapter, translation, readerReload]);
 
+  const changeStage = (nextStage: Stage) => {
+    setStage(nextStage);
+    setDraftsByPassage(previous => ({
+      ...previous,
+      [passageDraftKey]: {
+        ...emptyNotes,
+        ...(previous[passageDraftKey] || {}),
+        activeStage: nextStage
+      }
+    }));
+  };
+
   const move = (direction: number) => {
     const index = stages.findIndex(s => s.id === stage);
-    setStage(stages[Math.max(0, Math.min(3, index + direction))].id);
+    changeStage(stages[Math.max(0, Math.min(3, index + direction))].id);
+  };
+
+  const resumePreviewDraft = (entry: PreviewDraftEntry) => {
+    setBook(entry.book);
+    setChapter(entry.chapter);
+    setStage(entry.activeStage);
+    setShowLibrary(false);
   };
 
   const changeChapter = (direction: number) => {
@@ -211,7 +247,16 @@ export default function App() {
         <div className="crumbs"><span>My studies</span><Icon name="chevron"/><strong>{book} {chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · Scripture read-only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
-      {showLibrary ? <section className="library-view"><div className="eyebrow">YOUR LIBRARY</div><h1>Study library</h1><p>This preview is not yet connected to saved studies. Your existing library remains safely in the current IBS application.</p><button className="outline-button library-return" type="button" onClick={() => setShowLibrary(false)}>Return to Scripture workspace</button></section> :
+      {showLibrary ? <section className="library-view">
+        <div className="library-header"><div><div className="eyebrow">YOUR WORKSPACE · PREVIEW DRAFTS</div><h1>Study library</h1><p>Studies saved in this browser preview. These drafts are separate from your existing production library and are not synced to the cloud.</p></div><button className="outline-button" type="button" onClick={() => setShowLibrary(false)}>Return to study</button></div>
+        <div className="library-toolbar"><div className="library-result-count"><strong>{allPreviewLibraryEntries.length}</strong> {allPreviewLibraryEntries.length === 1 ? 'draft study' : 'draft studies'}</div><input className="library-search" type="search" value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search passage, stage or notes…" aria-label="Search preview studies"/></div>
+        {visiblePreviewLibraryEntries.length > 0 ? <div className="preview-study-list">
+          {visiblePreviewLibraryEntries.map(entry => <article className="preview-study-card" key={entry.book + '|' + entry.chapter}>
+            <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">LOCAL PREVIEW DRAFT</span><span>{entry.wordCount} words</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{entry.stageCount} of 4 stages have notes · Current stage: {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{entry.preview}</p><div className="preview-stage-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div></div>
+            <button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>Resume study <Icon name="chevron"/></button>
+          </article>)}
+        </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setShowLibrary(false)}>Open Bible reader <Icon name="chevron"/></button>}</div>}
+      </section> :
       <div className="study-page">
         <section className="study-heading">
           <div><div className="eyebrow">INDUCTIVE STUDY <span>•</span> {bookInfo.testament === 'OT' ? 'OLD TESTAMENT' : 'NEW TESTAMENT'}</div><h1>{book} <em>{chapter}</em></h1><p>{book === 'Genesis' && chapter === 1 ? 'Creation · The beginning of all things' : 'Read the passage carefully before recording your study.'}</p></div>
@@ -231,7 +276,7 @@ export default function App() {
             </select>
           </div>
         </section>
-        <nav className="stage-nav" aria-label="Study stages">{stages.map(s => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => setStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{completedStages.has(s.id) && <span className="stage-done">✓</span>}</button>)}</nav>
+        <nav className="stage-nav" aria-label="Study stages">{stages.map(s => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => changeStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{completedStages.has(s.id) && <span className="stage-done">✓</span>}</button>)}</nav>
         <div className="workspace">
           <section className="scripture-panel">
             <div className="panel-heading"><div><span className="eyebrow">SCRIPTURE</span><h2>{book} {chapter}</h2></div><div className="reader-tools"><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.max(16,v-1))} aria-label="Decrease Scripture text size">A−</button><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.min(25,v+1))} aria-label="Increase Scripture text size">A+</button><button className={showStrongs ? 'tool-button strongs-toggle active' : 'tool-button strongs-toggle'} type="button" aria-pressed={showStrongs} onClick={() => setShowStrongs(value => !value)}>Strong’s {showStrongs ? 'On' : 'Off'}</button></div></div>
@@ -264,7 +309,7 @@ export default function App() {
             {showGuidance && <div className="guidance-content"><p>{stage==='observe'?'Record what the text explicitly states. Trace repeated words, people, places, time markers, contrasts, commands and linking words. Avoid explaining meaning or moving to application.':stage==='interpret'?'Examine context, structure, grammar, keywords and linking words. Explain how the author develops the thought and support conclusions from the text.':stage==='doctrine'?'Synthesize what the passage teaches about God, humanity, creation and the wider biblical witness. Distinguish explicit teaching from inference.':'Identify a faithful response grounded in the passage. Make it specific, considered and connected to the meaning established in the earlier stages.'}</p></div>}
             <div className="evidence-strip"><div><span className="evidence-dot"/> <strong>Evidence from earlier stages</strong></div><span>{stage==='observe'?'No earlier-stage evidence yet':'Available after study integration'}</span></div>
             <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><span>{wordCount} words</span></div></div>
-            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setDraftsByPassage(prev=>({...prev,[passageDraftKey]:{...emptyNotes,...(prev[passageDraftKey] || {}),[stage]:e.target.value}}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
+            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setDraftsByPassage(prev=>({...prev,[passageDraftKey]:{...emptyNotes,...(prev[passageDraftKey] || {}),activeStage:stage,[stage]:e.target.value}}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
             <div className="editor-footer"><span>{draftSaveStatus === 'saving' ? 'Saving preview draft…' : draftSaveStatus === 'saved' ? 'Auto-saved in this preview only' : 'Browser storage unavailable · draft not saved'}</span><span>Text size {notesFontSize}px</span></div>
             <div className="stage-footer"><button className="outline-button" type="button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" type="button" onClick={()=>{setCompletedStages(prev=>new Set(prev).add(stage));move(1);}} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
           </section>

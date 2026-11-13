@@ -4,6 +4,7 @@ import {
   BIBLE_BOOKS,
   fetchBibleChapter,
   fetchStrongsLexicon,
+  listPreviewDraftEntries,
   LAST_READING_STORAGE_KEY,
   PREVIEW_DRAFTS_STORAGE_KEY,
   readPreviewDrafts,
@@ -215,14 +216,15 @@ test('preview-only stage notes persist per passage without using the existing st
     setItem: (key, value) => values.set(key, value)
   };
   const drafts = {
-    'Genesis|1': { observe: 'Repeated words are visible.', interpret: 'The passage opens with creation.', doctrine: 'God is the Creator.', apply: '' },
-    'John|1': { observe: 'The Word is introduced.', interpret: '', doctrine: '', apply: '' }
+    'Genesis|1': { observe: 'Repeated words are visible.', interpret: 'The passage opens with creation.', doctrine: 'God is the Creator.', apply: '', activeStage: 'doctrine' },
+    'John|1': { observe: 'The Word is introduced.', interpret: '', doctrine: '', apply: '', activeStage: 'observe' }
   };
   assert.equal(writePreviewDrafts(drafts, storage), true);
   assert.equal(values.has(PREVIEW_DRAFTS_STORAGE_KEY), true);
   const restored = readPreviewDrafts(storage);
   assert.equal(restored['Genesis|1'].observe, 'Repeated words are visible.');
   assert.equal(restored['Genesis|1'].doctrine, 'God is the Creator.');
+  assert.equal(restored['Genesis|1'].activeStage, 'doctrine');
   assert.equal(restored['John|1'].observe, 'The Word is introduced.');
 });
 
@@ -237,7 +239,7 @@ test('preview draft restoration ignores malformed passages and non-text note val
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value)
   });
-  assert.deepEqual(restored['Genesis|1'], { observe: 'Valid note', interpret: '', doctrine: '', apply: '' });
+  assert.deepEqual(restored['Genesis|1'], { observe: 'Valid note', interpret: '', doctrine: '', apply: '', activeStage: 'observe' });
   assert.equal(restored['Genesis|51'], undefined);
   assert.equal(restored['Unknown|1'], undefined);
 });
@@ -248,4 +250,21 @@ test('preview draft storage failures are reported rather than claimed as saved',
     setItem: () => { throw new Error('Storage quota exceeded'); }
   };
   assert.equal(writePreviewDrafts({ 'Genesis|1': { observe: 'A note', interpret: '', doctrine: '', apply: '' } }, storage), false);
+});
+
+
+test('preview study library lists only non-empty draft records with active stage and progress', () => {
+  const entries = listPreviewDraftEntries({
+    'John|1': { observe: 'The Word was with God.', interpret: 'John introduces the Word.', doctrine: '', apply: '', activeStage: 'interpret' },
+    'Genesis|1': { observe: 'God created.', interpret: '', doctrine: 'God is Creator.', apply: '', activeStage: 'doctrine' },
+    'Mark|1': { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' },
+    'Genesis|51': { observe: 'Invalid chapter', interpret: '', doctrine: '', apply: '', activeStage: 'observe' }
+  });
+  assert.deepEqual(entries.map(entry => entry.book + '|' + entry.chapter), ['Genesis|1', 'John|1']);
+  assert.equal(entries[0].activeStage, 'doctrine');
+  assert.equal(entries[0].stageCount, 2);
+  assert.equal(entries[0].wordCount, 4);
+  assert.match(entries[0].preview, /God is Creator/);
+  assert.equal(entries[1].activeStage, 'interpret');
+  assert.equal(entries[1].stageCount, 2);
 });

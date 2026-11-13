@@ -138,9 +138,46 @@ function normalizePreviewDrafts(input) {
     PREVIEW_STUDY_STAGES.forEach(function (stage) {
       notes[stage] = typeof source[stage] === 'string' ? source[stage] : '';
     });
+    const savedActiveStage = String(source.activeStage || '').toLowerCase();
+    notes.activeStage = PREVIEW_STUDY_STAGES.includes(savedActiveStage) ? savedActiveStage : 'observe';
     result[book.name + '|' + chapter] = notes;
   });
   return result;
+}
+
+export function listPreviewDraftEntries(drafts) {
+  const normalized = normalizePreviewDrafts(drafts);
+  const bookOrder = new Map(BIBLE_BOOKS.map(function (book, index) { return [book.name, index]; }));
+  return Object.entries(normalized).map(function (entry) {
+    const parts = entry[0].split('|');
+    const book = parts[0];
+    const chapter = Number(parts[1]);
+    const notes = entry[1];
+    const writtenStages = PREVIEW_STUDY_STAGES.filter(function (stage) {
+      return notes[stage].trim().length > 0;
+    });
+    const activeStage = notes.activeStage || 'observe';
+    const activeText = notes[activeStage] || '';
+    const latestWrittenStage = writtenStages.length ? writtenStages[writtenStages.length - 1] : 'observe';
+    const previewText = (activeText || notes[latestWrittenStage] || '').trim();
+    const wordCount = writtenStages.reduce(function (total, stage) {
+      const content = notes[stage].trim();
+      return total + (content ? content.split(/\\s+/).length : 0);
+    }, 0);
+    return {
+      book: book,
+      chapter: chapter,
+      activeStage: activeStage,
+      writtenStages: writtenStages,
+      stageCount: writtenStages.length,
+      wordCount: wordCount,
+      preview: previewText.slice(0, 220)
+    };
+  }).filter(function (entry) {
+    return entry.stageCount > 0;
+  }).sort(function (a, b) {
+    return (bookOrder.get(a.book) || 0) - (bookOrder.get(b.book) || 0) || a.chapter - b.chapter;
+  });
 }
 
 export function readPreviewDrafts(storage) {

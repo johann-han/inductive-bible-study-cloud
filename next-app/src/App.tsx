@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './styles.css';
 import {
   BIBLE_BOOKS,
@@ -89,7 +89,7 @@ export default function App() {
   const [lexiconWord, setLexiconWord] = useState('');
   const [lexiconLoading, setLexiconLoading] = useState(false);
   const [lexiconError, setLexiconError] = useState('');
-  const [lexiconRequest, setLexiconRequest] = useState(0);
+  const lexiconRequestRef = useRef(0);
   const [showGuidance, setShowGuidance] = useState(true);
   const [showLibrary, setShowLibrary] = useState(false);
   const [fontSize, setFontSize] = useState(19);
@@ -105,6 +105,11 @@ export default function App() {
     setBibleError('');
     setReaderNotice('');
     setSelectedVerse(1);
+    lexiconRequestRef.current += 1;
+    setLexicon(null);
+    setLexiconError('');
+    setLexiconLoading(false);
+    setLexiconWord('');
     writeSavedPassage({ book, chapter, translation });
 
     fetchBibleChapter(book, chapter, translation, { signal: controller.signal })
@@ -144,19 +149,20 @@ export default function App() {
   };
 
   const openLexicon = async (id: string, word: string) => {
-    const requestId = lexiconRequest + 1;
-    setLexiconRequest(requestId);
+    const requestId = ++lexiconRequestRef.current;
     setLexicon(null);
     setLexiconWord(word);
     setLexiconError('');
     setLexiconLoading(true);
     try {
       const entry = await fetchStrongsLexicon(id);
-      setLexicon(entry);
+      if (requestId === lexiconRequestRef.current) setLexicon(entry);
     } catch (error) {
-      setLexiconError(error instanceof Error ? error.message : 'The lexicon entry could not be loaded.');
+      if (requestId === lexiconRequestRef.current) {
+        setLexiconError(error instanceof Error ? error.message : 'The lexicon entry could not be loaded.');
+      }
     } finally {
-      setLexiconLoading(false);
+      if (requestId === lexiconRequestRef.current) setLexiconLoading(false);
     }
   };
 
@@ -229,7 +235,7 @@ export default function App() {
             </div>
             <div className="reader-footer"><span>Selected verse: {book} {chapter}:{selectedVerse}</span><button type="button" className="text-button" onClick={() => void copySelectedVerse()} disabled={!bible?.verses.some(verse => verse.number === selectedVerse)}>Copy verse ↗</button></div>
             {lexiconLoading || lexiconError || lexicon ? <section className="lexicon-panel" aria-live="polite" aria-label="Strong's lexicon entry">
-              <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { setLexicon(null); setLexiconError(''); setLexiconWord(''); }} aria-label="Close lexicon entry">×</button></div>
+              <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>
               {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}
               {lexiconError && <p className="lexicon-error" role="alert">{lexiconError}</p>}
               {lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a></>}

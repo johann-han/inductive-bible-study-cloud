@@ -40,7 +40,7 @@ The new read-only Bible layer is isolated in \`next-app/src/lib/bible.mjs\`. It 
 The layer intentionally does not:
 - connect to Supabase or write production data;
 - persist notes or study stages;
-- load Strong's or word-level morphology annotations;
+- load additional Greek/Hebrew morphology, original-script interlinear displays, or lexical usage counts;
 - claim that research, evidence handoff, AI, or Kerygma are integrated.
 
 ## Remaining blockers and next phases

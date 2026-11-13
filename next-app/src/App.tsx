@@ -1,5 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './styles.css';
+import {
+  BIBLE_BOOKS,
+  BIBLE_TRANSLATIONS,
+  fetchBibleChapter,
+  getBibleBook,
+  readSavedPassage,
+  writeSavedPassage
+} from './lib/bible.mjs';
+import type { BibleChapter, BibleTranslation } from './lib/bible.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -8,16 +17,7 @@ const stages: { id: Stage; number: string; label: string; question: string; hint
   { id: 'doctrine', number: '03', label: 'Doctrine', question: 'What does this teach about God and truth?', hint: 'Form theological conclusions from the meaning established in the text.' },
   { id: 'apply', number: '04', label: 'Discipleship', question: 'How should I respond?', hint: 'Move from the meaning of the passage to faithful, specific obedience.' }
 ];
-const verses = [
-  ['1', 'In the beginning God created the heaven and the earth.'],
-  ['2', 'And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters.'],
-  ['3', 'And God said, Let there be light: and there was light.'],
-  ['4', 'And God saw the light, that it was good: and God divided the light from the darkness.'],
-  ['5', 'And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.'],
-  ['6', 'And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters.'],
-  ['7', 'And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so.'],
-  ['8', 'And God called the firmament Heaven. And the evening and the morning were the second day.']
-];
+
 function Icon({ name }: { name: string }) {
   const paths: Record<string, string> = {
     home: 'M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9 20v-6h6v6',
@@ -31,61 +31,155 @@ function Icon({ name }: { name: string }) {
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name] || paths.book} /></svg>;
 }
+
+const initialPassage = readSavedPassage() || { book: 'Genesis', chapter: 1, translation: 'KJV' as BibleTranslation };
+
 export default function App() {
   const [stage, setStage] = useState<Stage>('observe');
   const [notesByStage, setNotesByStage] = useState<Record<Stage, string>>({ observe: '', interpret: '', doctrine: '', apply: '' });
   const [notesFontSize, setNotesFontSize] = useState(17);
   const [completedStages, setCompletedStages] = useState<Set<Stage>>(new Set());
-  const note = notesByStage[stage];
-  const [selected, setSelected] = useState('1');
+  const [book, setBook] = useState(initialPassage.book);
+  const [chapter, setChapter] = useState(initialPassage.chapter);
+  const [translation, setTranslation] = useState<BibleTranslation>(initialPassage.translation);
+  const [bible, setBible] = useState<BibleChapter | null>(null);
+  const [loadingBible, setLoadingBible] = useState(true);
+  const [bibleError, setBibleError] = useState('');
+  const [selectedVerse, setSelectedVerse] = useState(1);
+  const [readerNotice, setReaderNotice] = useState('');
   const [showGuidance, setShowGuidance] = useState(true);
   const [showLibrary, setShowLibrary] = useState(false);
   const [fontSize, setFontSize] = useState(19);
+
   const current = stages.find(s => s.id === stage)!;
+  const note = notesByStage[stage];
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
+  const bookInfo = getBibleBook(book)!;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadingBible(true);
+    setBibleError('');
+    setReaderNotice('');
+    setSelectedVerse(1);
+    writeSavedPassage({ book, chapter, translation });
+
+    fetchBibleChapter(book, chapter, translation, { signal: controller.signal })
+      .then(result => setBible(result))
+      .catch(error => {
+        if (controller.signal.aborted) return;
+        setBible(null);
+        setBibleError(error instanceof Error ? error.message : 'The Scripture chapter could not be loaded.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingBible(false);
+      });
+
+    return () => controller.abort();
+  }, [book, chapter, translation]);
+
   const move = (direction: number) => {
     const index = stages.findIndex(s => s.id === stage);
     setStage(stages[Math.max(0, Math.min(3, index + direction))].id);
   };
+
+  const changeChapter = (direction: number) => {
+    const bookIndex = BIBLE_BOOKS.findIndex(entry => entry.name === book);
+    let nextBook = book;
+    let nextChapter = chapter + direction;
+    if (nextChapter < 1 && bookIndex > 0) {
+      nextBook = BIBLE_BOOKS[bookIndex - 1].name;
+      nextChapter = BIBLE_BOOKS[bookIndex - 1].chapters;
+    } else if (nextChapter > bookInfo.chapters && bookIndex < BIBLE_BOOKS.length - 1) {
+      nextBook = BIBLE_BOOKS[bookIndex + 1].name;
+      nextChapter = 1;
+    }
+    if (nextBook !== book || nextChapter !== chapter) {
+      setBook(nextBook);
+      setChapter(nextChapter);
+    }
+  };
+
+  const copySelectedVerse = async () => {
+    const verse = bible?.verses.find(item => item.number === selectedVerse);
+    if (!verse) return;
+    const text = book + ' ' + chapter + ':' + verse.number + ' (' + translation + ') — ' + verse.text;
+    try {
+      await navigator.clipboard.writeText(text);
+      setReaderNotice('Verse copied.');
+    } catch {
+      setReaderNotice('Copy is unavailable in this browser. Select the verse text to copy it manually.');
+    }
+  };
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark">W</div><div><strong>IBS</strong><span>WORD OF LIFE</span></div></div>
       <div className="workspace-label">WORKSPACE</div>
-      <button className="nav-item active"><Icon name="home"/>Overview</button>
-      <button className="nav-item" onClick={() => setShowLibrary(!showLibrary)}><Icon name="library"/>Study library<span className="nav-count">12</span></button>
-      <button className="nav-item"><Icon name="book"/>Bible reader</button>
+      <button className="nav-item active" type="button"><Icon name="home"/>Overview</button>
+      <button className="nav-item" type="button" onClick={() => setShowLibrary(!showLibrary)}><Icon name="library"/>Study library</button>
+      <button className="nav-item" type="button" onClick={() => setShowLibrary(false)}><Icon name="book"/>Bible reader</button>
       <div className="sidebar-divider"/>
       <div className="workspace-label">RESEARCH</div>
-      <button className="nav-item"><Icon name="search"/>Word studies</button>
-      <button className="nav-item"><Icon name="panel"/>Cross-references</button>
-      <button className="nav-item"><Icon name="spark"/>AI study guide</button>
-      <div className="sidebar-bottom"><div className="avatar">J</div><div><strong>Study workspace</strong><span>Personal library</span></div><button className="icon-button" aria-label="Settings"><Icon name="settings"/></button></div>
+      <button className="nav-item nav-disabled" type="button" disabled title="Research tools are being integrated in a later rebuild phase"><Icon name="search"/>Word studies</button>
+      <button className="nav-item nav-disabled" type="button" disabled title="Cross-reference integration is planned after the study data adapter"><Icon name="panel"/>Cross-references</button>
+      <button className="nav-item nav-disabled" type="button" disabled title="AI guidance will be reconnected after the contextual data adapter is complete"><Icon name="spark"/>AI study guide</button>
+      <div className="sidebar-bottom"><div className="avatar">J</div><div><strong>Study workspace</strong><span>Preview environment</span></div><button className="icon-button" aria-label="Settings" type="button" disabled><Icon name="settings"/></button></div>
     </aside>
     <main className="main-area">
       <header className="topbar">
-        <div className="crumbs"><span>My studies</span><Icon name="chevron"/><strong>Genesis 1</strong></div>
-        <div className="top-actions"><span className="sync-status"><i/> Preview · local draft</span><button className="soft-button"><Icon name="spark"/> AI Guide</button><button className="profile">J</button></div>
+        <div className="crumbs"><span>My studies</span><Icon name="chevron"/><strong>{book} {chapter}</strong></div>
+        <div className="top-actions"><span className="sync-status"><i/> Preview · Scripture read-only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
-      {showLibrary ? <section className="library-view"><div className="eyebrow">YOUR LIBRARY</div><h1>Study library</h1><p>Return to a study or begin a new passage.</p><div className="study-card"><div><span className="tag">IN PROGRESS</span><h3>Genesis 1 — Creation</h3><p>Last studied today · Observation</p></div><button className="primary-button" onClick={() => setShowLibrary(false)}>Resume study</button></div></section> :
+      {showLibrary ? <section className="library-view"><div className="eyebrow">YOUR LIBRARY</div><h1>Study library</h1><p>This preview is not yet connected to saved studies. Your existing library remains safely in the current IBS application.</p><button className="outline-button library-return" type="button" onClick={() => setShowLibrary(false)}>Return to Scripture workspace</button></section> :
       <div className="study-page">
-        <section className="study-heading"><div><div className="eyebrow">INDUCTIVE STUDY <span>•</span> OLD TESTAMENT</div><h1>Genesis <em>1</em></h1><p>Creation · The beginning of all things</p></div><div className="heading-actions"><button className="soft-button">KJV <span>⌄</span></button><button className="outline-button">Passage options</button></div></section>
-        <nav className="stage-nav" aria-label="Study stages">{stages.map((s,i) => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} onClick={() => setStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{completedStages.has(s.id) && <span className="stage-done">✓</span>}</button>)}</nav>
+        <section className="study-heading">
+          <div><div className="eyebrow">INDUCTIVE STUDY <span>•</span> {bookInfo.testament === 'OT' ? 'OLD TESTAMENT' : 'NEW TESTAMENT'}</div><h1>{book} <em>{chapter}</em></h1><p>{book === 'Genesis' && chapter === 1 ? 'Creation · The beginning of all things' : 'Read the passage carefully before recording your study.'}</p></div>
+          <div className="heading-actions">
+            <label className="control-label" htmlFor="translation-select">TRANSLATION</label>
+            <select id="translation-select" className="reading-select" value={translation} onChange={event => setTranslation(event.target.value as BibleTranslation)}>
+              {BIBLE_TRANSLATIONS.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+            <label className="control-label" htmlFor="book-select">BOOK</label>
+            <select id="book-select" className="reading-select book-select" value={book} onChange={event => { setBook(event.target.value); setChapter(1); }}>
+              <optgroup label="Old Testament">{BIBLE_BOOKS.filter(item => item.testament === 'OT').map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</optgroup>
+              <optgroup label="New Testament">{BIBLE_BOOKS.filter(item => item.testament === 'NT').map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</optgroup>
+            </select>
+            <label className="control-label" htmlFor="chapter-select">CHAPTER</label>
+            <select id="chapter-select" className="reading-select chapter-select" value={chapter} onChange={event => setChapter(Number(event.target.value))}>
+              {Array.from({ length: bookInfo.chapters }, (_, index) => index + 1).map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </div>
+        </section>
+        <nav className="stage-nav" aria-label="Study stages">{stages.map(s => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => setStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{completedStages.has(s.id) && <span className="stage-done">✓</span>}</button>)}</nav>
         <div className="workspace">
           <section className="scripture-panel">
-            <div className="panel-heading"><div><span className="eyebrow">SCRIPTURE</span><h2>Genesis 1</h2></div><div className="reader-tools"><button className="tool-button" onClick={() => setFontSize(v=>Math.max(16,v-1))}>A−</button><button className="tool-button" onClick={() => setFontSize(v=>Math.min(25,v+1))}>A+</button><button className="tool-button">KJV</button></div></div>
-            <div className="reading-meta"><span>King James Version</span><span>Chapter 1 of 50</span></div>
-            <div className="verse-list" style={{fontSize}}>{verses.map(([n,t])=><button key={n} className={selected===n?'verse selected-verse':'verse'} onClick={()=>setSelected(n)}><span>{n}</span><p>{t}</p></button>)}</div>
-            <div className="reader-footer"><span>Selected verse: Genesis 1:{selected}</span><button className="text-button">Copy verse ↗</button></div>
+            <div className="panel-heading"><div><span className="eyebrow">SCRIPTURE</span><h2>{book} {chapter}</h2></div><div className="reader-tools"><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.max(16,v-1))} aria-label="Decrease Scripture text size">A−</button><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.min(25,v+1))} aria-label="Increase Scripture text size">A+</button></div></div>
+            <div className="reading-meta"><span>{translation === 'KJV' ? 'King James Version' : translation === 'BSB' ? 'Berean Standard Bible' : translation}</span><span>{chapter} of {bookInfo.chapters}</span></div>
+            <div className="reader-navigation">
+              <button type="button" className="outline-button" onClick={() => changeChapter(-1)} disabled={book === BIBLE_BOOKS[0].name && chapter === 1}>← Previous</button>
+              <span>{book} {chapter}</span>
+              <button type="button" className="outline-button" onClick={() => changeChapter(1)} disabled={book === BIBLE_BOOKS[BIBLE_BOOKS.length - 1].name && chapter === bookInfo.chapters}>Next →</button>
+            </div>
+            <div className="verse-list" style={{fontSize}} aria-live="polite">
+              {loadingBible && <div className="reader-message" role="status">Loading {book} {chapter}…</div>}
+              {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => { setBibleError(''); setChapter(value => value); }}>Try again</button></div>}
+              {!loadingBible && !bibleError && bible?.verses.map(verse => <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(verse.number);setReaderNotice('');}}><span>{verse.number}</span><p>{verse.text}</p></button>)}
+              {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
+            </div>
+            <div className="reader-footer"><span>Selected verse: {book} {chapter}:{selectedVerse}</span><button type="button" className="text-button" onClick={() => void copySelectedVerse()} disabled={!bible?.verses.some(verse => verse.number === selectedVerse)}>Copy verse ↗</button></div>
+            <div className="reader-notice" role="status" aria-live="polite">{readerNotice}</div>
+            <div className="reader-source">Text source: {bible?.source || 'Awaiting Scripture source'}. Word-level annotations are not yet enabled in this reader.</div>
           </section>
           <section className="notes-panel">
             <div className="notes-topline"><div><span className="eyebrow">YOUR STUDY</span><h2>{current.label}</h2></div><span className="stage-counter">STAGE {current.number} / 04</span></div>
-            <div className="stage-question"><div className="question-icon">?</div><div className="question-copy"><strong>{current.question}</strong><p>{current.hint}</p></div><button className="collapse-button" onClick={()=>setShowGuidance(!showGuidance)}>{showGuidance?'Hide':'Show'} guidance</button></div>
+            <div className="stage-question"><div className="question-icon">?</div><div className="question-copy"><strong>{current.question}</strong><p>{current.hint}</p></div><button className="collapse-button" type="button" onClick={()=>setShowGuidance(!showGuidance)}>{showGuidance?'Hide':'Show'} guidance</button></div>
             {showGuidance && <div className="guidance-content"><p>{stage==='observe'?'Record what the text explicitly states. Trace repeated words, people, places, time markers, contrasts, commands and linking words. Avoid explaining meaning or moving to application.':stage==='interpret'?'Examine context, structure, grammar, keywords and linking words. Explain how the author develops the thought and support conclusions from the text.':stage==='doctrine'?'Synthesize what the passage teaches about God, humanity, creation and the wider biblical witness. Distinguish explicit teaching from inference.':'Identify a faithful response grounded in the passage. Make it specific, considered and connected to the meaning established in the earlier stages.'}</p></div>}
-            <div className="evidence-strip"><div><span className="evidence-dot"/> <strong>Evidence from earlier stages</strong></div><span>{stage==='observe'?'No earlier-stage evidence yet':'Available when linked'}</span></div>
-            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><span>{wordCount} words</span></div></div>
-            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setNotesByStage(prev=>({...prev,[stage]:e.target.value}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nRecord your observations and connect each conclusion to the passage.'}/>
-            <div className="editor-footer"><span>Draft stays in this preview only</span><span>Text size {fontSize}px</span></div>
-            <div className="stage-footer"><button className="outline-button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" onClick={()=>{setCompletedStages(prev=>new Set(prev).add(stage));move(1);}} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
+            <div className="evidence-strip"><div><span className="evidence-dot"/> <strong>Evidence from earlier stages</strong></div><span>{stage==='observe'?'No earlier-stage evidence yet':'Available after study integration'}</span></div>
+            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><span>{wordCount} words</span></div></div>
+            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setNotesByStage(prev=>({...prev,[stage]:e.target.value}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
+            <div className="editor-footer"><span>Draft stays in this preview only</span><span>Text size {notesFontSize}px</span></div>
+            <div className="stage-footer"><button className="outline-button" type="button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" type="button" onClick={()=>{setCompletedStages(prev=>new Set(prev).add(stage));move(1);}} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
           </section>
         </div>
       </div>}

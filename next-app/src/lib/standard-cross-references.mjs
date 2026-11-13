@@ -75,9 +75,28 @@ function parseRow(line, index) {
   return { id: sourceBook + '.' + chapter + '.' + verse + '.' + index, book: sourceBook, chapter, verse, anchor: anchor.trim(), references };
 }
 
-export function parseStandardCrossReferenceTsv(text) {
+export function parseStandardCrossReferenceTsv(text, filter = {}) {
   if (typeof text !== 'string') return [];
-  return text.split(/\\r?\\n/).map((line,index)=>line.trim() ? parseRow(line,index) : null).filter(Boolean);
+  const results = [];
+  const wantedBook = filter.book || null;
+  const wantedChapter = filter.chapter == null ? null : Number(filter.chapter);
+  const lines = text.split(/\\r?\\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim()) continue;
+    if (wantedBook || wantedChapter !== null) {
+      const firstTab = line.indexOf('\\t');
+      const secondTab = line.indexOf('\\t', firstTab + 1);
+      if (firstTab < 0 || secondTab < 0) continue;
+      const sourceBookText = line.slice(0, firstTab).trim().toLowerCase().replace(/\\./g, '');
+      const sourceBook = BOOK_ALIASES.get(sourceBookText) || BOOK_NAMES.find(name => name.toLowerCase() === sourceBookText);
+      const sourceChapter = Number(line.slice(firstTab + 1, secondTab));
+      if ((wantedBook && sourceBook !== wantedBook) || (wantedChapter !== null && sourceChapter !== wantedChapter)) continue;
+    }
+    const row = parseRow(line, index);
+    if (row) results.push(row);
+  }
+  return results;
 }
 
 export function getStandardCrossReferences(rows, { book, chapter, verse } = {}) {
@@ -94,15 +113,16 @@ export async function loadStandardCrossReferences(translation = 'BSB', options =
   if (!filename) throw new Error('Standard cross-references are not available for ' + code + '.');
   const fetcher = options.fetcher || globalThis.fetch;
   if (typeof fetcher !== 'function') throw new Error('Fetch is not available in this browser.');
-  const key = code;
-  if (!cache.has(key)) {
-    const request = fetcher(RAW_BASE + filename, { signal: options.signal, headers: { Accept: 'text/tab-separated-values' } })
+  if (!cache.has(code)) {
+    const request = fetcher(RAW_BASE + filename, { headers: { Accept: 'text/tab-separated-values' } })
       .then(async response => {
         if (!response || !response.ok) throw new Error('Cross-reference source returned HTTP ' + (response ? response.status : 'unknown') + '.');
-        return parseStandardCrossReferenceTsv(await response.text());
+        return response.text();
       })
-      .catch(error => { cache.delete(key); throw error; });
-    cache.set(key, request);
+      .catch(error => { cache.delete(code); throw error; });
+    cache.set(code, request);
   }
-  return cache.get(key);
+  const rawText = await cache.get(code);
+  if (options.signal && options.signal.aborted) throw new Error('Cross-reference request was cancelled.');
+  return parseStandardCrossReferenceTsv(rawText, { book: options.book, chapter: options.chapter });
 }

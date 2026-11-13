@@ -14,10 +14,6 @@ const CLOUD_METADATA_FIELDS = Object.freeze({
   stageReviews: '_stageReviews'
 });
 
-const CLOUD_ROW_FIELDS = new Set([
-  'user_id', 'book', 'chapter', 'sections', 'active_section', 'updated_at', 'deleted_at'
-]);
-
 const CLOUD_METADATA_KEYS = new Set(Object.values(CLOUD_METADATA_FIELDS));
 const STAGE_KEY_SET = new Set(STUDY_STAGE_KEYS);
 const ACTIVE_SECTION_SET = new Set(CLOUD_ACTIVE_SECTION_KEYS);
@@ -98,13 +94,7 @@ export function cloudRowToStudyRecord(row) {
       ? normalizeStage(row.active_section)
       : 'observe';
 
-  const rootExtras = {};
-  Object.entries(row).forEach(function (entry) {
-    if (!CLOUD_ROW_FIELDS.has(entry[0])) rootExtras[entry[0]] = cloneJson(entry[1], null);
-  });
-
   return {
-    ...rootExtras,
     book: row.book.trim(),
     chapter: Number(row.chapter),
     sections: normalizeSections(cloudSections),
@@ -131,7 +121,7 @@ export function normalizeLocalStudyRecord(record, fallbackIdentity) {
 
   const knownLocalFields = new Set([
     'book', 'chapter', 'sections', 'activeSection', 'updatedAt', 'deletedAt',
-    'cloudSectionExtras', 'cloudRowExtras', ...Object.keys(CLOUD_METADATA_FIELDS)
+    'cloudSectionExtras', ...Object.keys(CLOUD_METADATA_FIELDS)
   ]);
   const rootExtras = {};
   Object.entries(record).forEach(function (entry) {
@@ -144,7 +134,6 @@ export function normalizeLocalStudyRecord(record, fallbackIdentity) {
   });
 
   return {
-    ...cloneJson(record.cloudRowExtras, {}),
     ...rootExtras,
     book: String(book).trim(),
     chapter: Number(chapter),
@@ -193,7 +182,6 @@ export function studyRecordToCloudRow(record, userId) {
   }
 
   const row = {
-    ...cloneJson(normalized.cloudRowExtras, {}),
     user_id: owner,
     book: normalized.book,
     chapter: normalized.chapter,

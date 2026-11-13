@@ -104,14 +104,12 @@ test('unknown JSONB fields survive cloud-to-local-to-cloud conversion', () => {
     },
     active_section: 'apply',
     updated_at: '2026-11-01T00:00:00.000Z',
-    deleted_at: null,
-    future_top_level: { preserved: true }
+    deleted_at: null
   };
   const record = cloudRowToStudyRecord(original);
   const roundTrip = studyRecordToCloudRow(record, USER_ID);
   assert.deepEqual(roundTrip.sections._futureResearchPayload, original.sections._futureResearchPayload);
   assert.equal(roundTrip.sections._customFlag, true);
-  assert.deepEqual(roundTrip.future_top_level, original.future_top_level);
 });
 
 test('unknown local record fields and cloud section extras are preserved', () => {

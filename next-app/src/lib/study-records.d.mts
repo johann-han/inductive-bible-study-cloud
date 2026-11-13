@@ -25,7 +25,6 @@ export interface StudyRecord {
   studyClaims?: unknown;
   stageReviews?: unknown;
   cloudSectionExtras: Record<string, unknown>;
-  cloudRowExtras?: Record<string, unknown>;
 }
 
 export interface CloudStudyRow {

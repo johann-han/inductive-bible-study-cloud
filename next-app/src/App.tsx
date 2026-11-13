@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import './styles.css';
 import {
   BIBLE_BOOKS,
@@ -84,7 +84,7 @@ function renderMarkedText(text: string, offset: number, ranges: WordMarkupRange[
     const end = points[index + 1];
     const value = text.slice(start, end);
     const tags = ranges.filter(range => range.start <= offset + start && range.end >= offset + end).flatMap(range => range.tags);
-    if (!tags.length) return <React.Fragment key={offset + start}>{value}</React.Fragment>;
+    if (!tags.length) return <Fragment key={offset + start}>{value}</Fragment>;
     return <mark key={offset + start} className={'word-markup ' + [...new Set(tags)].map(tag => 'word-markup-' + tag).join(' ')} title={'Marked: ' + [...new Set(tags)].join(', ')}>{value}</mark>;
   });
 }

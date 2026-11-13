@@ -112,6 +112,8 @@ export default function App() {
   const [referenceTargetVerse, setReferenceTargetVerse] = useState<number | ''>('');
   const [referenceNote, setReferenceNote] = useState('');
   const [referenceNotice, setReferenceNotice] = useState('');
+  const [showAddToStudy, setShowAddToStudy] = useState(false);
+  const [addToStudyTarget, setAddToStudyTarget] = useState('current');
 
 
   const current = stages.find(s => s.id === stage)!;
@@ -240,6 +242,58 @@ export default function App() {
     } finally {
       if (requestId === lexiconRequestRef.current) setLexiconLoading(false);
     }
+  };
+
+  const selectedVerseRecord = bible?.verses.find(item => item.number === selectedVerse);
+  const selectedVerseCitation = book + ' ' + chapter + ':' + selectedVerse;
+  const selectedVerseQuote = selectedVerseRecord ? selectedVerseCitation + ' (' + translation + '): “' + selectedVerseRecord.text + '”' : '';
+
+  const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
+    if (!selectedVerseRecord) return;
+    const [targetBook, targetChapterText] = targetKey.split('|');
+    const targetChapter = Number(targetChapterText);
+    const currentDraft = draftsByPassage[targetKey] || { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' as const };
+    const heading = '\n\n' + selectedVerseCitation + ' — ' + translation + '\n';
+    const addition = heading + selectedVerseRecord.text;
+    const existing = currentDraft[targetStage] || '';
+    if (existing.includes(selectedVerseCitation + ' — ' + translation)) {
+      setReaderNotice('This verse is already included in that study stage.');
+      return;
+    }
+    setDraftsByPassage(previous => ({
+      ...previous,
+      [targetKey]: { ...(previous[targetKey] || currentDraft), [targetStage]: existing.trim() ? existing + addition : addition.trim(), activeStage: targetStage }
+    }));
+    setStage(targetStage);
+    if (targetBook !== book || targetChapter !== chapter) {
+      setBook(targetBook);
+      setChapter(targetChapter);
+    }
+    setShowAddToStudy(false);
+    setReaderNotice('Verse added to ' + targetBook + ' ' + targetChapter + ' · Observe.');
+  };
+
+  const addVerseAsObservation = () => {
+    if (!selectedVerseRecord) return;
+    const existing = notesByStage.observe || '';
+    const citation = selectedVerseCitation + ' — ' + translation;
+    if (existing.includes(citation)) {
+      setReaderNotice('This verse is already included in your observations.');
+      return;
+    }
+    const addition = citation + '\n' + selectedVerseRecord.text;
+    setDraftsByPassage(previous => ({
+      ...previous,
+      [passageDraftKey]: { ...(previous[passageDraftKey] || emptyNotes), observe: existing.trim() ? existing + '\n\n' + addition : addition, activeStage: 'observe' }
+    }));
+    setStage('observe');
+    setReaderNotice('Verse added to your Observation notes.');
+  };
+
+  const openVerseCrossReference = () => {
+    setReferenceSourceVerse(selectedVerse);
+    setReferenceNotice('');
+    setView('references');
   };
 
   const copySelectedVerse = async () => {
@@ -397,7 +451,27 @@ export default function App() {
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
-            <div className="reader-footer"><span>Selected verse: {book} {chapter}:{selectedVerse}</span><button type="button" className="text-button" onClick={() => void copySelectedVerse()} disabled={!bible?.verses.some(verse => verse.number === selectedVerse)}>Copy verse ↗</button></div>
+            <div className="verse-action-dock" aria-label="Actions for selected verse">
+              <div className="verse-action-context"><span className="eyebrow">SELECTED VERSE</span><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecord ? selectedVerseRecord.text : 'Select a verse to see available actions.'}</span></div>
+              <div className="verse-action-buttons">
+                <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()} disabled={!selectedVerseRecord}><span aria-hidden="true">▢</span>Copy verse</button>
+                <button type="button" className="verse-action" onClick={() => setShowAddToStudy(value => !value)} disabled={!selectedVerseRecord}><span aria-hidden="true">＋</span>Add to study</button>
+                <button type="button" className="verse-action" onClick={openVerseCrossReference} disabled={!selectedVerseRecord}><span aria-hidden="true">↗</span>Link passage</button>
+                <button type="button" className="verse-action" onClick={addVerseAsObservation} disabled={!selectedVerseRecord}><span aria-hidden="true">✎</span>Add observation</button>
+              </div>
+              {showAddToStudy && <div className="add-to-study-panel">
+                <div><strong>Add {selectedVerseCitation} to a study</strong><button type="button" className="text-button" onClick={() => setShowAddToStudy(false)}>Close</button></div>
+                <label htmlFor="add-verse-study-target">Choose a study</label>
+                <select id="add-verse-study-target" className="reading-select" value={addToStudyTarget} onChange={event => setAddToStudyTarget(event.target.value)}>
+                  <option value="current">Current study · {book} {chapter}</option>
+                  {allPreviewLibraryEntries.filter(entry => entry.book + '|' + entry.chapter !== passageDraftKey).map(entry => <option key={entry.book + '|' + entry.chapter} value={entry.book + '|' + entry.chapter}>{entry.book} {entry.chapter}</option>)}
+                </select>
+                <div className="add-to-study-actions"><button type="button" className="primary-button" onClick={() => appendVerseToStudy(addToStudyTarget === 'current' ? passageDraftKey : addToStudyTarget)}>Add to selected study</button><button type="button" className="outline-button" onClick={() => appendVerseToStudy(passageDraftKey)}>Create study for this passage</button></div>
+                <p>Preview studies are saved in this browser only. The verse will be added to the Observation stage.</p>
+              </div>}
+              {readerNotice && <p className="verse-action-notice" role="status">{readerNotice}</p>}
+            </div>
+            <div className="reader-footer"><span>Text source: {bible?.source || 'Bible text provider'} · Strong’s annotations are {showStrongs ? 'on' : 'off'}.</span></div>
             {lexiconLoading || lexiconError || lexicon ? <section className="lexicon-panel" aria-live="polite" aria-label="Strong's lexicon entry">
               <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>
               {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}

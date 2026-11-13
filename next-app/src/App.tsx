@@ -122,7 +122,6 @@ export default function App() {
   const notesByStage = draftsByPassage[passageDraftKey] || emptyNotes;
   const note = notesByStage[stage];
   const selectedVerse = selectedVerseNumbers.length ? selectedVerseNumbers[selectedVerseNumbers.length - 1] : null;
-  const selectedVerseMarkup = selectedVerse === null ? [] : previewMarkup[passageDraftKey]?.[String(selectedVerse)] || [];
   const earlierStageEvidence = useMemo(() => getPreviewStageEvidence(notesByStage, stage), [notesByStage, stage]);
   const stagesWithNotes = useMemo(() => new Set(getPreviewWrittenStages(notesByStage)), [notesByStage]);
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
@@ -248,7 +247,6 @@ export default function App() {
   const selectedVerseRecords = bible?.verses.filter(item => selectedVerseNumbers.includes(item.number)).sort((a, b) => a.number - b.number) || [];
   const selectedVerseRecord = selectedVerseRecords.find(item => item.number === selectedVerse) || selectedVerseRecords[selectedVerseRecords.length - 1];
   const selectedVerseCitation = selectedVerseRecords.length ? book + ' ' + chapter + ':' + selectedVerseRecords.map(item => item.number).join(', ') : '';
-  const selectedVerseQuote = selectedVerseRecords.map(item => book + ' ' + chapter + ':' + item.number + ' (' + translation + '): “' + item.text + '”').join('\n');
 
   const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
     if (!selectedVerseRecords.length) return;

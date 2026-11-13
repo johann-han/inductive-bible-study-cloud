@@ -93,6 +93,7 @@ export default function App() {
   const [bibleError, setBibleError] = useState('');
   const [readerReload, setReaderReload] = useState(0);
   const [selectedVerseNumbers, setSelectedVerseNumbers] = useState<number[]>([]);
+  const verseSelectionAnchorRef = useRef<number | null>(null);
   const [readerNotice, setReaderNotice] = useState('');
   const [showStrongs, setShowStrongs] = useState(false);
   const [lexicon, setLexicon] = useState<StrongLexiconEntry | null>(null);
@@ -163,6 +164,7 @@ export default function App() {
     setBibleError('');
     setReaderNotice('');
     setSelectedVerseNumbers([]);
+    verseSelectionAnchorRef.current = null;
     lexiconRequestRef.current += 1;
     setLexicon(null);
     setLexiconError('');
@@ -442,17 +444,17 @@ export default function App() {
               </div>
               <p className="markup-storage-note">Tags are saved in this browser preview only.</p>
             </div>
-            <div className="verse-list" style={{fontSize}} aria-live="polite">
+            <div className="verse-list" style={{fontSize}} aria-live="polite" aria-label="Bible verses. Click to select individual verses; Shift-click another verse to select a continuous passage.">
               {loadingBible && <div className="reader-message" role="status">Loading {book} {chapter}…</div>}
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => {
                 const tags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
-                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={()=>{setSelectedVerseNumbers(current => current.includes(verse.number) ? current.filter(number => number !== verse.number) : [...current, verse.number].sort((a,b)=>a-b));setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
+                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={(event)=>{if(event.shiftKey && verseSelectionAnchorRef.current !== null){const start=Math.min(verseSelectionAnchorRef.current,verse.number);const end=Math.max(verseSelectionAnchorRef.current,verse.number);setSelectedVerseNumbers(Array.from({length:end-start+1},(_,index)=>start+index));}else{setSelectedVerseNumbers(current => current.includes(verse.number) ? current.filter(number => number !== verse.number) : [...current, verse.number].sort((a,b)=>a-b));verseSelectionAnchorRef.current=verse.number;}setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
             {selectedVerseNumbers.length > 0 && selectedVerseRecords.length > 0 && <div className="verse-action-dock" aria-label="Actions for selected verses">
-              <div className="verse-action-context"><div className="verse-action-context-heading"><span className="eyebrow">{selectedVerseRecords.length === 1 ? 'SELECTED VERSE' : 'SELECTED VERSES · ' + selectedVerseRecords.length}</span><button type="button" className="text-button clear-verse-selection" onClick={() => {setSelectedVerseNumbers([]);setShowAddToStudy(false);setReaderNotice('Verse selection cleared.');}} aria-label="Clear selected verses">Clear selection ×</button>}</div><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecords.map(item => item.text).join(' ')}</span></div>
+              <div className="verse-action-context"><div className="verse-action-context-heading"><span className="eyebrow">{selectedVerseRecords.length === 1 ? 'SELECTED VERSE' : 'SELECTED VERSES · ' + selectedVerseRecords.length}</span><button type="button" className="text-button clear-verse-selection" onClick={() => {setSelectedVerseNumbers([]);verseSelectionAnchorRef.current=null;setShowAddToStudy(false);setReaderNotice('Verse selection cleared.');}} aria-label="Clear selected verses">Clear selection ×</button>}</div><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecords.map(item => item.text).join(' ')}</span></div>
               <div className="verse-action-buttons">
                 <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()}><span aria-hidden="true">▢</span>{selectedVerseRecords.length === 1 ? "Copy verse" : "Copy verses"}</button>
                 <button type="button" className="verse-action" onClick={() => setShowAddToStudy(value => !value)} disabled={!selectedVerseRecord}><span aria-hidden="true">＋</span>Add to study</button>

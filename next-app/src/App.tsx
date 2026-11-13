@@ -20,6 +20,7 @@ import { readPreviewMarkup, SCRIPTURE_MARKUP_TYPES, toggleVerseMarkup, writePrev
 import { addPreviewCrossReference, deletePreviewCrossReference, formatCrossReference, readPreviewCrossReferences, writePreviewCrossReferences } from './lib/cross-references.mjs';
 import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
+import { getStandardCrossReferences, loadStandardCrossReferences, STANDARD_XREF_SOURCE } from './lib/standard-cross-references.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -108,6 +109,9 @@ export default function App() {
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
+  const [standardCrossReferences, setStandardCrossReferences] = useState<any[]>([]);
+  const [standardReferencesStatus, setStandardReferencesStatus] = useState<'idle'|'loading'|'loaded'|'error'>('idle');
+  const [standardReferencesError, setStandardReferencesError] = useState('');
   const [referenceTargetBook, setReferenceTargetBook] = useState('John');
   const [referenceTargetChapter, setReferenceTargetChapter] = useState(1);
   const [referenceSourceVerse, setReferenceSourceVerse] = useState<number | ''>('');
@@ -150,6 +154,26 @@ export default function App() {
   }, [previewMarkup]);
 
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
+  useEffect(() => {
+    if (view !== 'references') return;
+    const controller = new AbortController();
+    const sourceTranslation = translation === 'KJV' ? 'KJV' : 'BSB';
+    setStandardReferencesStatus('loading');
+    setStandardReferencesError('');
+    loadStandardCrossReferences(sourceTranslation, { signal: controller.signal })
+      .then(rows => {
+        if (controller.signal.aborted) return;
+        setStandardCrossReferences(getStandardCrossReferences(rows, { book, chapter }));
+        setStandardReferencesStatus('loaded');
+      })
+      .catch(error => {
+        if (controller.signal.aborted) return;
+        setStandardReferencesError(error instanceof Error ? error.message : 'Unable to load standard cross-references.');
+        setStandardReferencesStatus('error');
+      });
+    return () => controller.abort();
+  }, [view, book, chapter, translation]);
+
 
   useEffect(() => {
     setDraftSaveStatus('saving');
@@ -391,7 +415,13 @@ export default function App() {
           </article>)}
         </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setView('reader')}>Open Bible reader <Icon name="chevron"/></button>}</div>}
       </section> : view === 'references' ? <section className="references-view">
-        <div className="library-header"><div><div className="eyebrow">RESEARCH · PASSAGE CONNECTIONS</div><h1>Cross-references</h1><p>Record connections between passages as you study. These are your own preview references, not an imported or verified standard reference database.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Return to Scripture</button></div>
+        <div className="library-header"><div><div className="eyebrow">RESEARCH · PASSAGE CONNECTIONS</div><h1>Cross-references</h1><p>Explore standard Scripture connections alongside the links you have recorded in your own studies.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Return to Scripture</button></div>
+        
+        <section className="reference-list-card standard-reference-card">
+          <div className="reference-list-heading"><div><span className="eyebrow">STANDARD BIBLE REFERENCES · {translation === 'KJV' ? 'KJV' : 'BSB'} ANCHORS</span><h2>{book} {chapter}</h2></div><strong>{standardReferencesStatus === 'loaded' ? standardCrossReferences.length : '—'}</strong></div>
+          {standardReferencesStatus === 'loading' ? <p className="reference-help">Loading the licensed standard cross-reference collection…</p> : standardReferencesStatus === 'error' ? <p className="reference-help" role="alert">{standardReferencesError} You can still use your saved study links below.</p> : standardCrossReferences.length ? <div className="reference-list">{standardCrossReferences.map(row => <article className="reference-item" key={row.id}><div className="reference-pair"><strong>{row.book} {row.chapter}:{row.verse}</strong><span>{row.anchor}</span></div><div className="standard-reference-links">{row.references.map((ref,index)=><button type="button" key={row.id+'-'+index} onClick={()=>{setBook(ref.book);setChapter(ref.chapter);setSelectedVerseNumbers(ref.verse ? [ref.verse] : []);verseSelectionAnchorRef.current=ref.verse;setView('reader');}}>{ref.label}</button>)}</div><div className="reference-item-footer"><span>STANDARD REFERENCE · {STANDARD_XREF_SOURCE.name}</span></div></article>)}</div> : <div className="library-empty"><h2>No standard references listed for this chapter</h2><p>Try a different chapter or translation.</p></div>}
+          <p className="reference-storage-note">Source: {STANDARD_XREF_SOURCE.attribution} <a href={STANDARD_XREF_SOURCE.url} target="_blank" rel="noreferrer">Dataset and licence details</a>.</p>
+        </section>
         <div className="reference-workspace">
           <section className="reference-form-card"><span className="tag">CREATE A PASSAGE LINK</span><h2>Connect two passages</h2><p className="reference-help">The source passage is taken from your current Bible Reader location.</p>
             <div className="reference-source"><span>FROM</span><strong>{book} {chapter}</strong><label htmlFor="reference-source-verse">Verse (optional)</label><input id="reference-source-verse" type="number" min="1" max="300" value={referenceSourceVerse} onChange={event => setReferenceSourceVerse(event.target.value ? Number(event.target.value) : '')} placeholder="Whole chapter"/></div>
@@ -402,7 +432,7 @@ export default function App() {
           <section className="reference-list-card"><div className="reference-list-heading"><div><span className="eyebrow">YOUR RESEARCH</span><h2>Saved connections</h2></div><strong>{previewCrossReferences.length}</strong></div>
             {previewCrossReferences.length ? <div className="reference-list">{previewCrossReferences.map(item=>{const names=formatCrossReference(item);return <article className="reference-item" key={item.id}><div className="reference-pair"><button type="button" onClick={()=>{setBook(item.sourceBook);setChapter(item.sourceChapter);setView('reader');}}>{names.source}</button><span aria-hidden="true">↔</span><button type="button" onClick={()=>{setBook(item.targetBook);setChapter(item.targetChapter);setView('reader');}}>{names.target}</button></div>{item.note ? <p>{item.note}</p> : <p className="reference-muted">No connection note recorded.</p>}<div className="reference-item-footer"><span>USER-CREATED PREVIEW REFERENCE</span><button type="button" className="text-button" onClick={()=>setPreviewCrossReferences(previous=>deletePreviewCrossReference(previous,item.id))}>Remove</button></div></article>})}</div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>No saved connections yet</h2><p>Create a link between the current passage and another Scripture reference. You can return to either passage from your saved list.</p><button className="primary-button" type="button" onClick={()=>setView('reader')}>Open Bible reader <Icon name="chevron"/></button></div>}
           </section>
-        </div><p className="reference-disclaimer">This workspace stores user-created links only. Standard Bible cross-references and the legacy related-passage dataset have not yet been imported into this preview.</p>
+        </div><p className="reference-disclaimer">Standard references and user-created study connections are shown separately. Standard references are sourced from the licensed Treasury of Scripture Knowledge dataset; your own links remain local to this browser preview.</p>
       </section> :
       <div className="study-page">
         <section className="study-heading">

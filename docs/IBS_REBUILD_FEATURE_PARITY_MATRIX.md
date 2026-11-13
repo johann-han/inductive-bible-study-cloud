@@ -71,7 +71,9 @@ The CI workflow runs `npm test` on Node 22. The rebuild must keep this workflow 
 | Authentication / user identity | Contract inventoried; not integrated | Invitation-only Supabase sign-in/session, access-request and admin authorization routes are mapped. Wait for an isolated preview Supabase target before integration or credential-based tests. |
 | Production study library and sync | Not integrated | Must be built against the verified cloud/local contract and safely tested with isolated data. |
 | Evidence handoff | Partial preview implementation | Later stages can expand earlier-stage notes for the same passage in canonical order. This is contextual note handoff only; production claim-to-source links, evidence classifications and provenance remain outstanding. |
-| Cross-references, markup, backup/restore | Not integrated | Existing behaviour remains in production; new-app parity is outstanding. |
+| Cross-references | Preview user-created passage links implemented | Dedicated preview-only storage, source/target book and chapter selection, optional verse-level links, explanatory notes, passage navigation and deletion. Standard cross-reference dataset and legacy related-passage behaviour remain outstanding. |
+| Scripture markup | Partial preview implementation | Verse-level observation tags (key word, repeated idea, contrast, command, promise, question) save in a dedicated preview key. Full legacy word-level markup, symbols and backup/restore parity remain outstanding. |
+| Backup and restore | Not integrated | Existing behaviour remains in production; new-app import/export and recovery parity are outstanding. |
 | AI Mentor and Kerygma | Not integrated | Preserve current server routes and cloud sermon contracts; reintroduce after authenticated data context is safe. |
 
 ## Adapter design decisions

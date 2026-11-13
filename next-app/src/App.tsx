@@ -452,7 +452,7 @@ export default function App() {
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
-            <div className="verse-action-dock" aria-label="Actions for selected verse">
+            {selectedVerse !== null && selectedVerseRecord && <div className="verse-action-dock" aria-label="Actions for selected verse">
               <div className="verse-action-context"><div className="verse-action-context-heading"><span className="eyebrow">{selectedVerse === null ? 'NO VERSE SELECTED' : 'SELECTED VERSE'}</span>{selectedVerse !== null && <button type="button" className="text-button clear-verse-selection" onClick={() => {setSelectedVerse(null);setShowAddToStudy(false);setReaderNotice('Verse selection cleared.');}} aria-label="Clear selected verse">Clear selection ×</button>}</div>{selectedVerse !== null && <><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecord?.text || ''}</span></>}{selectedVerse === null && <span>Select a verse to copy it, add it to a study, or link it to another passage.</span>}</div>
               <div className="verse-action-buttons">
                 {selectedVerse !== null && selectedVerseRecord && <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()}><span aria-hidden="true">▢</span>Copy verse</button>}
@@ -471,7 +471,7 @@ export default function App() {
                 <p>Preview studies are saved in this browser only. The verse will be added to the Observation stage.</p>
               </div>}
               {readerNotice && <p className="verse-action-notice" role="status">{readerNotice}</p>}
-            </div>
+            </div>}
             <div className="reader-footer"><span>Text source: {bible?.source || 'Bible text provider'} · Strong’s annotations are {showStrongs ? 'on' : 'off'}.</span></div>
             {lexiconLoading || lexiconError || lexicon ? <section className="lexicon-panel" aria-live="polite" aria-label="Strong's lexicon entry">
               <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>

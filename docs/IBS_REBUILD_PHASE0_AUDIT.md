@@ -37,6 +37,8 @@ The live \`study_records.active_section\` check constraint permits only \`observ
 
 The new read-only Bible layer is isolated in \`next-app/src/lib/bible.mjs\`. It contains the 66-book canon, book/chapter validation, source selection and last-read compatibility. The React reader uses the complete returned chapter rather than an embedded eight-verse illustration. Copying the selected verse and translation/book/chapter navigation are included.
 
+The reader also has optional Strong’s display, switched off by default. KJV annotations retain their original character offsets and are accepted only when the bounds and Strong’s IDs validate. BSB word alignment follows the existing app’s ordered gloss-matching method; unmatched glosses remain untagged. Selected words open a STEPBible Brief Lexicons entry, and missing senses are reported as unavailable rather than replaced with generated definitions. Optional annotation failures do not prevent the Scripture chapter from loading.
+
 The layer intentionally does not:
 - connect to Supabase or write production data;
 - persist notes or study stages;

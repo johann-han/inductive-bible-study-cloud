@@ -39,9 +39,11 @@ The new read-only Bible layer is isolated in \`next-app/src/lib/bible.mjs\`. It 
 
 The reader also has optional Strong’s display, switched off by default. KJV annotations retain their original character offsets and are accepted only when the bounds and Strong’s IDs validate. BSB word alignment follows the existing app’s ordered gloss-matching method; unmatched glosses remain untagged. Selected words open a STEPBible Brief Lexicons entry, and missing senses are reported as unavailable rather than replaced with generated definitions. Optional annotation failures do not prevent the Scripture chapter from loading.
 
+The preview-specific notes layer now auto-saves the four stage drafts per passage under `ibs-next-generation-preview-drafts-v1`. It uses a key reserved for this new preview and does not reuse or overwrite the current app’s study-library or note keys. Browser storage failures are surfaced in the editor status rather than falsely reporting a save.
+
 The layer intentionally does not:
 - connect to Supabase or write production data;
-- persist notes or study stages;
+- sync notes or study stages to the cloud;
 - load additional Greek/Hebrew morphology, original-script interlinear displays, or lexical usage counts;
 - claim that research, evidence handoff, AI, or Kerygma are integrated.
 

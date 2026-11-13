@@ -119,6 +119,51 @@ function readBibleApiVerses(payload) {
 }
 
 
+export const PREVIEW_DRAFTS_STORAGE_KEY = 'ibs-next-generation-preview-drafts-v1';
+
+const PREVIEW_STUDY_STAGES = ['observe', 'interpret', 'doctrine', 'apply'];
+
+function normalizePreviewDrafts(input) {
+  const result = Object.create(null);
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return result;
+  Object.entries(input).forEach(function (entry) {
+    const parts = String(entry[0]).split('|');
+    if (parts.length !== 2) return;
+    const book = getBibleBook(parts[0]);
+    const chapter = Number(parts[1]);
+    if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > book.chapters) return;
+    const source = entry[1];
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+    const notes = {};
+    PREVIEW_STUDY_STAGES.forEach(function (stage) {
+      notes[stage] = typeof source[stage] === 'string' ? source[stage] : '';
+    });
+    result[book.name + '|' + chapter] = notes;
+  });
+  return result;
+}
+
+export function readPreviewDrafts(storage) {
+  try {
+    const targetStorage = storage || (typeof window !== 'undefined' ? window.localStorage : null);
+    if (!targetStorage) return Object.create(null);
+    const raw = targetStorage.getItem(PREVIEW_DRAFTS_STORAGE_KEY);
+    return raw ? normalizePreviewDrafts(JSON.parse(raw)) : Object.create(null);
+  } catch (_) {
+    return Object.create(null);
+  }
+}
+
+export function writePreviewDrafts(drafts, storage) {
+  try {
+    const targetStorage = storage || (typeof window !== 'undefined' ? window.localStorage : null);
+    if (!targetStorage) return false;
+    targetStorage.setItem(PREVIEW_DRAFTS_STORAGE_KEY, JSON.stringify(normalizePreviewDrafts(drafts)));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 export function normalizeStrongsId(value) {
   const match = String(value || '').trim().toUpperCase().match(/^([HG])(\d{1,5})[A-Z]?$/);
   return match ? match[1] + match[2].padStart(4, '0') : null;

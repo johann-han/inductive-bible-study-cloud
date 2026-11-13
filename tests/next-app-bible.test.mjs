@@ -5,7 +5,10 @@ import {
   fetchBibleChapter,
   fetchStrongsLexicon,
   LAST_READING_STORAGE_KEY,
+  PREVIEW_DRAFTS_STORAGE_KEY,
+  readPreviewDrafts,
   readSavedPassage,
+  writePreviewDrafts,
   writeSavedPassage
 } from '../next-app/src/lib/bible.mjs';
 
@@ -202,4 +205,47 @@ test('missing Strong’s lexicon data is an error rather than an invented defini
     fetchStrongsLexicon('G3056', { fetcher: async () => response({ entry: { senses: [] } }) }),
     /No verified lexicon entry/
   );
+});
+
+
+test('preview-only stage notes persist per passage without using the existing study-library key', () => {
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value)
+  };
+  const drafts = {
+    'Genesis|1': { observe: 'Repeated words are visible.', interpret: 'The passage opens with creation.', doctrine: 'God is the Creator.', apply: '' },
+    'John|1': { observe: 'The Word is introduced.', interpret: '', doctrine: '', apply: '' }
+  };
+  assert.equal(writePreviewDrafts(drafts, storage), true);
+  assert.equal(values.has(PREVIEW_DRAFTS_STORAGE_KEY), true);
+  const restored = readPreviewDrafts(storage);
+  assert.equal(restored['Genesis|1'].observe, 'Repeated words are visible.');
+  assert.equal(restored['Genesis|1'].doctrine, 'God is the Creator.');
+  assert.equal(restored['John|1'].observe, 'The Word is introduced.');
+});
+
+test('preview draft restoration ignores malformed passages and non-text note values', () => {
+  const values = new Map([[PREVIEW_DRAFTS_STORAGE_KEY, JSON.stringify({
+    'Genesis|1': { observe: 'Valid note', interpret: 7, doctrine: null, apply: '' },
+    'Genesis|51': { observe: 'Invalid chapter' },
+    'Unknown|1': { observe: 'Unknown book' },
+    'Matthew|1|2': { observe: 'Malformed key' }
+  })]]);
+  const restored = readPreviewDrafts({
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value)
+  });
+  assert.deepEqual(restored['Genesis|1'], { observe: 'Valid note', interpret: '', doctrine: '', apply: '' });
+  assert.equal(restored['Genesis|51'], undefined);
+  assert.equal(restored['Unknown|1'], undefined);
+});
+
+test('preview draft storage failures are reported rather than claimed as saved', () => {
+  const storage = {
+    getItem: () => null,
+    setItem: () => { throw new Error('Storage quota exceeded'); }
+  };
+  assert.equal(writePreviewDrafts({ 'Genesis|1': { observe: 'A note', interpret: '', doctrine: '', apply: '' } }, storage), false);
 });

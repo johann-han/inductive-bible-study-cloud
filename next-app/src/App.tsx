@@ -6,10 +6,12 @@ import {
   fetchBibleChapter,
   fetchStrongsLexicon,
   getBibleBook,
+  readPreviewDrafts,
   readSavedPassage,
+  writePreviewDrafts,
   writeSavedPassage
 } from './lib/bible.mjs';
-import type { BibleChapter, BibleTranslation, StrongLexiconEntry, WordAnnotation } from './lib/bible.mjs';
+import type { BibleChapter, BibleTranslation, PreviewDrafts, StrongLexiconEntry, StudyStage, WordAnnotation } from './lib/bible.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -72,7 +74,8 @@ const initialPassage = readSavedPassage() || { book: 'Genesis', chapter: 1, tran
 
 export default function App() {
   const [stage, setStage] = useState<Stage>('observe');
-  const [notesByStage, setNotesByStage] = useState<Record<Stage, string>>({ observe: '', interpret: '', doctrine: '', apply: '' });
+  const [draftsByPassage, setDraftsByPassage] = useState<PreviewDrafts>(() => readPreviewDrafts());
+  const [draftSaveStatus, setDraftSaveStatus] = useState<'saving' | 'saved' | 'unavailable'>('saving');
   const [notesFontSize, setNotesFontSize] = useState(17);
   const [completedStages, setCompletedStages] = useState<Set<Stage>>(new Set());
   const [book, setBook] = useState(initialPassage.book);
@@ -95,9 +98,20 @@ export default function App() {
   const [fontSize, setFontSize] = useState(19);
 
   const current = stages.find(s => s.id === stage)!;
+  const passageDraftKey = book + '|' + chapter;
+  const emptyNotes: Record<Stage, string> = { observe: '', interpret: '', doctrine: '', apply: '' };
+  const notesByStage = draftsByPassage[passageDraftKey] || emptyNotes;
   const note = notesByStage[stage];
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
   const bookInfo = getBibleBook(book)!;
+
+  useEffect(() => {
+    setDraftSaveStatus('saving');
+    const timer = window.setTimeout(() => {
+      setDraftSaveStatus(writePreviewDrafts(draftsByPassage) ? 'saved' : 'unavailable');
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [draftsByPassage]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -250,8 +264,8 @@ export default function App() {
             {showGuidance && <div className="guidance-content"><p>{stage==='observe'?'Record what the text explicitly states. Trace repeated words, people, places, time markers, contrasts, commands and linking words. Avoid explaining meaning or moving to application.':stage==='interpret'?'Examine context, structure, grammar, keywords and linking words. Explain how the author develops the thought and support conclusions from the text.':stage==='doctrine'?'Synthesize what the passage teaches about God, humanity, creation and the wider biblical witness. Distinguish explicit teaching from inference.':'Identify a faithful response grounded in the passage. Make it specific, considered and connected to the meaning established in the earlier stages.'}</p></div>}
             <div className="evidence-strip"><div><span className="evidence-dot"/> <strong>Evidence from earlier stages</strong></div><span>{stage==='observe'?'No earlier-stage evidence yet':'Available after study integration'}</span></div>
             <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><span>{wordCount} words</span></div></div>
-            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setNotesByStage(prev=>({...prev,[stage]:e.target.value}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
-            <div className="editor-footer"><span>Draft stays in this preview only</span><span>Text size {notesFontSize}px</span></div>
+            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setDraftsByPassage(prev=>({...prev,[passageDraftKey]:{...emptyNotes,...(prev[passageDraftKey] || {}),[stage]:e.target.value}}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
+            <div className="editor-footer"><span>{draftSaveStatus === 'saving' ? 'Saving preview draft…' : draftSaveStatus === 'saved' ? 'Auto-saved in this preview only' : 'Browser storage unavailable · draft not saved'}</span><span>Text size {notesFontSize}px</span></div>
             <div className="stage-footer"><button className="outline-button" type="button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" type="button" onClick={()=>{setCompletedStages(prev=>new Set(prev).add(stage));move(1);}} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
           </section>
         </div>

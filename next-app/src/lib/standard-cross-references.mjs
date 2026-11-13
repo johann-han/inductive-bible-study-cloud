@@ -41,7 +41,7 @@ const aliases = {
   'Phil':'Philippians','Philippians':'Philippians','Col':'Colossians','Colossians':'Colossians',
   '1 Thess':'1 Thessalonians','1 Thessalonians':'1 Thessalonians','2 Thess':'2 Thessalonians','2 Thessalonians':'2 Thessalonians',
   '1 Tim':'1 Timothy','1 Timothy':'1 Timothy','2 Tim':'2 Timothy','2 Timothy':'2 Timothy',
-  'Titus':'Titus','Philem':'Philemon','Philemon':'Philemon','Heb':'Hebrews','Hebrews':'Hebrews',
+  'Titus':'Titus','Phlm':'Philemon','Phlem':'Philemon','Philem':'Philemon','Philemon':'Philemon','Heb':'Hebrews','Hebrews':'Hebrews',
   'Jas':'James','James':'James','1 Pet':'1 Peter','1 Peter':'1 Peter','2 Pet':'2 Peter','2 Peter':'2 Peter',
   '1 John':'1 John','2 John':'2 John','3 John':'3 John','Jude':'Jude','Rev':'Revelation','Revelation':'Revelation'
 };

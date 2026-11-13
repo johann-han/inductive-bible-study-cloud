@@ -132,6 +132,12 @@ export default function App() {
   const [draftsByPassage, setDraftsByPassage] = useState<PreviewDrafts>(() => readPreviewDrafts());
   const [previewMarkup, setPreviewMarkup] = useState(() => readPreviewMarkup());
   const [previewWordMarkup, setPreviewWordMarkup] = useState(() => readPreviewWordMarkup());
+  const [showMarkupReview, setShowMarkupReview] = useState(false);
+  const [markupSearch, setMarkupSearch] = useState('');
+  const [markupColors, setMarkupColors] = useState<Record<string, string>>(() => {
+    const defaults: Record<string, string> = { 'key-word':'#f5e7b9', 'repeated-idea':'#dcece0', contrast:'#f3dfd7', command:'#e6e1f1', promise:'#f6edc9', question:'#dce9f2' };
+    try { return { ...defaults, ...JSON.parse(window.localStorage.getItem('ibs-preview-markup-colors-v1') || '{}') }; } catch { return defaults; }
+  });
   const [selectedTextMarkup, setSelectedTextMarkup] = useState<{ verse: number; start: number; end: number; text: string } | null>(null);
   const [draftSaveStatus, setDraftSaveStatus] = useState<'saving' | 'saved' | 'unavailable'>('saving');
   const [notesFontSize, setNotesFontSize] = useState(17);
@@ -209,6 +215,9 @@ export default function App() {
   useEffect(() => {
     writePreviewWordMarkup(previewWordMarkup);
   }, [previewWordMarkup]);
+  useEffect(() => {
+    try { window.localStorage.setItem('ibs-preview-markup-colors-v1', JSON.stringify(markupColors)); } catch { /* Optional preview preference. */ }
+  }, [markupColors]);
 
   useEffect(() => {
     setSelectedTextMarkup(null);
@@ -568,9 +577,29 @@ export default function App() {
                 })}
               </div>
               <p className="markup-storage-note">{selectedTextMarkup ? 'These markings apply to the highlighted words or phrase. Clear the text selection to mark whole verses.' : 'Highlight a word or phrase to mark only that text, or select whole verses to mark the complete verses. Markings are saved in this browser preview only.'}</p>
+              <div className="markup-tools-row">
+                <div className="markup-legend" aria-label="Observation markup legend">{SCRIPTURE_MARKUP_TYPES.map(type => <span key={type.id}><i style={{backgroundColor:markupColors[type.id]}} />{type.label}</span>)}</div>
+                <button className="text-button" type="button" onClick={() => setShowMarkupReview(value => !value)} aria-expanded={showMarkupReview}>{showMarkupReview ? 'Hide markup review' : 'Review passage markings'}</button>
+              </div>
+              <div className="markup-color-settings"><strong>Category colours</strong>{SCRIPTURE_MARKUP_TYPES.map(type => <label key={type.id}>{type.label}<input aria-label={type.label + ' markup colour'} type="color" value={markupColors[type.id]} onChange={event => setMarkupColors(previous => ({...previous,[type.id]:event.target.value}))} /></label>)}</div>
+              {showMarkupReview && <section className="markup-review" aria-label="Passage markup review">
+                <div className="markup-review-heading"><strong>{book} {chapter} · Markup review</strong><span>Find occurrences and revisit marked verses</span></div>
+                <label className="markup-search-label">Find a marked word or phrase<input type="search" value={markupSearch} onChange={event => setMarkupSearch(event.target.value)} placeholder="Search within this chapter…" /></label>
+                {(() => {
+                  const rows = (bible?.verses || []).flatMap(verse => {
+                    const wholeTags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
+                    const ranges = previewWordMarkup[passageDraftKey]?.[String(verse.number)] || [];
+                    const snippets = ranges.map(range => ({text:verse.text.slice(range.start,range.end),tags:range.tags}));
+                    const matches = snippets.filter(item => !markupSearch.trim() || item.text.toLocaleLowerCase().includes(markupSearch.trim().toLocaleLowerCase()));
+                    const wholeMatch = wholeTags.length && (!markupSearch.trim() || verse.text.toLocaleLowerCase().includes(markupSearch.trim().toLocaleLowerCase()));
+                    return [...matches.map(item => ({verse:verse.number,text:item.text,tags:item.tags})), ...(wholeMatch ? [{verse:verse.number,text:verse.text,tags:wholeTags}] : [])];
+                  });
+                  return rows.length ? <ul className="markup-review-list">{rows.map((row,index)=><li key={row.verse+'-'+index}><button type="button" onClick={() => {setSelectedVerseNumbers([row.verse]);verseSelectionAnchorRef.current=row.verse;setShowMarkupReview(false);}}><strong>{book} {chapter}:{row.verse}</strong><span>{row.text}</span><small>{row.tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id===tag)?.label || tag).join(' · ')}</small></button></li>)}</ul> : <p className="markup-review-empty">No markings match this search in the current chapter.</p>;
+                })()}
+              </section>}
             </div>
             <p className="verse-selection-hint">Click verses to add or remove them. Hold Shift and click another verse to select the entire passage between them.</p>
-            <div className="verse-list" style={{fontSize}} aria-live="polite" aria-label="Bible verses. Click to select individual verses; Shift-click another verse to select a continuous passage.">
+            <div className="verse-list" style={{fontSize, ...Object.fromEntries(SCRIPTURE_MARKUP_TYPES.map(type => ['--markup-'+type.id, markupColors[type.id]])) as React.CSSProperties}} aria-live="polite" aria-label="Bible verses. Click to select individual verses; Shift-click another verse to select a continuous passage.">
               {loadingBible && <div className="reader-message" role="status">Loading {book} {chapter}…</div>}
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => {

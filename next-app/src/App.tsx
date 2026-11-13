@@ -92,7 +92,7 @@ export default function App() {
   const [loadingBible, setLoadingBible] = useState(true);
   const [bibleError, setBibleError] = useState('');
   const [readerReload, setReaderReload] = useState(0);
-  const [selectedVerse, setSelectedVerse] = useState(1);
+  const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
   const [readerNotice, setReaderNotice] = useState('');
   const [showStrongs, setShowStrongs] = useState(false);
   const [lexicon, setLexicon] = useState<StrongLexiconEntry | null>(null);
@@ -162,7 +162,7 @@ export default function App() {
     setLoadingBible(true);
     setBibleError('');
     setReaderNotice('');
-    setSelectedVerse(1);
+    setSelectedVerse(null);
     lexiconRequestRef.current += 1;
     setLexicon(null);
     setLexiconError('');
@@ -245,7 +245,7 @@ export default function App() {
   };
 
   const selectedVerseRecord = bible?.verses.find(item => item.number === selectedVerse);
-  const selectedVerseCitation = book + ' ' + chapter + ':' + selectedVerse;
+  const selectedVerseCitation = selectedVerse === null ? '' : book + ' ' + chapter + ':' + selectedVerse;
   const selectedVerseQuote = selectedVerseRecord ? selectedVerseCitation + ' (' + translation + '): “' + selectedVerseRecord.text + '”' : '';
 
   const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
@@ -431,11 +431,11 @@ export default function App() {
               <button type="button" className="outline-button" onClick={() => changeChapter(1)} disabled={book === BIBLE_BOOKS[BIBLE_BOOKS.length - 1].name && chapter === bookInfo.chapters}>Next →</button>
             </div>
             <div className="markup-toolbar" aria-label="Scripture observation markup">
-              <div className="markup-toolbar-heading"><strong>Observation markup</strong><span>Selected verse: {book} {chapter}:{selectedVerse}</span></div>
+              <div className="markup-toolbar-heading"><strong>Observation markup</strong><span>{selectedVerse === null ? 'Select a verse to apply observation markup.' : 'Selected verse: ' + book + ' ' + chapter + ':' + selectedVerse}</span></div>
               <div className="markup-options">
                 {SCRIPTURE_MARKUP_TYPES.map(type => {
                   const active = selectedVerseMarkup.includes(type.id);
-                  return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} onClick={() => setPreviewMarkup(previous => toggleVerseMarkup(previous, passageDraftKey, selectedVerse, type.id))}>
+                  return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} disabled={selectedVerse === null} onClick={() => { if (selectedVerse !== null) setPreviewMarkup(previous => toggleVerseMarkup(previous, passageDraftKey, selectedVerse, type.id)); }}>
                     <span className="markup-symbol">{type.symbol}</span>{type.label}
                   </button>;
                 })}
@@ -447,12 +447,12 @@ export default function App() {
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => {
                 const tags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
-                return <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(verse.number);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
+                return <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(current => current === verse.number ? null : verse.number);setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
             <div className="verse-action-dock" aria-label="Actions for selected verse">
-              <div className="verse-action-context"><span className="eyebrow">SELECTED VERSE</span><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecord ? selectedVerseRecord.text : 'Select a verse to see available actions.'}</span></div>
+              <div className="verse-action-context"><div className="verse-action-context-heading"><span className="eyebrow">{selectedVerse === null ? 'NO VERSE SELECTED' : 'SELECTED VERSE'}</span>{selectedVerse !== null && <button type="button" className="text-button clear-verse-selection" onClick={() => {setSelectedVerse(null);setShowAddToStudy(false);setReaderNotice('Verse selection cleared.');}} aria-label="Clear selected verse">Clear selection ×</button>}</div>{selectedVerse !== null && <><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecord?.text || ''}</span></>}{selectedVerse === null && <span>Select a verse to copy it, add it to a study, or link it to another passage.</span>}</div>
               <div className="verse-action-buttons">
                 <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()} disabled={!selectedVerseRecord}><span aria-hidden="true">▢</span>Copy verse</button>
                 <button type="button" className="verse-action" onClick={() => setShowAddToStudy(value => !value)} disabled={!selectedVerseRecord}><span aria-hidden="true">＋</span>Add to study</button>

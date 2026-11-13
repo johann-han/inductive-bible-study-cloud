@@ -264,7 +264,7 @@ export default function App() {
     const addition = additions.map(item => book + ' ' + chapter + ':' + item.number + ' — ' + translation + '\n' + item.text).join('\n\n');
     setDraftsByPassage(previous => ({
       ...previous,
-      [targetKey]: { ...(previous[targetKey] || currentDraft), [targetStage]: existing.trim() ? existing + addition : addition.trim(), activeStage: targetStage }
+      [targetKey]: { ...(previous[targetKey] || currentDraft), [targetStage]: existing.trim() ? existing + '\n\n' + addition : addition.trim(), activeStage: targetStage }
     }));
     setStage(targetStage);
     if (targetBook !== book || targetChapter !== chapter) {
@@ -436,7 +436,7 @@ export default function App() {
               <div className="markup-toolbar-heading"><strong>Observation markup</strong><span>{selectedVerse === null ? 'Select a verse to apply observation markup.' : 'Selected verse: ' + book + ' ' + chapter + ':' + selectedVerse}</span></div>
               <div className="markup-options">
                 {SCRIPTURE_MARKUP_TYPES.map(type => {
-                  const active = selectedVerseMarkup.includes(type.id);
+                  const active = selectedVerseNumbers.length > 0 && selectedVerseNumbers.every(verseNumber => (previewMarkup[passageDraftKey]?.[String(verseNumber)] || []).includes(type.id));
                   return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} disabled={selectedVerseNumbers.length === 0} onClick={() => { if (selectedVerseNumbers.length) setPreviewMarkup(previous => selectedVerseNumbers.reduce((next, verseNumber) => toggleVerseMarkup(next, passageDraftKey, verseNumber, type.id), previous)); }}>
                     <span className="markup-symbol">{type.symbol}</span>{type.label}
                   </button>;

@@ -6,7 +6,7 @@ function normalizeWordMarkup(input) {
   const result = Object.create(null);
   if (!input || typeof input !== 'object' || Array.isArray(input)) return result;
   for (const [passage, verses] of Object.entries(input)) {
-    if (typeof passage !== 'string' || !/^.+\\|\\d+$/.test(passage) || !verses || typeof verses !== 'object' || Array.isArray(verses)) continue;
+    if (typeof passage !== 'string' || !/^.+\|\d+$/.test(passage) || !verses || typeof verses !== 'object' || Array.isArray(verses)) continue;
     const clean = Object.create(null);
     for (const [verse, ranges] of Object.entries(verses)) {
       if (!Number.isInteger(Number(verse)) || Number(verse) < 1 || !Array.isArray(ranges)) continue;

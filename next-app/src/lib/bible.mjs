@@ -180,6 +180,22 @@ export function listPreviewDraftEntries(drafts) {
   });
 }
 
+export function getPreviewStageEvidence(draft, activeStage) {
+  const stages = ['observe', 'interpret', 'doctrine', 'apply'];
+  const activeIndex = stages.indexOf(String(activeStage || '').toLowerCase());
+  if (activeIndex <= 0 || !draft || typeof draft !== 'object' || Array.isArray(draft)) return [];
+  return stages.slice(0, activeIndex).reduce(function (result, stage) {
+    const text = typeof draft[stage] === 'string' ? draft[stage].trim() : '';
+    if (!text) return result;
+    result.push({
+      stage: stage,
+      text: text,
+      wordCount: text.split(/\\s+/).length
+    });
+    return result;
+  }, []);
+}
+
 export function summarizePreviewDraftEntries(entries) {
   const stages = ['observe', 'interpret', 'doctrine', 'apply'];
   const summary = {

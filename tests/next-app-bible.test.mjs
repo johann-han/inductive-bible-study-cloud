@@ -4,6 +4,7 @@ import {
   BIBLE_BOOKS,
   fetchBibleChapter,
   fetchStrongsLexicon,
+  getPreviewStageEvidence,
   listPreviewDraftEntries,
   summarizePreviewDraftEntries,
   LAST_READING_STORAGE_KEY,
@@ -314,4 +315,34 @@ test('preview dashboard summary safely handles missing or malformed entry collec
     wordCount: 0,
     stageCounts: { observe: 1, interpret: 0, doctrine: 0, apply: 0 }
   });
+});
+
+
+test('stage evidence handoff carries only populated notes from earlier stages in workflow order', () => {
+  const draft = {
+    observe: '  Repeated phrase: the word of the Lord.  ',
+    interpret: 'The repeated phrase introduces the source of the message.',
+    doctrine: 'God speaks and reveals his purpose.',
+    apply: 'Respond with attentive obedience.',
+    activeStage: 'apply'
+  };
+  assert.deepEqual(getPreviewStageEvidence(draft, 'apply'), [
+    { stage: 'observe', text: 'Repeated phrase: the word of the Lord.', wordCount: 7 },
+    { stage: 'interpret', text: 'The repeated phrase introduces the source of the message.', wordCount: 9 },
+    { stage: 'doctrine', text: 'God speaks and reveals his purpose.', wordCount: 6 }
+  ]);
+});
+
+test('stage evidence handoff excludes the active and future stages and ignores blank earlier notes', () => {
+  const draft = {
+    observe: '   ',
+    interpret: 'The argument develops from the opening observation.',
+    doctrine: 'God is faithful.',
+    apply: 'Act faithfully.'
+  };
+  assert.deepEqual(getPreviewStageEvidence(draft, 'doctrine'), [
+    { stage: 'interpret', text: 'The argument develops from the opening observation.', wordCount: 8 }
+  ]);
+  assert.deepEqual(getPreviewStageEvidence(draft, 'observe'), []);
+  assert.deepEqual(getPreviewStageEvidence(draft, 'unknown'), []);
 });

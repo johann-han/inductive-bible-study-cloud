@@ -53,6 +53,11 @@ export interface PreviewDraftEntry {
   preview: string;
 }
 export type PreviewDrafts = Record<string, PreviewStudyDraft>;
+export interface PreviewStageEvidence {
+  stage: StudyStage;
+  text: string;
+  wordCount: number;
+}
 export interface PreviewDashboardStats {
   studyCount: number;
   stageNoteCount: number;
@@ -87,3 +92,5 @@ export declare function fetchBibleChapter(
 ): Promise<BibleChapter>;
 
 export declare function summarizePreviewDraftEntries(entries: PreviewDraftEntry[]): PreviewDashboardStats;
+
+export declare function getPreviewStageEvidence(draft: Partial<PreviewStudyDraft> | null, activeStage: StudyStage): PreviewStageEvidence[];

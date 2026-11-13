@@ -22,7 +22,7 @@ test('parses phrase-anchored TSV rows and filters by passage or verse', () => {
     'Gen\t1\t1\tbeginning\tProv 8:22-24|John 1:1-3',
     'Gen\t1\t2\tformless\tJer 4:23',
     'Rom\t8\t28\twork together\tGen 50:20'
-  ].join('\\n'));
+  ].join('\n'));
   assert.equal(rows.length, 3);
   assert.deepEqual(rows[0].references.map(item => item.label), ['Prov 8:22-24', 'John 1:1-3']);
   assert.equal(getStandardCrossReferences(rows, { book: 'Genesis', chapter: 1 }).length, 2);

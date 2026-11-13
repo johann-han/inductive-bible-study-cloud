@@ -291,6 +291,7 @@ export default function App() {
   };
 
   const openVerseCrossReference = () => {
+    if (selectedVerse === null) return;
     setReferenceSourceVerse(selectedVerse);
     setReferenceNotice('');
     setView('references');

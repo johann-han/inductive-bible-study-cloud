@@ -124,6 +124,12 @@ test('last-read passage uses and preserves the existing localStorage contract', 
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value)
   };
+  assert.deepEqual(readSavedPassage(storage), null);
+  values.set(LAST_READING_STORAGE_KEY, JSON.stringify({ book: 'Genesis', chapter: 1 }));
+  assert.deepEqual(readSavedPassage(storage), { book: 'Genesis', chapter: 1, translation: 'BSB' });
+  values.set(LAST_READING_STORAGE_KEY, JSON.stringify({ book: 'Genesis', chapter: 1, translation: 'unknown' }));
+  assert.deepEqual(readSavedPassage(storage), { book: 'Genesis', chapter: 1, translation: 'BSB' });
+  values.delete(LAST_READING_STORAGE_KEY);
   assert.equal(writeSavedPassage({ book: 'Ephesians', chapter: 2, translation: 'BSB' }, storage), true);
   assert.equal(values.has(LAST_READING_STORAGE_KEY), true);
   assert.deepEqual(readSavedPassage(storage), { book: 'Ephesians', chapter: 2, translation: 'BSB' });

@@ -23,5 +23,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Type-check next-generation front end
+        run: npm run check:next
+      - name: Build next-generation front end
+        run: npm run build:next
       - name: Run test suite
         run: npm test

@@ -21,6 +21,7 @@ import { addPreviewCrossReference, deletePreviewCrossReference, formatCrossRefer
 import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
 import { loadStandardCrossReferences, STANDARD_XREF_SOURCE } from './lib/standard-cross-references.mjs';
+import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -109,7 +110,7 @@ export default function App() {
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
-  const [standardCrossReferences, setStandardCrossReferences] = useState<any[]>([]);
+  const [standardCrossReferences, setStandardCrossReferences] = useState<StandardCrossReferenceRow[]>([]);
   const [standardReferencesStatus, setStandardReferencesStatus] = useState<'idle'|'loading'|'loaded'|'error'>('idle');
   const [standardReferencesError, setStandardReferencesError] = useState('');
   const [referenceTargetBook, setReferenceTargetBook] = useState('John');
@@ -166,7 +167,7 @@ export default function App() {
         setStandardCrossReferences(rows);
         setStandardReferencesStatus('loaded');
       })
-      .catch(error => {
+      .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         setStandardReferencesError(error instanceof Error ? error.message : 'Unable to load standard cross-references.');
         setStandardReferencesStatus('error');

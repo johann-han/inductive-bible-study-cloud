@@ -616,29 +616,42 @@ export default function App() {
               </div>
               <div className="markup-color-settings"><strong>Category colours</strong>{SCRIPTURE_MARKUP_TYPES.map(type => <label key={type.id}>{type.label}<input aria-label={type.label + ' markup colour'} type="color" value={markupColors[type.id]} onChange={event => setMarkupColors(previous => ({...previous,[type.id]:event.target.value}))} /></label>)}</div>
               {showObservationIndex && <section className="markup-review observation-index" aria-label="Study observation index">
-                <div className="markup-review-heading"><strong>Observation index · All saved passages</strong><span>Verse markings and phrase annotations across this browser preview</span></div>
-                <div className="observation-index-controls">
-                  <label className="markup-search-label">Search observations<input type="search" value={observationIndexSearch} onChange={event => setObservationIndexSearch(event.target.value)} placeholder="Search marked words, verses or passages…" /></label>
-                  <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
-                </div>
+                <div className="markup-review-heading"><strong>Observation index · All saved passages</strong><span>Review, search and revisit observations across your study</span></div>
                 {(() => {
                   const entries = Object.entries(previewWordMarkup).flatMap(([passage, verses]) => Object.entries(verses).flatMap(([verse, ranges]) => ranges.map((range,index) => {
                     const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
                     const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
-                    return { passage, verse:Number(verse), text:verseText ? verseText.slice(range.start,range.end) : 'Scripture text unavailable', tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index };
+                    return { passage, verse:Number(verse), text:verseText ? verseText.slice(range.start,range.end) : 'Scripture text unavailable', tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index, kind:'Phrase' };
                   }))).concat(Object.entries(previewMarkup).flatMap(([passage, verses]) => Object.entries(verses).map(([verse,tags]) => {
                     const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
                     const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
-                    return {passage,verse:Number(verse),text:verseText || 'Scripture text unavailable',tags,key:'v-'+passage+'-'+verse};
+                    return {passage,verse:Number(verse),text:verseText || 'Scripture text unavailable',tags,key:'v-'+passage+'-'+verse,kind:'Verse'};
                   })));
                   const query = observationIndexSearch.trim().toLocaleLowerCase();
                   const filtered = entries.filter(entry =>
                     (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory)) &&
-                    (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ')).toLocaleLowerCase().includes(query))
-                  );
+                    (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ') + ' ' + entry.kind).toLocaleLowerCase().includes(query))
+                  ).sort((a,b) => {
+                    const [ab,ac] = a.passage.split('|'); const [bb,bc] = b.passage.split('|');
+                    return ab.localeCompare(bb) || Number(ac)-Number(bc) || a.verse-b.verse || a.kind.localeCompare(b.kind);
+                  });
+                  const uniqueVerses = new Set(filtered.map(entry => entry.passage+'|'+entry.verse)).size;
+                  const groups = filtered.reduce((map,entry) => {
+                    if (!map.has(entry.passage)) map.set(entry.passage,[]);
+                    map.get(entry.passage).push(entry);
+                    return map;
+                  }, new Map<string, typeof filtered>());
                   return <>
+                    <div className="observation-index-summary"><span><strong>{filtered.length}</strong> markings</span><span><strong>{uniqueVerses}</strong> verses</span><span><strong>{groups.size}</strong> chapters</span></div>
+                    <div className="observation-index-controls">
+                      <label className="markup-search-label">Search observations<input type="search" value={observationIndexSearch} onChange={event => setObservationIndexSearch(event.target.value)} placeholder="Search words, verses or passages…" /></label>
+                      <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
+                    </div>
                     {observationIndexStatus === 'loading' && <p className="markup-review-empty">Loading Scripture text for marked passages…</p>}
-                    {filtered.length ? <ul className="markup-review-list">{filtered.map(entry => <li key={entry.key}><button type="button" onClick={() => {const [targetBook,targetChapter]=entry.passage.split('|');setBook(targetBook);setChapter(Number(targetChapter));setView('reader');setSelectedVerseNumbers([entry.verse]);verseSelectionAnchorRef.current=entry.verse;setShowObservationIndex(false);}}><strong>{entry.passage.replace('|',' ')}:{entry.verse}</strong><span>{entry.text}</span><small>{entry.tags.map(tag=>SCRIPTURE_MARKUP_TYPES.find(type=>type.id===tag)?.label||tag).join(' · ')}</small></button></li>)}</ul> : <p className="markup-review-empty">{entries.length ? 'No observations match these filters.' : 'No observations have been marked in your saved preview studies yet.'}</p>}
+                    {groups.size ? <div className="observation-index-groups">{Array.from(groups.entries()).map(([passage,groupEntries]) => <section className="observation-index-group" key={passage}>
+                      <div className="observation-index-group-heading"><strong>{passage.replace('|',' ')}</strong><span>{groupEntries.length} {groupEntries.length===1?'marking':'markings'}</span></div>
+                      <ul className="markup-review-list">{groupEntries.map(entry => <li key={entry.key}><button type="button" onClick={() => {const [targetBook,targetChapter]=entry.passage.split('|');setBook(targetBook);setChapter(Number(targetChapter));setView('reader');setSelectedVerseNumbers([entry.verse]);verseSelectionAnchorRef.current=entry.verse;setShowObservationIndex(false);}}><strong>{entry.verse} <small>{entry.kind}</small></strong><span>{entry.text}</span><small>{entry.tags.map(tag=>SCRIPTURE_MARKUP_TYPES.find(type=>type.id===tag)?.label||tag).join(' · ')}</small></button></li>)}</ul>
+                    </section>)}</div> : <p className="markup-review-empty">{entries.length ? 'No observations match these filters.' : 'No observations have been marked in your saved preview studies yet.'}</p>}
                   </>;
                 })()}
               </section>}

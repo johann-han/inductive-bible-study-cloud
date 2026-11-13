@@ -17,6 +17,8 @@ import {
 } from './lib/bible.mjs';
 import type { BibleChapter, BibleTranslation, PreviewDraftEntry, PreviewDrafts, PreviewStudyDraft, StrongLexiconEntry, StudyStage, WordAnnotation } from './lib/bible.mjs';
 import { readPreviewMarkup, SCRIPTURE_MARKUP_TYPES, toggleVerseMarkup, writePreviewMarkup } from './lib/scripture-markup.mjs';
+import { readPreviewWordMarkup, toggleWordMarkup, writePreviewWordMarkup } from './lib/scripture-word-markup.mjs';
+import type { WordMarkupRange } from './lib/scripture-word-markup.mjs';
 import { addPreviewCrossReference, deletePreviewCrossReference, formatCrossReference, readPreviewCrossReferences, writePreviewCrossReferences } from './lib/cross-references.mjs';
 import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
@@ -45,13 +47,56 @@ function Icon({ name }: { name: string }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name] || paths.book} /></svg>;
 }
 
+function getSelectedTextOffsets(root: HTMLElement, selection: Selection | null): { start: number; end: number } | null {
+  if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+  const range = selection.getRangeAt(0);
+  if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || parent.closest('sup, .verse-markup-tags')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  let cursor = 0;
+  let start: number | null = null;
+  let end: number | null = null;
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const length = node.textContent?.length || 0;
+    if (node === range.startContainer) start = cursor + Math.min(range.startOffset, length);
+    if (node === range.endContainer) end = cursor + Math.min(range.endOffset, length);
+    cursor += length;
+  }
+  if (start === null || end === null || start === end) return null;
+  return { start: Math.min(start, end), end: Math.max(start, end) };
+}
+
+function renderMarkedText(text: string, offset: number, ranges: WordMarkupRange[]): React.ReactNode[] {
+  const boundaries = new Set<number>([0, text.length]);
+  ranges.forEach(range => {
+    const start = Math.max(0, Math.min(text.length, range.start - offset));
+    const end = Math.max(0, Math.min(text.length, range.end - offset));
+    if (end > start) { boundaries.add(start); boundaries.add(end); }
+  });
+  const points = [...boundaries].sort((a, b) => a - b);
+  return points.slice(0, -1).map((start, index) => {
+    const end = points[index + 1];
+    const value = text.slice(start, end);
+    const tags = ranges.filter(range => range.start <= offset + start && range.end >= offset + end).flatMap(range => range.tags);
+    if (!tags.length) return <React.Fragment key={offset + start}>{value}</React.Fragment>;
+    return <mark key={offset + start} className={'word-markup ' + [...new Set(tags)].map(tag => 'word-markup-' + tag).join(' ')} title={'Marked: ' + [...new Set(tags)].join(', ')}>{value}</mark>;
+  });
+}
+
 function renderVerseWithAnnotations(
   text: string,
   annotations: WordAnnotation[],
   enabled: boolean,
-  onWordClick: (id: string, word: string) => void
+  onWordClick: (id: string, word: string) => void,
+  wordMarks: WordMarkupRange[] = []
 ) {
-  if (!enabled || !Array.isArray(annotations) || annotations.length === 0) return text;
+  if (!enabled || !Array.isArray(annotations) || annotations.length === 0) return renderMarkedText(text, 0, wordMarks);
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   const valid = annotations
@@ -65,18 +110,18 @@ function renderVerseWithAnnotations(
     if (item.start < cursor) continue;
     const id = item.strongs.find(Boolean);
     if (!id) continue;
-    if (item.start > cursor) parts.push(text.slice(cursor, item.start));
+    if (item.start > cursor) parts.push(...renderMarkedText(text.slice(cursor, item.start), cursor, wordMarks));
     const word = text.slice(item.start, item.end);
     const detail = [item.originalText, item.transliteration, item.parsingFull || item.parsing].filter(Boolean).join(' · ');
     parts.push(
       <button className="strongs-token" type="button" key={item.start + '-' + item.end}
         title={detail || ('Open ' + id)} onClick={() => onWordClick(id, word)}>
-        {word}<sup>{id}</sup>
+        {renderMarkedText(word, item.start, wordMarks)}<sup>{id}</sup>
       </button>
     );
     cursor = item.end;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (cursor < text.length) parts.push(...renderMarkedText(text.slice(cursor), cursor, wordMarks));
   return <>{parts}</>;
 }
 
@@ -86,6 +131,8 @@ export default function App() {
   const [stage, setStage] = useState<Stage>('observe');
   const [draftsByPassage, setDraftsByPassage] = useState<PreviewDrafts>(() => readPreviewDrafts());
   const [previewMarkup, setPreviewMarkup] = useState(() => readPreviewMarkup());
+  const [previewWordMarkup, setPreviewWordMarkup] = useState(() => readPreviewWordMarkup());
+  const [selectedTextMarkup, setSelectedTextMarkup] = useState<{ verse: number; start: number; end: number; text: string } | null>(null);
   const [draftSaveStatus, setDraftSaveStatus] = useState<'saving' | 'saved' | 'unavailable'>('saving');
   const [notesFontSize, setNotesFontSize] = useState(17);
   const [book, setBook] = useState(initialPassage.book);
@@ -158,6 +205,14 @@ export default function App() {
   useEffect(() => {
     writePreviewMarkup(previewMarkup);
   }, [previewMarkup]);
+
+  useEffect(() => {
+    writePreviewWordMarkup(previewWordMarkup);
+  }, [previewWordMarkup]);
+
+  useEffect(() => {
+    setSelectedTextMarkup(null);
+  }, [passageDraftKey]);
 
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
   useEffect(() => {
@@ -503,16 +558,16 @@ export default function App() {
               <button type="button" className="outline-button" onClick={() => changeChapter(1)} disabled={book === BIBLE_BOOKS[BIBLE_BOOKS.length - 1].name && chapter === bookInfo.chapters}>Next →</button>
             </div>
             <div className="markup-toolbar" aria-label="Scripture observation markup">
-              <div className="markup-toolbar-heading"><strong>Observation markup</strong><span>{selectedVerse === null ? 'Select a verse to apply observation markup.' : 'Selected verse: ' + book + ' ' + chapter + ':' + selectedVerse}</span></div>
+              <div className="markup-toolbar-heading"><strong>Observation markup</strong><span>{selectedTextMarkup ? 'Selected text: “' + selectedTextMarkup.text + '”' : selectedVerse === null ? 'Select a verse or highlight words in the text.' : 'Selected verse: ' + book + ' ' + chapter + ':' + selectedVerse}</span></div>
               <div className="markup-options">
                 {SCRIPTURE_MARKUP_TYPES.map(type => {
-                  const active = selectedVerseNumbers.length > 0 && selectedVerseNumbers.every(verseNumber => (previewMarkup[passageDraftKey]?.[String(verseNumber)] || []).includes(type.id));
-                  return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} disabled={selectedVerseNumbers.length === 0} onClick={() => { if (selectedVerseNumbers.length) setPreviewMarkup(previous => selectedVerseNumbers.reduce((next, verseNumber) => toggleVerseMarkup(next, passageDraftKey, verseNumber, type.id), previous)); }}>
+                  const active = selectedTextMarkup ? (previewWordMarkup[passageDraftKey]?.[String(selectedTextMarkup.verse)] || []).some(range => range.start === selectedTextMarkup.start && range.end === selectedTextMarkup.end && range.tags.includes(type.id)) : selectedVerseNumbers.length > 0 && selectedVerseNumbers.every(verseNumber => (previewMarkup[passageDraftKey]?.[String(verseNumber)] || []).includes(type.id));
+                  return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} disabled={selectedTextMarkup === null && selectedVerseNumbers.length === 0} onClick={() => { if (selectedTextMarkup) setPreviewWordMarkup(previous => toggleWordMarkup(previous, passageDraftKey, selectedTextMarkup.verse, selectedTextMarkup.start, selectedTextMarkup.end, type.id)); else if (selectedVerseNumbers.length) setPreviewMarkup(previous => selectedVerseNumbers.reduce((next, verseNumber) => toggleVerseMarkup(next, passageDraftKey, verseNumber, type.id), previous)); }}>
                     <span className="markup-symbol">{type.symbol}</span>{type.label}
                   </button>;
                 })}
               </div>
-              <p className="markup-storage-note">Tags are saved in this browser preview only.</p>
+              <p className="markup-storage-note">{selectedTextMarkup ? 'These markings apply to the highlighted words or phrase. Clear the text selection to mark whole verses.' : 'Highlight a word or phrase to mark only that text, or select whole verses to mark the complete verses. Markings are saved in this browser preview only.'}</p>
             </div>
             <p className="verse-selection-hint">Click verses to add or remove them. Hold Shift and click another verse to select the entire passage between them.</p>
             <div className="verse-list" style={{fontSize}} aria-live="polite" aria-label="Bible verses. Click to select individual verses; Shift-click another verse to select a continuous passage.">
@@ -520,7 +575,7 @@ export default function App() {
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => {
                 const tags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
-                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={(event)=>{if(event.shiftKey && verseSelectionAnchorRef.current !== null){setSelectedVerseNumbers(selectVerseRange(verseSelectionAnchorRef.current,verse.number));}else{setSelectedVerseNumbers(current => toggleVerseSelection(current,verse.number));verseSelectionAnchorRef.current=verse.number;}setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
+                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={(event)=>{if(event.shiftKey && verseSelectionAnchorRef.current !== null){setSelectedVerseNumbers(selectVerseRange(verseSelectionAnchorRef.current,verse.number));}else{setSelectedVerseNumbers(current => toggleVerseSelection(current,verse.number));verseSelectionAnchorRef.current=verse.number;}setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p onMouseUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}} onKeyUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}}>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word), previewWordMarkup[passageDraftKey]?.[String(verse.number)] || [])}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>

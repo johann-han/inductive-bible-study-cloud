@@ -72,7 +72,7 @@ function getSelectedTextOffsets(root: HTMLElement, selection: Selection | null):
   return { start: Math.min(start, end), end: Math.max(start, end) };
 }
 
-function renderMarkedText(text: string, offset: number, ranges: WordMarkupRange[]): React.ReactNode[] {
+function renderMarkedText(text: string, offset: number, ranges: WordMarkupRange[], onRemove?: (start: number, end: number) => void): React.ReactNode[] {
   const boundaries = new Set<number>([0, text.length]);
   ranges.forEach(range => {
     const start = Math.max(0, Math.min(text.length, range.start - offset));
@@ -85,7 +85,7 @@ function renderMarkedText(text: string, offset: number, ranges: WordMarkupRange[
     const value = text.slice(start, end);
     const tags = ranges.filter(range => range.start <= offset + start && range.end >= offset + end).flatMap(range => range.tags);
     if (!tags.length) return <Fragment key={offset + start}>{value}</Fragment>;
-    return <mark key={offset + start} className={'word-markup ' + [...new Set(tags)].map(tag => 'word-markup-' + tag).join(' ')} title={'Marked: ' + [...new Set(tags)].join(', ')}>{value}</mark>;
+    return <mark key={offset + start} className={'word-markup ' + [...new Set(tags)].map(tag => 'word-markup-' + tag).join(' ')} title={'Marked: ' + [...new Set(tags)].join(', ') + ' · Click to remove highlight'} onClick={event => { event.preventDefault(); event.stopPropagation(); onRemove?.(offset + start, offset + end); }}>{value}</mark>;
   });
 }
 
@@ -94,9 +94,10 @@ function renderVerseWithAnnotations(
   annotations: WordAnnotation[],
   enabled: boolean,
   onWordClick: (id: string, word: string) => void,
-  wordMarks: WordMarkupRange[] = []
+  wordMarks: WordMarkupRange[] = [],
+  onRemoveWordMark?: (start: number, end: number) => void
 ) {
-  if (!enabled || !Array.isArray(annotations) || annotations.length === 0) return renderMarkedText(text, 0, wordMarks);
+  if (!enabled || !Array.isArray(annotations) || annotations.length === 0) return renderMarkedText(text, 0, wordMarks, onRemoveWordMark);
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   const valid = annotations
@@ -110,18 +111,18 @@ function renderVerseWithAnnotations(
     if (item.start < cursor) continue;
     const id = item.strongs.find(Boolean);
     if (!id) continue;
-    if (item.start > cursor) parts.push(...renderMarkedText(text.slice(cursor, item.start), cursor, wordMarks));
+    if (item.start > cursor) parts.push(...renderMarkedText(text.slice(cursor, item.start), cursor, wordMarks, onRemoveWordMark));
     const word = text.slice(item.start, item.end);
     const detail = [item.originalText, item.transliteration, item.parsingFull || item.parsing].filter(Boolean).join(' · ');
     parts.push(
       <button className="strongs-token" type="button" key={item.start + '-' + item.end}
         title={detail || ('Open ' + id)} onClick={() => onWordClick(id, word)}>
-        {renderMarkedText(word, item.start, wordMarks)}<sup>{id}</sup>
+        {renderMarkedText(word, item.start, wordMarks, onRemoveWordMark)}<sup>{id}</sup>
       </button>
     );
     cursor = item.end;
   }
-  if (cursor < text.length) parts.push(...renderMarkedText(text.slice(cursor), cursor, wordMarks));
+  if (cursor < text.length) parts.push(...renderMarkedText(text.slice(cursor), cursor, wordMarks, onRemoveWordMark));
   return <>{parts}</>;
 }
 
@@ -604,7 +605,18 @@ export default function App() {
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => {
                 const tags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
-                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={(event)=>{if(event.shiftKey && verseSelectionAnchorRef.current !== null){setSelectedVerseNumbers(selectVerseRange(verseSelectionAnchorRef.current,verse.number));}else{setSelectedVerseNumbers(current => toggleVerseSelection(current,verse.number));verseSelectionAnchorRef.current=verse.number;}setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p onMouseUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}} onKeyUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}}>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word), previewWordMarkup[passageDraftKey]?.[String(verse.number)] || [])}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
+                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={(event)=>{if(event.shiftKey && verseSelectionAnchorRef.current !== null){setSelectedVerseNumbers(selectVerseRange(verseSelectionAnchorRef.current,verse.number));}else{setSelectedVerseNumbers(current => toggleVerseSelection(current,verse.number));verseSelectionAnchorRef.current=verse.number;}setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p onMouseUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}} onKeyUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}}>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word), previewWordMarkup[passageDraftKey]?.[String(verse.number)] || [], (start, end) => {
+                  setPreviewWordMarkup(previous => {
+                    const passage = { ...(previous[passageDraftKey] || {}) };
+                    const remaining = (passage[String(verse.number)] || []).filter(range => range.end <= start || range.start >= end);
+                    if (remaining.length) passage[String(verse.number)] = remaining; else delete passage[String(verse.number)];
+                    const next = { ...previous };
+                    if (Object.keys(passage).length) next[passageDraftKey] = passage; else delete next[passageDraftKey];
+                    return next;
+                  });
+                  setSelectedTextMarkup(null);
+                  setReaderNotice('Highlight removed.');
+                })}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>

@@ -41,6 +41,8 @@ The reader also has optional Strong’s display, switched off by default. KJV an
 
 The preview-specific notes layer now auto-saves the four stage drafts per passage under `ibs-next-generation-preview-drafts-v1`. It uses a key reserved for this new preview and does not reuse or overwrite the current app’s study-library or note keys. Browser storage failures are surfaced in the editor status rather than falsely reporting a save.
 
+The new `study-records.mjs` adapter is a pure conversion layer for the existing `study_records` shape. It preserves the four stage bodies, all currently enumerated metadata fields, unknown JSONB keys, and unknown local record properties. Doctrine stage compatibility is encoded through `_activeStage` while keeping `active_section` within the existing three-value check constraint. Ten adapter tests cover the schema boundary, unknown-field round trips, timestamps and invalid records. Network access and cloud writes are not part of this module.
+
 The layer intentionally does not:
 - connect to Supabase or write production data;
 - sync notes or study stages to the cloud;

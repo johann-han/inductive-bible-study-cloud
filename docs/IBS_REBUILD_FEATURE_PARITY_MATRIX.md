@@ -65,6 +65,7 @@ The CI workflow runs `npm test` on Node 22. The rebuild must keep this workflow 
 | Word annotation and lexicon | Partial implementation | KJV source offsets, BSB gloss alignment, Strong’s toggle off by default, STEPBible lexicon entries. Additional Greek/Hebrew/Aramaic morphology and original-script displays remain. |
 | Preview notes | Implemented locally only | Per-passage, per-stage auto-save under the preview-specific key; visible save state. Not production storage or cloud sync. |
 | Preview study library | Implemented locally only | Lists non-empty preview drafts, note progress, active stage and search; resumes the draft in the preview. It does not show the real production library. |
+| Preview Overview dashboard | Implemented locally only | Overview is now the preview landing view, with accurate draft/stage/word totals, saved preview drafts and direct navigation to the reader/library. It explicitly identifies browser-only data and is not the authenticated production home. |
 | Cloud study adapter | Pure conversion layer implemented and tested | Preserves four stage bodies and known/unknown JSONB fields; no Supabase client, network calls or writes. |
 | Doctrine active stage | Compatibility mapping proposed and unit-tested | Uses `sections._activeStage` and constrained `active_section='interpret'`. Must not be enabled until legacy-client metadata loss and rollout compatibility are resolved. |
 | Authentication / user identity | Not integrated | Must wait for an isolated preview Supabase target and reviewed server session flow. |

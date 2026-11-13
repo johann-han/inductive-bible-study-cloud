@@ -9,6 +9,7 @@ import {
   listPreviewDraftEntries,
   readPreviewDrafts,
   readSavedPassage,
+  summarizePreviewDraftEntries,
   writePreviewDrafts,
   writeSavedPassage
 } from './lib/bible.mjs';
@@ -95,7 +96,7 @@ export default function App() {
   const [lexiconError, setLexiconError] = useState('');
   const lexiconRequestRef = useRef(0);
   const [showGuidance, setShowGuidance] = useState(true);
-  const [showLibrary, setShowLibrary] = useState(false);
+  const [view, setView] = useState<'overview' | 'library' | 'reader'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
 
@@ -107,6 +108,7 @@ export default function App() {
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
   const bookInfo = getBibleBook(book)!;
   const allPreviewLibraryEntries = useMemo(() => listPreviewDraftEntries(draftsByPassage), [draftsByPassage]);
+  const dashboardStats = useMemo(() => summarizePreviewDraftEntries(allPreviewLibraryEntries), [allPreviewLibraryEntries]);
   const visiblePreviewLibraryEntries = useMemo(() => {
     const query = libraryQuery.trim().toLocaleLowerCase();
     if (!query) return allPreviewLibraryEntries;
@@ -178,7 +180,7 @@ export default function App() {
     setBook(entry.book);
     setChapter(entry.chapter);
     setStage(entry.activeStage);
-    setShowLibrary(false);
+    setView('reader');
   };
 
   const changeChapter = (direction: number) => {
@@ -232,9 +234,9 @@ export default function App() {
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark">W</div><div><strong>IBS</strong><span>WORD OF LIFE</span></div></div>
       <div className="workspace-label">WORKSPACE</div>
-      <button className="nav-item active" type="button"><Icon name="home"/>Overview</button>
-      <button className="nav-item" type="button" onClick={() => setShowLibrary(!showLibrary)}><Icon name="library"/>Study library</button>
-      <button className="nav-item" type="button" onClick={() => setShowLibrary(false)}><Icon name="book"/>Bible reader</button>
+      <button className={view === 'overview' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('overview')}><Icon name="home"/>Overview</button>
+      <button className={view === 'library' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('library')}><Icon name="library"/>Study library</button>
+      <button className={view === 'reader' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('reader')}><Icon name="book"/>Bible reader</button>
       <div className="sidebar-divider"/>
       <div className="workspace-label">RESEARCH</div>
       <button className="nav-item nav-disabled" type="button" disabled title="Research tools are being integrated in a later rebuild phase"><Icon name="search"/>Word studies</button>
@@ -244,18 +246,69 @@ export default function App() {
     </aside>
     <main className="main-area">
       <header className="topbar">
-        <div className="crumbs"><span>My studies</span><Icon name="chevron"/><strong>{book} {chapter}</strong></div>
-        <div className="top-actions"><span className="sync-status"><i/> Preview · Scripture read-only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
+        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : book + ' ' + chapter}</strong></div>
+        <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
-      {showLibrary ? <section className="library-view">
-        <div className="library-header"><div><div className="eyebrow">YOUR WORKSPACE · PREVIEW DRAFTS</div><h1>Study library</h1><p>Studies saved in this browser preview. These drafts are separate from your existing production library and are not synced to the cloud.</p></div><button className="outline-button" type="button" onClick={() => setShowLibrary(false)}>Return to study</button></div>
+      {view === 'overview' ? <section className="dashboard-view">
+        <div className="dashboard-hero">
+          <div className="dashboard-hero-copy">
+            <div className="dashboard-eyebrow">INDUCTIVE BIBLE STUDY · PREVIEW WORKSPACE</div>
+            <h1>Study the text.<br/><em>Follow the evidence.</em></h1>
+            <p>A focused place to read Scripture, record observations, examine meaning, establish doctrine and respond faithfully.</p>
+            <div className="dashboard-actions">
+              <button className="dashboard-primary" type="button" onClick={() => setView('reader')}>Open Bible reader <Icon name="chevron"/></button>
+              <button className="dashboard-secondary" type="button" onClick={() => setView('library')}>Browse study library</button>
+            </div>
+          </div>
+          <aside className="dashboard-passage-card">
+            <span className="dashboard-card-kicker">LAST OPENED PASSAGE</span>
+            <strong>{book} {chapter}</strong>
+            <span>{translation} · Your reading position is saved in this browser</span>
+            <button type="button" onClick={() => setView('reader')}>Continue reading <Icon name="chevron"/></button>
+          </aside>
+        </div>
+
+        <div className="dashboard-stat-grid" aria-label="Preview study summary">
+          <article className="dashboard-stat"><span>Draft studies</span><strong>{dashboardStats.studyCount}</strong><small>Passages with saved notes</small></article>
+          <article className="dashboard-stat"><span>Stage notes</span><strong>{dashboardStats.stageNoteCount}</strong><small>Across the four study stages</small></article>
+          <article className="dashboard-stat"><span>Words recorded</span><strong>{dashboardStats.wordCount.toLocaleString()}</strong><small>In this browser preview</small></article>
+          <article className="dashboard-stat stage-stat">
+            <span>Stage coverage</span>
+            <div className="dashboard-stage-counts">
+              {stages.map(item => <div key={item.id}><b>{dashboardStats.stageCounts[item.id]}</b><small>{item.label}</small></div>)}
+            </div>
+          </article>
+        </div>
+
+        <section className="dashboard-studies">
+          <div className="dashboard-section-heading">
+            <div><span className="eyebrow">YOUR WORKSPACE</span><h2>Saved preview drafts</h2><p>These notes are stored only in this browser preview—not in your production Study Library.</p></div>
+            <button className="dashboard-link" type="button" onClick={() => setView('library')}>View all drafts <Icon name="chevron"/></button>
+          </div>
+          {allPreviewLibraryEntries.length > 0 ? <div className="dashboard-draft-grid">
+            {allPreviewLibraryEntries.slice(0, 3).map(entry => <article className="dashboard-draft-card" key={entry.book + '|' + entry.chapter}>
+              <div className="dashboard-draft-top"><span>LOCAL PREVIEW DRAFT</span><span>{entry.wordCount} words</span></div>
+              <h3>{entry.book} {entry.chapter}</h3>
+              <p>{entry.stageCount} of 4 stages with notes · Continue in {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p>
+              <div className="dashboard-draft-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div>
+              <button type="button" onClick={() => resumePreviewDraft(entry)}>Resume this study <Icon name="chevron"/></button>
+            </article>)}
+          </div> : <div className="dashboard-empty">
+            <div className="dashboard-empty-mark"><Icon name="book"/></div>
+            <div><h3>Begin your first study</h3><p>Choose a passage in the Bible reader and start recording notes. Your preview draft will appear here as soon as you write in a study stage.</p></div>
+            <button type="button" onClick={() => setView('reader')}>Choose a passage <Icon name="chevron"/></button>
+          </div>}
+        </section>
+        <p className="dashboard-preview-note"><strong>Preview environment:</strong> dashboard figures and study drafts are local to this browser. Account sign-in, cloud sync and the existing production library are not connected here.</p>
+      </section> : view === 'library' ? <section className="library-view">
+        <div className="library-header"><div><div className="eyebrow">YOUR WORKSPACE · PREVIEW DRAFTS</div><h1>Study library</h1><p>Studies saved in this browser preview. These drafts are separate from your existing production library and are not synced to the cloud.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Return to study</button></div>
         <div className="library-toolbar"><div className="library-result-count"><strong>{allPreviewLibraryEntries.length}</strong> {allPreviewLibraryEntries.length === 1 ? 'draft study' : 'draft studies'}</div><input className="library-search" type="search" value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search passage, stage or notes…" aria-label="Search preview studies"/></div>
         {visiblePreviewLibraryEntries.length > 0 ? <div className="preview-study-list">
           {visiblePreviewLibraryEntries.map(entry => <article className="preview-study-card" key={entry.book + '|' + entry.chapter}>
             <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">LOCAL PREVIEW DRAFT</span><span>{entry.wordCount} words</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{entry.stageCount} of 4 stages have notes · Current stage: {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{entry.preview}</p><div className="preview-stage-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div></div>
             <button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>Resume study <Icon name="chevron"/></button>
           </article>)}
-        </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setShowLibrary(false)}>Open Bible reader <Icon name="chevron"/></button>}</div>}
+        </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setView('reader')}>Open Bible reader <Icon name="chevron"/></button>}</div>}
       </section> :
       <div className="study-page">
         <section className="study-heading">

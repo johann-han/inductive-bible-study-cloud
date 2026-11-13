@@ -5,6 +5,7 @@ import {
   fetchBibleChapter,
   fetchStrongsLexicon,
   listPreviewDraftEntries,
+  summarizePreviewDraftEntries,
   LAST_READING_STORAGE_KEY,
   PREVIEW_DRAFTS_STORAGE_KEY,
   readPreviewDrafts,
@@ -267,4 +268,50 @@ test('preview study library lists only non-empty draft records with active stage
   assert.match(entries[0].preview, /God is Creator/);
   assert.equal(entries[1].activeStage, 'interpret');
   assert.equal(entries[1].stageCount, 2);
+});
+
+
+test('preview dashboard summary counts only real draft entries and written stages', () => {
+  const entries = listPreviewDraftEntries({
+    'Romans|2': {
+      observe: 'The audience is identified.',
+      interpret: 'Paul exposes partiality.',
+      doctrine: '',
+      apply: '',
+      activeStage: 'interpret'
+    },
+    'John|1': {
+      observe: 'The Word is introduced.',
+      interpret: '',
+      doctrine: 'The Word is God.',
+      apply: '',
+      activeStage: 'doctrine'
+    },
+    'Mark|1': { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' }
+  });
+  const summary = summarizePreviewDraftEntries(entries);
+  assert.deepEqual(summary, {
+    studyCount: 2,
+    stageNoteCount: 4,
+    wordCount: 15,
+    stageCounts: { observe: 2, interpret: 1, doctrine: 1, apply: 0 }
+  });
+});
+
+test('preview dashboard summary safely handles missing or malformed entry collections', () => {
+  assert.deepEqual(summarizePreviewDraftEntries(null), {
+    studyCount: 0,
+    stageNoteCount: 0,
+    wordCount: 0,
+    stageCounts: { observe: 0, interpret: 0, doctrine: 0, apply: 0 }
+  });
+  const result = summarizePreviewDraftEntries([
+    { writtenStages: ['observe', 'observe', 'unknown'], wordCount: -5 }
+  ]);
+  assert.deepEqual(result, {
+    studyCount: 1,
+    stageNoteCount: 1,
+    wordCount: 0,
+    stageCounts: { observe: 1, interpret: 0, doctrine: 0, apply: 0 }
+  });
 });

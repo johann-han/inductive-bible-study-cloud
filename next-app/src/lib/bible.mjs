@@ -180,6 +180,30 @@ export function listPreviewDraftEntries(drafts) {
   });
 }
 
+export function summarizePreviewDraftEntries(entries) {
+  const stages = ['observe', 'interpret', 'doctrine', 'apply'];
+  const summary = {
+    studyCount: 0,
+    stageNoteCount: 0,
+    wordCount: 0,
+    stageCounts: { observe: 0, interpret: 0, doctrine: 0, apply: 0 }
+  };
+  if (!Array.isArray(entries)) return summary;
+  entries.forEach(function (entry) {
+    if (!entry || typeof entry !== 'object') return;
+    summary.studyCount += 1;
+    const writtenStages = Array.isArray(entry.writtenStages) ? Array.from(new Set(entry.writtenStages)) : [];
+    writtenStages.forEach(function (stage) {
+      if (!stages.includes(stage)) return;
+      summary.stageCounts[stage] += 1;
+      summary.stageNoteCount += 1;
+    });
+    const words = Number(entry.wordCount);
+    if (Number.isFinite(words) && words > 0) summary.wordCount += Math.floor(words);
+  });
+  return summary;
+}
+
 export function readPreviewDrafts(storage) {
   try {
     const targetStorage = storage || (typeof window !== 'undefined' ? window.localStorage : null);

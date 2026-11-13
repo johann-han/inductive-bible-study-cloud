@@ -53,6 +53,12 @@ export interface PreviewDraftEntry {
   preview: string;
 }
 export type PreviewDrafts = Record<string, PreviewStudyDraft>;
+export interface PreviewDashboardStats {
+  studyCount: number;
+  stageNoteCount: number;
+  wordCount: number;
+  stageCounts: Record<StudyStage, number>;
+}
 export interface SavedPassage {
   book: string;
   chapter: number;
@@ -79,3 +85,5 @@ export declare function fetchBibleChapter(
   translation: BibleTranslation,
   options?: { signal?: AbortSignal; fetcher?: typeof fetch }
 ): Promise<BibleChapter>;
+
+export declare function summarizePreviewDraftEntries(entries: PreviewDraftEntry[]): PreviewDashboardStats;

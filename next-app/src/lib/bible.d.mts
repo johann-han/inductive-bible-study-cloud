@@ -94,3 +94,5 @@ export declare function fetchBibleChapter(
 export declare function summarizePreviewDraftEntries(entries: PreviewDraftEntry[]): PreviewDashboardStats;
 
 export declare function getPreviewStageEvidence(draft: Partial<PreviewStudyDraft> | null, activeStage: StudyStage): PreviewStageEvidence[];
+
+export declare function getPreviewWrittenStages(draft: Partial<PreviewStudyDraft> | null): StudyStage[];

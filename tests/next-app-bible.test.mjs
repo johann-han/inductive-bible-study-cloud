@@ -5,6 +5,7 @@ import {
   fetchBibleChapter,
   fetchStrongsLexicon,
   getPreviewStageEvidence,
+  getPreviewWrittenStages,
   listPreviewDraftEntries,
   summarizePreviewDraftEntries,
   LAST_READING_STORAGE_KEY,
@@ -345,4 +346,17 @@ test('stage evidence handoff excludes the active and future stages and ignores b
   ]);
   assert.deepEqual(getPreviewStageEvidence(draft, 'observe'), []);
   assert.deepEqual(getPreviewStageEvidence(draft, 'unknown'), []);
+});
+
+
+test('saved-stage indicators are derived from non-empty notes in canonical workflow order', () => {
+  assert.deepEqual(getPreviewWrittenStages({
+    observe: '  What does the text say?  ',
+    interpret: '',
+    doctrine: 'God is faithful.',
+    apply: '   ',
+    activeStage: 'doctrine'
+  }), ['observe', 'doctrine']);
+  assert.deepEqual(getPreviewWrittenStages(null), []);
+  assert.deepEqual(getPreviewWrittenStages({ observe: 12, interpret: ' ', doctrine: [], apply: '' }), []);
 });

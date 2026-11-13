@@ -153,9 +153,7 @@ export function listPreviewDraftEntries(drafts) {
     const book = parts[0];
     const chapter = Number(parts[1]);
     const notes = entry[1];
-    const writtenStages = PREVIEW_STUDY_STAGES.filter(function (stage) {
-      return notes[stage].trim().length > 0;
-    });
+    const writtenStages = getPreviewWrittenStages(notes);
     const activeStage = notes.activeStage || 'observe';
     const activeText = notes[activeStage] || '';
     const latestWrittenStage = writtenStages.length ? writtenStages[writtenStages.length - 1] : 'observe';
@@ -177,6 +175,14 @@ export function listPreviewDraftEntries(drafts) {
     return entry.stageCount > 0;
   }).sort(function (a, b) {
     return (bookOrder.get(a.book) || 0) - (bookOrder.get(b.book) || 0) || a.chapter - b.chapter;
+  });
+}
+
+export function getPreviewWrittenStages(draft) {
+  const stages = ['observe', 'interpret', 'doctrine', 'apply'];
+  if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return [];
+  return stages.filter(function (stage) {
+    return typeof draft[stage] === 'string' && draft[stage].trim().length > 0;
   });
 }
 

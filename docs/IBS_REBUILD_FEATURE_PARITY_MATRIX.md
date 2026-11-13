@@ -63,14 +63,15 @@ The CI workflow runs `npm test` on Node 22. The rebuild must keep this workflow 
 | Bible canon and chapter reading | Partial implementation | Complete chapter requests for KJV/BSB/ASV/WEB/BBE; source and offline behaviour covered by tests. |
 | Last-read passage | Implemented against existing key | Reader restores and updates `inductive-bible-study-last-reading-v1`. |
 | Word annotation and lexicon | Partial implementation | KJV source offsets, BSB gloss alignment, Strong’s toggle off by default, STEPBible lexicon entries. Additional Greek/Hebrew/Aramaic morphology and original-script displays remain. |
-| Preview notes | Implemented locally only | Per-passage, per-stage auto-save under the preview-specific key; visible save state. Not production storage or cloud sync. |
+| Preview notes | Implemented locally only | Per-passage, per-stage auto-save under the preview-specific key; visible save state. Stage indicators derive from non-empty saved notes and survive reloads. Not production storage or cloud sync. |
 | Preview study library | Implemented locally only | Lists non-empty preview drafts, note progress, active stage and search; resumes the draft in the preview. It does not show the real production library. |
 | Preview Overview dashboard | Implemented locally only | Overview is now the preview landing view, with accurate draft/stage/word totals, saved preview drafts and direct navigation to the reader/library. It explicitly identifies browser-only data and is not the authenticated production home. |
 | Cloud study adapter | Pure conversion layer implemented and tested | Preserves four stage bodies and known/unknown JSONB fields; no Supabase client, network calls or writes. |
 | Doctrine active stage | Compatibility mapping proposed and unit-tested | Uses `sections._activeStage` and constrained `active_section='interpret'`. Must not be enabled until legacy-client metadata loss and rollout compatibility are resolved. |
 | Authentication / user identity | Contract inventoried; not integrated | Invitation-only Supabase sign-in/session, access-request and admin authorization routes are mapped. Wait for an isolated preview Supabase target before integration or credential-based tests. |
 | Production study library and sync | Not integrated | Must be built against the verified cloud/local contract and safely tested with isolated data. |
-| Evidence handoff, cross-references, markup, backup/restore | Not integrated | Existing behaviour remains in production; new-app parity is outstanding. |
+| Evidence handoff | Partial preview implementation | Later stages can expand earlier-stage notes for the same passage in canonical order. This is contextual note handoff only; production claim-to-source links, evidence classifications and provenance remain outstanding. |
+| Cross-references, markup, backup/restore | Not integrated | Existing behaviour remains in production; new-app parity is outstanding. |
 | AI Mentor and Kerygma | Not integrated | Preserve current server routes and cloud sermon contracts; reintroduce after authenticated data context is safe. |
 
 ## Adapter design decisions

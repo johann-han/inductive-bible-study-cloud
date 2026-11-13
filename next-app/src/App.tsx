@@ -16,6 +16,7 @@ import {
   writeSavedPassage
 } from './lib/bible.mjs';
 import type { BibleChapter, BibleTranslation, PreviewDraftEntry, PreviewDrafts, PreviewStudyDraft, StrongLexiconEntry, StudyStage, WordAnnotation } from './lib/bible.mjs';
+import { readPreviewMarkup, SCRIPTURE_MARKUP_TYPES, toggleVerseMarkup, writePreviewMarkup } from './lib/scripture-markup.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -79,6 +80,7 @@ const initialPassage = readSavedPassage() || { book: 'Genesis', chapter: 1, tran
 export default function App() {
   const [stage, setStage] = useState<Stage>('observe');
   const [draftsByPassage, setDraftsByPassage] = useState<PreviewDrafts>(() => readPreviewDrafts());
+  const [previewMarkup, setPreviewMarkup] = useState(() => readPreviewMarkup());
   const [draftSaveStatus, setDraftSaveStatus] = useState<'saving' | 'saved' | 'unavailable'>('saving');
   const [notesFontSize, setNotesFontSize] = useState(17);
   const [book, setBook] = useState(initialPassage.book);
@@ -107,6 +109,7 @@ export default function App() {
   const emptyNotes: PreviewStudyDraft = { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' };
   const notesByStage = draftsByPassage[passageDraftKey] || emptyNotes;
   const note = notesByStage[stage];
+  const selectedVerseMarkup = previewMarkup[passageDraftKey]?.[String(selectedVerse)] || [];
   const earlierStageEvidence = useMemo(() => getPreviewStageEvidence(notesByStage, stage), [notesByStage, stage]);
   const stagesWithNotes = useMemo(() => new Set(getPreviewWrittenStages(notesByStage)), [notesByStage]);
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
@@ -127,6 +130,10 @@ export default function App() {
   useEffect(() => {
     setStage(draftsByPassage[passageDraftKey]?.activeStage || 'observe');
   }, [passageDraftKey]);
+
+  useEffect(() => {
+    writePreviewMarkup(previewMarkup);
+  }, [previewMarkup]);
 
   useEffect(() => {
     setDraftSaveStatus('saving');
@@ -344,10 +351,25 @@ export default function App() {
               <span>{book} {chapter}</span>
               <button type="button" className="outline-button" onClick={() => changeChapter(1)} disabled={book === BIBLE_BOOKS[BIBLE_BOOKS.length - 1].name && chapter === bookInfo.chapters}>Next →</button>
             </div>
+            <div className="markup-toolbar" aria-label="Scripture observation markup">
+              <div className="markup-toolbar-heading"><strong>Observation markup</strong><span>Selected verse: {book} {chapter}:{selectedVerse}</span></div>
+              <div className="markup-options">
+                {SCRIPTURE_MARKUP_TYPES.map(type => {
+                  const active = selectedVerseMarkup.includes(type.id);
+                  return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} onClick={() => setPreviewMarkup(previous => toggleVerseMarkup(previous, passageDraftKey, selectedVerse, type.id))}>
+                    <span className="markup-symbol">{type.symbol}</span>{type.label}
+                  </button>;
+                })}
+              </div>
+              <p className="markup-storage-note">Tags are saved in this browser preview only.</p>
+            </div>
             <div className="verse-list" style={{fontSize}} aria-live="polite">
               {loadingBible && <div className="reader-message" role="status">Loading {book} {chapter}…</div>}
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
-              {!loadingBible && !bibleError && bible?.verses.map(verse => <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(verse.number);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}</p></button>)}
+              {!loadingBible && !bibleError && bible?.verses.map(verse => {
+                const tags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
+                return <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(verse.number);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
+              })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
             <div className="reader-footer"><span>Selected verse: {book} {chapter}:{selectedVerse}</span><button type="button" className="text-button" onClick={() => void copySelectedVerse()} disabled={!bible?.verses.some(verse => verse.number === selectedVerse)}>Copy verse ↗</button></div>

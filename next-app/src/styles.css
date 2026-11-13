@@ -216,3 +216,24 @@
 .clear-verse-selection:hover{background:#edf4ee;border-color:#b9cdbd}
 .verse-action-dock:has(.clear-verse-selection) .verse-action-context{position:relative}
 @media(max-width:640px){.verse-action-context-heading{align-items:flex-start}.clear-verse-selection{min-height:34px}}
+
+
+/* Contextual cross-reference verse preview, matching the Strong's lexicon popover. */
+.standard-reference-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.standard-reference-links>button{border:1px solid #e2e9df;background:#f5f8f3;color:#315943;border-radius:6px;padding:5px 8px;font:600 11px 'DM Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s}
+.standard-reference-links>button:hover,.standard-reference-links>button:focus-visible,.standard-reference-links>button.active{background:#e8f0e7;border-color:#9eb7a1;color:#1e4b36;outline:none}
+.reference-verse-popover{position:relative;margin:12px 0 4px;padding:14px 16px;border:1px solid #dce6da;border-radius:10px;background:#fbfcfa;box-shadow:0 8px 24px rgba(26,55,40,.08);animation:reference-popover-in .16s ease-out}
+@keyframes reference-popover-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.reference-verse-popover-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.reference-verse-popover-heading>div{display:grid;gap:5px}
+.reference-verse-popover-heading>div>strong{font:400 17px 'Libre Baskerville',Georgia,serif;color:#243d30}
+.reference-preview-status,.reference-preview-error{font-size:12px;line-height:1.55;color:#68786d;margin:12px 0 2px}
+.reference-preview-error{color:#a04435}
+.reference-preview-verses{display:grid;gap:3px;padding-top:8px}
+.reference-preview-verse{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:start;gap:9px;width:100%;padding:9px 7px;border:0;border-radius:7px;background:transparent;text-align:left;color:#34483b;cursor:pointer;font:400 13px/1.65 'DM Sans',sans-serif}
+.reference-preview-verse:hover,.reference-preview-verse:focus-visible{background:#edf4ec;outline:2px solid #cbdcc9;outline-offset:-2px}
+.reference-preview-verse>span:first-child{font-size:10px;font-weight:700;color:#a47a3b;padding-top:3px}
+.reference-preview-open{display:flex;align-items:center;gap:3px;color:#286247;font-size:10px;font-weight:700;white-space:nowrap;padding-top:3px}
+.reference-preview-open svg{width:12px;height:12px}
+.reference-preview-hint{font-size:10px;color:#87948a;margin:8px 0 0}
+@media(max-width:560px){.reference-verse-popover{padding:12px}.reference-preview-verse{grid-template-columns:18px minmax(0,1fr);gap:7px}.reference-preview-open{grid-column:2;padding-top:0}}

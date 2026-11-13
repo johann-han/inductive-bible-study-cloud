@@ -45,15 +45,15 @@ const aliases = {
   'Jas':'James','James':'James','1 Pet':'1 Peter','1 Peter':'1 Peter','2 Pet':'2 Peter','2 Peter':'2 Peter',
   '1 John':'1 John','2 John':'2 John','3 John':'3 John','Jude':'Jude','Rev':'Revelation','Revelation':'Revelation'
 };
-for (const [alias, name] of Object.entries(aliases)) BOOK_ALIASES.set(alias.toLowerCase().replace(/\\./g, ''), name);
+for (const [alias, name] of Object.entries(aliases)) BOOK_ALIASES.set(alias.toLowerCase().replace(/\./g, ''), name);
 const BOOK_NAMES = [...BIBLE_BOOKS].map(book => book.name).sort((a,b)=>b.length-a.length);
 
 export function parseStandardReference(value) {
   if (typeof value !== 'string') return null;
-  const input = value.trim().replace(/\\s+/g, ' ');
-  const match = input.match(/^(.+?)\\s+(\\d+)(?::(\\d+)(?:\\s*[-–]\\s*(\\d+))?)?$/);
+  const input = value.trim().replace(/\s+/g, ' ');
+  const match = input.match(/^(.+?)\s+(\d+)(?::(\d+)(?:\s*[-–]\s*(\d+))?)?$/);
   if (!match) return null;
-  const bookText = match[1].replace(/\\.$/, '').trim();
+  const bookText = match[1].replace(/\.$/, '').trim();
   const book = BOOK_ALIASES.get(bookText.toLowerCase()) || BOOK_NAMES.find(name => name.toLowerCase() === bookText.toLowerCase());
   const chapter = Number(match[2]), verse = match[3] ? Number(match[3]) : null, endVerse = match[4] ? Number(match[4]) : verse;
   const metadata = BIBLE_BOOKS.find(item => item.name === book);
@@ -62,10 +62,10 @@ export function parseStandardReference(value) {
 }
 
 function parseRow(line, index) {
-  const columns = line.split('\\t');
+  const columns = line.split('\t');
   if (columns.length < 5) return null;
   const [sourceBookText, chapterText, verseText, anchor, referencesText] = columns;
-  const sourceBook = BOOK_ALIASES.get(sourceBookText.trim().toLowerCase().replace(/\\./g, '')) ||
+  const sourceBook = BOOK_ALIASES.get(sourceBookText.trim().toLowerCase().replace(/\./g, '')) ||
     BOOK_NAMES.find(name => name.toLowerCase() === sourceBookText.trim().toLowerCase());
   const chapter = Number(chapterText), verse = Number(verseText);
   const book = BIBLE_BOOKS.find(item => item.name === sourceBook);
@@ -80,15 +80,15 @@ export function parseStandardCrossReferenceTsv(text, filter = {}) {
   const results = [];
   const wantedBook = filter.book || null;
   const wantedChapter = filter.chapter == null ? null : Number(filter.chapter);
-  const lines = text.split(/\\r?\\n/);
+  const lines = text.split(/\r?\n/);
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     if (!line.trim()) continue;
     if (wantedBook || wantedChapter !== null) {
-      const firstTab = line.indexOf('\\t');
-      const secondTab = line.indexOf('\\t', firstTab + 1);
+      const firstTab = line.indexOf('\t');
+      const secondTab = line.indexOf('\t', firstTab + 1);
       if (firstTab < 0 || secondTab < 0) continue;
-      const sourceBookText = line.slice(0, firstTab).trim().toLowerCase().replace(/\\./g, '');
+      const sourceBookText = line.slice(0, firstTab).trim().toLowerCase().replace(/\./g, '');
       const sourceBook = BOOK_ALIASES.get(sourceBookText) || BOOK_NAMES.find(name => name.toLowerCase() === sourceBookText);
       const sourceChapter = Number(line.slice(firstTab + 1, secondTab));
       if ((wantedBook && sourceBook !== wantedBook) || (wantedChapter !== null && sourceChapter !== wantedChapter)) continue;

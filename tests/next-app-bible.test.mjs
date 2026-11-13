@@ -25,12 +25,16 @@ test('KJV loads the complete returned chapter from the existing HelloAO source',
   let requestedUrl = '';
   const result = await fetchBibleChapter('Genesis', 1, 'KJV', {
     fetcher: async (url) => {
-      requestedUrl = url;
-      return response({ chapter: { content: [
-        { type: 'heading', text: 'Creation' },
-        { type: 'verse', number: 2, text: 'And the earth was without form.' },
-        { type: 'verse', number: 1, text: 'In the beginning God created.' }
-      ] } });
+      if (url.endsWith('/1.simple.json')) {
+        requestedUrl = url;
+        return response({ chapter: { content: [
+          { type: 'heading', text: 'Creation' },
+          { type: 'verse', number: 2, text: 'And the earth was without form.' },
+          { type: 'verse', number: 1, text: 'In the beginning God created.' }
+        ] } });
+      }
+      if (url.endsWith('/1.words.simple.json')) return response({ verses: {} });
+      throw new Error('Unexpected source URL: ' + url);
     }
   });
   assert.match(requestedUrl, /eng_kjv\/GEN\/1\.simple\.json$/);
@@ -43,10 +47,14 @@ test('BSB uses its dedicated HelloAO translation source', async () => {
   let requestedUrl = '';
   const result = await fetchBibleChapter('Matthew', 1, 'BSB', {
     fetcher: async (url) => {
-      requestedUrl = url;
-      return response({ chapter: { content: [
-        { type: 'verse', number: 1, text: 'This is the BSB text.' }
-      ] } });
+      if (url.endsWith('/1.simple.json')) {
+        requestedUrl = url;
+        return response({ chapter: { content: [
+          { type: 'verse', number: 1, text: 'This is the BSB text.' }
+        ] } });
+      }
+      if (url.includes('bsb-interlinear')) return response({ chapter: { content: [] } });
+      throw new Error('Unexpected source URL: ' + url);
     }
   });
   assert.match(requestedUrl, /\/BSB\/MAT\/1\.simple\.json$/);
@@ -121,7 +129,7 @@ test('last-read passage uses and preserves the existing localStorage contract', 
 test('KJV word annotations retain only valid character offsets and real Strongâ€™s ids', async () => {
   const result = await fetchBibleChapter('Genesis', 1, 'KJV', {
     fetcher: async (url) => {
-      if (url.endsWith('.simple.json')) return response({ chapter: { content: [{ type: 'verse', number: 1, text: 'In the beginning God created.' }] } });
+      if (url.endsWith('/1.simple.json')) return response({ chapter: { content: [{ type: 'verse', number: 1, text: 'In the beginning God created.' }] } });
       if (url.endsWith('.words.simple.json')) return response({ verses: {
         '1': [
           { start: 7, end: 16, strongs: ['H7225'] },
@@ -141,7 +149,7 @@ test('KJV word annotations retain only valid character offsets and real Strongâ€
 test('BSB word alignment follows source order and leaves unmatched glosses untagged', async () => {
   const result = await fetchBibleChapter('Genesis', 1, 'BSB', {
     fetcher: async (url) => {
-      if (url.endsWith('.simple.json')) return response({ chapter: { content: [
+      if (url.endsWith('/1.simple.json')) return response({ chapter: { content: [
         { type: 'verse', number: 1, text: 'In the beginning God created the heavens and the earth.' }
       ] } });
       if (url.includes('bsb-interlinear')) return response({ chapter: { content: [
@@ -164,7 +172,7 @@ test('BSB word alignment follows source order and leaves unmatched glosses untag
 test('optional KJV annotation failure does not make valid chapter text unavailable', async () => {
   const result = await fetchBibleChapter('Genesis', 1, 'KJV', {
     fetcher: async (url) => {
-      if (url.endsWith('.simple.json')) return response({ chapter: { content: [{ type: 'verse', number: 1, text: 'In the beginning.' }] } });
+      if (url.endsWith('/1.simple.json')) return response({ chapter: { content: [{ type: 'verse', number: 1, text: 'In the beginning.' }] } });
       return response({}, false, 503);
     }
   });

@@ -80,7 +80,7 @@ function renderVerseWithAnnotations(
   return <>{parts}</>;
 }
 
-const initialPassage = readSavedPassage() || { book: 'Genesis', chapter: 1, translation: 'KJV' as BibleTranslation };
+const initialPassage = readSavedPassage() || { book: 'Genesis', chapter: 1, translation: 'BSB' as BibleTranslation };
 
 export default function App() {
   const [stage, setStage] = useState<Stage>('observe');

@@ -51,6 +51,17 @@ The layer intentionally does not:
 - load additional Greek/Hebrew morphology, original-script interlinear displays, or lexical usage counts;
 - claim that research, evidence handoff, AI, or Kerygma are integrated.
 
+## Supabase project inventory and preview isolation
+
+The connected Supabase organization currently contains the active IBS production project, an inactive BSMP project, and a separate Mail Assistant project. There is no dedicated IBS staging project. The existing non-IBS projects must not be reused as IBS staging.
+
+The PR-preview server now checks Render's `IS_PULL_REQUEST=true` flag before routing any `/api/*` request. In that environment it returns HTTP 503 before reaching `/api/config`, Supabase auth/admin routes, cloud study sync paths, AI routes or other existing APIs. This prevents inherited production environment variables from being exposed or used through the PR preview. Production startup is unchanged because the guard is conditional on Render's PR-preview flag.
+
+Until a dedicated IBS staging backend is provisioned and explicitly configured on the PR preview service:
+- do not enable sign-in, cloud study sync, admin actions, access requests or AI API calls in the preview;
+- do not run write-capable tests against the production IBS project;
+- keep the new UI's study records isolated to the preview-specific browser storage key.
+
 ## Remaining blockers and next phases
 
 1. Inspect the complete login/session lifecycle and ensure a preview Supabase target is isolated before adding even read access to user records.

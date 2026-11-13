@@ -13,6 +13,7 @@ function loadEnv() {
   }
 }
 loadEnv();
+const IS_PULL_REQUEST_PREVIEW = process.env.IS_PULL_REQUEST === 'true';
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
@@ -423,6 +424,13 @@ function accessRequestPublicMessage() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  // Render PR previews may inherit production environment variables. Disable every
+  // existing API route in that environment so preview pages cannot expose live
+  // Supabase configuration, authenticate against production, run cloud sync,
+  // invoke server-managed AI, or reach admin/service-role endpoints.
+  if (IS_PULL_REQUEST_PREVIEW && url.pathname.startsWith('/api/')) {
+    return send(res, 503, { error: 'Application APIs are disabled in pull request previews. Use an isolated staging backend before enabling cloud features.' });
+  }
   if (req.method === 'GET' && url.pathname === '/api/standard-cross-references') {
     try {
       const tsv = await getStandardCrossReferenceTsv();
@@ -881,8 +889,6 @@ const server = http.createServer(async (req, res) => {
     if (err) return send(res, 404, { error: 'Not found.' });
     const type = filePath.endsWith('.html') ? 'text/html; charset=utf-8'
       : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8'
-      : filePath.endsWith('.css') ? 'text/css; charset=utf-8'
-      : filePath.endsWith('.woff2') ? 'font/woff2'
       : filePath.endsWith('.webmanifest') ? 'application/manifest+json; charset=utf-8'
       : filePath.endsWith('.json') ? 'application/json; charset=utf-8'
       : filePath.endsWith('.png') ? 'image/png'

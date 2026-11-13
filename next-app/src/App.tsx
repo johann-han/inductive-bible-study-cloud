@@ -17,6 +17,8 @@ import {
 } from './lib/bible.mjs';
 import type { BibleChapter, BibleTranslation, PreviewDraftEntry, PreviewDrafts, PreviewStudyDraft, StrongLexiconEntry, StudyStage, WordAnnotation } from './lib/bible.mjs';
 import { readPreviewMarkup, SCRIPTURE_MARKUP_TYPES, toggleVerseMarkup, writePreviewMarkup } from './lib/scripture-markup.mjs';
+import { addPreviewCrossReference, deletePreviewCrossReference, formatCrossReference, readPreviewCrossReferences, writePreviewCrossReferences } from './lib/cross-references.mjs';
+import type { PreviewCrossReference } from './lib/cross-references.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -100,9 +102,17 @@ export default function App() {
   const lexiconRequestRef = useRef(0);
   const [showGuidance, setShowGuidance] = useState(true);
   const [showEvidence, setShowEvidence] = useState(false);
-  const [view, setView] = useState<'overview' | 'library' | 'reader'>('overview');
+  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'references'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
+  const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
+  const [referenceTargetBook, setReferenceTargetBook] = useState('John');
+  const [referenceTargetChapter, setReferenceTargetChapter] = useState(1);
+  const [referenceSourceVerse, setReferenceSourceVerse] = useState<number | ''>('');
+  const [referenceTargetVerse, setReferenceTargetVerse] = useState<number | ''>('');
+  const [referenceNote, setReferenceNote] = useState('');
+  const [referenceNotice, setReferenceNotice] = useState('');
+
 
   const current = stages.find(s => s.id === stage)!;
   const passageDraftKey = book + '|' + chapter;
@@ -134,6 +144,8 @@ export default function App() {
   useEffect(() => {
     writePreviewMarkup(previewMarkup);
   }, [previewMarkup]);
+
+  useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
 
   useEffect(() => {
     setDraftSaveStatus('saving');
@@ -252,13 +264,13 @@ export default function App() {
       <div className="sidebar-divider"/>
       <div className="workspace-label">RESEARCH</div>
       <button className="nav-item nav-disabled" type="button" disabled title="Research tools are being integrated in a later rebuild phase"><Icon name="search"/>Word studies</button>
-      <button className="nav-item nav-disabled" type="button" disabled title="Cross-reference integration is planned after the study data adapter"><Icon name="panel"/>Cross-references</button>
+      <button className={view === 'references' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('references')}><Icon name="panel"/>Cross-references<span className="nav-count">{previewCrossReferences.length}</span></button>
       <button className="nav-item nav-disabled" type="button" disabled title="AI guidance will be reconnected after the contextual data adapter is complete"><Icon name="spark"/>AI study guide</button>
       <div className="sidebar-bottom"><div className="avatar">J</div><div><strong>Study workspace</strong><span>Preview environment</span></div><button className="icon-button" aria-label="Settings" type="button" disabled><Icon name="settings"/></button></div>
     </aside>
     <main className="main-area">
       <header className="topbar">
-        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : book + ' ' + chapter}</strong></div>
+        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : book + ' ' + chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
       {view === 'overview' ? <section className="dashboard-view">

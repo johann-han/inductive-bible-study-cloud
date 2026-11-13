@@ -118,6 +118,135 @@ function readBibleApiVerses(payload) {
     .sort(function (a, b) { return a.number - b.number; });
 }
 
+
+export function normalizeStrongsId(value) {
+  const match = String(value || '').trim().toUpperCase().match(/^([HG])(\d{1,5})[A-Z]?$/);
+  return match ? match[1] + match[2].padStart(4, '0') : null;
+}
+
+function normalizeAnnotationRows(rows, verseText) {
+  if (!Array.isArray(rows) || !verseText) return [];
+  return rows.map(function (annotation) {
+    const ids = Array.isArray(annotation && annotation.strongs) ? annotation.strongs : [];
+    const strongs = Array.from(new Set(ids.map(normalizeStrongsId).filter(Boolean)));
+    return {
+      start: Number(annotation && annotation.start),
+      end: Number(annotation && annotation.end),
+      strongs: strongs,
+      originalText: String(annotation && annotation.originalText || ''),
+      transliteration: String(annotation && (annotation.transliteration || annotation.translit) || ''),
+      parsing: String(annotation && annotation.parsing || ''),
+      parsingFull: String(annotation && annotation.parsingFull || ''),
+      language: String(annotation && annotation.language || ''),
+      gloss: String(annotation && annotation.gloss || '')
+    };
+  }).filter(function (annotation) {
+    return annotation.strongs.length > 0 &&
+      Number.isInteger(annotation.start) && Number.isInteger(annotation.end) &&
+      annotation.start >= 0 && annotation.end > annotation.start &&
+      annotation.end <= verseText.length;
+  }).sort(function (a, b) { return a.start - b.start || a.end - b.end; });
+}
+
+function readKjvAnnotations(payload, verses) {
+  const byVerse = payload && payload.verses && typeof payload.verses === 'object' ? payload.verses : {};
+  const textByNumber = new Map(verses.map(function (verse) { return [String(verse.number), verse.text]; }));
+  const result = {};
+  Object.entries(byVerse).forEach(function (entry) {
+    const text = textByNumber.get(String(entry[0]));
+    if (!text || !Array.isArray(entry[1])) return;
+    result[String(entry[0])] = normalizeAnnotationRows(entry[1], text);
+  });
+  return result;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^$()|[\]{}\\]/g, '\\export async function fetchBibleChapter(bookName, chapterNumber, translation, options) {');
+}
+
+function mapBsbWordsToAnnotations(verseText, words) {
+  const source = String(verseText || '');
+  if (!source || !Array.isArray(words)) return [];
+  const orderedWords = words.slice().sort(function (a, b) {
+    return (Number(a && a.bsbPos) || Number.MAX_SAFE_INTEGER) -
+      (Number(b && b.bsbPos) || Number.MAX_SAFE_INTEGER) ||
+      (Number(a && a.pos) || Number.MAX_SAFE_INTEGER) -
+      (Number(b && b.pos) || Number.MAX_SAFE_INTEGER);
+  });
+  const annotations = [];
+  let cursor = 0;
+  for (const word of orderedWords) {
+    const strongs = normalizeStrongsId(word && word.strongs);
+    const gloss = String(word && word.gloss || '').trim().replace(/\s+/g, ' ');
+    if (!strongs || !gloss) continue;
+    const phrasePattern = gloss.split(' ').map(escapeRegExp).join('\\s+');
+    const matcher = new RegExp('(^|[^A-Za-z0-9])(' + phrasePattern + ')(?=$|[^A-Za-z0-9])', 'ig');
+    matcher.lastIndex = cursor;
+    const match = matcher.exec(source);
+    if (!match) continue;
+    const start = match.index + match[1].length;
+    const end = start + match[2].length;
+    if (start < cursor || end <= start || end > source.length) continue;
+    annotations.push({
+      start: start, end: end, strongs: [strongs],
+      originalText: String(word.text || ''),
+      transliteration: String(word.transliteration || ''),
+      parsing: String(word.parsing || ''),
+      parsingFull: String(word.parsingFull || ''),
+      language: String(word.language || ''),
+      gloss: gloss
+    });
+    cursor = end;
+  }
+  return annotations;
+}
+
+function readBsbAnnotations(payload, verses) {
+  const content = payload && payload.chapter && Array.isArray(payload.chapter.content)
+    ? payload.chapter.content : [];
+  const verseMap = new Map(verses.map(function (verse) { return [Number(verse.number), verse.text]; }));
+  const result = {};
+  for (const item of content) {
+    const number = Number(item && item.verse);
+    const verseText = verseMap.get(number);
+    if (!Number.isInteger(number) || !verseText || !Array.isArray(item.words)) continue;
+    result[String(number)] = mapBsbWordsToAnnotations(verseText, item.words);
+  }
+  return result;
+}
+
+export async function fetchStrongsLexicon(strongsId, options) {
+  const id = normalizeStrongsId(strongsId);
+  if (!id) throw new Error('The selected Strong’s number is invalid.');
+  const fetcher = options && options.fetcher ? options.fetcher : fetch;
+  const payload = await requestJson(
+    'https://bible.helloao.org/api/d/stepbible-lexicon/lexicon/' + encodeURIComponent(id) + '.json',
+    fetcher,
+    options && options.signal
+  );
+  const entry = payload && payload.entry;
+  const senses = entry && Array.isArray(entry.senses) ? entry.senses : [];
+  if (!senses.length) throw new Error('No verified lexicon entry is available for ' + id + '.');
+  const glosses = Array.from(new Set(senses.map(function (sense) {
+    return String(sense && sense.gloss || '').trim();
+  }).filter(Boolean)));
+  return {
+    id: id,
+    lemma: String(senses[0].lemma || entry.id || id),
+    transliteration: String(senses[0].transliteration || 'Not supplied by source'),
+    partOfSpeech: String(senses[0].partOfSpeech || 'Not supplied by source'),
+    gloss: glosses.join('; ') || 'No gloss supplied by source',
+    senses: senses.map(function (sense, index) {
+      return {
+        gloss: String(sense && sense.gloss || 'Sense ' + (index + 1)),
+        definition: String(sense && sense.definition || 'No definition supplied for this sense.')
+      };
+    }),
+    source: 'STEPBible Brief Lexicons / Tyndale House, Cambridge · CC BY 4.0',
+    sourceUrl: 'https://bible.helloao.org/api/d/stepbible-lexicon/lexicon/' + encodeURIComponent(id) + '.json'
+  };
+}
+
 export async function fetchBibleChapter(bookName, chapterNumber, translation, options) {
   const book = getBibleBook(bookName);
   const chapter = Number(chapterNumber);
@@ -140,7 +269,33 @@ export async function fetchBibleChapter(bookName, chapterNumber, translation, op
       const payload = await requestJson(url, fetcher, signal);
       const verses = readHelloAoVerses(payload);
       if (verses.length) {
-        return { book: book.name, chapter: chapter, translation: selectedTranslation, source: 'Free Use Bible API', verses: verses };
+        let annotations = {};
+        if (selectedTranslation === 'KJV') {
+          try {
+            const wordPayload = await requestJson(
+              'https://bible.helloao.org/api/eng_kjv/' + book.helloAoId + '/' + chapter + '.words.simple.json',
+              fetcher,
+              signal
+            );
+            annotations = readKjvAnnotations(wordPayload, verses);
+          } catch (annotationError) {
+            if (signal && signal.aborted) throw annotationError;
+            // Scripture remains available; unverified or unavailable word tags are omitted.
+          }
+        } else if (selectedTranslation === 'BSB') {
+          try {
+            const interlinearPayload = await requestJson(
+              'https://bible.helloao.org/api/d/bsb-interlinear/' + book.helloAoId + '/' + chapter + '.json',
+              fetcher,
+              signal
+            );
+            annotations = readBsbAnnotations(interlinearPayload, verses);
+          } catch (annotationError) {
+            if (signal && signal.aborted) throw annotationError;
+            // BSB chapter text remains available when its optional interlinear layer is offline.
+          }
+        }
+        return { book: book.name, chapter: chapter, translation: selectedTranslation, source: 'Free Use Bible API', verses: verses, annotations: annotations };
       }
       throw new Error('The source returned no verse text.');
     } catch (error) {
@@ -163,6 +318,7 @@ export async function fetchBibleChapter(bookName, chapterNumber, translation, op
     chapter: chapter,
     translation: selectedTranslation,
     source: selectedTranslation === 'KJV' ? 'bible-api.com · KJV fallback' : 'bible-api.com',
-    verses: fallbackVerses
+    verses: fallbackVerses,
+    annotations: {}
   };
 }

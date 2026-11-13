@@ -4,11 +4,12 @@ import {
   BIBLE_BOOKS,
   BIBLE_TRANSLATIONS,
   fetchBibleChapter,
+  fetchStrongsLexicon,
   getBibleBook,
   readSavedPassage,
   writeSavedPassage
 } from './lib/bible.mjs';
-import type { BibleChapter, BibleTranslation } from './lib/bible.mjs';
+import type { BibleChapter, BibleTranslation, StrongLexiconEntry, WordAnnotation } from './lib/bible.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
@@ -32,6 +33,41 @@ function Icon({ name }: { name: string }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name] || paths.book} /></svg>;
 }
 
+function renderVerseWithAnnotations(
+  text: string,
+  annotations: WordAnnotation[],
+  enabled: boolean,
+  onWordClick: (id: string, word: string) => void
+) {
+  if (!enabled || !Array.isArray(annotations) || annotations.length === 0) return text;
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  const valid = annotations
+    .filter(item => Array.isArray(item.strongs) && item.strongs.length > 0 &&
+      Number.isInteger(item.start) && Number.isInteger(item.end) &&
+      item.start >= 0 && item.end > item.start && item.end <= text.length)
+    .slice()
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  for (const item of valid) {
+    if (item.start < cursor) continue;
+    const id = item.strongs.find(Boolean);
+    if (!id) continue;
+    if (item.start > cursor) parts.push(text.slice(cursor, item.start));
+    const word = text.slice(item.start, item.end);
+    const detail = [item.originalText, item.transliteration, item.parsingFull || item.parsing].filter(Boolean).join(' · ');
+    parts.push(
+      <button className="strongs-token" type="button" key={item.start + '-' + item.end}
+        title={detail || ('Open ' + id)} onClick={() => onWordClick(id, word)}>
+        {word}<sup>{id}</sup>
+      </button>
+    );
+    cursor = item.end;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
+}
+
 const initialPassage = readSavedPassage() || { book: 'Genesis', chapter: 1, translation: 'KJV' as BibleTranslation };
 
 export default function App() {
@@ -48,6 +84,12 @@ export default function App() {
   const [readerReload, setReaderReload] = useState(0);
   const [selectedVerse, setSelectedVerse] = useState(1);
   const [readerNotice, setReaderNotice] = useState('');
+  const [showStrongs, setShowStrongs] = useState(false);
+  const [lexicon, setLexicon] = useState<StrongLexiconEntry | null>(null);
+  const [lexiconWord, setLexiconWord] = useState('');
+  const [lexiconLoading, setLexiconLoading] = useState(false);
+  const [lexiconError, setLexiconError] = useState('');
+  const [lexiconRequest, setLexiconRequest] = useState(0);
   const [showGuidance, setShowGuidance] = useState(true);
   const [showLibrary, setShowLibrary] = useState(false);
   const [fontSize, setFontSize] = useState(19);
@@ -98,6 +140,23 @@ export default function App() {
     if (nextBook !== book || nextChapter !== chapter) {
       setBook(nextBook);
       setChapter(nextChapter);
+    }
+  };
+
+  const openLexicon = async (id: string, word: string) => {
+    const requestId = lexiconRequest + 1;
+    setLexiconRequest(requestId);
+    setLexicon(null);
+    setLexiconWord(word);
+    setLexiconError('');
+    setLexiconLoading(true);
+    try {
+      const entry = await fetchStrongsLexicon(id);
+      setLexicon(entry);
+    } catch (error) {
+      setLexiconError(error instanceof Error ? error.message : 'The lexicon entry could not be loaded.');
+    } finally {
+      setLexiconLoading(false);
     }
   };
 
@@ -155,7 +214,7 @@ export default function App() {
         <nav className="stage-nav" aria-label="Study stages">{stages.map(s => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => setStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{completedStages.has(s.id) && <span className="stage-done">✓</span>}</button>)}</nav>
         <div className="workspace">
           <section className="scripture-panel">
-            <div className="panel-heading"><div><span className="eyebrow">SCRIPTURE</span><h2>{book} {chapter}</h2></div><div className="reader-tools"><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.max(16,v-1))} aria-label="Decrease Scripture text size">A−</button><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.min(25,v+1))} aria-label="Increase Scripture text size">A+</button></div></div>
+            <div className="panel-heading"><div><span className="eyebrow">SCRIPTURE</span><h2>{book} {chapter}</h2></div><div className="reader-tools"><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.max(16,v-1))} aria-label="Decrease Scripture text size">A−</button><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.min(25,v+1))} aria-label="Increase Scripture text size">A+</button><button className={showStrongs ? 'tool-button strongs-toggle active' : 'tool-button strongs-toggle'} type="button" aria-pressed={showStrongs} onClick={() => setShowStrongs(value => !value)}>Strong’s {showStrongs ? 'On' : 'Off'}</button></div></div>
             <div className="reading-meta"><span>{translation === 'KJV' ? 'King James Version' : translation === 'BSB' ? 'Berean Standard Bible' : translation}</span><span>{chapter} of {bookInfo.chapters}</span></div>
             <div className="reader-navigation">
               <button type="button" className="outline-button" onClick={() => changeChapter(-1)} disabled={book === BIBLE_BOOKS[0].name && chapter === 1}>← Previous</button>
@@ -165,12 +224,19 @@ export default function App() {
             <div className="verse-list" style={{fontSize}} aria-live="polite">
               {loadingBible && <div className="reader-message" role="status">Loading {book} {chapter}…</div>}
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
-              {!loadingBible && !bibleError && bible?.verses.map(verse => <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(verse.number);setReaderNotice('');}}><span>{verse.number}</span><p>{verse.text}</p></button>)}
+              {!loadingBible && !bibleError && bible?.verses.map(verse => <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(verse.number);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}</p></button>)}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
             <div className="reader-footer"><span>Selected verse: {book} {chapter}:{selectedVerse}</span><button type="button" className="text-button" onClick={() => void copySelectedVerse()} disabled={!bible?.verses.some(verse => verse.number === selectedVerse)}>Copy verse ↗</button></div>
+            {lexiconLoading || lexiconError || lexicon ? <section className="lexicon-panel" aria-live="polite" aria-label="Strong's lexicon entry">
+              <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { setLexicon(null); setLexiconError(''); setLexiconWord(''); }} aria-label="Close lexicon entry">×</button></div>
+              {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}
+              {lexiconError && <p className="lexicon-error" role="alert">{lexiconError}</p>}
+              {lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a></>}
+            </section> : null}
+
             <div className="reader-notice" role="status" aria-live="polite">{readerNotice}</div>
-            <div className="reader-source">Text source: {bible?.source || 'Awaiting Scripture source'}. Word-level annotations are not yet enabled in this reader.</div>
+            <div className="reader-source">Text source: {bible?.source || 'Awaiting Scripture source'}. {showStrongs ? 'Showing only source-verified Strong’s annotations; unmatched words remain untagged.' : 'Strong’s annotations are switched off.'}</div>
           </section>
           <section className="notes-panel">
             <div className="notes-topline"><div><span className="eyebrow">YOUR STUDY</span><h2>{current.label}</h2></div><span className="stage-counter">STAGE {current.number} / 04</span></div>

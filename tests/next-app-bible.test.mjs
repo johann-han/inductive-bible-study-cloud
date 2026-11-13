@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   BIBLE_BOOKS,
   fetchBibleChapter,
+  fetchStrongsLexicon,
   LAST_READING_STORAGE_KEY,
   readSavedPassage,
   writeSavedPassage
@@ -114,4 +115,83 @@ test('last-read passage uses and preserves the existing localStorage contract', 
   assert.equal(writeSavedPassage({ book: 'Genesis', chapter: 51, translation: 'KJV' }, storage), false);
   values.set(LAST_READING_STORAGE_KEY, JSON.stringify({ book: 'Genesis', chapter: 999, translation: 'KJV' }));
   assert.equal(readSavedPassage(storage), null);
+});
+
+
+test('KJV word annotations retain only valid character offsets and real Strong’s ids', async () => {
+  const result = await fetchBibleChapter('Genesis', 1, 'KJV', {
+    fetcher: async (url) => {
+      if (url.endsWith('.simple.json')) return response({ chapter: { content: [{ type: 'verse', number: 1, text: 'In the beginning God created.' }] } });
+      if (url.endsWith('.words.simple.json')) return response({ verses: {
+        '1': [
+          { start: 7, end: 16, strongs: ['H7225'] },
+          { start: -2, end: 4, strongs: ['H0430'] },
+          { start: 17, end: 20, strongs: ['bogus'] },
+          { start: 17, end: 20, strongs: ['H0430'] }
+        ]
+      } });
+      throw new Error('Unexpected source URL: ' + url);
+    }
+  });
+  assert.deepEqual(result.annotations['1'].map(item => [item.start, item.end, item.strongs[0]]), [
+    [7, 16, 'H7225'], [17, 20, 'H0430']
+  ]);
+});
+
+test('BSB word alignment follows source order and leaves unmatched glosses untagged', async () => {
+  const result = await fetchBibleChapter('Genesis', 1, 'BSB', {
+    fetcher: async (url) => {
+      if (url.endsWith('.simple.json')) return response({ chapter: { content: [
+        { type: 'verse', number: 1, text: 'In the beginning God created the heavens and the earth.' }
+      ] } });
+      if (url.includes('bsb-interlinear')) return response({ chapter: { content: [
+        { verse: 1, words: [
+          { bsbPos: 1, pos: 1, strongs: 'G1722', gloss: 'In', text: 'ἐν', transliteration: 'en', parsingFull: 'Preposition' },
+          { bsbPos: 2, pos: 2, strongs: 'G3588', gloss: 'the', text: 'τῇ' },
+          { bsbPos: 3, pos: 3, strongs: 'G746', gloss: 'beginning', text: 'ἀρχῇ' },
+          { bsbPos: 4, pos: 4, strongs: 'G2316', gloss: 'God', text: 'θεός' },
+          { bsbPos: 5, pos: 5, strongs: 'G99999', gloss: 'not-in-text', text: 'x' }
+        ] }
+      ] } });
+      throw new Error('Unexpected source URL: ' + url);
+    }
+  });
+  assert.deepEqual(result.annotations['1'].map(item => item.gloss), ['In', 'the', 'beginning', 'God']);
+  assert.equal(result.annotations['1'][0].transliteration, 'en');
+  assert.equal(result.annotations['1'][2].originalText, 'ἀρχῇ');
+});
+
+test('optional KJV annotation failure does not make valid chapter text unavailable', async () => {
+  const result = await fetchBibleChapter('Genesis', 1, 'KJV', {
+    fetcher: async (url) => {
+      if (url.endsWith('.simple.json')) return response({ chapter: { content: [{ type: 'verse', number: 1, text: 'In the beginning.' }] } });
+      return response({}, false, 503);
+    }
+  });
+  assert.equal(result.verses.length, 1);
+  assert.deepEqual(result.annotations, {});
+});
+
+test('Strong’s lexicon uses the published source and returns its supplied senses', async () => {
+  let requestedUrl = '';
+  const entry = await fetchStrongsLexicon('H7225', {
+    fetcher: async (url) => {
+      requestedUrl = url;
+      return response({ entry: { id: 'H7225', senses: [
+        { lemma: 'רֵאשִׁית', transliteration: 'reshith', partOfSpeech: 'N', gloss: 'beginning', definition: 'The first part or starting point.' },
+        { gloss: 'first', definition: 'First in order or sequence.' }
+      ] } });
+    }
+  });
+  assert.match(requestedUrl, /stepbible-lexicon\/lexicon\/H7225\.json$/);
+  assert.equal(entry.id, 'H7225');
+  assert.equal(entry.senses.length, 2);
+  assert.match(entry.source, /Tyndale House/);
+});
+
+test('missing Strong’s lexicon data is an error rather than an invented definition', async () => {
+  await assert.rejects(
+    fetchStrongsLexicon('G3056', { fetcher: async () => response({ entry: { senses: [] } }) }),
+    /No verified lexicon entry/
+  );
 });

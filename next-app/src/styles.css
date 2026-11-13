@@ -23,3 +23,21 @@
 .library-return{margin-top:24px}
 @media(max-width:1050px){.heading-actions{justify-content:flex-start}.control-label{margin-left:0}.reading-select{max-width:145px}}
 @media(max-width:560px){.heading-actions{display:grid;grid-template-columns:auto minmax(0,1fr);width:100%;gap:7px}.reading-select,.book-select,.chapter-select{max-width:none;width:100%}.reader-navigation .outline-button{font-size:11px;padding:8px}.reader-navigation>span{font-size:11px}}
+
+.strongs-token{display:inline;border:0;border-radius:4px;padding:0 1px;margin:0;background:#f6efdd;color:#274f3a;font:inherit;line-height:inherit;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#ba975a;text-underline-offset:3px}
+.strongs-token:hover,.strongs-token:focus-visible{background:#eadbb9;color:#183b2c}
+.strongs-token sup{font:600 9px 'DM Sans',sans-serif;color:#966e31;padding-left:3px;vertical-align:super;white-space:nowrap}
+.strongs-toggle{font-size:11px}
+.strongs-toggle.active{background:#e9f0e9;border-color:#8da993;color:#234f39}
+.lexicon-panel{border:1px solid #e4e9df;background:#fbfcfa;border-radius:10px;padding:16px;margin:10px 0 4px}
+.lexicon-heading{display:flex;align-items:flex-start;justify-content:space-between}
+.lexicon-heading h3{font:400 20px 'Libre Baskerville',Georgia,serif;margin:5px 0 10px;color:#263b30}
+.lexicon-meta{display:flex;flex-wrap:wrap;gap:8px 14px;color:#65756a;font-size:12px}
+.lexicon-meta strong{color:#294c38}
+.lexicon-gloss{font-size:13px;font-weight:700;color:#465b4b;margin:12px 0}
+.lexicon-sense{border-top:1px solid #e5eae3;padding:9px 0}
+.lexicon-sense strong{font-size:12px;color:#294d39}
+.lexicon-sense p{font-size:13px;line-height:1.6;color:#5e6e63;margin:4px 0 0}
+.lexicon-panel>a{display:block;border-top:1px solid #e5eae3;padding-top:10px;color:#52715b;font-size:11px;text-decoration:underline}
+.lexicon-status,.lexicon-error{font-size:13px;color:#68766e;margin:5px 0}
+.lexicon-error{color:#8b3f2f}

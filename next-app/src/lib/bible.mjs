@@ -42,12 +42,12 @@ export function readSavedPassage(storage) {
     if (!saved || typeof saved !== 'object') return null;
     const book = getBibleBook(saved.book);
     const chapter = Number(saved.chapter);
-    const translation = String(saved.translation || 'KJV').toUpperCase();
+    const translation = String(saved.translation || 'BSB').toUpperCase();
     if (!book || !Number.isInteger(chapter) || chapter < 1 || chapter > book.chapters) return null;
     return {
       book: book.name,
       chapter: chapter,
-      translation: BIBLE_TRANSLATIONS.includes(translation) ? translation : 'KJV'
+      translation: BIBLE_TRANSLATIONS.includes(translation) ? translation : 'BSB'
     };
   } catch (_) {
     return null;

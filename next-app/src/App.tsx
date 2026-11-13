@@ -134,6 +134,7 @@ export default function App() {
   const [previewMarkup, setPreviewMarkup] = useState(() => readPreviewMarkup());
   const [previewWordMarkup, setPreviewWordMarkup] = useState(() => readPreviewWordMarkup());
   const [showMarkupReview, setShowMarkupReview] = useState(false);
+  const [showObservationIndex, setShowObservationIndex] = useState(false);
   const [markupSearch, setMarkupSearch] = useState('');
   const [markupColors, setMarkupColors] = useState<Record<string, string>>(() => {
     const defaults: Record<string, string> = { 'key-word':'#f5e7b9', 'repeated-idea':'#dcece0', contrast:'#f3dfd7', command:'#e6e1f1', promise:'#f6edc9', question:'#dce9f2' };
@@ -579,10 +580,19 @@ export default function App() {
               </div>
               <p className="markup-storage-note">{selectedTextMarkup ? 'These markings apply to the highlighted words or phrase. Clear the text selection to mark whole verses.' : 'Highlight a word or phrase to mark only that text, or select whole verses to mark the complete verses. Markings are saved in this browser preview only.'}</p>
               <div className="markup-tools-row">
+                <button className="text-button" type="button" onClick={() => setShowObservationIndex(value => !value)} aria-expanded={showObservationIndex}>{showObservationIndex ? 'Hide observation index' : 'Open observation index'}</button>
                 <div className="markup-legend" aria-label="Observation markup legend">{SCRIPTURE_MARKUP_TYPES.map(type => <span key={type.id}><i style={{backgroundColor:markupColors[type.id]}} />{type.label}</span>)}</div>
                 <button className="text-button" type="button" onClick={() => setShowMarkupReview(value => !value)} aria-expanded={showMarkupReview}>{showMarkupReview ? 'Hide markup review' : 'Review passage markings'}</button>
               </div>
               <div className="markup-color-settings"><strong>Category colours</strong>{SCRIPTURE_MARKUP_TYPES.map(type => <label key={type.id}>{type.label}<input aria-label={type.label + ' markup colour'} type="color" value={markupColors[type.id]} onChange={event => setMarkupColors(previous => ({...previous,[type.id]:event.target.value}))} /></label>)}</div>
+              {showObservationIndex && <section className="markup-review observation-index" aria-label="Study observation index">
+                <div className="markup-review-heading"><strong>Observation index · All saved passages</strong><span>Verse markings and phrase annotations across this browser preview</span></div>
+                {(() => {
+                  const entries = Object.entries(previewWordMarkup).flatMap(([passage, verses]) => Object.entries(verses).flatMap(([verse, ranges]) => ranges.map((range,index) => ({ passage, verse:Number(verse), text:passage===passageDraftKey && bible?.verses ? (bible.verses.find(item=>item.number===Number(verse))?.text.slice(range.start,range.end) || 'Marked text') : 'Marked phrase · character positions '+range.start+'–'+range.end, tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index }))))
+                    .concat(Object.entries(previewMarkup).flatMap(([passage, verses]) => Object.entries(verses).map(([verse,tags]) => ({passage,verse:Number(verse),text:'Entire verse',tags,key:'v-'+passage+'-'+verse}))));
+                  return entries.length ? <ul className="markup-review-list">{entries.map(entry => <li key={entry.key}><button type="button" onClick={() => {const [targetBook,targetChapter]=entry.passage.split('|');setBook(targetBook);setChapter(Number(targetChapter));setView('reader');setSelectedVerseNumbers([entry.verse]);verseSelectionAnchorRef.current=entry.verse;setShowObservationIndex(false);}}><strong>{entry.passage.replace('|',' ')}:{entry.verse}</strong><span>{entry.text}</span><small>{entry.tags.map(tag=>SCRIPTURE_MARKUP_TYPES.find(type=>type.id===tag)?.label||tag).join(' · ')}</small></button></li>)}</ul> : <p className="markup-review-empty">No observations have been marked in your saved preview studies yet.</p>;
+                })()}
+              </section>}
               {showMarkupReview && <section className="markup-review" aria-label="Passage markup review">
                 <div className="markup-review-heading"><strong>{book} {chapter} · Markup review</strong><span>Find occurrences and revisit marked verses</span></div>
                 <label className="markup-search-label">Find a marked word or phrase<input type="search" value={markupSearch} onChange={event => setMarkupSearch(event.target.value)} placeholder="Search within this chapter…" /></label>

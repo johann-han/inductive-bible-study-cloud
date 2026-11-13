@@ -45,6 +45,7 @@ export default function App() {
   const [bible, setBible] = useState<BibleChapter | null>(null);
   const [loadingBible, setLoadingBible] = useState(true);
   const [bibleError, setBibleError] = useState('');
+  const [readerReload, setReaderReload] = useState(0);
   const [selectedVerse, setSelectedVerse] = useState(1);
   const [readerNotice, setReaderNotice] = useState('');
   const [showGuidance, setShowGuidance] = useState(true);
@@ -76,7 +77,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [book, chapter, translation]);
+  }, [book, chapter, translation, readerReload]);
 
   const move = (direction: number) => {
     const index = stages.findIndex(s => s.id === stage);
@@ -163,7 +164,7 @@ export default function App() {
             </div>
             <div className="verse-list" style={{fontSize}} aria-live="polite">
               {loadingBible && <div className="reader-message" role="status">Loading {book} {chapter}…</div>}
-              {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => { setBibleError(''); setChapter(value => value); }}>Try again</button></div>}
+              {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(verse.number);setReaderNotice('');}}><span>{verse.number}</span><p>{verse.text}</p></button>)}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>

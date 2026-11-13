@@ -444,6 +444,7 @@ export default function App() {
               </div>
               <p className="markup-storage-note">Tags are saved in this browser preview only.</p>
             </div>
+            <p className="verse-selection-hint">Click verses to add or remove them. Hold Shift and click another verse to select the entire passage between them.</p>
             <div className="verse-list" style={{fontSize}} aria-live="polite" aria-label="Bible verses. Click to select individual verses; Shift-click another verse to select a continuous passage.">
               {loadingBible && <div className="reader-message" role="status">Loading {book} {chapter}…</div>}
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}

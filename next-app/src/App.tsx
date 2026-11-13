@@ -135,6 +135,10 @@ export default function App() {
   const [previewWordMarkup, setPreviewWordMarkup] = useState(() => readPreviewWordMarkup());
   const [showMarkupReview, setShowMarkupReview] = useState(false);
   const [showObservationIndex, setShowObservationIndex] = useState(false);
+  const [observationIndexChapters, setObservationIndexChapters] = useState<Record<string, BibleChapter>>({});
+  const [observationIndexStatus, setObservationIndexStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [observationIndexSearch, setObservationIndexSearch] = useState('');
+  const [observationIndexCategory, setObservationIndexCategory] = useState('all');
   const [markupSearch, setMarkupSearch] = useState('');
   const [markupColors, setMarkupColors] = useState<Record<string, string>>(() => {
     const defaults: Record<string, string> = { 'key-word':'#f5e7b9', 'repeated-idea':'#dcece0', contrast:'#f3dfd7', command:'#e6e1f1', promise:'#f6edc9', question:'#dce9f2' };
@@ -209,6 +213,32 @@ export default function App() {
   useEffect(() => {
     setStage(draftsByPassage[passageDraftKey]?.activeStage || 'observe');
   }, [passageDraftKey]);
+
+  useEffect(() => {
+    if (!showObservationIndex) return;
+    const passageKeys = Array.from(new Set([
+      ...Object.keys(previewWordMarkup),
+      ...Object.keys(previewMarkup)
+    ])).filter(key => key !== passageDraftKey && !observationIndexChapters[key]);
+    if (!passageKeys.length) {
+      setObservationIndexStatus('ready');
+      return;
+    }
+    const controller = new AbortController();
+    setObservationIndexStatus('loading');
+    Promise.all(passageKeys.map(async key => {
+      const [targetBook, chapterText] = key.split('|');
+      const result = await fetchBibleChapter(targetBook, Number(chapterText), translation, { signal: controller.signal });
+      return [key, result] as const;
+    })).then(results => {
+      if (controller.signal.aborted) return;
+      setObservationIndexChapters(previous => ({ ...previous, ...Object.fromEntries(results) }));
+      setObservationIndexStatus('ready');
+    }).catch(() => {
+      if (!controller.signal.aborted) setObservationIndexStatus('ready');
+    });
+    return () => controller.abort();
+  }, [showObservationIndex, previewWordMarkup, previewMarkup, passageDraftKey, translation, observationIndexChapters]);
 
   useEffect(() => {
     writePreviewMarkup(previewMarkup);
@@ -587,10 +617,29 @@ export default function App() {
               <div className="markup-color-settings"><strong>Category colours</strong>{SCRIPTURE_MARKUP_TYPES.map(type => <label key={type.id}>{type.label}<input aria-label={type.label + ' markup colour'} type="color" value={markupColors[type.id]} onChange={event => setMarkupColors(previous => ({...previous,[type.id]:event.target.value}))} /></label>)}</div>
               {showObservationIndex && <section className="markup-review observation-index" aria-label="Study observation index">
                 <div className="markup-review-heading"><strong>Observation index · All saved passages</strong><span>Verse markings and phrase annotations across this browser preview</span></div>
+                <div className="observation-index-controls">
+                  <label className="markup-search-label">Search observations<input type="search" value={observationIndexSearch} onChange={event => setObservationIndexSearch(event.target.value)} placeholder="Search marked words, verses or passages…" /></label>
+                  <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
+                </div>
                 {(() => {
-                  const entries = Object.entries(previewWordMarkup).flatMap(([passage, verses]) => Object.entries(verses).flatMap(([verse, ranges]) => ranges.map((range,index) => ({ passage, verse:Number(verse), text:passage===passageDraftKey && bible?.verses ? (bible.verses.find(item=>item.number===Number(verse))?.text.slice(range.start,range.end) || 'Marked text') : 'Marked phrase · character positions '+range.start+'–'+range.end, tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index }))))
-                    .concat(Object.entries(previewMarkup).flatMap(([passage, verses]) => Object.entries(verses).map(([verse,tags]) => ({passage,verse:Number(verse),text:'Entire verse',tags,key:'v-'+passage+'-'+verse}))));
-                  return entries.length ? <ul className="markup-review-list">{entries.map(entry => <li key={entry.key}><button type="button" onClick={() => {const [targetBook,targetChapter]=entry.passage.split('|');setBook(targetBook);setChapter(Number(targetChapter));setView('reader');setSelectedVerseNumbers([entry.verse]);verseSelectionAnchorRef.current=entry.verse;setShowObservationIndex(false);}}><strong>{entry.passage.replace('|',' ')}:{entry.verse}</strong><span>{entry.text}</span><small>{entry.tags.map(tag=>SCRIPTURE_MARKUP_TYPES.find(type=>type.id===tag)?.label||tag).join(' · ')}</small></button></li>)}</ul> : <p className="markup-review-empty">No observations have been marked in your saved preview studies yet.</p>;
+                  const entries = Object.entries(previewWordMarkup).flatMap(([passage, verses]) => Object.entries(verses).flatMap(([verse, ranges]) => ranges.map((range,index) => {
+                    const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
+                    const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
+                    return { passage, verse:Number(verse), text:verseText ? verseText.slice(range.start,range.end) : 'Scripture text unavailable', tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index };
+                  }))).concat(Object.entries(previewMarkup).flatMap(([passage, verses]) => Object.entries(verses).map(([verse,tags]) => {
+                    const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
+                    const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
+                    return {passage,verse:Number(verse),text:verseText || 'Scripture text unavailable',tags,key:'v-'+passage+'-'+verse};
+                  })));
+                  const query = observationIndexSearch.trim().toLocaleLowerCase();
+                  const filtered = entries.filter(entry =>
+                    (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory)) &&
+                    (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ')).toLocaleLowerCase().includes(query))
+                  );
+                  return <>
+                    {observationIndexStatus === 'loading' && <p className="markup-review-empty">Loading Scripture text for marked passages…</p>}
+                    {filtered.length ? <ul className="markup-review-list">{filtered.map(entry => <li key={entry.key}><button type="button" onClick={() => {const [targetBook,targetChapter]=entry.passage.split('|');setBook(targetBook);setChapter(Number(targetChapter));setView('reader');setSelectedVerseNumbers([entry.verse]);verseSelectionAnchorRef.current=entry.verse;setShowObservationIndex(false);}}><strong>{entry.passage.replace('|',' ')}:{entry.verse}</strong><span>{entry.text}</span><small>{entry.tags.map(tag=>SCRIPTURE_MARKUP_TYPES.find(type=>type.id===tag)?.label||tag).join(' · ')}</small></button></li>)}</ul> : <p className="markup-review-empty">{entries.length ? 'No observations match these filters.' : 'No observations have been marked in your saved preview studies yet.'}</p>}
+                  </>;
                 })()}
               </section>}
               {showMarkupReview && <section className="markup-review" aria-label="Passage markup review">

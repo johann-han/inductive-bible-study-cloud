@@ -92,7 +92,7 @@ export default function App() {
   const [loadingBible, setLoadingBible] = useState(true);
   const [bibleError, setBibleError] = useState('');
   const [readerReload, setReaderReload] = useState(0);
-  const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
+  const [selectedVerseNumbers, setSelectedVerseNumbers] = useState<number[]>([]);
   const [readerNotice, setReaderNotice] = useState('');
   const [showStrongs, setShowStrongs] = useState(false);
   const [lexicon, setLexicon] = useState<StrongLexiconEntry | null>(null);
@@ -121,7 +121,8 @@ export default function App() {
   const emptyNotes: PreviewStudyDraft = { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' };
   const notesByStage = draftsByPassage[passageDraftKey] || emptyNotes;
   const note = notesByStage[stage];
-  const selectedVerseMarkup = previewMarkup[passageDraftKey]?.[String(selectedVerse)] || [];
+  const selectedVerse = selectedVerseNumbers.length ? selectedVerseNumbers[selectedVerseNumbers.length - 1] : null;
+  const selectedVerseMarkup = selectedVerse === null ? [] : previewMarkup[passageDraftKey]?.[String(selectedVerse)] || [];
   const earlierStageEvidence = useMemo(() => getPreviewStageEvidence(notesByStage, stage), [notesByStage, stage]);
   const stagesWithNotes = useMemo(() => new Set(getPreviewWrittenStages(notesByStage)), [notesByStage]);
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
@@ -162,7 +163,7 @@ export default function App() {
     setLoadingBible(true);
     setBibleError('');
     setReaderNotice('');
-    setSelectedVerse(null);
+    setSelectedVerseNumbers([]);
     lexiconRequestRef.current += 1;
     setLexicon(null);
     setLexiconError('');
@@ -244,22 +245,23 @@ export default function App() {
     }
   };
 
-  const selectedVerseRecord = bible?.verses.find(item => item.number === selectedVerse);
-  const selectedVerseCitation = selectedVerse === null ? '' : book + ' ' + chapter + ':' + selectedVerse;
-  const selectedVerseQuote = selectedVerseRecord ? selectedVerseCitation + ' (' + translation + '): “' + selectedVerseRecord.text + '”' : '';
+  const selectedVerseRecords = bible?.verses.filter(item => selectedVerseNumbers.includes(item.number)).sort((a, b) => a.number - b.number) || [];
+  const selectedVerseRecord = selectedVerseRecords.find(item => item.number === selectedVerse) || selectedVerseRecords[selectedVerseRecords.length - 1];
+  const selectedVerseCitation = selectedVerseRecords.length ? book + ' ' + chapter + ':' + selectedVerseRecords.map(item => item.number).join(', ') : '';
+  const selectedVerseQuote = selectedVerseRecords.map(item => book + ' ' + chapter + ':' + item.number + ' (' + translation + '): “' + item.text + '”').join('\n');
 
   const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
-    if (!selectedVerseRecord) return;
+    if (!selectedVerseRecords.length) return;
     const [targetBook, targetChapterText] = targetKey.split('|');
     const targetChapter = Number(targetChapterText);
     const currentDraft = draftsByPassage[targetKey] || { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' as const };
-    const heading = '\n\n' + selectedVerseCitation + ' — ' + translation + '\n';
-    const addition = heading + selectedVerseRecord.text;
     const existing = currentDraft[targetStage] || '';
-    if (existing.includes(selectedVerseCitation + ' — ' + translation)) {
-      setReaderNotice('This verse is already included in that study stage.');
+    const additions = selectedVerseRecords.filter(item => !existing.includes(book + ' ' + chapter + ':' + item.number + ' — ' + translation));
+    if (!additions.length) {
+      setReaderNotice('The selected verses are already included in that study stage.');
       return;
     }
+    const addition = additions.map(item => book + ' ' + chapter + ':' + item.number + ' — ' + translation + '\n' + item.text).join('\n\n');
     setDraftsByPassage(previous => ({
       ...previous,
       [targetKey]: { ...(previous[targetKey] || currentDraft), [targetStage]: existing.trim() ? existing + addition : addition.trim(), activeStage: targetStage }
@@ -270,24 +272,24 @@ export default function App() {
       setChapter(targetChapter);
     }
     setShowAddToStudy(false);
-    setReaderNotice('Verse added to ' + targetBook + ' ' + targetChapter + ' · Observe.');
+    setReaderNotice(additions.length + ' selected verse' + (additions.length === 1 ? '' : 's') + ' added to ' + targetBook + ' ' + targetChapter + ' · ' + targetStage + '.');
   };
 
   const addVerseAsObservation = () => {
-    if (!selectedVerseRecord) return;
+    if (!selectedVerseRecords.length) return;
     const existing = notesByStage.observe || '';
-    const citation = selectedVerseCitation + ' — ' + translation;
-    if (existing.includes(citation)) {
-      setReaderNotice('This verse is already included in your observations.');
+    const additions = selectedVerseRecords.filter(item => !existing.includes(book + ' ' + chapter + ':' + item.number + ' — ' + translation));
+    if (!additions.length) {
+      setReaderNotice('The selected verses are already included in your observations.');
       return;
     }
-    const addition = citation + '\n' + selectedVerseRecord.text;
+    const addition = additions.map(item => book + ' ' + chapter + ':' + item.number + ' — ' + translation + '\n' + item.text).join('\n\n');
     setDraftsByPassage(previous => ({
       ...previous,
       [passageDraftKey]: { ...(previous[passageDraftKey] || emptyNotes), observe: existing.trim() ? existing + '\n\n' + addition : addition, activeStage: 'observe' }
     }));
     setStage('observe');
-    setReaderNotice('Verse added to your Observation notes.');
+    setReaderNotice(additions.length + ' selected verse' + (additions.length === 1 ? '' : 's') + ' added to your Observation notes.');
   };
 
   const openVerseCrossReference = () => {
@@ -298,9 +300,8 @@ export default function App() {
   };
 
   const copySelectedVerse = async () => {
-    const verse = bible?.verses.find(item => item.number === selectedVerse);
-    if (!verse) return;
-    const text = book + ' ' + chapter + ':' + verse.number + ' (' + translation + ') — ' + verse.text;
+    if (!selectedVerseRecords.length) return;
+    const text = selectedVerseRecords.map(verse => book + ' ' + chapter + ':' + verse.number + ' (' + translation + ') — ' + verse.text).join('\n\n');
     try {
       await navigator.clipboard.writeText(text);
       setReaderNotice('Verse copied.');
@@ -436,7 +437,7 @@ export default function App() {
               <div className="markup-options">
                 {SCRIPTURE_MARKUP_TYPES.map(type => {
                   const active = selectedVerseMarkup.includes(type.id);
-                  return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} disabled={selectedVerse === null} onClick={() => { if (selectedVerse !== null) setPreviewMarkup(previous => toggleVerseMarkup(previous, passageDraftKey, selectedVerse, type.id)); }}>
+                  return <button key={type.id} type="button" className={active ? 'markup-chip active' : 'markup-chip'} aria-pressed={active} title={type.label + (active ? ' · remove from verse' : ' · add to verse')} disabled={selectedVerseNumbers.length === 0} onClick={() => { if (selectedVerseNumbers.length) setPreviewMarkup(previous => selectedVerseNumbers.reduce((next, verseNumber) => toggleVerseMarkup(next, passageDraftKey, verseNumber, type.id), previous)); }}>
                     <span className="markup-symbol">{type.symbol}</span>{type.label}
                   </button>;
                 })}
@@ -448,20 +449,20 @@ export default function App() {
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => {
                 const tags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
-                return <button key={verse.number} type="button" className={selectedVerse===verse.number?'verse selected-verse':'verse'} onClick={()=>{setSelectedVerse(current => current === verse.number ? null : verse.number);setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
+                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={()=>{setSelectedVerseNumbers(current => current.includes(verse.number) ? current.filter(number => number !== verse.number) : [...current, verse.number].sort((a,b)=>a-b));setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word))}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></button>;
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
-            {selectedVerse !== null && selectedVerseRecord && <div className="verse-action-dock" aria-label="Actions for selected verse">
-              <div className="verse-action-context"><div className="verse-action-context-heading"><span className="eyebrow">{selectedVerse === null ? 'NO VERSE SELECTED' : 'SELECTED VERSE'}</span>{selectedVerse !== null && <button type="button" className="text-button clear-verse-selection" onClick={() => {setSelectedVerse(null);setShowAddToStudy(false);setReaderNotice('Verse selection cleared.');}} aria-label="Clear selected verse">Clear selection ×</button>}</div>{selectedVerse !== null && <><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecord?.text || ''}</span></>}{selectedVerse === null && <span>Select a verse to copy it, add it to a study, or link it to another passage.</span>}</div>
+            {selectedVerseNumbers.length > 0 && selectedVerseRecords.length > 0 && <div className="verse-action-dock" aria-label="Actions for selected verses">
+              <div className="verse-action-context"><div className="verse-action-context-heading"><span className="eyebrow">{selectedVerseRecords.length === 1 ? 'SELECTED VERSE' : 'SELECTED VERSES · ' + selectedVerseRecords.length}</span><button type="button" className="text-button clear-verse-selection" onClick={() => {setSelectedVerseNumbers([]);setShowAddToStudy(false);setReaderNotice('Verse selection cleared.');}} aria-label="Clear selected verses">Clear selection ×</button>}</div><strong>{selectedVerseCitation}</strong><span>{selectedVerseRecords.map(item => item.text).join(' ')}</span></div>
               <div className="verse-action-buttons">
-                {selectedVerse !== null && selectedVerseRecord && <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()}><span aria-hidden="true">▢</span>Copy verse</button>}
+                <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()}><span aria-hidden="true">▢</span>Copy verse</button>}
                 <button type="button" className="verse-action" onClick={() => setShowAddToStudy(value => !value)} disabled={!selectedVerseRecord}><span aria-hidden="true">＋</span>Add to study</button>
                 <button type="button" className="verse-action" onClick={openVerseCrossReference} disabled={!selectedVerseRecord}><span aria-hidden="true">↗</span>Link passage</button>
                 <button type="button" className="verse-action" onClick={addVerseAsObservation} disabled={!selectedVerseRecord}><span aria-hidden="true">✎</span>Add observation</button>
               </div>
               {showAddToStudy && <div className="add-to-study-panel">
-                <div><strong>Add {selectedVerseCitation} to a study</strong><button type="button" className="text-button" onClick={() => setShowAddToStudy(false)}>Close</button></div>
+                <div><strong>Add {selectedVerseRecords.length === 1 ? 'verse' : selectedVerseRecords.length + ' verses'} · {selectedVerseCitation} to a study</strong><button type="button" className="text-button" onClick={() => setShowAddToStudy(false)}>Close</button></div>
                 <label htmlFor="add-verse-study-target">Choose a study</label>
                 <select id="add-verse-study-target" className="reading-select" value={addToStudyTarget} onChange={event => setAddToStudyTarget(event.target.value)}>
                   <option value="current">Current study · {book} {chapter}</option>

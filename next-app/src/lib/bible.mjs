@@ -161,7 +161,7 @@ function readKjvAnnotations(payload, verses) {
 }
 
 function escapeRegExp(value) {
-  return value.replace(/[.*+?^$()|[\]{}\\]/g, '\\export async function fetchBibleChapter(bookName, chapterNumber, translation, options) {');
+  return value.replace(/[.*+?^$()|[\]{}\\]/g, '\\$&');
 }
 
 function mapBsbWordsToAnnotations(verseText, words) {

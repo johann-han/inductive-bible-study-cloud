@@ -113,6 +113,11 @@ export default function App() {
   const [standardCrossReferences, setStandardCrossReferences] = useState<StandardCrossReferenceRow[]>([]);
   const [standardReferencesStatus, setStandardReferencesStatus] = useState<'idle'|'loading'|'loaded'|'error'>('idle');
   const [standardReferencesError, setStandardReferencesError] = useState('');
+  const [referencePreview, setReferencePreview] = useState<{ key: string; book: string; chapter: number; verse: number | null; endVerse: number | null } | null>(null);
+  const [referencePreviewBible, setReferencePreviewBible] = useState<BibleChapter | null>(null);
+  const [referencePreviewStatus, setReferencePreviewStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  const [referencePreviewError, setReferencePreviewError] = useState('');
+  const referenceNavigationRef = useRef<{ book: string; chapter: number; start: number; end: number } | null>(null);
   const [referenceTargetBook, setReferenceTargetBook] = useState('John');
   const [referenceTargetChapter, setReferenceTargetChapter] = useState(1);
   const [referenceSourceVerse, setReferenceSourceVerse] = useState<number | ''>('');
@@ -177,6 +182,31 @@ export default function App() {
 
 
   useEffect(() => {
+    if (!referencePreview) {
+      setReferencePreviewBible(null);
+      setReferencePreviewStatus('idle');
+      setReferencePreviewError('');
+      return;
+    }
+    const controller = new AbortController();
+    setReferencePreviewBible(null);
+    setReferencePreviewStatus('loading');
+    setReferencePreviewError('');
+    fetchBibleChapter(referencePreview.book, referencePreview.chapter, translation, { signal: controller.signal })
+      .then(result => {
+        if (controller.signal.aborted) return;
+        setReferencePreviewBible(result);
+        setReferencePreviewStatus('loaded');
+      })
+      .catch(error => {
+        if (controller.signal.aborted) return;
+        setReferencePreviewError(error instanceof Error ? error.message : 'The referenced passage could not be loaded.');
+        setReferencePreviewStatus('error');
+      });
+    return () => controller.abort();
+  }, [referencePreview, translation]);
+
+  useEffect(() => {
     setDraftSaveStatus('saving');
     const timer = window.setTimeout(() => {
       setDraftSaveStatus(writePreviewDrafts(draftsByPassage) ? 'saved' : 'unavailable');
@@ -199,7 +229,15 @@ export default function App() {
     writeSavedPassage({ book, chapter, translation });
 
     fetchBibleChapter(book, chapter, translation, { signal: controller.signal })
-      .then(result => setBible(result))
+      .then(result => {
+        setBible(result);
+        const pending = referenceNavigationRef.current;
+        if (pending && pending.book === result.book && pending.chapter === result.chapter) {
+          setSelectedVerseNumbers(selectVerseRange(pending.start, pending.end));
+          verseSelectionAnchorRef.current = pending.start;
+          referenceNavigationRef.current = null;
+        }
+      })
       .catch(error => {
         if (controller.signal.aborted) return;
         setBible(null);
@@ -420,7 +458,7 @@ export default function App() {
         
         <section className="reference-list-card standard-reference-card">
           <div className="reference-list-heading"><div><span className="eyebrow">STANDARD BIBLE REFERENCES · {translation === 'KJV' ? 'KJV' : 'BSB'} ANCHORS</span><h2>{book} {chapter}</h2></div><strong>{standardReferencesStatus === 'loaded' ? standardCrossReferences.length : '—'}</strong></div>
-          {standardReferencesStatus === 'loading' ? <p className="reference-help">Loading the licensed standard cross-reference collection…</p> : standardReferencesStatus === 'error' ? <p className="reference-help" role="alert">{standardReferencesError} You can still use your saved study links below.</p> : standardCrossReferences.length ? <div className="reference-list">{standardCrossReferences.map(row => <article className="reference-item" key={row.id}><div className="reference-pair"><strong>{row.book} {row.chapter}:{row.verse}</strong><span>{row.anchor}</span></div><div className="standard-reference-links">{row.references.map((ref,index)=><button type="button" key={row.id+'-'+index} onClick={()=>{setBook(ref.book);setChapter(ref.chapter);setSelectedVerseNumbers(ref.verse ? selectVerseRange(ref.verse, ref.endVerse || ref.verse) : []);verseSelectionAnchorRef.current=ref.verse;setView('reader');}}>{ref.label}</button>)}</div><div className="reference-item-footer"><span>STANDARD REFERENCE · {STANDARD_XREF_SOURCE.name}</span></div></article>)}</div> : <div className="library-empty"><h2>No standard references listed for this chapter</h2><p>Try a different chapter or translation.</p></div>}
+          {standardReferencesStatus === 'loading' ? <p className="reference-help">Loading the licensed standard cross-reference collection…</p> : standardReferencesStatus === 'error' ? <p className="reference-help" role="alert">{standardReferencesError} You can still use your saved study links below.</p> : standardCrossReferences.length ? <div className="reference-list">{standardCrossReferences.map(row => <article className="reference-item" key={row.id}><div className="reference-pair"><strong>{row.book} {row.chapter}:{row.verse}</strong><span>{row.anchor}</span></div><div className="standard-reference-links">{row.references.map((ref,index)=>{const previewKey=row.id+'-'+index;const isPreviewOpen=referencePreview?.key===previewKey;return <button type="button" key={previewKey} className={isPreviewOpen?'standard-reference-link active':''} aria-expanded={isPreviewOpen} onClick={()=>setReferencePreview(current=>current?.key===previewKey?null:{key:previewKey,book:ref.book,chapter:ref.chapter,verse:ref.verse,endVerse:ref.endVerse})}>{ref.label}</button>;})}</div>{referencePreview?.key.startsWith(row.id+'-') && <div className="reference-verse-popover" role="region" aria-label={'Preview of '+referencePreview.book+' '+referencePreview.chapter}><div className="reference-verse-popover-heading"><div><span className="eyebrow">SCRIPTURE PREVIEW · {translation}</span><strong>{referencePreview.book} {referencePreview.chapter}{referencePreview.verse ? ':'+referencePreview.verse+(referencePreview.endVerse && referencePreview.endVerse!==referencePreview.verse?'-'+referencePreview.endVerse:'') : ''}</strong></div><button type="button" className="tool-button" onClick={()=>setReferencePreview(null)} aria-label="Close verse preview">×</button></div>{referencePreviewStatus==='loading' && <p className="reference-preview-status" role="status">Loading Scripture…</p>}{referencePreviewStatus==='error' && <p className="reference-preview-error" role="alert">{referencePreviewError}</p>}{referencePreviewStatus==='loaded' && referencePreviewBible && <div className="reference-preview-verses">{referencePreviewBible.verses.filter(item=>referencePreview.verse===null || (item.number>=referencePreview.verse && item.number<=(referencePreview.endVerse || referencePreview.verse))).map(item=><button type="button" className="reference-preview-verse" key={item.number} onClick={()=>{referenceNavigationRef.current={book:referencePreview.book,chapter:referencePreview.chapter,start:item.number,end:item.number};setBook(referencePreview.book);setChapter(referencePreview.chapter);setView('reader');setReferencePreview(null);}}><span>{item.number}</span><span>{item.text}</span><span className="reference-preview-open">Open <Icon name="chevron"/></span></button>)}</div>}{referencePreviewStatus==='loaded' && <p className="reference-preview-hint">Select a verse to open it in the Bible Reader.</p>}</div>}<div className="reference-item-footer"><span>STANDARD REFERENCE · {STANDARD_XREF_SOURCE.name}</span></div></article>)}</div> : <div className="library-empty"><h2>No standard references listed for this chapter</h2><p>Try a different chapter or translation.</p></div>}
           <p className="reference-storage-note">Source: {STANDARD_XREF_SOURCE.attribution} <a href={STANDARD_XREF_SOURCE.url} target="_blank" rel="noreferrer">Dataset and licence details</a>.</p>
         </section>
         <div className="reference-workspace">

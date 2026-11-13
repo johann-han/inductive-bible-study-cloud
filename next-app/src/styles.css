@@ -209,3 +209,10 @@
 .add-to-study-panel>p,.verse-action-notice{font-size:10px;line-height:1.5;color:#7d897f;margin:9px 0 0}
 .verse-action-notice{color:#246046;font-weight:600}
 @media(max-width:640px){.verse-action-dock{bottom:0;margin:8px -5px 0;padding:12px;border-radius:10px}.verse-action-buttons{display:grid;grid-template-columns:1fr 1fr}.verse-action{font-size:11px;padding:8px 7px}.verse-action-context>span:last-child{-webkit-line-clamp:3}.add-to-study-actions{display:grid;grid-template-columns:1fr}.add-to-study-actions button{width:100%;justify-content:center}}
+
+
+.verse-action-context-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}
+.clear-verse-selection{flex:0 0 auto;border:1px solid #dce6dd;border-radius:999px;padding:6px 11px;background:#fff;color:#315d49;font-size:11px;font-weight:600}
+.clear-verse-selection:hover{background:#edf4ee;border-color:#b9cdbd}
+.verse-action-dock:has(.clear-verse-selection) .verse-action-context{position:relative}
+@media(max-width:640px){.verse-action-context-heading{align-items:flex-start}.clear-verse-selection{min-height:34px}}

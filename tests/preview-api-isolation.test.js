@@ -21,8 +21,8 @@ test('Render PR previews disable API routes before any production API handler ca
 });
 
 test('Production API handlers remain behind the preview-only conditional', () => {
-  assert.match(server, /if \(IS_PULL_REQUEST_PREVIEW && url\.pathname\.startsWith\('\\/api\\/'\)\)/);
-  assert.match(server, /url\.pathname === '\\/api\\/config'/);
-  assert.match(server, /url\.pathname === '\\/api\\/admin\\/invite'/);
-  assert.match(server, /url\.pathname === '\\/api\\/mentor'/);
+  assert.ok(server.includes("if (IS_PULL_REQUEST_PREVIEW && url.pathname.startsWith('/api/'))"));
+  assert.ok(server.includes("url.pathname === '/api/config'"));
+  assert.ok(server.includes("url.pathname === '/api/admin/invite'"));
+  assert.ok(server.includes("url.pathname === '/api/mentor'"));
 });

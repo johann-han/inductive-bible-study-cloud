@@ -422,6 +422,7 @@
 .active-study-header h1{font-family:'Libre Baskerville',Georgia,serif;font-size:36px;font-weight:400;letter-spacing:-.04em;margin:9px 0 6px}
 .active-study-header h1 em{font-style:normal;color:var(--green)}
 .active-study-header p{margin:0;color:var(--muted);font-size:14px}
+.active-study-header .outline-button svg,.active-study-source .primary-button svg{width:16px;height:16px;min-width:16px;max-width:16px;flex:0 0 16px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .active-study-progress{background:#fff;border:1px solid var(--line);border-radius:12px;padding:17px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:24px}
 .active-study-progress>div:first-child{display:flex;flex-direction:column;gap:4px}.active-study-progress span{font-size:12px;color:var(--muted)}
 .active-study-progress-track{display:flex;gap:7px;width:min(360px,45%)}.active-study-progress-track i{height:7px;flex:1;border-radius:99px;background:#e8eee8}.active-study-progress-track i.complete{background:#39866b}

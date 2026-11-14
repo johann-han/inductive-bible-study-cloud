@@ -6,5 +6,7 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /healthz
+    previews:
+      generation: automatic
     # Configure OPENROUTER_API_KEY, SUPABASE_URL and SUPABASE_ANON_KEY
     # in the hosting dashboard. Do not store secrets in this file.

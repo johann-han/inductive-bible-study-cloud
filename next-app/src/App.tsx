@@ -572,7 +572,7 @@ export default function App() {
           </section>
         </div><p className="reference-disclaimer">Standard references and user-created study connections are shown separately. Standard references are sourced from the licensed Treasury of Scripture Knowledge dataset; your own links remain local to this browser preview.</p>
       </section> :
-      {view === 'study' ? <section className="active-study-view">
+      view === 'study' ? <section className="active-study-view">
         <div className="active-study-header"><div><div className="eyebrow">ACTIVE INDUCTIVE STUDY</div><h1>{book} <em>{chapter}</em></h1><p>Work through the passage systematically. Your notes remain attached to this passage and stage.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}><Icon name="book"/> Open Bible reader</button></div>
         <div className="active-study-progress"><div><strong>Study progress</strong><span>{stagesWithNotes.size} of 4 stages have notes</span></div><div className="active-study-progress-track">{stages.map(item => <i key={item.id} className={stagesWithNotes.has(item.id) ? 'complete' : ''}/>)}</div></div>
         <nav className="stage-nav" aria-label="Study stages">{stages.map(item => <button key={item.id} className={stage===item.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => changeStage(item.id)}><span className="stage-number">{item.number}</span><span>{item.label}</span>{stagesWithNotes.has(item.id) && <span className="stage-done">✓</span>}</button>)}</nav>

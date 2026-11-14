@@ -414,3 +414,31 @@
 
 /* Persistent return-to-start control for reader and secondary views. */
 .back-home-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;border:1px solid #dce5dc;background:#f7f9f5;color:#315b43;border-radius:9px;padding:9px 12px;font-size:13px;font-weight:650;line-height:1;min-height:40px}.back-home-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.back-home-button:hover{background:#eaf1e9;border-color:#cbd9cc}.back-home-button:focus-visible{outline:3px solid #b68a48;outline-offset:2}@media(max-width:560px){.topbar{justify-content:flex-start;gap:10px}.back-home-button{min-height:38px;padding:8px 10px}.crumbs{min-width:0;flex:1;gap:7px}.crumbs strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.top-actions{margin-left:auto}}
+
+
+/* Dedicated Active Study workspace */
+.active-study-view{max-width:1500px;margin:0 auto;padding:34px clamp(16px,4vw,58px) 56px}
+.active-study-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:24px}
+.active-study-header h1{font-family:'Libre Baskerville',Georgia,serif;font-size:36px;font-weight:400;letter-spacing:-.04em;margin:9px 0 6px}
+.active-study-header h1 em{font-style:normal;color:var(--green)}
+.active-study-header p{margin:0;color:var(--muted);font-size:14px}
+.active-study-progress{background:#fff;border:1px solid var(--line);border-radius:12px;padding:17px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.active-study-progress>div:first-child{display:flex;flex-direction:column;gap:4px}.active-study-progress span{font-size:12px;color:var(--muted)}
+.active-study-progress-track{display:flex;gap:7px;width:min(360px,45%)}.active-study-progress-track i{height:7px;flex:1;border-radius:99px;background:#e8eee8}.active-study-progress-track i.complete{background:#39866b}
+.active-study-view .stage-nav{margin-bottom:16px}
+.active-study-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.42fr);gap:18px;align-items:start}
+.active-study-editor,.active-study-source{background:#fff;border:1px solid var(--line);border-radius:13px;padding:24px;min-width:0}
+.active-study-editor{display:flex;flex-direction:column;min-height:580px}
+.active-study-editor .notes-topline h2,.active-study-source h2{font-family:'Libre Baskerville',Georgia,serif;font-weight:400;font-size:24px;margin:7px 0}
+.draft-status{font-size:12px;color:var(--muted)}
+.active-study-editor .question-copy{padding:20px 0 14px}.active-study-editor .question-copy strong{font-size:16px}.active-study-editor .question-copy p{color:var(--muted);font-size:14px;line-height:1.6;margin:6px 0}
+.active-study-notes-label{font-size:11px;letter-spacing:.12em;font-weight:700;color:#65766a;margin:18px 0 9px}
+.active-study-editor textarea{width:100%;min-height:260px;flex:1;resize:vertical;border:1px solid #dce5dc;border-radius:9px;padding:17px;color:#29392f;font:16px/1.8 'DM Sans',sans-serif}
+.active-study-editor-footer{display:flex;justify-content:space-between;padding:9px 2px 16px;color:#89958d;font-size:12px}
+.active-study-source{position:sticky;top:90px}.active-study-source>p{font-size:12px;color:var(--muted);margin:0 0 18px}
+.active-study-source-preview{max-height:370px;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:18px}
+.active-study-source-preview p{font:14px/1.8 'Libre Baskerville',Georgia,serif;color:#39483e;margin:0;padding:8px 2px}
+.active-study-source-preview b{font:700 11px 'DM Sans',sans-serif;color:#a17a40;margin-right:6px}
+.active-study-source .primary-button{width:100%;justify-content:center}
+@media(max-width:900px){.active-study-view{padding:24px 16px 36px}.active-study-grid{grid-template-columns:1fr}.active-study-source{position:static}.active-study-editor{min-height:500px}}
+@media(max-width:560px){.active-study-view{padding:20px 12px 30px}.active-study-header{align-items:flex-start;flex-direction:column}.active-study-header h1{font-size:29px}.active-study-header .outline-button{width:100%;justify-content:center}.active-study-progress{align-items:flex-start;flex-direction:column;gap:12px}.active-study-progress-track{width:100%}.active-study-editor,.active-study-source{padding:18px}.active-study-editor textarea{min-height:230px}.active-study-view .stage-nav{position:sticky;top:60px;overflow-x:auto;grid-template-columns:repeat(4,minmax(112px,1fr))}}

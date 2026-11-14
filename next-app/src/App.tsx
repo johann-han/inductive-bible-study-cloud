@@ -36,6 +36,7 @@ const stages: { id: Stage; number: string; label: string; question: string; hint
 function Icon({ name }: { name: string }) {
   const paths: Record<string, string> = {
     home: 'M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9 20v-6h6v6',
+    back: 'M19 12H5m7 7-7-7 7-7',
     book: 'M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5zM4 4.5v17M8 6h8M8 10h8',
     search: 'm20 20-4.5-4.5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
     library: 'M4 4h16v16H4zM8 8h8M8 12h8M8 16h5',
@@ -486,6 +487,7 @@ export default function App() {
     </aside>
     <main className="main-area">
       <header className="topbar">
+        {view !== 'overview' && <button className="back-home-button" type="button" onClick={() => setView('overview')} aria-label="Back to start screen" title="Back to start screen"><Icon name="back"/><span>Home</span></button>}
         <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : book + ' ' + chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>

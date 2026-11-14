@@ -166,7 +166,7 @@ export default function App() {
   const lexiconRequestRef = useRef(0);
   const [showGuidance, setShowGuidance] = useState(true);
   const [showEvidence, setShowEvidence] = useState(false);
-  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'references'>('overview');
+  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
@@ -369,7 +369,7 @@ export default function App() {
     setBook(entry.book);
     setChapter(entry.chapter);
     setStage(entry.activeStage);
-    setView('reader');
+    setView('study');
   };
 
   const changeChapter = (direction: number) => {
@@ -478,6 +478,7 @@ export default function App() {
       <button className={view === 'overview' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('overview')}><Icon name="home"/>Overview</button>
       <button className={view === 'library' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('library')}><Icon name="library"/>Study library</button>
       <button className={view === 'reader' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('reader')}><Icon name="book"/>Bible reader</button>
+      <button className={view === 'study' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('study')}><Icon name="library"/>Active study</button>
       <div className="sidebar-divider"/>
       <div className="workspace-label">RESEARCH</div>
       <button className="nav-item nav-disabled" type="button" disabled title="Research tools are being integrated in a later rebuild phase"><Icon name="search"/>Word studies</button>
@@ -488,7 +489,7 @@ export default function App() {
     <main className="main-area">
       <header className="topbar">
         {view !== 'overview' && <button className="back-home-button" type="button" onClick={() => setView('overview')} aria-label="Back to start screen" title="Back to start screen"><Icon name="back"/><span>Home</span></button>}
-        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : book + ' ' + chapter}</strong></div>
+        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
       {view === 'overview' ? <section className="dashboard-view">
@@ -533,7 +534,7 @@ export default function App() {
               <h3>{entry.book} {entry.chapter}</h3>
               <p>{entry.stageCount} of 4 stages with notes · Continue in {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p>
               <div className="dashboard-draft-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div>
-              <button type="button" onClick={() => resumePreviewDraft(entry)}>Resume this study <Icon name="chevron"/></button>
+              <button type="button" onClick={() => resumePreviewDraft(entry)}>Open study workspace <Icon name="chevron"/></button>
             </article>)}
           </div> : <div className="dashboard-empty">
             <div className="dashboard-empty-mark"><Icon name="book"/></div>
@@ -571,7 +572,18 @@ export default function App() {
           </section>
         </div><p className="reference-disclaimer">Standard references and user-created study connections are shown separately. Standard references are sourced from the licensed Treasury of Scripture Knowledge dataset; your own links remain local to this browser preview.</p>
       </section> :
-      <div className="study-page">
+      {view === 'study' ? <section className="active-study-view">
+        <div className="active-study-header"><div><div className="eyebrow">ACTIVE INDUCTIVE STUDY</div><h1>{book} <em>{chapter}</em></h1><p>Work through the passage systematically. Your notes remain attached to this passage and stage.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}><Icon name="book"/> Open Bible reader</button></div>
+        <div className="active-study-progress"><div><strong>Study progress</strong><span>{stagesWithNotes.size} of 4 stages have notes</span></div><div className="active-study-progress-track">{stages.map(item => <i key={item.id} className={stagesWithNotes.has(item.id) ? 'complete' : ''}/>)}</div></div>
+        <nav className="stage-nav" aria-label="Study stages">{stages.map(item => <button key={item.id} className={stage===item.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => changeStage(item.id)}><span className="stage-number">{item.number}</span><span>{item.label}</span>{stagesWithNotes.has(item.id) && <span className="stage-done">✓</span>}</button>)}</nav>
+        <div className="active-study-grid"><section className="active-study-editor"><div className="notes-topline"><div><span className="stage-counter">STAGE {current.number} OF 04</span><h2>{current.label}</h2></div><span className="draft-status">{draftSaveStatus === 'saved' ? 'Saved locally' : draftSaveStatus === 'saving' ? 'Saving…' : 'Local save unavailable'}</span></div><div className="question-copy"><strong>{current.question}</strong><p>{current.hint}</p></div>
+          {showGuidance && <div className="guidance-content"><p>Work from the passage itself. Record what the text supports, keep observations distinct from conclusions, and refer to specific verses wherever possible.</p></div>}
+          {earlierStageEvidence.length > 0 && <div className="evidence-strip"><div><i className="evidence-dot"/>Earlier-stage notes available</div><button className="text-button" type="button" onClick={() => setShowEvidence(v=>!v)}>{showEvidence ? 'Hide' : 'Review'}</button></div>}
+          {showEvidence && <div className="guidance-content">{earlierStageEvidence.map(item => <p key={item.stage}><strong>{item.label}:</strong> {item.text}</p>)}</div>}
+          <label className="active-study-notes-label" htmlFor="active-study-notes">YOUR {current.label.toUpperCase()} NOTES</label><textarea id="active-study-notes" value={note} onChange={event => setDraftsByPassage(previous => ({...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey]||{}),[stage]:event.target.value}}))} placeholder={'Record your '+current.label.toLowerCase()+' notes for '+book+' '+chapter+'…'}/><div className="active-study-editor-footer"><span>{wordCount} words</span><span>Auto-saved in this preview</span></div>
+          <div className="stage-footer"><button className="outline-button" type="button" onClick={() => move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" type="button" onClick={() => move(1)} disabled={stage==='apply'}>Next stage <Icon name="chevron"/></button></div>
+        </section><aside className="active-study-source"><span className="eyebrow">SOURCE SCRIPTURE</span><h2>{book} {chapter}</h2><p>{translation} · {bible?.verses.length || 0} verses</p><div className="active-study-source-preview">{bible?.verses.slice(0,3).map(verse => <p key={verse.number}><b>{verse.number}</b> {verse.text}</p>) || <p>Scripture passage loading…</p>}</div><button className="primary-button" type="button" onClick={() => setView('reader')}>Read and mark passage <Icon name="chevron"/></button></aside></div>
+      </section> : <div className="study-page">
         <section className="study-heading">
           <div><div className="eyebrow">INDUCTIVE STUDY <span>•</span> {bookInfo.testament === 'OT' ? 'OLD TESTAMENT' : 'NEW TESTAMENT'}</div><h1>{book} <em>{chapter}</em></h1><p>{book === 'Genesis' && chapter === 1 ? 'Creation · The beginning of all things' : 'Read the passage carefully before recording your study.'}</p></div>
           <div className="heading-actions">
@@ -590,7 +602,6 @@ export default function App() {
             </select>
           </div>
         </section>
-        <nav className="stage-nav" aria-label="Study stages">{stages.map(s => <button key={s.id} className={stage===s.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => changeStage(s.id)}><span className="stage-number">{s.number}</span><span>{s.label}</span>{stagesWithNotes.has(s.id) && <span className="stage-done" title="Notes recorded" aria-label="Notes recorded">✓</span>}</button>)}</nav>
         <div className="workspace">
           <section className="scripture-panel">
             <div className="panel-heading"><div><span className="eyebrow">SCRIPTURE</span><h2>{book} {chapter}</h2></div><div className="reader-tools"><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.max(16,v-1))} aria-label="Decrease Scripture text size">A−</button><button className="tool-button" type="button" onClick={() => setFontSize(v=>Math.min(25,v+1))} aria-label="Increase Scripture text size">A+</button><button className={showStrongs ? 'tool-button strongs-toggle active' : 'tool-button strongs-toggle'} type="button" aria-pressed={showStrongs} onClick={() => setShowStrongs(value => !value)}>Strong’s {showStrongs ? 'On' : 'Off'}</button></div></div>

@@ -678,6 +678,10 @@ export default function App() {
                   }));
                   const entries = [...phraseEntries,...verseEntries];
                   const query = observationIndexSearch.trim().toLocaleLowerCase();
+                  const categoryCounts = SCRIPTURE_MARKUP_TYPES.reduce((counts,type) => {
+                    counts[type.id] = entries.filter(entry => entry.tags.includes(type.id)).length;
+                    return counts;
+                  }, {} as Record<string,number>);
                   const filtered = entries.filter(entry =>
                     (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory as WordMarkupRange['tags'][number])) &&
                     (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ') + ' ' + entry.kind).toLocaleLowerCase().includes(query))
@@ -696,7 +700,7 @@ export default function App() {
                     <div className="observation-index-summary"><span><strong>{filtered.length}</strong> markings</span><span><strong>{uniqueVerses}</strong> verses</span><span><strong>{groups.size}</strong> chapters</span></div>
                     <div className="observation-index-controls">
                       <label className="markup-search-label">Search observations<input type="search" value={observationIndexSearch} onChange={event => setObservationIndexSearch(event.target.value)} placeholder="Search words, verses or passages…" /></label>
-                      <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
+                      <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label} ({categoryCounts[type.id] || 0})</option>)}</select></label>
                     </div>
                     {observationIndexStatus === 'loading' && <p className="markup-review-empty">Loading Scripture text for marked passages…</p>}
                     {groups.size ? <div className="observation-index-groups">{Array.from(groups.entries()).map(([passage,groupEntries]) => <section className="observation-index-group" key={passage}>

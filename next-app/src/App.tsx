@@ -702,6 +702,7 @@ export default function App() {
                       <label className="markup-search-label">Search observations<input type="search" value={observationIndexSearch} onChange={event => setObservationIndexSearch(event.target.value)} placeholder="Search words, verses or passages…" /></label>
                       <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label} ({categoryCounts[type.id] || 0})</option>)}</select></label>
                     </div>
+                    {(observationIndexSearch || observationIndexCategory !== 'all') && <div className="observation-index-clear-row"><button type="button" onClick={() => {setObservationIndexSearch('');setObservationIndexCategory('all');}}>Clear search and filters</button></div>}
                     {observationIndexStatus === 'loading' && <p className="markup-review-empty">Loading Scripture text for marked passages…</p>}
                     {groups.size ? <div className="observation-index-groups">{Array.from(groups.entries()).map(([passage,groupEntries]) => <section className="observation-index-group" key={passage}>
                       <div className="observation-index-group-heading"><strong>{passage.replace('|',' ')}</strong><span>{groupEntries.length} {groupEntries.length===1?'marking':'markings'}</span></div>

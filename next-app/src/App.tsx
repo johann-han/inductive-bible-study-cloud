@@ -251,6 +251,11 @@ export default function App() {
   }, [passageDraftKey]);
 
   useEffect(() => {
+    setObservationIndexChapters({});
+    setObservationIndexStatus('idle');
+  }, [translation]);
+
+  useEffect(() => {
     if (!showObservationIndex) return;
     const passageKeys = Array.from(new Set([
       ...Object.keys(previewWordMarkup),

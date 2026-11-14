@@ -679,7 +679,7 @@ export default function App() {
                   const entries = [...phraseEntries,...verseEntries];
                   const query = observationIndexSearch.trim().toLocaleLowerCase();
                   const filtered = entries.filter(entry =>
-                    (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory as ScriptureMarkupId)) &&
+                    (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory as WordMarkupRange['tags'][number])) &&
                     (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ') + ' ' + entry.kind).toLocaleLowerCase().includes(query))
                   ).sort((a,b) => {
                     const [ab,ac] = a.passage.split('|'); const [bb,bc] = b.passage.split('|');

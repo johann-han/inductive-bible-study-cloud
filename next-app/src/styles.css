@@ -612,3 +612,15 @@
   .active-study-source{padding:9px 12px;margin-top:0}
   .active-study-source-preview{display:none}
 }
+
+/* On phones, the Reader is the single source for Scripture; give that space to notes. */
+@media(max-width:900px){
+  .active-study-source{display:none}
+  .active-study-grid{grid-template-columns:minmax(0,1fr);gap:0}
+  .active-study-editor{width:100%;min-height:0}
+  .active-study-editor textarea{
+    min-height:68vh;
+    height:68vh;
+    max-height:none;
+  }
+}

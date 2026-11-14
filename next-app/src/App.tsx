@@ -173,6 +173,7 @@ export default function App() {
   const [observationIndexStatus, setObservationIndexStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [observationIndexSearch, setObservationIndexSearch] = useState('');
   const [observationIndexCategory, setObservationIndexCategory] = useState('all');
+  const [observationIndexNotice, setObservationIndexNotice] = useState('');
   const [markupSearch, setMarkupSearch] = useState('');
   const [markupColors, setMarkupColors] = useState<Record<string, string>>(() => {
     const defaults: Record<string, string> = { 'key-word':'#f5e7b9', 'repeated-idea':'#dcece0', contrast:'#f3dfd7', command:'#e6e1f1', promise:'#f6edc9', question:'#dce9f2' };
@@ -703,6 +704,7 @@ export default function App() {
                       <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label} ({categoryCounts[type.id] || 0})</option>)}</select></label>
                     </div>
                     {(observationIndexSearch || observationIndexCategory !== 'all') && <div className="observation-index-clear-row"><button type="button" onClick={() => {setObservationIndexSearch('');setObservationIndexCategory('all');}}>Clear search and filters</button></div>}
+                    <div className="observation-index-export-row"><button type="button" className="text-button" disabled={!filtered.length} onClick={() => {const content=filtered.map(entry => entry.passage.replace('|',' ') + ':' + entry.verse + ' (' + translation + ') · ' + entry.kind + ' · ' + entry.text + ' · ' + entry.tags.map(tag=>SCRIPTURE_MARKUP_TYPES.find(type=>type.id===tag)?.label||tag).join(', ')).join('\\n\\n');void navigator.clipboard.writeText(content).then(()=>setObservationIndexNotice(filtered.length+' observation '+(filtered.length===1?'copied':'entries copied')+'.')).catch(()=>setObservationIndexNotice('Copy is unavailable in this browser.'));}}>Copy {filtered.length} filtered {filtered.length===1?'observation':'observations'}</button>{observationIndexNotice && <span role="status">{observationIndexNotice}</span>}</div>
                     {observationIndexStatus === 'loading' && <p className="markup-review-empty">Loading Scripture text for marked passages…</p>}
                     {groups.size ? <div className="observation-index-groups">{Array.from(groups.entries()).map(([passage,groupEntries]) => <section className="observation-index-group" key={passage}>
                       <div className="observation-index-group-heading"><strong>{passage.replace('|',' ')}</strong><span>{groupEntries.length} {groupEntries.length===1?'marking':'markings'}</span></div>

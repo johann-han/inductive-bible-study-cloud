@@ -661,3 +661,27 @@
   .study-prompt-options{gap:5px;padding:0 7px 7px}
   .study-prompt-options button{padding:5px 8px;font-size:10px}
 }
+
+.observation-category-control{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:600;
+  margin:7px 0;
+}
+.observation-category-control select{
+  min-width:190px;
+  max-width:100%;
+}
+@media(max-width:900px){
+  .observation-category-control{
+    align-items:stretch;
+    flex-direction:column;
+    gap:4px;
+    width:100%;
+    margin:8px 0;
+  }
+  .observation-category-control select{width:100%;min-height:40px}
+}

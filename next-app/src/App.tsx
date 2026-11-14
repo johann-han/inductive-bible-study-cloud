@@ -33,6 +33,39 @@ const stages: { id: Stage; number: string; label: string; question: string; hint
   { id: 'apply', number: '04', label: 'Discipleship', question: 'How should I respond?', hint: 'Move from the meaning of the passage to faithful, specific obedience.' }
 ];
 
+const stagePromptTemplates: Record<Stage, { label: string; text: string }[]> = {
+  observe: [
+    { label: 'Repeated words', text: 'Repeated words and phrases:\n' },
+    { label: 'Commands', text: 'Commands and instructions:\n' },
+    { label: 'Contrasts', text: 'Contrasts and comparisons:\n' },
+    { label: 'Connections', text: 'Connecting words (therefore, for, but, so that):\n' },
+    { label: 'People and actions', text: 'People, actions and responses:\n' },
+    { label: 'Structure', text: 'Paragraph structure and flow:\n' }
+  ],
+  interpret: [
+    { label: 'Context', text: 'Immediate and wider context:\n' },
+    { label: 'Key words', text: 'Key words and phrases:\n' },
+    { label: 'Grammar', text: 'Grammar and sentence relationships:\n' },
+    { label: 'Author’s purpose', text: 'Author’s purpose and line of thought:\n' },
+    { label: 'Cross-references', text: 'Relevant cross-references:\n' },
+    { label: 'Meaning', text: 'Meaning supported by the text:\n' }
+  ],
+  doctrine: [
+    { label: 'Truth about God', text: 'What this passage reveals about God:\n' },
+    { label: 'Truth about people', text: 'What this passage teaches about humanity:\n' },
+    { label: 'Biblical principles', text: 'Biblical principles established by the passage:\n' },
+    { label: 'Supporting texts', text: 'Supporting Scripture passages:\n' },
+    { label: 'Conclusion', text: 'Doctrinal conclusion grounded in the text:\n' }
+  ],
+  apply: [
+    { label: 'Personal response', text: 'Personal response:\n' },
+    { label: 'Obedience', text: 'A specific step of obedience:\n' },
+    { label: 'Character', text: 'Attitudes or character to cultivate or change:\n' },
+    { label: 'Relationships', text: 'Implications for relationships and community:\n' },
+    { label: 'Prayer', text: 'Prayer in response to this passage:\n' }
+  ]
+};
+
 function Icon({ name }: { name: string }) {
   const paths: Record<string, string> = {
     home: 'M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9 20v-6h6v6',

@@ -451,3 +451,14 @@
 .study-page .scripture-panel{max-width:1100px;width:100%;margin:0 auto}
 .open-study-workspace{white-space:nowrap}
 @media(max-width:900px){.open-study-workspace{width:100%;justify-content:center}}
+
+/* Give the Active Study notes editor enough room for sustained writing on phones. */
+@media(max-width:600px){
+  .active-study-editor{min-height:0}
+  .active-study-editor textarea{
+    min-height:420px;
+    height:55vh;
+    flex:0 0 auto;
+    line-height:1.85;
+  }
+}

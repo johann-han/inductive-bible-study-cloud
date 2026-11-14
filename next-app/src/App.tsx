@@ -666,15 +666,17 @@ export default function App() {
               {showObservationIndex && <section className="markup-review observation-index" aria-label="Study observation index">
                 <div className="markup-review-heading"><strong>Observation index · All saved passages</strong><span>Review, search and revisit observations across your study</span></div>
                 {(() => {
-                  const entries = Object.entries(previewWordMarkup).flatMap(([passage, verses]) => Object.entries(verses).flatMap(([verse, ranges]) => ranges.map((range,index) => {
+                  const phraseEntries = Object.entries(previewWordMarkup).flatMap(([passage, verses]) => Object.entries(verses).flatMap(([verse, ranges]) => ranges.map((range,index) => {
                     const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
                     const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
                     return { passage, verse:Number(verse), start:range.start, end:range.end, text:verseText ? verseText.slice(range.start,range.end) : 'Scripture text unavailable', tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index, kind:'Phrase' };
-                  }))).concat(Object.entries(previewMarkup).flatMap(([passage, verses]) => Object.entries(verses).map(([verse,tags]) => {
+                  })));
+                  const verseEntries = Object.entries(previewMarkup).flatMap(([passage, verses]) => Object.entries(verses).map(([verse,tags]) => {
                     const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
                     const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
                     return {passage,verse:Number(verse),text:verseText || 'Scripture text unavailable',tags,key:'v-'+passage+'-'+verse,kind:'Verse'};
-                  })));
+                  }));
+                  const entries = [...phraseEntries,...verseEntries];
                   const query = observationIndexSearch.trim().toLocaleLowerCase();
                   const filtered = entries.filter(entry =>
                     (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory)) &&

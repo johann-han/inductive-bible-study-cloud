@@ -219,6 +219,7 @@ export default function App() {
   const [referenceNotice, setReferenceNotice] = useState('');
   const [showAddToStudy, setShowAddToStudy] = useState(false);
   const [addToStudyTarget, setAddToStudyTarget] = useState('current');
+  const [observationCategory, setObservationCategory] = useState('General observation');
 
 
   const current = stages.find(s => s.id === stage)!;
@@ -477,7 +478,7 @@ export default function App() {
       setReaderNotice('The selected verses are already included in your observations.');
       return;
     }
-    const addition = additions.map(item => book + ' ' + chapter + ':' + item.number + ' — ' + translation + '\n' + item.text).join('\n\n');
+    const addition = additions.map(item => '[' + observationCategory + '] ' + book + ' ' + chapter + ':' + item.number + ' — ' + translation + '\n' + item.text).join('\n\n');
     setDraftsByPassage(previous => ({
       ...previous,
       [passageDraftKey]: { ...(previous[passageDraftKey] || emptyNotes), observe: existing.trim() ? existing + '\n\n' + addition : addition, activeStage: 'observe' }
@@ -746,7 +747,7 @@ export default function App() {
                 <button type="button" className="verse-action primary" onClick={() => void copySelectedVerse()}><span aria-hidden="true">▢</span>{selectedVerseRecords.length === 1 ? "Copy verse" : "Copy verses"}</button>
                 <button type="button" className="verse-action" onClick={() => setShowAddToStudy(value => !value)} disabled={!selectedVerseRecord}><span aria-hidden="true">＋</span>Add to study</button>
                 <button type="button" className="verse-action" onClick={openVerseCrossReference} disabled={!selectedVerseRecord || selectedVerseRecords.length > 1} title={selectedVerseRecords.length > 1 ? "Link passage is available when one verse is selected." : "Link selected verse to another passage"}><span aria-hidden="true">↗</span>{selectedVerseRecords.length > 1 ? "Link one verse" : "Link passage"}</button>
-                <button type="button" className="verse-action" onClick={addVerseAsObservation} disabled={!selectedVerseRecord}><span aria-hidden="true">✎</span>Add observation</button>
+                <label className="observation-category-control">Observation type<select className="reading-select" value={observationCategory} onChange={event => setObservationCategory(event.target.value)}><option>General observation</option><option>Repeated word or phrase</option><option>Command or instruction</option><option>Promise</option><option>Contrast or comparison</option><option>Question</option><option>Cause and effect</option><option>Connecting word</option><option>Person, action or response</option><option>Structure</option></select></label><button type="button" className="verse-action" onClick={addVerseAsObservation} disabled={!selectedVerseRecord}><span aria-hidden="true">✎</span>Add observation</button>
               </div>
               {showAddToStudy && <div className="add-to-study-panel">
                 <div><strong>Add {selectedVerseRecords.length === 1 ? 'verse' : selectedVerseRecords.length + ' verses'} · {selectedVerseCitation} to a study</strong><button type="button" className="text-button" onClick={() => setShowAddToStudy(false)}>Close</button></div>

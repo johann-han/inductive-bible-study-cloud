@@ -600,6 +600,7 @@ export default function App() {
             <select id="chapter-select" className="reading-select chapter-select" value={chapter} onChange={event => setChapter(Number(event.target.value))}>
               {Array.from({ length: bookInfo.chapters }, (_, index) => index + 1).map(value => <option key={value} value={value}>{value}</option>)}
             </select>
+            <button className="primary-button open-study-workspace" type="button" onClick={() => setView('study')}>Open study workspace <Icon name="chevron"/></button>
           </div>
         </section>
         <div className="workspace">

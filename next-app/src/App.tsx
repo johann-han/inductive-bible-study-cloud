@@ -669,17 +669,17 @@ export default function App() {
                   const phraseEntries = Object.entries(previewWordMarkup).flatMap(([passage, verses]) => Object.entries(verses).flatMap(([verse, ranges]) => ranges.map((range,index) => {
                     const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
                     const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
-                    return { passage, verse:Number(verse), start:range.start, end:range.end, text:verseText ? verseText.slice(range.start,range.end) : 'Scripture text unavailable', tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index, kind:'Phrase' };
+                    return { passage, verse:Number(verse), start:range.start, end:range.end, text:verseText ? verseText.slice(range.start,range.end) : 'Scripture text unavailable', tags:range.tags, key:'w-'+passage+'-'+verse+'-'+index, kind:'Phrase' as const };
                   })));
                   const verseEntries = Object.entries(previewMarkup).flatMap(([passage, verses]) => Object.entries(verses).map(([verse,tags]) => {
                     const chapterData = passage === passageDraftKey ? bible : observationIndexChapters[passage];
                     const verseText = chapterData?.verses.find(item => item.number === Number(verse))?.text || '';
-                    return {passage,verse:Number(verse),text:verseText || 'Scripture text unavailable',tags,key:'v-'+passage+'-'+verse,kind:'Verse'};
+                    return {passage,verse:Number(verse),text:verseText || 'Scripture text unavailable',tags,key:'v-'+passage+'-'+verse,kind:'Verse' as const};
                   }));
                   const entries = [...phraseEntries,...verseEntries];
                   const query = observationIndexSearch.trim().toLocaleLowerCase();
                   const filtered = entries.filter(entry =>
-                    (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory)) &&
+                    (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory as ScriptureMarkupId)) &&
                     (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ') + ' ' + entry.kind).toLocaleLowerCase().includes(query))
                   ).sort((a,b) => {
                     const [ab,ac] = a.passage.split('|'); const [bb,bc] = b.passage.split('|');

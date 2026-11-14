@@ -685,3 +685,9 @@
   }
   .observation-category-control select{width:100%;min-height:40px}
 }
+
+.observation-index-list li{display:grid;grid-template-columns:minmax(0,1fr) 34px;align-items:stretch;gap:5px}
+.observation-index-list .observation-index-entry{min-width:0;text-align:left}
+.observation-index-list .observation-index-remove{align-self:center;width:30px;height:30px;border:1px solid #e4e9e3;border-radius:7px;background:#fff;color:#9a6259;font-size:20px;line-height:1;cursor:pointer}
+.observation-index-list .observation-index-remove:hover{background:#fff5f2;border-color:#e7c9c1;color:#9a3f32}
+@media(max-width:600px){.observation-index-list li{grid-template-columns:minmax(0,1fr) 30px}.observation-index-list .observation-index-remove{width:28px;height:28px}}

@@ -637,8 +637,9 @@ export default function App() {
                   });
                   const uniqueVerses = new Set(filtered.map(entry => entry.passage+'|'+entry.verse)).size;
                   const groups = filtered.reduce((map,entry) => {
-                    if (!map.has(entry.passage)) map.set(entry.passage,[]);
-                    map.get(entry.passage).push(entry);
+                    const existing = map.get(entry.passage);
+                    if (existing) existing.push(entry);
+                    else map.set(entry.passage,[entry]);
                     return map;
                   }, new Map<string, typeof filtered>());
                   return <>

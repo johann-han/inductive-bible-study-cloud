@@ -692,3 +692,11 @@
 .observation-index-list .observation-index-remove{align-self:center;width:30px;height:30px;border:1px solid #e4e9e3;border-radius:7px;background:#fff;color:#9a6259;font-size:20px;line-height:1;cursor:pointer}
 .observation-index-list .observation-index-remove:hover{background:#fff5f2;border-color:#e7c9c1;color:#9a3f32}
 @media(max-width:600px){.observation-index-list li{grid-template-columns:minmax(0,1fr) 30px}.observation-index-list .observation-index-remove{width:28px;height:28px}}
+
+
+/* Observation Index filter reset action */
+.observation-index-clear-row{display:flex;justify-content:flex-end;margin:-5px 0 12px}
+.observation-index-clear-row button{border:1px solid #dce5dc;border-radius:7px;background:#f7faf6;color:#42634d;padding:7px 11px;font:600 11px 'DM Sans',sans-serif;cursor:pointer}
+.observation-index-clear-row button:hover{background:#eaf2e9;border-color:#b8cbb9}
+.observation-index-clear-row button:focus-visible{outline:3px solid #b68a48;outline-offset:2px}
+@media(max-width:600px){.observation-index-clear-row{margin:-2px 0 10px}.observation-index-clear-row button{min-height:36px;width:100%}}

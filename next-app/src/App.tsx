@@ -26,6 +26,17 @@ import { loadStandardCrossReferences, STANDARD_XREF_SOURCE } from './lib/standar
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
+type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
+type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; kind: EvidenceKind; reference: string; detail: string; source: string; createdAt: string };
+const EVIDENCE_STORAGE_KEY = 'ibs-next-generation-preview-evidence-v1';
+function readPreviewEvidence(): EvidenceRecord[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(EVIDENCE_STORAGE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is EvidenceRecord => item && typeof item.id === 'string' && typeof item.passageKey === 'string' && ['observe','interpret','doctrine','apply'].includes(item.stage) && typeof item.claim === 'string' && typeof item.reference === 'string' && typeof item.detail === 'string');
+  } catch { return []; }
+}
+
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
   { id: 'observe', number: '01', label: 'Observe', question: 'What does the passage say?', hint: 'Notice what is present before deciding what it means.' },
   { id: 'interpret', number: '02', label: 'Interpret', question: 'What does the passage mean?', hint: 'Use context, structure, words and the author’s flow of thought.' },
@@ -225,6 +236,13 @@ export default function App() {
   const [showGuidance, setShowGuidance] = useState(true);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
+  const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>(() => typeof window === 'undefined' ? [] : readPreviewEvidence());
+  const [evidenceClaim, setEvidenceClaim] = useState('');
+  const [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Scripture');
+  const [evidenceReference, setEvidenceReference] = useState('');
+  const [evidenceDetail, setEvidenceDetail] = useState('');
+  const [evidenceSource, setEvidenceSource] = useState('');
+  const [evidenceNotice, setEvidenceNotice] = useState('');
   const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
@@ -321,6 +339,7 @@ export default function App() {
     setSelectedTextMarkup(null);
   }, [passageDraftKey]);
 
+  useEffect(() => { try { window.localStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(evidenceRecords)); } catch { setEvidenceNotice('Evidence could not be saved in this browser.'); } }, [evidenceRecords]);
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
   useEffect(() => {
     if (view !== 'references') return;
@@ -475,6 +494,23 @@ export default function App() {
   const selectedVerseRecords = bible?.verses.filter(item => selectedVerseNumbers.includes(item.number)).sort((a, b) => a.number - b.number) || [];
   const selectedVerseRecord = selectedVerseRecords.find(item => item.number === selectedVerse) || selectedVerseRecords[selectedVerseRecords.length - 1];
   const selectedVerseCitation = selectedVerseRecords.length ? book + ' ' + chapter + ':' + selectedVerseRecords.map(item => item.number).join(', ') : '';
+
+
+  const addEvidenceRecord = () => {
+    if (!evidenceClaim.trim() || !evidenceReference.trim() || !evidenceDetail.trim()) {
+      setEvidenceNotice('Add a claim, a source reference and supporting evidence before saving.');
+      return;
+    }
+    const record: EvidenceRecord = {
+      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
+      passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), kind: evidenceKind,
+      reference: evidenceReference.trim(), detail: evidenceDetail.trim(), source: evidenceSource.trim(), createdAt: new Date().toISOString()
+    };
+    setEvidenceRecords(previous => [record, ...previous]);
+    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource('');
+    setEvidenceNotice('Evidence record saved in this browser preview.');
+  };
+  const currentPassageEvidence = evidenceRecords.filter(item => item.passageKey === passageDraftKey);
 
   const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
     if (!selectedVerseRecords.length) return;
@@ -645,6 +681,27 @@ export default function App() {
           {showGuidance && <div className="guidance-content"><p>Work from the passage itself. Record what the text supports, keep observations distinct from conclusions, and refer to specific verses wherever possible.</p></div>}
           {earlierStageEvidence.length > 0 && <div className="evidence-strip"><div><i className="evidence-dot"/>Earlier-stage notes available</div><button className="text-button" type="button" onClick={() => setShowEvidence(v=>!v)}>{showEvidence ? 'Hide' : 'Review'}</button></div>}
           {showEvidence && <div className="guidance-content">{earlierStageEvidence.map(item => <p key={item.stage}><strong>{stages.find(stageItem => stageItem.id === item.stage)?.label || item.stage}:</strong> {item.text}</p>)}</div>}
+          <section className="evidence-manager" aria-label="Evidence manager">
+            <div className="evidence-manager-heading"><div><strong>Evidence manager</strong><p>Connect a statement in your study to the Scripture or research that supports it.</p></div><span>{currentPassageEvidence.length} saved</span></div>
+            <div className="evidence-manager-form">
+              <label>Claim or statement<input value={evidenceClaim} onChange={event=>setEvidenceClaim(event.target.value)} placeholder="What statement are you seeking to support?"/></label>
+              <div className="evidence-manager-row">
+                <label>Evidence type<select value={evidenceKind} onChange={event=>setEvidenceKind(event.target.value as EvidenceKind)}><option>Scripture</option><option>Cross-reference</option><option>Lexicon / Strong’s</option><option>Original-language research</option><option>Historical / contextual source</option></select></label>
+                <label>Reference<input value={evidenceReference} onChange={event=>setEvidenceReference(event.target.value)} placeholder="e.g. Leviticus 26:3–5"/></label>
+              </div>
+              <label>Supporting evidence<textarea rows={3} value={evidenceDetail} onChange={event=>setEvidenceDetail(event.target.value)} placeholder="Record the relevant wording, lexical detail, grammatical observation or source finding."/></label>
+              <label>Source / provenance<input value={evidenceSource} onChange={event=>setEvidenceSource(event.target.value)} placeholder="e.g. BSB · STEPBible lexicon · publication details"/></label>
+              {selectedVerseRecords.length>0 && <button type="button" className="text-button" onClick={()=>{setEvidenceKind('Scripture');setEvidenceReference(selectedVerseCitation+' · '+translation);setEvidenceDetail(selectedVerseRecords.map(item=>item.number+'. '+item.text).join('\n'));setEvidenceSource('Bible text displayed in this preview · '+translation);}}>Use selected verses from Reader</button>}
+              <div className="evidence-manager-actions"><button type="button" className="primary-button" onClick={addEvidenceRecord}>Save evidence record</button><span role="status">{evidenceNotice}</span></div>
+            </div>
+            <div className="evidence-manager-list">
+              {currentPassageEvidence.length===0 ? <p className="evidence-manager-empty">No evidence records yet. Add a claim and connect it to its supporting source.</p> : currentPassageEvidence.map(item=><article className="evidence-manager-item" key={item.id}>
+                <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind}</span><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div>
+                <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p>{item.source && <small>Source: {item.source}</small>}
+              </article>)}
+            </div>
+            <small className="evidence-manager-disclaimer">Preview only: records are stored in this browser, separately from production study data. Source accuracy and interpretation remain the researcher’s responsibility.</small>
+          </section>
           <div className="active-study-notes-toolbar">
             <label className="active-study-notes-label" htmlFor="active-study-notes">YOUR {current.label.toUpperCase()} NOTES</label>
             <div className="active-study-note-controls">

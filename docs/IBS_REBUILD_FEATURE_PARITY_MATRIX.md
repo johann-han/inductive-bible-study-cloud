@@ -120,5 +120,7 @@ Do not begin write-capable cloud integration until the staging target and compat
 - Existing evidence records can now be reclassified in place as supports, challenges, qualifies, or context/background; the claim-level summary recalculates from the updated records.
 - Each newly created evidence record can include a short researcher-authored rationale explaining why the source has that relationship to the claim.
 - The rationale is optional and backward-compatible with previously saved browser-local records. It is displayed separately from the source detail and provenance.
+- Assessment rationale can also be edited directly on an existing evidence card, so researchers can refine or correct their reasoning after further passage review. Edits are stored with the browser-local evidence record.
+
 - These controls improve traceability but do not automate source evaluation or establish a claim's truth. Evidence remains browser-local in the isolated preview.
 - Implementation commits: `2a57cc875475eba748f480e73c502321132e90ab`, `e683d939a2bc2d9c9685a89fcfc213d2344f342c`, `5707700b73780c136825bdc397e940f6d6da24e6`, `27b43c440873d77bd59ec359c135a0b0df346c8c`.

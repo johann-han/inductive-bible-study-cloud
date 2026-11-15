@@ -701,6 +701,8 @@ export default function App() {
                     return (bibleBookOrder.get(ab) ?? Number.MAX_SAFE_INTEGER) - (bibleBookOrder.get(bb) ?? Number.MAX_SAFE_INTEGER) || Number(ac)-Number(bc) || a.verse-b.verse || aPosition-bPosition || a.kind.localeCompare(b.kind);
                   });
                   const uniqueVerses = new Set(filtered.map(entry => entry.passage+'|'+entry.verse)).size;
+                   const phraseCount = filtered.filter(entry => entry.kind === 'Phrase').length;
+                   const wholeVerseCount = filtered.length - phraseCount;
                   const groups = filtered.reduce((map,entry) => {
                     const existing = map.get(entry.passage);
                     if (existing) existing.push(entry);
@@ -708,7 +710,7 @@ export default function App() {
                     return map;
                   }, new Map<string, typeof filtered>());
                   return <>
-                    <div className="observation-index-summary"><span><strong>{filtered.length}</strong> markings</span><span><strong>{uniqueVerses}</strong> verses</span><span><strong>{groups.size}</strong> chapters</span></div>
+                    <div className="observation-index-summary"><span><strong>{filtered.length}</strong> markings</span><span><strong>{phraseCount}</strong> phrases</span><span><strong>{wholeVerseCount}</strong> whole verses</span><span><strong>{uniqueVerses}</strong> verses</span><span><strong>{groups.size}</strong> chapters</span></div>
                     <div className="observation-index-controls">
                       <label className="markup-search-label">Search observations<input type="search" value={observationIndexSearch} onChange={event => setObservationIndexSearch(event.target.value)} placeholder="Search words, verses or passages…" /></label>
                       <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label} ({categoryCounts[type.id] || 0})</option>)}</select></label>

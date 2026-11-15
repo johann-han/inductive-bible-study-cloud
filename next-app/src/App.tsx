@@ -683,6 +683,7 @@ export default function App() {
                     return {passage,verse:Number(verse),text:verseText || 'Scripture text unavailable',tags,key:'v-'+passage+'-'+verse,kind:'Verse' as const};
                   }));
                   const entries = [...phraseEntries,...verseEntries];
+                  const bibleBookOrder = new Map(BIBLE_BOOKS.map((book,index) => [book.name,index]));
                   const query = observationIndexSearch.trim().toLocaleLowerCase();
                   const categoryCounts = SCRIPTURE_MARKUP_TYPES.reduce((counts,type) => {
                     counts[type.id] = entries.filter(entry => entry.tags.includes(type.id)).length;
@@ -693,7 +694,7 @@ export default function App() {
                     (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ') + ' ' + entry.kind).toLocaleLowerCase().includes(query))
                   ).sort((a,b) => {
                     const [ab,ac] = a.passage.split('|'); const [bb,bc] = b.passage.split('|');
-                    return ab.localeCompare(bb) || Number(ac)-Number(bc) || a.verse-b.verse || a.kind.localeCompare(b.kind);
+                    return (bibleBookOrder.get(ab) ?? Number.MAX_SAFE_INTEGER) - (bibleBookOrder.get(bb) ?? Number.MAX_SAFE_INTEGER) || Number(ac)-Number(bc) || a.verse-b.verse || a.kind.localeCompare(b.kind);
                   });
                   const uniqueVerses = new Set(filtered.map(entry => entry.passage+'|'+entry.verse)).size;
                   const groups = filtered.reduce((map,entry) => {

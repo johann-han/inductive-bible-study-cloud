@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import './styles.css';
+import './evidence-manager.css';
 import {
   BIBLE_BOOKS,
   BIBLE_TRANSLATIONS,

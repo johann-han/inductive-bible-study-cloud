@@ -173,6 +173,7 @@ export default function App() {
   const [observationIndexStatus, setObservationIndexStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [observationIndexSearch, setObservationIndexSearch] = useState('');
   const [observationIndexCategory, setObservationIndexCategory] = useState('all');
+  const [observationIndexKind, setObservationIndexKind] = useState<'all' | 'Phrase' | 'Verse'>('all');
   const [observationIndexNotice, setObservationIndexNotice] = useState('');
   const [markupSearch, setMarkupSearch] = useState('');
   const [markupColors, setMarkupColors] = useState<Record<string, string>>(() => {
@@ -690,6 +691,7 @@ export default function App() {
                     return counts;
                   }, {} as Record<string,number>);
                   const filtered = entries.filter(entry =>
+                    (observationIndexKind === 'all' || entry.kind === observationIndexKind) &&
                     (observationIndexCategory === 'all' || entry.tags.includes(observationIndexCategory as WordMarkupRange['tags'][number])) &&
                     (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ') + ' ' + entry.kind).toLocaleLowerCase().includes(query))
                   ).sort((a,b) => {
@@ -708,8 +710,9 @@ export default function App() {
                     <div className="observation-index-controls">
                       <label className="markup-search-label">Search observations<input type="search" value={observationIndexSearch} onChange={event => setObservationIndexSearch(event.target.value)} placeholder="Search words, verses or passages…" /></label>
                       <label className="markup-search-label">Observation category<select value={observationIndexCategory} onChange={event => setObservationIndexCategory(event.target.value)}><option value="all">All categories</option>{SCRIPTURE_MARKUP_TYPES.map(type => <option key={type.id} value={type.id}>{type.label} ({categoryCounts[type.id] || 0})</option>)}</select></label>
+                      <label className="markup-search-label">Marking type<select value={observationIndexKind} onChange={event => setObservationIndexKind(event.target.value as typeof observationIndexKind)}><option value="all">Phrases and whole verses</option><option value="Phrase">Highlighted phrases</option><option value="Verse">Whole-verse markings</option></select></label>
                     </div>
-                    {(observationIndexSearch || observationIndexCategory !== 'all') && <div className="observation-index-clear-row"><button type="button" onClick={() => {setObservationIndexSearch('');setObservationIndexCategory('all');}}>Clear search and filters</button></div>}
+                    {(observationIndexSearch || observationIndexCategory !== 'all' || observationIndexKind !== 'all') && <div className="observation-index-clear-row"><button type="button" onClick={() => {setObservationIndexSearch('');setObservationIndexCategory('all');setObservationIndexKind('all');}}>Clear search and filters</button></div>}
                     <div className="observation-index-export-row"><button type="button" className="text-button" disabled={!filtered.length} onClick={() => {const content=filtered.map(entry => entry.passage.replace('|',' ') + ':' + entry.verse + ' (' + translation + ') · ' + entry.kind + ' · ' + entry.text + ' · ' + entry.tags.map(tag=>SCRIPTURE_MARKUP_TYPES.find(type=>type.id===tag)?.label||tag).join(', ')).join('\n\n');void (async()=>{try{await navigator.clipboard.writeText(content);setObservationIndexNotice(filtered.length+' observation '+(filtered.length===1?'copied':'entries copied')+'.');}catch{setObservationIndexNotice('Copy is unavailable in this browser.');}})();}}>Copy {filtered.length} filtered {filtered.length===1?'observation':'observations'}</button>{observationIndexNotice && <span role="status">{observationIndexNotice}</span>}</div>
                     {observationIndexStatus === 'loading' && <p className="markup-review-empty">Loading Scripture text for marked passages…</p>}
                     {groups.size ? <div className="observation-index-groups">{Array.from(groups.entries()).map(([passage,groupEntries]) => <section className="observation-index-group" key={passage}>

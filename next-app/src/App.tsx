@@ -752,13 +752,14 @@ export default function App() {
               </div>
               <label>Supporting evidence<textarea rows={3} value={evidenceDetail} onChange={event=>setEvidenceDetail(event.target.value)} placeholder="Record the relevant wording, lexical detail, grammatical observation or source finding."/></label>
               <label>Source / provenance<input value={evidenceSource} onChange={event=>setEvidenceSource(event.target.value)} placeholder="e.g. BSB · STEPBible lexicon · publication details"/></label>
+              {evidenceSourceUrl && <div className="evidence-source-provenance"><span>Source record</span><a href={evidenceSourceUrl} target="_blank" rel="noopener noreferrer">Open original source ↗</a>{evidenceSourceId && <code>{evidenceSourceId}</code>}</div>}
               {selectedVerseRecords.length>0 && <button type="button" className="text-button" onClick={()=>{setEvidenceKind('Scripture');setEvidenceReference(selectedVerseCitation+' · '+translation);setEvidenceDetail(selectedVerseRecords.map(item=>item.number+'. '+item.text).join('\n'));setEvidenceSource('Bible text displayed in this preview · '+translation);}}>Use selected verses from Reader</button>}
               <div className="evidence-manager-actions"><button type="button" className="primary-button" onClick={addEvidenceRecord}>Save evidence record</button><span role="status">{evidenceNotice}</span></div>
             </div>
             <div className="evidence-manager-list">
               {currentPassageEvidence.length===0 ? <p className="evidence-manager-empty">No evidence records yet. Add a claim and connect it to its supporting source.</p> : currentPassageEvidence.map(item=><article className="evidence-manager-item" key={item.id}>
                 <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind}</span><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div>
-                <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p>{item.source && <small>Source: {item.source}</small>}
+                <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p>{item.source && <small>Source: {item.source}</small>}{item.sourceUrl && <a className="evidence-record-source" href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Open source record ↗</a>}{item.sourceId && <small>Source identifier: {item.sourceId}</small>}
               </article>)}
             </div>
             <small className="evidence-manager-disclaimer">Preview only: records are stored in this browser, separately from production study data. Source accuracy and interpretation remain the researcher’s responsibility.</small>

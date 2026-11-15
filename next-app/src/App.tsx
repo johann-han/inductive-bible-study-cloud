@@ -28,7 +28,8 @@ import type { StandardCrossReferenceRow } from './lib/standard-cross-references.
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
-type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
+type EvidenceRelationship = 'supports' | 'challenges' | 'qualifies' | 'context';
+type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; relationship?: EvidenceRelationship; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
 const EVIDENCE_STORAGE_KEY = 'ibs-next-generation-preview-evidence-v1';
 function readPreviewEvidence(): EvidenceRecord[] {
   try {
@@ -240,6 +241,7 @@ export default function App() {
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>(() => typeof window === 'undefined' ? [] : readPreviewEvidence());
   const [evidenceClaim, setEvidenceClaim] = useState('');
   const [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Scripture');
+  const [evidenceRelationship, setEvidenceRelationship] = useState<EvidenceRelationship>('context');
   const [evidenceReference, setEvidenceReference] = useState('');
   const [evidenceDetail, setEvidenceDetail] = useState('');
   const [evidenceSource, setEvidenceSource] = useState('');
@@ -561,17 +563,31 @@ export default function App() {
     }
     const record: EvidenceRecord = {
       id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
-      passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), kind: evidenceKind,
+      passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), relationship: evidenceRelationship, kind: evidenceKind,
       reference: evidenceReference.trim(), detail: evidenceDetail.trim(), source: evidenceSource.trim(),
       ...(evidenceSourceUrl.trim() ? { sourceUrl: evidenceSourceUrl.trim() } : {}),
       ...(evidenceSourceId.trim() ? { sourceId: evidenceSourceId.trim() } : {}),
       createdAt: new Date().toISOString()
     };
     setEvidenceRecords(previous => [record, ...previous]);
-    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource(''); setEvidenceSourceUrl(''); setEvidenceSourceId('');
+    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource(''); setEvidenceSourceUrl(''); setEvidenceSourceId(''); setEvidenceRelationship('context');
     setEvidenceNotice('Evidence record saved in this browser preview.');
   };
   const currentPassageEvidence = evidenceRecords.filter(item => item.passageKey === passageDraftKey);
+  const evidenceByClaim = currentPassageEvidence.reduce((groups, item) => {
+    const key = item.claim.trim().toLocaleLowerCase();
+    const group = groups.get(key) || { claim: item.claim, records: [] as EvidenceRecord[] };
+    group.records.push(item);
+    groups.set(key, group);
+    return groups;
+  }, new Map<string, { claim: string; records: EvidenceRecord[] }>());
+  const claimEvidenceGroups = [...evidenceByClaim.values()].map(group => ({
+    ...group,
+    supports: group.records.filter(item => item.relationship === 'supports').length,
+    challenges: group.records.filter(item => item.relationship === 'challenges').length,
+    qualifies: group.records.filter(item => item.relationship === 'qualifies').length,
+    context: group.records.filter(item => !item.relationship || item.relationship === 'context').length
+  }));
 
   const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
     if (!selectedVerseRecords.length) return;
@@ -745,20 +761,29 @@ export default function App() {
           <section className="evidence-manager" aria-label="Evidence manager">
             <div className="evidence-manager-heading"><div><strong>Evidence manager</strong><p>Connect a statement in your study to the Scripture or research that supports it.</p></div><span>{currentPassageEvidence.length} saved</span></div>
             <div className="evidence-manager-form">
-              <label>Claim or statement<input value={evidenceClaim} onChange={event=>setEvidenceClaim(event.target.value)} placeholder="What statement are you seeking to support?"/></label>
+              <label>Claim or statement<input value={evidenceClaim} onChange={event=>setEvidenceClaim(event.target.value)} placeholder="What statement are you evaluating?"/></label>
               <div className="evidence-manager-row">
+                <label>Evidence relationship<select value={evidenceRelationship} onChange={event=>setEvidenceRelationship(event.target.value as EvidenceRelationship)}><option value="context">Context / background</option><option value="supports">Supports the claim</option><option value="challenges">Challenges the claim</option><option value="qualifies">Qualifies the claim</option></select></label>
                 <label>Evidence type<select value={evidenceKind} onChange={event=>setEvidenceKind(event.target.value as EvidenceKind)}><option>Scripture</option><option>Cross-reference</option><option>Lexicon / Strong’s</option><option>Original-language research</option><option>Historical / contextual source</option></select></label>
-                <label>Reference<input value={evidenceReference} onChange={event=>setEvidenceReference(event.target.value)} placeholder="e.g. Leviticus 26:3–5"/></label>
               </div>
+              <label>Reference<input value={evidenceReference} onChange={event=>setEvidenceReference(event.target.value)} placeholder="e.g. Leviticus 26:3–5"/></label>
               <label>Supporting evidence<textarea rows={3} value={evidenceDetail} onChange={event=>setEvidenceDetail(event.target.value)} placeholder="Record the relevant wording, lexical detail, grammatical observation or source finding."/></label>
               <label>Source / provenance<input value={evidenceSource} onChange={event=>setEvidenceSource(event.target.value)} placeholder="e.g. BSB · STEPBible lexicon · publication details"/></label>
               {evidenceSourceUrl && <div className="evidence-source-provenance"><span>Source record</span><a href={evidenceSourceUrl} target="_blank" rel="noopener noreferrer">Open original source ↗</a>{evidenceSourceId && <code>{evidenceSourceId}</code>}</div>}
               {selectedVerseRecords.length>0 && <button type="button" className="text-button" onClick={()=>{setEvidenceKind('Scripture');setEvidenceReference(selectedVerseCitation+' · '+translation);setEvidenceDetail(selectedVerseRecords.map(item=>item.number+'. '+item.text).join('\n'));setEvidenceSource('Bible text displayed in this preview · '+translation);}}>Use selected verses from Reader</button>}
               <div className="evidence-manager-actions"><button type="button" className="primary-button" onClick={addEvidenceRecord}>Save evidence record</button><span role="status">{evidenceNotice}</span></div>
             </div>
+            <div className="evidence-claim-register">
+              <div className="evidence-claim-register-heading"><strong>Claim assessment</strong><span>{claimEvidenceGroups.length} claim{claimEvidenceGroups.length===1?'':'s'} · {currentPassageEvidence.length} evidence records</span></div>
+              {claimEvidenceGroups.length===0 ? <p className="evidence-manager-empty">Claims and their evidence relationships will be summarised here.</p> : claimEvidenceGroups.map(group=><article className="evidence-claim-summary" key={group.claim.toLocaleLowerCase()}>
+                <strong>{group.claim}</strong>
+                <div className="evidence-relationship-counts"><span className="relationship-supports">{group.supports} supports</span><span className="relationship-challenges">{group.challenges} challenges</span><span className="relationship-qualifies">{group.qualifies} qualifies</span><span className="relationship-context">{group.context} context</span></div>
+                <small>{group.records.length} linked source{group.records.length===1?'':'s'}. These classifications are your assessment, not an automated verdict.</small>
+              </article>)}
+            </div>
             <div className="evidence-manager-list">
               {currentPassageEvidence.length===0 ? <p className="evidence-manager-empty">No evidence records yet. Add a claim and connect it to its supporting source.</p> : currentPassageEvidence.map(item=><article className="evidence-manager-item" key={item.id}>
-                <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind}</span><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div>
+                <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind} · <b className={'evidence-relationship-label relationship-'+(item.relationship||'context')}>{({supports:'Supports',challenges:'Challenges',qualifies:'Qualifies',context:'Context'})[item.relationship||'context']}</b></span><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div>
                 <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p>{item.source && <small>Source: {item.source}</small>}{item.sourceUrl && <a className="evidence-record-source" href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Open source record ↗</a>}{item.sourceId && <small>Source identifier: {item.sourceId}</small>}
               </article>)}
             </div>

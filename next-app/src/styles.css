@@ -286,7 +286,7 @@
 .observation-index-summary{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 13px}
 .observation-index-summary span{display:inline-flex;align-items:baseline;gap:5px;padding:7px 10px;border:1px solid #e2eae1;border-radius:7px;background:#f7faf6;color:#77857a;font-size:10px}
 .observation-index-summary strong{color:#245b45;font-size:14px}
-.observation-index-controls{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(190px,.8fr);gap:10px;margin-bottom:13px}
+.observation-index-controls{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(170px,.8fr) minmax(170px,.8fr);gap:10px;margin-bottom:13px}
 .observation-index-controls select{width:100%;min-height:36px;padding:8px 10px;border:1px solid var(--line,#dce5dd);border-radius:7px;background:#fff;color:#34483b;font:12px 'DM Sans',sans-serif}
 .observation-index-groups{display:grid;gap:14px;max-height:560px;overflow:auto;padding-right:3px}
 .observation-index-group{min-width:0;border:1px solid #e5ebe5;border-radius:9px;padding:10px;background:#fbfcfa}

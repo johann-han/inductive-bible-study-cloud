@@ -710,3 +710,28 @@
 .observation-index-export-row .text-button:disabled{opacity:.45;cursor:not-allowed}
 .observation-index-export-row [role="status"]{color:#617467;font-size:11px;text-align:right}
 @media(max-width:600px){.observation-index-export-row{align-items:stretch;flex-direction:column}.observation-index-export-row .text-button{width:100%;min-height:38px}.observation-index-export-row [role="status"]{text-align:left}}
+
+
+/* Expandable notes editor and source-linked research actions. */
+.research-evidence-panel{border:1px solid #dce7dc;background:#f8faf7;border-radius:10px;padding:13px 14px;margin:12px 0 16px;display:flex;flex-direction:column;gap:9px}
+.research-evidence-panel>div:first-child{display:flex;flex-direction:column;gap:3px}
+.research-evidence-panel>div:first-child strong{font-size:13px;color:#294b38}
+.research-evidence-panel>div:first-child span,.research-evidence-panel small{font-size:11px;line-height:1.5;color:#718075}
+.research-evidence-actions{display:flex;flex-wrap:wrap;gap:7px}
+.research-evidence-actions .outline-button{min-height:34px;padding:7px 10px;font-size:11px}
+.editor-tools{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.notes-expand-button{white-space:nowrap;padding-inline:10px;font-size:11px}
+.active-study-editor.notes-expanded{min-height:0}
+.active-study-editor textarea.notes-textarea-expanded{height:68vh;min-height:520px;max-height:none;flex:0 0 auto;resize:vertical}
+.active-study-editor.notes-expanded .active-study-grid{grid-template-columns:minmax(0,1fr)}
+@media(max-width:900px){
+ .research-evidence-panel{padding:10px;margin:8px 0 12px}
+ .research-evidence-actions{display:grid;grid-template-columns:1fr}
+ .research-evidence-actions .outline-button{width:100%;justify-content:center}
+ .active-study-editor textarea.notes-textarea-expanded{height:75vh;min-height:65vh}
+}
+@media(min-width:901px){
+ .active-study-editor.notes-expanded{grid-column:1/-1}
+ .active-study-grid:has(.active-study-editor.notes-expanded){grid-template-columns:minmax(0,1fr)}
+ .active-study-editor.notes-expanded textarea.notes-textarea-expanded{height:72vh;min-height:560px}
+}

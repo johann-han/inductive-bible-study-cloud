@@ -33,6 +33,29 @@ const stages: { id: Stage; number: string; label: string; question: string; hint
   { id: 'apply', number: '04', label: 'Discipleship', question: 'How should I respond?', hint: 'Move from the meaning of the passage to faithful, specific obedience.' }
 ];
 
+const stageMethod: Record<Stage, { title: string; steps: string[]; review: string[] }> = {
+  observe: {
+    title: 'Read closely before explaining',
+    steps: ['Read the whole passage in its paragraph and chapter context.', 'Record what is actually present: people, actions, places, time, repeated words, contrasts and commands.', 'Notice connecting words and the relationships they signal without deciding their full meaning yet.'],
+    review: ['Can each observation be located in a specific verse?', 'Have I kept observation separate from interpretation and application?']
+  },
+  interpret: {
+    title: 'Follow the author’s line of thought',
+    steps: ['Establish the immediate context, speaker, audience, occasion and place in the book.', 'Trace the sentence and paragraph structure. Identify the main assertion and how supporting clauses develop it.', 'Examine linking words in context: “for/because” may give a reason; “therefore/so” may draw a conclusion; “but/however” may introduce contrast; “so that/in order that” may express purpose or result; “if” may introduce a condition; “then/after” may mark sequence.', 'Identify what each connector links. Do not assign a fixed meaning to a word without checking how the sentence uses it.', 'Examine key terms, grammar and relevant cross-references; explain the meaning that best accounts for the whole passage.'],
+    review: ['Have I explained how the clauses and paragraphs relate, rather than merely listing linking words?', 'Does my interpretation fit the immediate and wider context?', 'Can I show the textual reasons for each major conclusion?', 'Have I avoided moving prematurely into doctrinal conclusions or personal application?']
+  },
+  doctrine: {
+    title: 'Draw theological conclusions from established meaning',
+    steps: ['Begin with the meaning established in Interpretation, not an isolated phrase.', 'State what the passage explicitly teaches about God, humanity, sin, salvation, the people of God or faithful living, where relevant.', 'Distinguish direct statements from necessary implications and broader theological inferences.', 'Compare with relevant Scripture in context; do not use a cross-reference to override the passage being studied.', 'Form a concise doctrinal statement and record the verses that support it.'],
+    review: ['Is this conclusion grounded in the passage’s meaning?', 'Have I distinguished explicit teaching from inference?', 'Do the supporting texts genuinely address the same subject in context?', 'Have I avoided claiming more than the evidence establishes?']
+  },
+  apply: {
+    title: 'Respond faithfully to the meaning of the passage',
+    steps: ['Identify the enduring truth or principle established through Interpretation and Doctrine.', 'Consider the original audience and the difference between their situation and yours.', 'Name a specific response: belief to embrace, action to take, attitude to change, relationship to address or practice to continue.', 'Make the response concrete and proportionate to what the passage teaches.', 'Express the response in prayer and, where appropriate, consider how it is lived within the Christian community.'],
+    review: ['Does this response arise from the passage rather than personal preference?', 'Is it specific enough to put into practice?', 'Have I avoided turning a descriptive detail into a command without textual warrant?']
+  }
+};
+
 const stagePromptTemplates: Record<Stage, { label: string; text: string }[]> = {
   observe: [
     { label: 'Repeated words', text: 'Repeated words and phrases:\n' },
@@ -798,6 +821,15 @@ export default function App() {
             <div className="notes-topline"><div><span className="eyebrow">YOUR STUDY</span><h2>{current.label}</h2></div><span className="stage-counter">STAGE {current.number} / 04</span></div>
             <div className="stage-question"><div className="question-icon">?</div><div className="question-copy"><strong>{current.question}</strong><p>{current.hint}</p></div><button className="collapse-button" type="button" onClick={()=>setShowGuidance(!showGuidance)}>{showGuidance?'Hide':'Show'} guidance</button></div>
             {showGuidance && <div className="guidance-content"><p>{stage==='observe'?'Record what the text explicitly states. Trace repeated words, people, places, time markers, contrasts, commands and linking words. Avoid explaining meaning or moving to application.':stage==='interpret'?'Examine context, structure, grammar, keywords and linking words. Explain how the author develops the thought and support conclusions from the text.':stage==='doctrine'?'Synthesize what the passage teaches about God, humanity, creation and the wider biblical witness. Distinguish explicit teaching from inference.':'Identify a faithful response grounded in the passage. Make it specific, considered and connected to the meaning established in the earlier stages.'}</p></div>}
+            <details className="stage-method">
+              <summary>Stage method · {stageMethod[stage].title}</summary>
+              <div className="stage-method-content">
+                <strong>Work through these steps</strong>
+                <ol>{stageMethod[stage].steps.map((step,index)=><li key={index}>{step}</li>)}</ol>
+                <strong>Review your work before moving on</strong>
+                <ul>{stageMethod[stage].review.map((question,index)=><li key={index}>{question}</li>)}</ul>
+              </div>
+            </details>
             <section className="evidence-handoff" aria-label="Earlier-stage study evidence">
               <div className="evidence-strip">
                 <div><span className="evidence-dot"/> <strong>Earlier-stage notes</strong></div>

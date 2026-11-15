@@ -696,7 +696,7 @@ export default function App() {
                     (!query || (entry.passage.replace('|',' ') + ':' + entry.verse + ' ' + entry.text + ' ' + entry.tags.join(' ') + ' ' + entry.kind).toLocaleLowerCase().includes(query))
                   ).sort((a,b) => {
                     const [ab,ac] = a.passage.split('|'); const [bb,bc] = b.passage.split('|');
-                    return (bibleBookOrder.get(ab) ?? Number.MAX_SAFE_INTEGER) - (bibleBookOrder.get(bb) ?? Number.MAX_SAFE_INTEGER) || Number(ac)-Number(bc) || a.verse-b.verse || a.kind.localeCompare(b.kind);
+                    return (bibleBookOrder.get(ab) ?? Number.MAX_SAFE_INTEGER) - (bibleBookOrder.get(bb) ?? Number.MAX_SAFE_INTEGER) || Number(ac)-Number(bc) || a.verse-b.verse || (a.start ?? Number.MAX_SAFE_INTEGER)-(b.start ?? Number.MAX_SAFE_INTEGER) || a.kind.localeCompare(b.kind);
                   });
                   const uniqueVerses = new Set(filtered.map(entry => entry.passage+'|'+entry.verse)).size;
                   const groups = filtered.reduce((map,entry) => {

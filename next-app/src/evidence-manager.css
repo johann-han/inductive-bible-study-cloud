@@ -26,3 +26,16 @@
 .evidence-manager-disclaimer{display:block;margin-top:12px}
 .evidence-manager-form input:focus,.evidence-manager-form select:focus,.evidence-manager-form textarea:focus{outline:2px solid #9bb9a1;outline-offset:1px}
 @media(max-width:600px){.evidence-manager{padding:11px;margin:8px 0 13px}.evidence-manager-row{grid-template-columns:1fr}.evidence-manager-actions{align-items:stretch;flex-direction:column}.evidence-manager-actions .primary-button{width:100%;justify-content:center}}
+
+/* Research-to-evidence hand-off controls. */
+.standard-reference-action{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.reference-attach-button{border:1px solid #d7e3d8;border-radius:6px;background:#f7faf7;padding:4px 7px;color:#3b6248;font:600 10px 'DM Sans',sans-serif;cursor:pointer}
+.reference-attach-button:hover{background:#eaf2eb}
+.reference-item-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.lexicon-evidence-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px}
+.lexicon-evidence-actions .outline-button{min-height:34px;padding:7px 11px;font-size:11px}
+.evidence-source-provenance{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid #e1e9e1;border-radius:7px;background:#f6f9f6;color:#617267;font-size:11px}
+.evidence-source-provenance a,.evidence-record-source{color:#386747;font-weight:650;text-decoration:none}
+.evidence-source-provenance code{color:#768379;font-size:10px;overflow-wrap:anywhere}
+.evidence-record-source{font-size:11px}
+@media(max-width:600px){.lexicon-evidence-actions{align-items:stretch;flex-direction:column}.lexicon-evidence-actions .outline-button{width:100%}.standard-reference-action{gap:4px}.reference-attach-button{padding:5px 6px}}

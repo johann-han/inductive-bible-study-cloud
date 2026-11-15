@@ -39,3 +39,19 @@
 .evidence-source-provenance code{color:#768379;font-size:10px;overflow-wrap:anywhere}
 .evidence-record-source{font-size:11px}
 @media(max-width:600px){.lexicon-evidence-actions{align-items:stretch;flex-direction:column}.lexicon-evidence-actions .outline-button{width:100%}.standard-reference-action{gap:4px}.reference-attach-button{padding:5px 6px}}
+
+/* Claim-level evidence assessment. */
+.evidence-claim-register{display:grid;gap:10px;margin:14px 0;padding:13px;border:1px solid #e2e9e1;border-radius:10px;background:#f8faf7}
+.evidence-claim-register-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#314b38;font-size:12px}
+.evidence-claim-register-heading span{color:#7b897d;font-size:10px}
+.evidence-claim-summary{display:grid;gap:8px;padding:11px;border:1px solid #e5ebe4;border-radius:8px;background:#fff}
+.evidence-claim-summary>strong{font-size:12px;line-height:1.5;color:#283b2d}
+.evidence-claim-summary>small{font-size:10px;line-height:1.5;color:#778278}
+.evidence-relationship-counts{display:flex;gap:6px;flex-wrap:wrap}
+.evidence-relationship-counts span,.evidence-relationship-label{display:inline-flex;align-items:center;border-radius:20px;padding:3px 7px;font-size:10px;font-weight:650;font-style:normal}
+.relationship-supports{background:#e7f2e8;color:#376847}
+.relationship-challenges{background:#f8e9e6;color:#91483e}
+.relationship-qualifies{background:#f7f0dc;color:#82652d}
+.relationship-context{background:#edf0ee;color:#647168}
+.evidence-relationship-label{margin-left:4px}
+@media(max-width:600px){.evidence-claim-register{padding:10px}.evidence-claim-register-heading{align-items:flex-start;flex-direction:column;gap:3px}}

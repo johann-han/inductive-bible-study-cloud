@@ -223,6 +223,7 @@ export default function App() {
   const [lexiconError, setLexiconError] = useState('');
   const lexiconRequestRef = useRef(0);
   const [showGuidance, setShowGuidance] = useState(true);
+  const [notesExpanded, setNotesExpanded] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
   const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
@@ -817,7 +818,7 @@ export default function App() {
             <div className="reader-notice" role="status" aria-live="polite">{readerNotice}</div>
             <div className="reader-source">Text source: {bible?.source || 'Awaiting Scripture source'}. {showStrongs ? 'Showing only source-verified Strong’s annotations; unmatched words remain untagged.' : 'Strong’s annotations are switched off.'}</div>
           </section>
-          <section className="notes-panel">
+          <section className={notesExpanded ? "notes-panel notes-expanded" : "notes-panel"}>
             <div className="notes-topline"><div><span className="eyebrow">YOUR STUDY</span><h2>{current.label}</h2></div><span className="stage-counter">STAGE {current.number} / 04</span></div>
             <div className="stage-question"><div className="question-icon">?</div><div className="question-copy"><strong>{current.question}</strong><p>{current.hint}</p></div><button className="collapse-button" type="button" onClick={()=>setShowGuidance(!showGuidance)}>{showGuidance?'Hide':'Show'} guidance</button></div>
             {showGuidance && <div className="guidance-content"><p>{stage==='observe'?'Record what the text explicitly states. Trace repeated words, people, places, time markers, contrasts, commands and linking words. Avoid explaining meaning or moving to application.':stage==='interpret'?'Examine context, structure, grammar, keywords and linking words. Explain how the author develops the thought and support conclusions from the text.':stage==='doctrine'?'Synthesize what the passage teaches about God, humanity, creation and the wider biblical witness. Distinguish explicit teaching from inference.':'Identify a faithful response grounded in the passage. Make it specific, considered and connected to the meaning established in the earlier stages.'}</p></div>}
@@ -846,8 +847,22 @@ export default function App() {
                 <p className="evidence-handoff-caption">These are your saved notes from earlier stages of this passage. They are shown as study context; source-linked claims and evidence references will be reconnected in a later integration phase.</p>
               </div> : null}
             </section>
-            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><span>{wordCount} words</span></div></div>
-            <textarea id="study-notes" style={{fontSize: notesFontSize}} value={note} onChange={e=>setDraftsByPassage(prev=>({...prev,[passageDraftKey]:{...emptyNotes,...(prev[passageDraftKey] || {}),activeStage:stage,[stage]:e.target.value}}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
+            <section className="research-evidence-panel" aria-label="Research and Scripture evidence">
+              <div><strong>Research &amp; Scripture evidence</strong><span>Attach the selected Bible text to support the notes you are recording.</span></div>
+              <div className="research-evidence-actions">
+                <button type="button" className="outline-button" disabled={!selectedVerseRecords.length} onClick={() => {
+                  const citation = selectedVerseCitation;
+                  const source = selectedVerseRecords.map(item => citation + ' · ' + translation + '\\n' + item.text).join('\\n\\n');
+                  const heading = '\\n\\n[Scripture evidence — ' + citation + ']\\n' + source;
+                  setDraftsByPassage(previous => ({...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey] || {}),activeStage:stage,[stage]:(previous[passageDraftKey] || emptyNotes)[stage].trimEnd()+heading}}));
+                }}>＋ Insert selected verse evidence</button>
+                <button type="button" className="outline-button" onClick={() => {setView('reader');setShowStrongs(true);}}>Open word research</button>
+                <button type="button" className="outline-button" onClick={() => setView('references')}>Explore cross-references</button>
+              </div>
+              <small>{selectedVerseRecords.length ? selectedVerseCitation + ' · ' + selectedVerseRecords.length + ' selected verse' + (selectedVerseRecords.length===1?'':'s') : 'Select one or more verses in the Bible Reader to attach their wording here.'} Scripture text is inserted with its reference and current translation.</small>
+            </section>
+            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><button className="tool-button notes-expand-button" type="button" onClick={()=>setNotesExpanded(value=>!value)} aria-expanded={notesExpanded}>{notesExpanded?'Collapse editor':'Expand editor'}</button><span>{wordCount} words</span></div></div>
+            <textarea id="study-notes" className={notesExpanded?'notes-textarea-expanded':''} style={{fontSize: notesFontSize}} value={note} onChange={e=>setDraftsByPassage(prev=>({...prev,[passageDraftKey]:{...emptyNotes,...(prev[passageDraftKey] || {}),activeStage:stage,[stage]:e.target.value}}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\\n\\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
             <div className="editor-footer"><span>{draftSaveStatus === 'saving' ? 'Saving preview draft…' : draftSaveStatus === 'saved' ? 'Auto-saved in this preview only' : 'Browser storage unavailable · draft not saved'}</span><span>Text size {notesFontSize}px</span></div>
             <div className="stage-footer"><button className="outline-button" type="button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" type="button" onClick={()=>move(1)} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
           </section>

@@ -28,7 +28,7 @@ import type { StandardCrossReferenceRow } from './lib/standard-cross-references.
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
-type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; kind: EvidenceKind; reference: string; detail: string; source: string; createdAt: string };
+type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
 const EVIDENCE_STORAGE_KEY = 'ibs-next-generation-preview-evidence-v1';
 function readPreviewEvidence(): EvidenceRecord[] {
   try {
@@ -244,6 +244,8 @@ export default function App() {
   const [evidenceDetail, setEvidenceDetail] = useState('');
   const [evidenceSource, setEvidenceSource] = useState('');
   const [evidenceNotice, setEvidenceNotice] = useState('');
+  const [evidenceSourceUrl, setEvidenceSourceUrl] = useState('');
+  const [evidenceSourceId, setEvidenceSourceId] = useState('');
   const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
@@ -497,6 +499,61 @@ export default function App() {
   const selectedVerseCitation = selectedVerseRecords.length ? book + ' ' + chapter + ':' + selectedVerseRecords.map(item => item.number).join(', ') : '';
 
 
+  const prepareEvidenceRecord = (input: { kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string }) => {
+    setEvidenceKind(input.kind);
+    setEvidenceReference(input.reference);
+    setEvidenceDetail(input.detail);
+    setEvidenceSource(input.source);
+    setEvidenceSourceUrl(input.sourceUrl || '');
+    setEvidenceSourceId(input.sourceId || '');
+    setEvidenceNotice('Research attached to the form. Add or revise the claim, then save the evidence record.');
+    setShowEvidence(true);
+    setView('study');
+  };
+
+  const attachLexiconEvidence = () => {
+    if (!lexicon) return;
+    const context = [
+      'Selected English rendering: ' + lexiconWord,
+      'Lemma: ' + lexicon.lemma,
+      'Transliteration: ' + lexicon.transliteration,
+      'Part of speech: ' + lexicon.partOfSpeech,
+      'Lexicon glosses: ' + lexicon.gloss,
+      ...lexicon.senses.map((sense, index) => 'Sense ' + (index + 1) + ' — ' + sense.gloss + ': ' + sense.definition)
+    ].join('\\n');
+    prepareEvidenceRecord({
+      kind: 'Lexicon / Strong’s',
+      reference: lexicon.id + ' · ' + book + ' ' + chapter + (selectedVerse ? ':' + selectedVerse : '') + ' · ' + lexiconWord,
+      detail: context,
+      source: lexicon.source,
+      sourceUrl: lexicon.sourceUrl,
+      sourceId: lexicon.id
+    });
+  };
+
+  const attachStandardCrossReference = (row: StandardCrossReferenceRow, ref: StandardCrossReferenceRow['references'][number]) => {
+    const sourceReference = row.book + ' ' + row.chapter + ':' + row.verse;
+    prepareEvidenceRecord({
+      kind: 'Cross-reference',
+      reference: sourceReference + ' → ' + ref.label,
+      detail: 'Source passage anchor: “' + row.anchor + '”\\nTarget Scripture reference: ' + ref.label + '\\nThe cross-reference dataset records this textual connection; inspect both passages in context before treating it as support for the claim.',
+      source: STANDARD_XREF_SOURCE.name + ' · ' + STANDARD_XREF_SOURCE.license + ' · revision ' + STANDARD_XREF_SOURCE.revision,
+      sourceUrl: STANDARD_XREF_SOURCE.url,
+      sourceId: row.id
+    });
+  };
+
+  const attachUserCrossReference = (item: PreviewCrossReference) => {
+    const names = formatCrossReference(item);
+    prepareEvidenceRecord({
+      kind: 'Cross-reference',
+      reference: names.source + ' → ' + names.target,
+      detail: item.note || 'User-created Scripture connection. No explanatory rationale was recorded; review both passages before relying on this link.',
+      source: 'User-created cross-reference · browser preview',
+      sourceId: item.id
+    });
+  };
+
   const addEvidenceRecord = () => {
     if (!evidenceClaim.trim() || !evidenceReference.trim() || !evidenceDetail.trim()) {
       setEvidenceNotice('Add a claim, a source reference and supporting evidence before saving.');
@@ -505,10 +562,13 @@ export default function App() {
     const record: EvidenceRecord = {
       id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
       passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), kind: evidenceKind,
-      reference: evidenceReference.trim(), detail: evidenceDetail.trim(), source: evidenceSource.trim(), createdAt: new Date().toISOString()
+      reference: evidenceReference.trim(), detail: evidenceDetail.trim(), source: evidenceSource.trim(),
+      ...(evidenceSourceUrl.trim() ? { sourceUrl: evidenceSourceUrl.trim() } : {}),
+      ...(evidenceSourceId.trim() ? { sourceId: evidenceSourceId.trim() } : {}),
+      createdAt: new Date().toISOString()
     };
     setEvidenceRecords(previous => [record, ...previous]);
-    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource('');
+    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource(''); setEvidenceSourceUrl(''); setEvidenceSourceId('');
     setEvidenceNotice('Evidence record saved in this browser preview.');
   };
   const currentPassageEvidence = evidenceRecords.filter(item => item.passageKey === passageDraftKey);
@@ -659,7 +719,7 @@ export default function App() {
         
         <section className="reference-list-card standard-reference-card">
           <div className="reference-list-heading"><div><span className="eyebrow">STANDARD BIBLE REFERENCES · {translation === 'KJV' ? 'KJV' : 'BSB'} ANCHORS</span><h2>{book} {chapter}</h2></div><strong>{standardReferencesStatus === 'loaded' ? standardCrossReferences.length : '—'}</strong></div>
-          {standardReferencesStatus === 'loading' ? <p className="reference-help">Loading the licensed standard cross-reference collection…</p> : standardReferencesStatus === 'error' ? <p className="reference-help" role="alert">{standardReferencesError} You can still use your saved study links below.</p> : standardCrossReferences.length ? <div className="reference-list">{standardCrossReferences.map(row => <article className="reference-item" key={row.id}><div className="reference-pair"><strong>{row.book} {row.chapter}:{row.verse}</strong><span>{row.anchor}</span></div><div className="standard-reference-links">{row.references.map((ref,index)=>{const previewKey=row.id+'-'+index;const isPreviewOpen=referencePreview?.key===previewKey;return <button type="button" key={previewKey} className={isPreviewOpen?'standard-reference-link active':''} aria-expanded={isPreviewOpen} onClick={()=>setReferencePreview(current=>current?.key===previewKey?null:{key:previewKey,book:ref.book,chapter:ref.chapter,verse:ref.verse,endVerse:ref.endVerse})}>{ref.label}</button>;})}</div>{referencePreview?.key.startsWith(row.id+'-') && <div className="reference-verse-popover" role="region" aria-label={'Preview of '+referencePreview.book+' '+referencePreview.chapter}><div className="reference-verse-popover-heading"><div><span className="eyebrow">SCRIPTURE PREVIEW · {translation}</span><strong>{referencePreview.book} {referencePreview.chapter}{referencePreview.verse ? ':'+referencePreview.verse+(referencePreview.endVerse && referencePreview.endVerse!==referencePreview.verse?'-'+referencePreview.endVerse:'') : ''}</strong></div><button type="button" className="tool-button" onClick={()=>setReferencePreview(null)} aria-label="Close verse preview">×</button></div>{referencePreviewStatus==='loading' && <p className="reference-preview-status" role="status">Loading Scripture…</p>}{referencePreviewStatus==='error' && <p className="reference-preview-error" role="alert">{referencePreviewError}</p>}{referencePreviewStatus==='loaded' && referencePreviewBible && <div className="reference-preview-verses">{referencePreviewBible.verses.filter(item=>referencePreview.verse===null || (item.number>=referencePreview.verse && item.number<=(referencePreview.endVerse || referencePreview.verse))).map(item=><button type="button" className="reference-preview-verse" key={item.number} onClick={()=>{if(book===referencePreview.book&&chapter===referencePreview.chapter){setSelectedVerseNumbers([item.number]);verseSelectionAnchorRef.current=item.number;}else{referenceNavigationRef.current={book:referencePreview.book,chapter:referencePreview.chapter,start:item.number,end:item.number};setBook(referencePreview.book);setChapter(referencePreview.chapter);}setView('reader');setReferencePreview(null);}}><span>{item.number}</span><span>{item.text}</span><span className="reference-preview-open">Open <Icon name="chevron"/></span></button>)}</div>}{referencePreviewStatus==='loaded' && <p className="reference-preview-hint">Select a verse to open it in the Bible Reader.</p>}</div>}<div className="reference-item-footer"><span>STANDARD REFERENCE · {STANDARD_XREF_SOURCE.name}</span></div></article>)}</div> : <div className="library-empty"><h2>No standard references listed for this chapter</h2><p>Try a different chapter or translation.</p></div>}
+          {standardReferencesStatus === 'loading' ? <p className="reference-help">Loading the licensed standard cross-reference collection…</p> : standardReferencesStatus === 'error' ? <p className="reference-help" role="alert">{standardReferencesError} You can still use your saved study links below.</p> : standardCrossReferences.length ? <div className="reference-list">{standardCrossReferences.map(row => <article className="reference-item" key={row.id}><div className="reference-pair"><strong>{row.book} {row.chapter}:{row.verse}</strong><span>{row.anchor}</span></div><div className="standard-reference-links">{row.references.map((ref,index)=>{const previewKey=row.id+'-'+index;const isPreviewOpen=referencePreview?.key===previewKey;return <span className="standard-reference-action" key={previewKey}><button type="button" className={isPreviewOpen?'standard-reference-link active':''} aria-expanded={isPreviewOpen} onClick={()=>setReferencePreview(current=>current?.key===previewKey?null:{key:previewKey,book:ref.book,chapter:ref.chapter,verse:ref.verse,endVerse:ref.endVerse})}>{ref.label}</button><button type="button" className="reference-attach-button" onClick={()=>attachStandardCrossReference(row,ref)} aria-label={'Attach '+row.book+' '+row.chapter+':'+row.verse+' to '+ref.label+' as evidence'} title="Attach this reference pair to Evidence Manager">＋ Evidence</button></span>;})}</div>{referencePreview?.key.startsWith(row.id+'-') && <div className="reference-verse-popover" role="region" aria-label={'Preview of '+referencePreview.book+' '+referencePreview.chapter}><div className="reference-verse-popover-heading"><div><span className="eyebrow">SCRIPTURE PREVIEW · {translation}</span><strong>{referencePreview.book} {referencePreview.chapter}{referencePreview.verse ? ':'+referencePreview.verse+(referencePreview.endVerse && referencePreview.endVerse!==referencePreview.verse?'-'+referencePreview.endVerse:'') : ''}</strong></div><button type="button" className="tool-button" onClick={()=>setReferencePreview(null)} aria-label="Close verse preview">×</button></div>{referencePreviewStatus==='loading' && <p className="reference-preview-status" role="status">Loading Scripture…</p>}{referencePreviewStatus==='error' && <p className="reference-preview-error" role="alert">{referencePreviewError}</p>}{referencePreviewStatus==='loaded' && referencePreviewBible && <div className="reference-preview-verses">{referencePreviewBible.verses.filter(item=>referencePreview.verse===null || (item.number>=referencePreview.verse && item.number<=(referencePreview.endVerse || referencePreview.verse))).map(item=><button type="button" className="reference-preview-verse" key={item.number} onClick={()=>{if(book===referencePreview.book&&chapter===referencePreview.chapter){setSelectedVerseNumbers([item.number]);verseSelectionAnchorRef.current=item.number;}else{referenceNavigationRef.current={book:referencePreview.book,chapter:referencePreview.chapter,start:item.number,end:item.number};setBook(referencePreview.book);setChapter(referencePreview.chapter);}setView('reader');setReferencePreview(null);}}><span>{item.number}</span><span>{item.text}</span><span className="reference-preview-open">Open <Icon name="chevron"/></span></button>)}</div>}{referencePreviewStatus==='loaded' && <p className="reference-preview-hint">Select a verse to open it in the Bible Reader.</p>}</div>}<div className="reference-item-footer"><span>STANDARD REFERENCE · {STANDARD_XREF_SOURCE.name}</span></div></article>)}</div> : <div className="library-empty"><h2>No standard references listed for this chapter</h2><p>Try a different chapter or translation.</p></div>}
           <p className="reference-storage-note">Source: {STANDARD_XREF_SOURCE.attribution} <a href={STANDARD_XREF_SOURCE.url} target="_blank" rel="noreferrer">Dataset and licence details</a>.</p>
         </section>
         <div className="reference-workspace">
@@ -670,7 +730,7 @@ export default function App() {
             <button className="primary-button" type="button" onClick={()=>{const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : 'ref-' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);const created = addPreviewCrossReference(previewCrossReferences,{id,sourceBook:book,sourceChapter:chapter,sourceVerse:referenceSourceVerse || null,targetBook:referenceTargetBook,targetChapter:referenceTargetChapter,targetVerse:referenceTargetVerse || null,note:referenceNote.trim(),createdAt:new Date().toISOString()});if(created.length === previewCrossReferences.length){setReferenceNotice('This reference could not be saved. Check the passage details.');return;}setPreviewCrossReferences(created);setReferenceSourceVerse('');setReferenceTargetVerse('');setReferenceNote('');setReferenceNotice('Passage connection saved in this browser preview.');}}>Save cross-reference</button><p className="reference-storage-note" role="status">{referenceNotice || 'Saved locally in this browser preview only.'}</p>
           </section>
           <section className="reference-list-card"><div className="reference-list-heading"><div><span className="eyebrow">YOUR RESEARCH</span><h2>Saved connections</h2></div><strong>{previewCrossReferences.length}</strong></div>
-            {previewCrossReferences.length ? <div className="reference-list">{previewCrossReferences.map(item=>{const names=formatCrossReference(item);return <article className="reference-item" key={item.id}><div className="reference-pair"><button type="button" onClick={()=>{setBook(item.sourceBook);setChapter(item.sourceChapter);setView('reader');}}>{names.source}</button><span aria-hidden="true">↔</span><button type="button" onClick={()=>{setBook(item.targetBook);setChapter(item.targetChapter);setView('reader');}}>{names.target}</button></div>{item.note ? <p>{item.note}</p> : <p className="reference-muted">No connection note recorded.</p>}<div className="reference-item-footer"><span>USER-CREATED PREVIEW REFERENCE</span><button type="button" className="text-button" onClick={()=>setPreviewCrossReferences(previous=>deletePreviewCrossReference(previous,item.id))}>Remove</button></div></article>})}</div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>No saved connections yet</h2><p>Create a link between the current passage and another Scripture reference. You can return to either passage from your saved list.</p><button className="primary-button" type="button" onClick={()=>setView('reader')}>Open Bible reader <Icon name="chevron"/></button></div>}
+            {previewCrossReferences.length ? <div className="reference-list">{previewCrossReferences.map(item=>{const names=formatCrossReference(item);return <article className="reference-item" key={item.id}><div className="reference-pair"><button type="button" onClick={()=>{setBook(item.sourceBook);setChapter(item.sourceChapter);setView('reader');}}>{names.source}</button><span aria-hidden="true">↔</span><button type="button" onClick={()=>{setBook(item.targetBook);setChapter(item.targetChapter);setView('reader');}}>{names.target}</button></div>{item.note ? <p>{item.note}</p> : <p className="reference-muted">No connection note recorded.</p>}<div className="reference-item-footer"><span>USER-CREATED PREVIEW REFERENCE</span><div className="reference-item-actions"><button type="button" className="text-button" onClick={()=>attachUserCrossReference(item)}>＋ Attach evidence</button><button type="button" className="text-button" onClick={()=>setPreviewCrossReferences(previous=>deletePreviewCrossReference(previous,item.id))}>Remove</button></div></div></article>})}</div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>No saved connections yet</h2><p>Create a link between the current passage and another Scripture reference. You can return to either passage from your saved list.</p><button className="primary-button" type="button" onClick={()=>setView('reader')}>Open Bible reader <Icon name="chevron"/></button></div>}
           </section>
         </div><p className="reference-disclaimer">Standard references and user-created study connections are shown separately. Standard references are sourced from the licensed Treasury of Scripture Knowledge dataset; your own links remain local to this browser preview.</p>
       </section> :
@@ -878,7 +938,7 @@ export default function App() {
               <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>
               {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}
               {lexiconError && <p className="lexicon-error" role="alert">{lexiconError}</p>}
-              {lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a></>}
+              {lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}
             </section> : null}
 
             <div className="reader-notice" role="status" aria-live="polite">{readerNotice}</div>

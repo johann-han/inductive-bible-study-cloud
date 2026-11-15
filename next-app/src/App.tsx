@@ -29,7 +29,7 @@ import type { StandardCrossReferenceRow } from './lib/standard-cross-references.
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
 type EvidenceRelationship = 'supports' | 'challenges' | 'qualifies' | 'context';
-type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; relationship?: EvidenceRelationship; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
+type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; relationship?: EvidenceRelationship; assessmentRationale?: string; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
 const EVIDENCE_STORAGE_KEY = 'ibs-next-generation-preview-evidence-v1';
 function readPreviewEvidence(): EvidenceRecord[] {
   try {
@@ -242,6 +242,7 @@ export default function App() {
   const [evidenceClaim, setEvidenceClaim] = useState('');
   const [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Scripture');
   const [evidenceRelationship, setEvidenceRelationship] = useState<EvidenceRelationship>('context');
+  const [evidenceAssessmentRationale, setEvidenceAssessmentRationale] = useState('');
   const [evidenceReference, setEvidenceReference] = useState('');
   const [evidenceDetail, setEvidenceDetail] = useState('');
   const [evidenceSource, setEvidenceSource] = useState('');
@@ -563,14 +564,14 @@ export default function App() {
     }
     const record: EvidenceRecord = {
       id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
-      passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), relationship: evidenceRelationship, kind: evidenceKind,
+      passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), relationship: evidenceRelationship, ...(evidenceAssessmentRationale.trim() ? { assessmentRationale: evidenceAssessmentRationale.trim() } : {}), kind: evidenceKind,
       reference: evidenceReference.trim(), detail: evidenceDetail.trim(), source: evidenceSource.trim(),
       ...(evidenceSourceUrl.trim() ? { sourceUrl: evidenceSourceUrl.trim() } : {}),
       ...(evidenceSourceId.trim() ? { sourceId: evidenceSourceId.trim() } : {}),
       createdAt: new Date().toISOString()
     };
     setEvidenceRecords(previous => [record, ...previous]);
-    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource(''); setEvidenceSourceUrl(''); setEvidenceSourceId(''); setEvidenceRelationship('context');
+    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource(''); setEvidenceSourceUrl(''); setEvidenceSourceId(''); setEvidenceRelationship('context'); setEvidenceAssessmentRationale('');
     setEvidenceNotice('Evidence record saved in this browser preview.');
   };
   const currentPassageEvidence = evidenceRecords.filter(item => item.passageKey === passageDraftKey);
@@ -768,6 +769,7 @@ export default function App() {
               </div>
               <label>Reference<input value={evidenceReference} onChange={event=>setEvidenceReference(event.target.value)} placeholder="e.g. Leviticus 26:3–5"/></label>
               <label>Supporting evidence<textarea rows={3} value={evidenceDetail} onChange={event=>setEvidenceDetail(event.target.value)} placeholder="Record the relevant wording, lexical detail, grammatical observation or source finding."/></label>
+              <label>Reason for this assessment<textarea rows={2} value={evidenceAssessmentRationale} onChange={event=>setEvidenceAssessmentRationale(event.target.value)} placeholder="Explain briefly why this source supports, challenges, qualifies or contextualises the claim."/></label>
               <label>Source / provenance<input value={evidenceSource} onChange={event=>setEvidenceSource(event.target.value)} placeholder="e.g. BSB · STEPBible lexicon · publication details"/></label>
               {evidenceSourceUrl && <div className="evidence-source-provenance"><span>Source record</span><a href={evidenceSourceUrl} target="_blank" rel="noopener noreferrer">Open original source ↗</a>{evidenceSourceId && <code>{evidenceSourceId}</code>}</div>}
               {selectedVerseRecords.length>0 && <button type="button" className="text-button" onClick={()=>{setEvidenceKind('Scripture');setEvidenceReference(selectedVerseCitation+' · '+translation);setEvidenceDetail(selectedVerseRecords.map(item=>item.number+'. '+item.text).join('\n'));setEvidenceSource('Bible text displayed in this preview · '+translation);}}>Use selected verses from Reader</button>}
@@ -784,7 +786,7 @@ export default function App() {
             <div className="evidence-manager-list">
               {currentPassageEvidence.length===0 ? <p className="evidence-manager-empty">No evidence records yet. Add a claim and connect it to its supporting source.</p> : currentPassageEvidence.map(item=><article className="evidence-manager-item" key={item.id}>
                 <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind}</span><div className="evidence-manager-item-controls"><label className="evidence-record-relationship">Assessment<select aria-label={'Classify evidence relationship for '+item.reference} value={item.relationship||'context'} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,relationship:event.target.value as EvidenceRelationship}:record))}><option value="context">Context / background</option><option value="supports">Supports claim</option><option value="challenges">Challenges claim</option><option value="qualifies">Qualifies claim</option></select></label><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div></div>
-                <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p>{item.source && <small>Source: {item.source}</small>}{item.sourceUrl && <a className="evidence-record-source" href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Open source record ↗</a>}{item.sourceId && <small>Source identifier: {item.sourceId}</small>}
+                <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p>{item.assessmentRationale && <p className="evidence-assessment-rationale"><strong>Assessment rationale:</strong> {item.assessmentRationale}</p>}{item.source && <small>Source: {item.source}</small>}{item.sourceUrl && <a className="evidence-record-source" href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Open source record ↗</a>}{item.sourceId && <small>Source identifier: {item.sourceId}</small>}
               </article>)}
             </div>
             <small className="evidence-manager-disclaimer">Preview only: records are stored in this browser, separately from production study data. Source accuracy and interpretation remain the researcher’s responsibility.</small>

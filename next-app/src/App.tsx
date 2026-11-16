@@ -24,7 +24,7 @@ import { explainMorphology } from './lib/morphology-explainer.mjs';
 import { addPreviewCrossReference, deletePreviewCrossReference, formatCrossReference, readPreviewCrossReferences, writePreviewCrossReferences } from './lib/cross-references.mjs';
 import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
-import { loadStandardCrossReferences, STANDARD_XREF_SOURCE } from './lib/standard-cross-references.mjs';
+import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReference } from './lib/standard-cross-references.mjs';
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -264,6 +264,10 @@ export default function App() {
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>(() => typeof window === 'undefined' ? [] : readPreviewEvidence());
   const [claimSyntheses, setClaimSyntheses] = useState<Record<string, ClaimSynthesis>>(() => typeof window === 'undefined' ? {} : readClaimSynthesis());
   const [doctrineReviews, setDoctrineReviews] = useState<Record<string, DoctrineReview>>(() => typeof window === 'undefined' ? {} : readDoctrineReviews());
+  const [doctrineCompareInput, setDoctrineCompareInput] = useState('');
+  const [doctrineCompareResults, setDoctrineCompareResults] = useState<{ reference: string; text: string; related: string[]; source: string }[]>([]);
+  const [doctrineCompareStatus, setDoctrineCompareStatus] = useState<'idle'|'loading'|'ready'|'error'>('idle');
+  const [doctrineCompareError, setDoctrineCompareError] = useState('');
   const [evidenceClaim, setEvidenceClaim] = useState('');
   const [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Scripture');
   const [evidenceRelationship, setEvidenceRelationship] = useState<EvidenceRelationship>('context');
@@ -641,6 +645,40 @@ export default function App() {
     verificationContent: group.records.filter(item => item.verificationStatus === 'content_checked').length,
     verificationCorroborated: group.records.filter(item => item.verificationStatus === 'corroborated').length
   }));
+
+  const compareDoctrinePassages = async () => {
+    const raw = doctrineCompareInput.split(/[;,\n]+/).map(value => value.trim()).filter(Boolean);
+    const parsed = raw.map(parseStandardReference);
+    const invalid = raw.filter((value,index) => !parsed[index]);
+    if (!raw.length || invalid.length) {
+      setDoctrineCompareStatus('error');
+      setDoctrineCompareError(invalid.length ? 'Check these references: ' + invalid.join(', ') + '. Use formats such as John 1:1-5 or Romans 8.' : 'Enter at least one Scripture reference.');
+      return;
+    }
+    const unique = [...new Map(parsed.filter(Boolean).map(item => [item!.book + '|' + item!.chapter + '|' + item!.verse + '|' + item!.endVerse, item!])).values()];
+    if (unique.length > 8) {
+      setDoctrineCompareStatus('error');
+      setDoctrineCompareError('Compare up to eight references at a time so each passage can be examined carefully.');
+      return;
+    }
+    setDoctrineCompareStatus('loading');
+    setDoctrineCompareError('');
+    try {
+      const results = await Promise.all(unique.map(async reference => {
+        const chapterData = await fetchBibleChapter(reference.book, reference.chapter, translation);
+        const verses = chapterData.verses.filter(item => reference.verse === null || (item.number >= reference.verse! && item.number <= (reference.endVerse || reference.verse!)));
+        const rows = await loadStandardCrossReferences('BSB', { book: reference.book, chapter: reference.chapter });
+        const related = rows.filter(row => reference.verse === null || (row.verse >= reference.verse! && row.verse <= (reference.endVerse || reference.verse!)))
+          .flatMap(row => row.references.map(item => item.label)).slice(0, 12);
+        return { reference: reference.label, text: verses.map(item => item.number + '. ' + item.text).join(' '), related: [...new Set(related)], source: chapterData.source };
+      }));
+      setDoctrineCompareResults(results);
+      setDoctrineCompareStatus('ready');
+    } catch (error) {
+      setDoctrineCompareStatus('error');
+      setDoctrineCompareError(error instanceof Error ? error.message : 'Could not load one or more Scripture passages.');
+    }
+  };
 
   const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
     if (!selectedVerseRecords.length) return;
@@ -1119,6 +1157,14 @@ export default function App() {
             </section>
             {stage === 'doctrine' && <section className="doctrine-review-workspace" aria-label="Doctrine review and theological consistency">
               <div className="doctrine-review-heading"><div><span className="eyebrow">THEOLOGICAL REVIEW</span><h3>Doctrine review &amp; consistency</h3><p>Review conclusions marked ready for Doctrine. Preserve the original research, classify the level of claim, compare Scripture in context and record unresolved tensions before approval.</p></div><span>{claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').length} ready</span></div>
+              <div className="doctrine-canonical-compare">
+                <div><strong>Scripture-wide comparison</strong><p>Examine relevant passages alongside the current claim. Enter up to eight references, separated by commas or new lines. Chapter references and verse ranges are supported.</p></div>
+                <label htmlFor="doctrine-compare-references">Passages to compare</label>
+                <textarea id="doctrine-compare-references" rows={2} value={doctrineCompareInput} onChange={event=>setDoctrineCompareInput(event.target.value)} placeholder="e.g. John 1:1-5, Colossians 1:15-20, Hebrews 1:1-4"/>
+                <div className="doctrine-compare-actions"><button type="button" className="outline-button" disabled={doctrineCompareStatus==='loading' || !doctrineCompareInput.trim()} onClick={compareDoctrinePassages}>{doctrineCompareStatus==='loading'?'Loading Scripture…':'Compare Scripture passages'}</button><span>Translation: {translation} · Cross-reference index: BSB / Treasury of Scripture Knowledge</span></div>
+                {doctrineCompareStatus==='error' && <p className="doctrine-compare-error" role="alert">{doctrineCompareError}</p>}
+                {doctrineCompareResults.length>0 && <div className="doctrine-compare-results">{doctrineCompareResults.map(item=><article key={item.reference}><strong>{item.reference}</strong><p>{item.text}</p><small>Text source: {item.source}</small>{item.related.length>0 && <div><b>Associated cross-references</b><span>{item.related.join(' · ')}</span></div>}<small>Cross-reference links indicate possible textual connections, not proof of doctrinal agreement. Read each passage in its own context.</small></article>)}</div>}
+              </div>
               {claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').length === 0 ? <p className="evidence-manager-empty">No claim synthesis is marked Ready for Doctrine review for this passage. Complete the research assessment in the Evidence Manager first.</p> : claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').map(group => {
                 const key = claimSynthesisKey(passageDraftKey, group.claim);
                 const synthesis = claimSyntheses[key];

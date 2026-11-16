@@ -35,6 +35,9 @@ type EvidenceVerification = 'not_checked' | 'source_opened' | 'content_checked' 
 type ClaimSynthesisStatus = 'under_review' | 'provisional' | 'ready_for_doctrine' | 'revisit';
 type ClaimSynthesis = { status: ClaimSynthesisStatus; conclusion: string; reasoning: string; updatedAt: string };
 type DoctrineReview = { claimLevel: 'explicit' | 'necessary_implication' | 'broader_inference' | ''; supportingPassages: string; tensions: string; formulation: string; unresolved: string; approved: boolean; updatedAt: string };
+type TheologicalTension = { id: string; passageA: string; contextA: string; passageB: string; contextB: string; issue: string; analysis: string; uncertainty: string; assessment: 'unclassified' | 'apparent_tension' | 'complementary' | 'unresolved' | 'perceived_contradiction'; status: 'open' | 'under_review' | 'provisionally_addressed' | 'researcher_resolved'; updatedAt: string };
+const THEOLOGICAL_TENSION_STORAGE_KEY = 'ibs-next-generation-preview-theological-tensions-v1';
+function readTheologicalTensions(): Record<string, TheologicalTension[]> { try { const parsed = JSON.parse(window.localStorage.getItem(THEOLOGICAL_TENSION_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } }
 const DOCTRINE_REVIEW_STORAGE_KEY = 'ibs-next-generation-preview-doctrine-reviews-v1';
 function readDoctrineReviews(): Record<string, DoctrineReview> { try { const parsed = JSON.parse(window.localStorage.getItem(DOCTRINE_REVIEW_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } }
 const CLAIM_SYNTHESIS_STORAGE_KEY = 'ibs-next-generation-preview-claim-synthesis-v1';
@@ -264,6 +267,7 @@ export default function App() {
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>(() => typeof window === 'undefined' ? [] : readPreviewEvidence());
   const [claimSyntheses, setClaimSyntheses] = useState<Record<string, ClaimSynthesis>>(() => typeof window === 'undefined' ? {} : readClaimSynthesis());
   const [doctrineReviews, setDoctrineReviews] = useState<Record<string, DoctrineReview>>(() => typeof window === 'undefined' ? {} : readDoctrineReviews());
+  const [theologicalTensions, setTheologicalTensions] = useState<Record<string, TheologicalTension[]>>(() => typeof window === 'undefined' ? {} : readTheologicalTensions());
   const [doctrineCompareInput, setDoctrineCompareInput] = useState('');
   const [doctrineCompareResults, setDoctrineCompareResults] = useState<{ reference: string; text: string; related: string[]; source: string }[]>([]);
   const [doctrineCompareStatus, setDoctrineCompareStatus] = useState<'idle'|'loading'|'ready'|'error'>('idle');
@@ -382,6 +386,7 @@ export default function App() {
   useEffect(() => { try { window.localStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(evidenceRecords)); } catch { setEvidenceNotice('Evidence could not be saved in this browser.'); } }, [evidenceRecords]);
   useEffect(() => { try { window.localStorage.setItem(CLAIM_SYNTHESIS_STORAGE_KEY, JSON.stringify(claimSyntheses)); } catch { setEvidenceNotice('Claim synthesis could not be saved in this browser.'); } }, [claimSyntheses]);
   useEffect(() => { try { window.localStorage.setItem(DOCTRINE_REVIEW_STORAGE_KEY, JSON.stringify(doctrineReviews)); } catch { setEvidenceNotice('Doctrine review could not be saved in this browser.'); } }, [doctrineReviews]);
+  useEffect(() => { try { window.localStorage.setItem(THEOLOGICAL_TENSION_STORAGE_KEY, JSON.stringify(theologicalTensions)); } catch { setEvidenceNotice('Theological tension register could not be saved in this browser.'); } }, [theologicalTensions]);
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
   useEffect(() => {
     if (view !== 'references') return;
@@ -1190,6 +1195,30 @@ export default function App() {
                   </label>
                   <label>Supporting Scripture passages<textarea rows={2} value={review.supportingPassages} onChange={event=>updateReview({supportingPassages:event.target.value})} placeholder="List references and briefly explain how each passage contributes. Check each in its own literary and historical context."/></label>
                   <label>Apparent tensions, counter-texts or qualifications<textarea rows={3} value={review.tensions} onChange={event=>updateReview({tensions:event.target.value})} placeholder="Record passages or teachings that appear to challenge, qualify or create tension with this formulation. Explain rather than harmonise prematurely."/></label>
+                  <section className="tension-register" aria-label="Theological tension analysis register">
+                    <div className="tension-register-heading"><div><strong>Theological tension analysis register</strong><p>Record each apparent tension as a separate research question. Examine both passages in context before assessing their relationship.</p></div><button type="button" className="outline-button" onClick={() => setTheologicalTensions(previous => ({ ...previous, [key]: [...(previous[key] || []), { id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2), passageA: '', contextA: '', passageB: '', contextB: '', issue: '', analysis: '', uncertainty: '', assessment: 'unclassified', status: 'open', updatedAt: new Date().toISOString() }] }))}>Add tension record</button></div>
+                    {(theologicalTensions[key] || []).length === 0 ? <p className="tension-register-empty">No tension records have been added to this doctrinal claim.</p> : (theologicalTensions[key] || []).map((item, index) => {
+                      const updateTension = (patch: Partial<TheologicalTension>) => setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).map(record => record.id === item.id ? { ...record, ...patch, updatedAt: new Date().toISOString() } : record) }));
+                      return <article className="tension-register-card" key={item.id}>
+                        <div className="tension-register-card-heading"><strong>Research question {index + 1}</strong><button type="button" className="text-button" onClick={() => setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).filter(record => record.id !== item.id) }))}>Remove</button></div>
+                        <div className="tension-register-passages">
+                          <label>Passage A reference<input value={item.passageA} onChange={event=>updateTension({passageA:event.target.value})} placeholder="e.g. Romans 3:28"/></label>
+                          <label>Passage B reference<input value={item.passageB} onChange={event=>updateTension({passageB:event.target.value})} placeholder="e.g. James 2:24"/></label>
+                        </div>
+                        <label>Passage A — context and meaning<textarea rows={2} value={item.contextA} onChange={event=>updateTension({contextA:event.target.value})} placeholder="Record speaker, audience, literary setting, argument and what this passage asserts."/></label>
+                        <label>Passage B — context and meaning<textarea rows={2} value={item.contextB} onChange={event=>updateTension({contextB:event.target.value})} placeholder="Examine the second passage independently in its own context."/></label>
+                        <label>What exactly appears to be in tension?<textarea rows={2} value={item.issue} onChange={event=>updateTension({issue:event.target.value})} placeholder="State the precise propositions or interpretive claims being compared."/></label>
+                        <label>Interpretive analysis and reasoning<textarea rows={3} value={item.analysis} onChange={event=>updateTension({analysis:event.target.value})} placeholder="Explain similarities, differences, genre, context, terminology and the reasoning for your assessment. Do not force a resolution."/></label>
+                        <label>Remaining uncertainty<textarea rows={2} value={item.uncertainty} onChange={event=>updateTension({uncertainty:event.target.value})} placeholder="What evidence, context or interpretive question remains unresolved?"/></label>
+                        <div className="tension-register-classification">
+                          <label>Research assessment<select value={item.assessment} onChange={event=>updateTension({assessment:event.target.value as TheologicalTension['assessment']})}><option value="unclassified">Not yet classified</option><option value="apparent_tension">Apparent tension</option><option value="complementary">Complementary perspectives</option><option value="unresolved">Unresolved relationship</option><option value="perceived_contradiction">Perceived contradiction — further examination required</option></select></label>
+                          <label>Research status<select value={item.status} onChange={event=>updateTension({status:event.target.value as TheologicalTension['status']})}><option value="open">Open</option><option value="under_review">Under review</option><option value="provisionally_addressed">Provisionally addressed</option><option value="researcher_resolved">Resolved by researcher</option></select></label>
+                        </div>
+                        <small>Saved in this browser · {item.updatedAt ? new Date(item.updatedAt).toLocaleString() : 'Not yet saved'}. “Resolved by researcher” records your assessment; it does not certify that a contradiction has been disproved.</small>
+                      </article>;
+                    })}
+                    <p className="tension-register-caution">Methodological safeguard: do not assume that every difference is a contradiction, and do not assume that every apparent tension has an easy harmonisation. Preserve unresolved evidence and explain the grounds for any conclusion.</p>
+                  </section>
                   <label>Unresolved questions<textarea rows={2} value={review.unresolved} onChange={event=>updateReview({unresolved:event.target.value})} placeholder="What still requires examination? Leave genuine uncertainties visible."/></label>
                   <label>Refined doctrinal formulation<textarea rows={3} value={review.formulation} onChange={event=>updateReview({formulation:event.target.value})} placeholder="Write a concise statement no broader than the textual and canonical evidence warrants."/></label>
                   <div className="doctrine-review-actions"><span>{review.approved ? 'Approved and added to Doctrine notes' : review.updatedAt ? 'Review saved in this browser' : 'Awaiting theological review'}</span><button type="button" className="primary-button" disabled={!review.claimLevel || !review.formulation.trim() || review.approved} onClick={approve}>{review.approved ? 'Approved' : 'Approve formulation & add to notes'}</button></div>

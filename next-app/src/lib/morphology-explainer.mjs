@@ -49,7 +49,7 @@ const DEFINITIONS = [
   [/^infinitive absolute$/i, 'Infinitive absolute', 'A Hebrew verbal form often used for emphasis or certainty, or in combination with another verb; the construction determines its force.']
 ];
 const normalize = value => String(value || '').trim().replace(/\s+/g, ' ').replace(/[–—]/g, '-');
-export function explainMorphology(parsing) {
+export function explainMorphology(parsing, language = '') {
   const groups = normalize(parsing).split(/\s+-\s+/).filter(Boolean);
   const results = [];
   for (const group of groups) {
@@ -58,7 +58,16 @@ export function explainMorphology(parsing) {
       const candidates = [tokens.slice(i, i + 3).join(' '), tokens.slice(i, i + 2).join(' '), tokens[i]];
       const match = candidates.map(term => ({ term, definition: DEFINITIONS.find(([pattern]) => pattern.test(term)) })).find(item => item.definition);
       if (!match) continue;
-      results.push({ term: match.term, title: match.definition[1], explanation: match.definition[2] });
+      let title = match.definition[1];
+      let explanation = match.definition[2];
+      if (/hebrew|aramaic/i.test(language) && /^perfect$/i.test(match.term)) {
+        title = 'Perfect form';
+        explanation = 'In Hebrew parsing, this is commonly the suffix-conjugation form. It often presents a situation as complete, but it does not map mechanically onto English past tense; context and discourse determine the time reference.';
+      } else if (/hebrew|aramaic/i.test(language) && /^imperfect$/i.test(match.term)) {
+        title = 'Imperfect form';
+        explanation = 'In Hebrew parsing, this is commonly the prefix-conjugation form. Depending on context and construction it can express past, present, future or modal nuances; it is not the same category as the Greek imperfect tense.';
+      }
+      results.push({ term: match.term, title, explanation });
       i += match.term.split(' ').length - 1;
     }
   }

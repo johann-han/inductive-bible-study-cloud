@@ -245,6 +245,7 @@ export default function App() {
   const [lexiconWord, setLexiconWord] = useState('');
   const [selectedMorphology, setSelectedMorphology] = useState<WordAnnotation | null>(null);
   const [lexiconLoading, setLexiconLoading] = useState(false);
+  const [lexiconExpanded, setLexiconExpanded] = useState(false);
   const [lexiconError, setLexiconError] = useState('');
   const lexiconRequestRef = useRef(0);
   const [showGuidance, setShowGuidance] = useState(true);
@@ -499,6 +500,7 @@ export default function App() {
     const requestId = ++lexiconRequestRef.current;
     setLexicon(null);
     setSelectedMorphology(annotation);
+    setLexiconExpanded(false);
     setLexiconWord(word);
     setLexiconError('');
     setLexiconLoading(true);
@@ -995,8 +997,9 @@ export default function App() {
               {readerNotice && <p className="verse-action-notice" role="status">{readerNotice}</p>}
             </div>}
             <div className="reader-footer"><span>Text source: {bible?.source || 'Bible text provider'} · Strong’s annotations are {showStrongs ? 'on' : 'off'}.</span></div>
-            {selectedMorphology || lexiconLoading || lexiconError || lexicon ? <section className="lexicon-panel" aria-live="polite" aria-label="Strong's lexicon entry">
-              <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setSelectedMorphology(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>
+            {selectedMorphology || lexiconLoading || lexiconError || lexicon ? <section className={lexiconExpanded ? 'lexicon-panel word-study-sheet expanded' : 'lexicon-panel word-study-sheet'} aria-live="polite" aria-label="Strong's lexicon entry">
+              <button type="button" className="word-study-handle" onClick={() => setLexiconExpanded(value => !value)} aria-expanded={lexiconExpanded}><span aria-hidden="true"/><span>{lexiconExpanded ? 'Show less' : 'Expand word study'}</span></button>
+              <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><div className="word-study-heading-actions"><button className="word-study-expand-button" type="button" onClick={() => setLexiconExpanded(value => !value)} aria-expanded={lexiconExpanded}>{lexiconExpanded ? 'Collapse' : 'Expand'}</button><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setSelectedMorphology(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); setLexiconExpanded(false); }} aria-label="Close lexicon entry">×</button></div></div>
               {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}
               {lexiconError && <p className="lexicon-error" role="alert">{lexiconError}</p>}
               {selectedMorphologyLabel && <section className="morphology-explainer" aria-label="Grammar and morphology explanation"><div className="morphology-explainer-heading"><div><span className="eyebrow">WORD FORM · PLAIN-LANGUAGE GUIDE</span><h4>Understanding the grammar</h4></div><span className="morphology-language">{selectedMorphology?.language || 'Original language'}</span></div><p className="morphology-raw">{selectedMorphologyLabel}</p>{selectedMorphologyExplanation.length ? <div className="morphology-term-list">{selectedMorphologyExplanation.map((item,index)=><article className="morphology-term" key={item.title + index}><strong>{item.term} <span>— {item.title}</span></strong><p>{item.explanation}</p></article>)}</div> : <p className="morphology-unavailable">A plain-language explanation is not yet available for this particular parsing label. The original morphology label is shown above.</p>}<p className="morphology-caution">Grammar identifies the form; it does not by itself settle the meaning of the verse. Check the verb, clause, author’s argument and wider context before drawing an interpretation.</p></section>}{selectedMorphology && !selectedMorphologyLabel && <div className="morphology-unavailable">This KJV source provides a Strong’s number for the selected word, but not its occurrence morphology. <button type="button" className="text-button" onClick={() => { lexiconRequestRef.current += 1; setTranslation('BSB'); setLexicon(null); setSelectedMorphology(null); setLexiconWord(''); setLexiconError(''); setLexiconLoading(false); }}>Open this passage in BSB interlinear</button> to inspect source-backed word morphology.</div>}{lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}

@@ -124,3 +124,11 @@ Do not begin write-capable cloud integration until the staging target and compat
 
 - These controls improve traceability but do not automate source evaluation or establish a claim's truth. Evidence remains browser-local in the isolated preview.
 - Implementation commits: `2a57cc875475eba748f480e73c502321132e90ab`, `e683d939a2bc2d9c9685a89fcfc213d2344f342c`, `5707700b73780c136825bdc397e940f6d6da24e6`, `27b43c440873d77bd59ec359c135a0b0df346c8c`.
+ 
+### Researcher-assessed source quality (2026-11-16)
+- Evidence records now carry a source-quality assessment independently of their relationship to a claim: not assessed, strong, moderate or limited.
+- Researchers can record and revise a rationale for each quality judgement, both when adding evidence and on existing evidence cards.
+- Claim summaries report the quality distribution separately from support/challenge/qualification/context counts.
+- Legacy records remain valid and default to **not assessed**; no quality is inferred from source type or relationship.
+- The interface explains that these are researcher judgements, not automated reliability scores. Consider expertise, proximity to evidence, method, date and corroboration when assessing a source.
+- Preview-only browser storage remains isolated from production study data.

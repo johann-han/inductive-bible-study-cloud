@@ -603,7 +603,7 @@ export default function App() {
   const evidenceNeedsReviewCount = currentPassageEvidence.length - evidenceVerifiedCount;
   const visibleEvidenceRecords = currentPassageEvidence.filter(item => evidenceFilter === 'all'
     || (evidenceFilter === 'needs_review' && item.verificationStatus !== 'content_checked' && item.verificationStatus !== 'corroborated')
-    || (evidenceFilter !== 'needs_review' && evidenceFilter !== 'all' && (item.relationship || 'context') === evidenceFilter));
+    || (['supports', 'challenges', 'qualifies', 'context'].includes(evidenceFilter) && (item.relationship || 'context') === evidenceFilter));
 
   const evidenceByClaim = currentPassageEvidence.reduce((groups, item) => {
     const key = item.claim.trim().toLocaleLowerCase();

@@ -264,6 +264,7 @@ export default function App() {
   const [evidenceDetail, setEvidenceDetail] = useState('');
   const [evidenceSource, setEvidenceSource] = useState('');
   const [evidenceNotice, setEvidenceNotice] = useState('');
+  const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'needs_review' | EvidenceRelationship>('all');
   const [evidenceSourceUrl, setEvidenceSourceUrl] = useState('');
   const [evidenceSourceId, setEvidenceSourceId] = useState('');
   const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references'>('overview');
@@ -598,6 +599,12 @@ export default function App() {
     setEvidenceNotice('Evidence record saved in this browser preview.');
   };
   const currentPassageEvidence = evidenceRecords.filter(item => item.passageKey === passageDraftKey);
+  const evidenceVerifiedCount = currentPassageEvidence.filter(item => item.verificationStatus === 'content_checked' || item.verificationStatus === 'corroborated').length;
+  const evidenceNeedsReviewCount = currentPassageEvidence.length - evidenceVerifiedCount;
+  const visibleEvidenceRecords = currentPassageEvidence.filter(item => evidenceFilter === 'all'
+    || (evidenceFilter === 'needs_review' && item.verificationStatus !== 'content_checked' && item.verificationStatus !== 'corroborated')
+    || (evidenceFilter !== 'needs_review' && evidenceFilter !== 'all' && (item.relationship || 'context') === evidenceFilter));
+
   const evidenceByClaim = currentPassageEvidence.reduce((groups, item) => {
     const key = item.claim.trim().toLocaleLowerCase();
     const group = groups.get(key) || { claim: item.claim, records: [] as EvidenceRecord[] };
@@ -818,8 +825,21 @@ export default function App() {
                 <small>{group.records.length} linked source{group.records.length===1?'':'s'} · Source quality: {group.qualityStrong} strong, {group.qualityModerate} moderate, {group.qualityLimited} limited, {group.qualityUnassessed} not assessed. These are researcher judgements, not automated reliability scores. Verification: {group.verificationNotChecked} not checked, {group.verificationOpened} source opened, {group.verificationContent} content checked, {group.verificationCorroborated} corroborated.</small>
               </article>)}
             </div>
-            <div className="evidence-manager-list">
-              {currentPassageEvidence.length===0 ? <p className="evidence-manager-empty">No evidence records yet. Add a claim and connect it to its supporting source.</p> : currentPassageEvidence.map(item=><article className="evidence-manager-item" key={item.id}>
+            <div className="evidence-audit-summary" role="status">
+              <div><strong>Source verification</strong><span>{evidenceVerifiedCount} of {currentPassageEvidence.length} checked against the claim</span></div>
+              <p>{evidenceNeedsReviewCount ? evidenceNeedsReviewCount + ' source record(s) still need content-level review or independent corroboration.' : currentPassageEvidence.length ? 'Every saved source has been marked as content-checked or corroborated by the researcher.' : 'Verification progress will appear when you add evidence.'} Opening a source alone does not establish that it supports the claim.</p>
+            </div>
+            <div className="evidence-filter-bar" aria-label="Filter evidence records">
+              <span>Show</span>
+              <button type="button" className={evidenceFilter==='all'?'active':''} aria-pressed={evidenceFilter==='all'} onClick={()=>setEvidenceFilter('all')}>All ({currentPassageEvidence.length})</button>
+              <button type="button" className={evidenceFilter==='needs_review'?'active':''} aria-pressed={evidenceFilter==='needs_review'} onClick={()=>setEvidenceFilter('needs_review')}>Needs review ({evidenceNeedsReviewCount})</button>
+              <button type="button" className={evidenceFilter==='supports'?'active':''} aria-pressed={evidenceFilter==='supports'} onClick={()=>setEvidenceFilter('supports')}>Supports</button>
+              <button type="button" className={evidenceFilter==='challenges'?'active':''} aria-pressed={evidenceFilter==='challenges'} onClick={()=>setEvidenceFilter('challenges')}>Challenges</button>
+              <button type="button" className={evidenceFilter==='qualifies'?'active':''} aria-pressed={evidenceFilter==='qualifies'} onClick={()=>setEvidenceFilter('qualifies')}>Qualifies</button>
+              <button type="button" className={evidenceFilter==='context'?'active':''} aria-pressed={evidenceFilter==='context'} onClick={()=>setEvidenceFilter('context')}>Context</button>
+            </div>
+            <div className="evidence-manager-list" aria-live="polite">
+              {currentPassageEvidence.length===0 ? <p className="evidence-manager-empty">No evidence records yet. Add a claim and connect it to its supporting source.</p> : visibleEvidenceRecords.length===0 ? <p className="evidence-manager-empty">No records match this filter. Choose another filter to see the remaining evidence.</p> : visibleEvidenceRecords.map(item=><article className="evidence-manager-item" key={item.id}>
                 <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind}</span><div className="evidence-manager-item-controls"><label className="evidence-record-relationship">Source quality<select aria-label={'Assess source quality for '+item.reference} value={item.sourceQuality||'unassessed'} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,sourceQuality:event.target.value as EvidenceQuality}:record))}><option value="unassessed">Not assessed</option><option value="strong">Strong</option><option value="moderate">Moderate</option><option value="limited">Limited</option></select></label><label className="evidence-record-relationship">Verification<select aria-label={'Set source verification for '+item.reference} value={item.verificationStatus||'not_checked'} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,verificationStatus:event.target.value as EvidenceVerification}:record))}><option value="not_checked">Not checked</option><option value="source_opened">Source opened</option><option value="content_checked">Content checked</option><option value="corroborated">Corroborated</option></select></label><label className="evidence-record-relationship">Claim relationship<select aria-label={'Classify evidence relationship for '+item.reference} value={item.relationship||'context'} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,relationship:event.target.value as EvidenceRelationship}:record))}><option value="context">Context / background</option><option value="supports">Supports claim</option><option value="challenges">Challenges claim</option><option value="qualifies">Qualifies claim</option></select></label><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div></div>
                 <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p><label className="evidence-record-rationale">Assessment rationale<textarea rows={2} aria-label={'Assessment rationale for '+item.reference} value={item.assessmentRationale||''} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,assessmentRationale:event.target.value}:record))} placeholder="Explain why this source has this relationship to the claim."/></label><label className="evidence-record-rationale">Source-quality rationale<textarea rows={2} aria-label={'Source-quality rationale for '+item.reference} value={item.sourceQualityRationale||''} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,sourceQualityRationale:event.target.value}:record))} placeholder="Explain the basis for this source-quality judgement."/></label><label className="evidence-record-rationale">Verification notes<textarea rows={2} aria-label={'Verification notes for '+item.reference} value={item.verificationRationale||''} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,verificationRationale:event.target.value}:record))} placeholder="What did you check, and against which source?"/></label>{item.source && <small>Source: {item.source}</small>}{item.sourceUrl && <a className="evidence-record-source" href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Open source record ↗</a>}{item.sourceId && <small>Source identifier: {item.sourceId}</small>}
               </article>)}

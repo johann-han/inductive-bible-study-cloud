@@ -29,7 +29,8 @@ import type { StandardCrossReferenceRow } from './lib/standard-cross-references.
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
 type EvidenceRelationship = 'supports' | 'challenges' | 'qualifies' | 'context';
-type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; relationship?: EvidenceRelationship; assessmentRationale?: string; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
+type EvidenceQuality = 'unassessed' | 'strong' | 'moderate' | 'limited';
+type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; relationship?: EvidenceRelationship; sourceQuality?: EvidenceQuality; sourceQualityRationale?: string; assessmentRationale?: string; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
 const EVIDENCE_STORAGE_KEY = 'ibs-next-generation-preview-evidence-v1';
 function readPreviewEvidence(): EvidenceRecord[] {
   try {
@@ -242,6 +243,8 @@ export default function App() {
   const [evidenceClaim, setEvidenceClaim] = useState('');
   const [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Scripture');
   const [evidenceRelationship, setEvidenceRelationship] = useState<EvidenceRelationship>('context');
+  const [evidenceSourceQuality, setEvidenceSourceQuality] = useState<EvidenceQuality>('unassessed');
+  const [evidenceSourceQualityRationale, setEvidenceSourceQualityRationale] = useState('');
   const [evidenceAssessmentRationale, setEvidenceAssessmentRationale] = useState('');
   const [evidenceReference, setEvidenceReference] = useState('');
   const [evidenceDetail, setEvidenceDetail] = useState('');
@@ -564,14 +567,14 @@ export default function App() {
     }
     const record: EvidenceRecord = {
       id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
-      passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), relationship: evidenceRelationship, ...(evidenceAssessmentRationale.trim() ? { assessmentRationale: evidenceAssessmentRationale.trim() } : {}), kind: evidenceKind,
+      passageKey: passageDraftKey, stage, claim: evidenceClaim.trim(), relationship: evidenceRelationship, sourceQuality: evidenceSourceQuality, ...(evidenceSourceQualityRationale.trim() ? { sourceQualityRationale: evidenceSourceQualityRationale.trim() } : {}), ...(evidenceAssessmentRationale.trim()? { assessmentRationale: evidenceAssessmentRationale.trim() } : {}), kind: evidenceKind,
       reference: evidenceReference.trim(), detail: evidenceDetail.trim(), source: evidenceSource.trim(),
       ...(evidenceSourceUrl.trim() ? { sourceUrl: evidenceSourceUrl.trim() } : {}),
       ...(evidenceSourceId.trim() ? { sourceId: evidenceSourceId.trim() } : {}),
       createdAt: new Date().toISOString()
     };
     setEvidenceRecords(previous => [record, ...previous]);
-    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource(''); setEvidenceSourceUrl(''); setEvidenceSourceId(''); setEvidenceRelationship('context'); setEvidenceAssessmentRationale('');
+    setEvidenceClaim(''); setEvidenceReference(''); setEvidenceDetail(''); setEvidenceSource(''); setEvidenceSourceUrl(''); setEvidenceSourceId(''); setEvidenceRelationship('context'); setEvidenceSourceQuality('unassessed'); setEvidenceSourceQualityRationale(''); setEvidenceAssessmentRationale('');
     setEvidenceNotice('Evidence record saved in this browser preview.');
   };
   const currentPassageEvidence = evidenceRecords.filter(item => item.passageKey === passageDraftKey);
@@ -587,7 +590,11 @@ export default function App() {
     supports: group.records.filter(item => item.relationship === 'supports').length,
     challenges: group.records.filter(item => item.relationship === 'challenges').length,
     qualifies: group.records.filter(item => item.relationship === 'qualifies').length,
-    context: group.records.filter(item => !item.relationship || item.relationship === 'context').length
+    context: group.records.filter(item => !item.relationship || item.relationship === 'context').length,
+    qualityUnassessed: group.records.filter(item => !item.sourceQuality || item.sourceQuality === 'unassessed').length,
+    qualityStrong: group.records.filter(item => item.sourceQuality === 'strong').length,
+    qualityModerate: group.records.filter(item => item.sourceQuality === 'moderate').length,
+    qualityLimited: group.records.filter(item => item.sourceQuality === 'limited').length
   }));
 
   const appendVerseToStudy = (targetKey: string, targetStage: Stage = 'observe') => {
@@ -765,10 +772,12 @@ export default function App() {
               <label>Claim or statement<input value={evidenceClaim} onChange={event=>setEvidenceClaim(event.target.value)} placeholder="What statement are you evaluating?"/></label>
               <div className="evidence-manager-row">
                 <label>Evidence relationship<select value={evidenceRelationship} onChange={event=>setEvidenceRelationship(event.target.value as EvidenceRelationship)}><option value="context">Context / background</option><option value="supports">Supports the claim</option><option value="challenges">Challenges the claim</option><option value="qualifies">Qualifies the claim</option></select></label>
+                <label>Source quality<select value={evidenceSourceQuality} onChange={event=>setEvidenceSourceQuality(event.target.value as EvidenceQuality)}><option value="unassessed">Not assessed</option><option value="strong">Strong</option><option value="moderate">Moderate</option><option value="limited">Limited</option></select></label>
                 <label>Evidence type<select value={evidenceKind} onChange={event=>setEvidenceKind(event.target.value as EvidenceKind)}><option>Scripture</option><option>Cross-reference</option><option>Lexicon / Strong’s</option><option>Original-language research</option><option>Historical / contextual source</option></select></label>
               </div>
               <label>Reference<input value={evidenceReference} onChange={event=>setEvidenceReference(event.target.value)} placeholder="e.g. Leviticus 26:3–5"/></label>
               <label>Supporting evidence<textarea rows={3} value={evidenceDetail} onChange={event=>setEvidenceDetail(event.target.value)} placeholder="Record the relevant wording, lexical detail, grammatical observation or source finding."/></label>
+              <label>Reason for source-quality assessment<textarea rows={2} value={evidenceSourceQualityRationale} onChange={event=>setEvidenceSourceQualityRationale(event.target.value)} placeholder="Consider expertise, proximity to the evidence, method, date and corroboration."/></label>
               <label>Reason for this assessment<textarea rows={2} value={evidenceAssessmentRationale} onChange={event=>setEvidenceAssessmentRationale(event.target.value)} placeholder="Explain briefly why this source supports, challenges, qualifies or contextualises the claim."/></label>
               <label>Source / provenance<input value={evidenceSource} onChange={event=>setEvidenceSource(event.target.value)} placeholder="e.g. BSB · STEPBible lexicon · publication details"/></label>
               {evidenceSourceUrl && <div className="evidence-source-provenance"><span>Source record</span><a href={evidenceSourceUrl} target="_blank" rel="noopener noreferrer">Open original source ↗</a>{evidenceSourceId && <code>{evidenceSourceId}</code>}</div>}
@@ -780,13 +789,13 @@ export default function App() {
               {claimEvidenceGroups.length===0 ? <p className="evidence-manager-empty">Claims and their evidence relationships will be summarised here.</p> : claimEvidenceGroups.map(group=><article className="evidence-claim-summary" key={group.claim.toLocaleLowerCase()}>
                 <strong>{group.claim}</strong>
                 <div className="evidence-relationship-counts"><span className="relationship-supports">{group.supports} supports</span><span className="relationship-challenges">{group.challenges} challenges</span><span className="relationship-qualifies">{group.qualifies} qualifies</span><span className="relationship-context">{group.context} context</span></div>
-                <small>{group.records.length} linked source{group.records.length===1?'':'s'}. These classifications are your assessment, not an automated verdict.</small>
+                <small>{group.records.length} linked source{group.records.length===1?'':'s'} · Source quality: {group.qualityStrong} strong, {group.qualityModerate} moderate, {group.qualityLimited} limited, {group.qualityUnassessed} not assessed. These are researcher judgements, not automated reliability scores.</small>
               </article>)}
             </div>
             <div className="evidence-manager-list">
               {currentPassageEvidence.length===0 ? <p className="evidence-manager-empty">No evidence records yet. Add a claim and connect it to its supporting source.</p> : currentPassageEvidence.map(item=><article className="evidence-manager-item" key={item.id}>
-                <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind}</span><div className="evidence-manager-item-controls"><label className="evidence-record-relationship">Assessment<select aria-label={'Classify evidence relationship for '+item.reference} value={item.relationship||'context'} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,relationship:event.target.value as EvidenceRelationship}:record))}><option value="context">Context / background</option><option value="supports">Supports claim</option><option value="challenges">Challenges claim</option><option value="qualifies">Qualifies claim</option></select></label><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div></div>
-                <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p><label className="evidence-record-rationale">Assessment rationale<textarea rows={2} aria-label={'Assessment rationale for '+item.reference} value={item.assessmentRationale||''} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,assessmentRationale:event.target.value}:record))} placeholder="Explain why this source has this relationship to the claim."/></label>{item.source && <small>Source: {item.source}</small>}{item.sourceUrl && <a className="evidence-record-source" href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Open source record ↗</a>}{item.sourceId && <small>Source identifier: {item.sourceId}</small>}
+                <div className="evidence-manager-item-top"><span>{stages.find(value=>value.id===item.stage)?.label} · {item.kind}</span><div className="evidence-manager-item-controls"><label className="evidence-record-relationship">Source quality<select aria-label={'Assess source quality for '+item.reference} value={item.sourceQuality||'unassessed'} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,sourceQuality:event.target.value as EvidenceQuality}:record))}><option value="unassessed">Not assessed</option><option value="strong">Strong</option><option value="moderate">Moderate</option><option value="limited">Limited</option></select></label><label className="evidence-record-relationship">Claim relationship<select aria-label={'Classify evidence relationship for '+item.reference} value={item.relationship||'context'} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,relationship:event.target.value as EvidenceRelationship}:record))}><option value="context">Context / background</option><option value="supports">Supports claim</option><option value="challenges">Challenges claim</option><option value="qualifies">Qualifies claim</option></select></label><button type="button" className="text-button" onClick={()=>setEvidenceRecords(previous=>previous.filter(record=>record.id!==item.id))} aria-label={'Delete evidence record '+item.reference}>Remove</button></div></div>
+                <strong>{item.claim}</strong><b>{item.reference}</b><p>{item.detail}</p><label className="evidence-record-rationale">Assessment rationale<textarea rows={2} aria-label={'Assessment rationale for '+item.reference} value={item.assessmentRationale||''} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,assessmentRationale:event.target.value}:record))} placeholder="Explain why this source has this relationship to the claim."/></label><label className="evidence-record-rationale">Source-quality rationale<textarea rows={2} aria-label={'Source-quality rationale for '+item.reference} value={item.sourceQualityRationale||''} onChange={event=>setEvidenceRecords(previous=>previous.map(record=>record.id===item.id?{...record,sourceQualityRationale:event.target.value}:record))} placeholder="Explain the basis for this source-quality judgement."/></label>{item.source && <small>Source: {item.source}</small>}{item.sourceUrl && <a className="evidence-record-source" href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Open source record ↗</a>}{item.sourceId && <small>Source identifier: {item.sourceId}</small>}
               </article>)}
             </div>
             <small className="evidence-manager-disclaimer">Preview only: records are stored in this browser, separately from production study data. Source accuracy and interpretation remain the researcher’s responsibility.</small>

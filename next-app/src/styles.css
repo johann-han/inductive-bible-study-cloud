@@ -790,6 +790,10 @@
 
 /* Contextual Strong's study panel: stays in view instead of following the verse list. */
 .word-study-sheet{position:fixed;z-index:60;top:88px;right:22px;bottom:20px;width:min(430px,calc(100vw - 44px));max-height:calc(100dvh - 108px);overflow-y:auto;overscroll-behavior:contain;box-shadow:0 18px 55px rgba(24,45,32,.2);scrollbar-gutter:stable;background:#fbfcfa}
+@media(min-width:701px){
+  .word-study-sheet{transition:width .22s ease,top .22s ease,bottom .22s ease}
+  .word-study-sheet.expanded{width:min(680px,calc(100vw - 44px));top:72px;bottom:18px;max-height:calc(100dvh - 90px)}
+}
 .word-study-heading-actions{display:flex;align-items:center;gap:8px;flex:none}
 .word-study-expand-button{border:1px solid #d9e2d8;border-radius:7px;background:#f4f7f2;color:#315b43;padding:7px 10px;font-size:11px;font-weight:650}
 .word-study-expand-button:hover{background:#eaf1e9}

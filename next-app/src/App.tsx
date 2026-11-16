@@ -32,6 +32,13 @@ type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | '
 type EvidenceRelationship = 'supports' | 'challenges' | 'qualifies' | 'context';
 type EvidenceQuality = 'unassessed' | 'strong' | 'moderate' | 'limited';
 type EvidenceVerification = 'not_checked' | 'source_opened' | 'content_checked' | 'corroborated';
+type ClaimSynthesisStatus = 'under_review' | 'provisional' | 'ready_for_doctrine' | 'revisit';
+type ClaimSynthesis = { status: ClaimSynthesisStatus; conclusion: string; reasoning: string; updatedAt: string };
+const CLAIM_SYNTHESIS_STORAGE_KEY = 'ibs-next-generation-preview-claim-synthesis-v1';
+function readClaimSynthesis(): Record<string, ClaimSynthesis> {
+  try { const parsed = JSON.parse(window.localStorage.getItem(CLAIM_SYNTHESIS_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; }
+}
+function claimSynthesisKey(passage: string, claim: string) { return passage + '::' + claim.trim().toLocaleLowerCase(); }
 type EvidenceRecord = { id: string; passageKey: string; stage: Stage; claim: string; relationship?: EvidenceRelationship; sourceQuality?: EvidenceQuality; sourceQualityRationale?: string; verificationStatus?: EvidenceVerification; verificationRationale?: string; assessmentRationale?: string; kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string; createdAt: string };
 const EVIDENCE_STORAGE_KEY = 'ibs-next-generation-preview-evidence-v1';
 function readPreviewEvidence(): EvidenceRecord[] {
@@ -252,6 +259,7 @@ export default function App() {
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>(() => typeof window === 'undefined' ? [] : readPreviewEvidence());
+  const [claimSyntheses, setClaimSyntheses] = useState<Record<string, ClaimSynthesis>>(() => typeof window === 'undefined' ? {} : readClaimSynthesis());
   const [evidenceClaim, setEvidenceClaim] = useState('');
   const [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Scripture');
   const [evidenceRelationship, setEvidenceRelationship] = useState<EvidenceRelationship>('context');
@@ -364,6 +372,7 @@ export default function App() {
   }, [passageDraftKey]);
 
   useEffect(() => { try { window.localStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(evidenceRecords)); } catch { setEvidenceNotice('Evidence could not be saved in this browser.'); } }, [evidenceRecords]);
+  useEffect(() => { try { window.localStorage.setItem(CLAIM_SYNTHESIS_STORAGE_KEY, JSON.stringify(claimSyntheses)); } catch { setEvidenceNotice('Claim synthesis could not be saved in this browser.'); } }, [claimSyntheses]);
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
   useEffect(() => {
     if (view !== 'references') return;
@@ -817,12 +826,41 @@ export default function App() {
               {selectedVerseRecords.length>0 && <button type="button" className="text-button" onClick={()=>{setEvidenceKind('Scripture');setEvidenceReference(selectedVerseCitation+' · '+translation);setEvidenceDetail(selectedVerseRecords.map(item=>item.number+'. '+item.text).join('\n'));setEvidenceSource('Bible text displayed in this preview · '+translation);}}>Use selected verses from Reader</button>}
               <div className="evidence-manager-actions"><button type="button" className="primary-button" onClick={addEvidenceRecord}>Save evidence record</button><span role="status">{evidenceNotice}</span></div>
             </div>
+            <section className="claim-synthesis-workspace" aria-label="Claim synthesis workspace">
+              <div className="claim-synthesis-heading"><div><span className="eyebrow">RESEARCH SYNTHESIS</span><h3>Claim synthesis</h3><p>Bring the evidence together, weigh competing readings and record a reasoned conclusion before carrying it into Doctrine.</p></div><span>{claimEvidenceGroups.length} claim{claimEvidenceGroups.length===1?'':'s'}</span></div>
+              {claimEvidenceGroups.length===0 ? <p className="evidence-manager-empty">Save at least one evidence record linked to a clearly worded claim. Its supporting, challenging and qualifying material will appear here.</p> : claimEvidenceGroups.map(group => {
+                const synthesisKey = claimSynthesisKey(passageDraftKey, group.claim);
+                const synthesis = claimSyntheses[synthesisKey] || { status: 'under_review' as ClaimSynthesisStatus, conclusion: '', reasoning: '', updatedAt: '' };
+                const updateSynthesis = (patch: Partial<ClaimSynthesis>) => setClaimSyntheses(previous => ({ ...previous, [synthesisKey]: { ...synthesis, ...patch, updatedAt: new Date().toISOString() } }));
+                const hasChallenge = group.challenges > 0;
+                const hasQualification = group.qualifies > 0;
+                const unresolvedVerification = group.verificationNotChecked + group.verificationOpened > 0;
+                return <article className="claim-synthesis-card" key={synthesisKey}>
+                  <div className="claim-synthesis-card-top"><strong>{group.claim}</strong><span>{group.records.length} linked source{group.records.length===1?'':'s'}</span></div>
+                  <div className="claim-synthesis-evidence-grid">
+                    <div className="synthesis-support"><strong>{group.supports} Supporting</strong><small>{group.supports ? 'Evidence recorded as supporting this claim' : 'No supporting evidence recorded'}</small></div>
+                    <div className="synthesis-challenge"><strong>{group.challenges} Challenging</strong><small>{group.challenges ? 'Counter-evidence requires a response' : 'No challenging evidence recorded'}</small></div>
+                    <div className="synthesis-qualify"><strong>{group.qualifies} Qualifying</strong><small>{group.qualifies ? 'Evidence limits or refines the claim' : 'No qualifying evidence recorded'}</small></div>
+                    <div className="synthesis-context"><strong>{group.context} Context</strong><small>Contextual material, not counted as direct support</small></div>
+                  </div>
+                  {(hasChallenge || hasQualification || unresolvedVerification) && <p className="claim-synthesis-caution">{hasChallenge ? 'Counter-evidence is present. Address it explicitly rather than treating the supporting count as decisive. ' : ''}{hasQualification ? 'Qualifying evidence may require narrowing or refining the wording of the claim. ' : ''}{unresolvedVerification ? 'Some sources have not yet been checked at content level or independently corroborated.' : ''}</p>}
+                  <div className="claim-synthesis-quality"><span>Researcher-assessed source quality: {group.qualityStrong} strong · {group.qualityModerate} moderate · {group.qualityLimited} limited · {group.qualityUnassessed} unassessed</span><span>Verification: {group.verificationContent} content checked · {group.verificationCorroborated} corroborated · {group.verificationOpened} opened · {group.verificationNotChecked} unchecked</span></div>
+                  <label className="claim-synthesis-field">Synthesis / reasoned conclusion<textarea rows={3} value={synthesis.conclusion} onChange={event=>updateSynthesis({conclusion:event.target.value})} placeholder="State what the evidence, considered together, warrants. Distinguish what is explicit, what is inferred, and what remains uncertain."/></label>
+                  <label className="claim-synthesis-field">Reasoning and treatment of counter-evidence<textarea rows={3} value={synthesis.reasoning} onChange={event=>updateSynthesis({reasoning:event.target.value})} placeholder="Explain why the evidence is weighed this way. Address challenging or qualifying material and note any unresolved questions."/></label>
+                  <div className="claim-synthesis-footer">
+                    <label>Research assessment<select value={synthesis.status} onChange={event=>updateSynthesis({status:event.target.value as ClaimSynthesisStatus})}><option value="under_review">Under review</option><option value="provisional">Provisional conclusion</option><option value="ready_for_doctrine">Ready for Doctrine review</option><option value="revisit">Revisit / insufficient evidence</option></select></label>
+                    <button type="button" className="outline-button" disabled={!synthesis.conclusion.trim() || synthesis.status!=='ready_for_doctrine'} onClick={() => setDraftsByPassage(previous => { const existing=(previous[passageDraftKey] || emptyNotes).doctrine; const block='[Claim synthesis · '+group.claim+']\\n'+synthesis.conclusion.trim()+(synthesis.reasoning.trim()?'\\nReasoning: '+synthesis.reasoning.trim():'')+'\\nResearch status: Ready for Doctrine review'; return {...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey] || {}),activeStage:'doctrine',doctrine:existing.trimEnd()+(existing.trim()?'\\n\\n':'')+block}}; })}>Add to Doctrine notes</button>
+                  </div>
+                  <small className="claim-synthesis-saved">{synthesis.updatedAt ? 'Saved in this browser preview · '+new Date(synthesis.updatedAt).toLocaleString() : 'Not yet assessed'} · This is your research judgement, not an automated verdict.</small>
+                </article>;
+              })}
+            </section>
             <div className="evidence-claim-register">
-              <div className="evidence-claim-register-heading"><strong>Claim assessment</strong><span>{claimEvidenceGroups.length} claim{claimEvidenceGroups.length===1?'':'s'} · {currentPassageEvidence.length} evidence records</span></div>
-              {claimEvidenceGroups.length===0 ? <p className="evidence-manager-empty">Claims and their evidence relationships will be summarised here.</p> : claimEvidenceGroups.map(group=><article className="evidence-claim-summary" key={group.claim.toLocaleLowerCase()}>
+              <div className="evidence-claim-register-heading"><strong>Evidence balance</strong><span>{claimEvidenceGroups.length} claim{claimEvidenceGroups.length===1?'':'s'} · {currentPassageEvidence.length} evidence records</span></div>
+              {claimEvidenceGroups.length===0 ? <p className="evidence-manager-empty">Claim evidence summaries will appear when you add source records.</p> : claimEvidenceGroups.map(group=><article className="evidence-claim-summary" key={group.claim.toLocaleLowerCase()}>
                 <strong>{group.claim}</strong>
                 <div className="evidence-relationship-counts"><span className="relationship-supports">{group.supports} supports</span><span className="relationship-challenges">{group.challenges} challenges</span><span className="relationship-qualifies">{group.qualifies} qualifies</span><span className="relationship-context">{group.context} context</span></div>
-                <small>{group.records.length} linked source{group.records.length===1?'':'s'} · Source quality: {group.qualityStrong} strong, {group.qualityModerate} moderate, {group.qualityLimited} limited, {group.qualityUnassessed} not assessed. These are researcher judgements, not automated reliability scores. Verification: {group.verificationNotChecked} not checked, {group.verificationOpened} source opened, {group.verificationContent} content checked, {group.verificationCorroborated} corroborated.</small>
+                <small>{group.records.length} linked sources · Counts describe how you classified the records; they are not a measure of proof.</small>
               </article>)}
             </div>
             <div className="evidence-audit-summary" role="status">

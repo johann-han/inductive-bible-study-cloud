@@ -34,6 +34,9 @@ type EvidenceQuality = 'unassessed' | 'strong' | 'moderate' | 'limited';
 type EvidenceVerification = 'not_checked' | 'source_opened' | 'content_checked' | 'corroborated';
 type ClaimSynthesisStatus = 'under_review' | 'provisional' | 'ready_for_doctrine' | 'revisit';
 type ClaimSynthesis = { status: ClaimSynthesisStatus; conclusion: string; reasoning: string; updatedAt: string };
+type DoctrineReview = { claimLevel: 'explicit' | 'necessary_implication' | 'broader_inference' | ''; supportingPassages: string; tensions: string; formulation: string; unresolved: string; approved: boolean; updatedAt: string };
+const DOCTRINE_REVIEW_STORAGE_KEY = 'ibs-next-generation-preview-doctrine-reviews-v1';
+function readDoctrineReviews(): Record<string, DoctrineReview> { try { const parsed = JSON.parse(window.localStorage.getItem(DOCTRINE_REVIEW_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } }
 const CLAIM_SYNTHESIS_STORAGE_KEY = 'ibs-next-generation-preview-claim-synthesis-v1';
 function readClaimSynthesis(): Record<string, ClaimSynthesis> {
   try { const parsed = JSON.parse(window.localStorage.getItem(CLAIM_SYNTHESIS_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; }
@@ -260,6 +263,7 @@ export default function App() {
   const [showEvidence, setShowEvidence] = useState(false);
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>(() => typeof window === 'undefined' ? [] : readPreviewEvidence());
   const [claimSyntheses, setClaimSyntheses] = useState<Record<string, ClaimSynthesis>>(() => typeof window === 'undefined' ? {} : readClaimSynthesis());
+  const [doctrineReviews, setDoctrineReviews] = useState<Record<string, DoctrineReview>>(() => typeof window === 'undefined' ? {} : readDoctrineReviews());
   const [evidenceClaim, setEvidenceClaim] = useState('');
   const [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Scripture');
   const [evidenceRelationship, setEvidenceRelationship] = useState<EvidenceRelationship>('context');
@@ -373,6 +377,7 @@ export default function App() {
 
   useEffect(() => { try { window.localStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(evidenceRecords)); } catch { setEvidenceNotice('Evidence could not be saved in this browser.'); } }, [evidenceRecords]);
   useEffect(() => { try { window.localStorage.setItem(CLAIM_SYNTHESIS_STORAGE_KEY, JSON.stringify(claimSyntheses)); } catch { setEvidenceNotice('Claim synthesis could not be saved in this browser.'); } }, [claimSyntheses]);
+  useEffect(() => { try { window.localStorage.setItem(DOCTRINE_REVIEW_STORAGE_KEY, JSON.stringify(doctrineReviews)); } catch { setEvidenceNotice('Doctrine review could not be saved in this browser.'); } }, [doctrineReviews]);
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
   useEffect(() => {
     if (view !== 'references') return;
@@ -1112,6 +1117,40 @@ export default function App() {
                 <p className="evidence-handoff-caption">These are your saved notes from earlier stages of this passage. They are shown as study context; source-linked claims and evidence references will be reconnected in a later integration phase.</p>
               </div> : null}
             </section>
+            {stage === 'doctrine' && <section className="doctrine-review-workspace" aria-label="Doctrine review and theological consistency">
+              <div className="doctrine-review-heading"><div><span className="eyebrow">THEOLOGICAL REVIEW</span><h3>Doctrine review &amp; consistency</h3><p>Review conclusions marked ready for Doctrine. Preserve the original research, classify the level of claim, compare Scripture in context and record unresolved tensions before approval.</p></div><span>{claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').length} ready</span></div>
+              {claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').length === 0 ? <p className="evidence-manager-empty">No claim synthesis is marked Ready for Doctrine review for this passage. Complete the research assessment in the Evidence Manager first.</p> : claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').map(group => {
+                const key = claimSynthesisKey(passageDraftKey, group.claim);
+                const synthesis = claimSyntheses[key];
+                const review = doctrineReviews[key] || { claimLevel: '', supportingPassages: '', tensions: '', formulation: synthesis.conclusion, unresolved: '', approved: false, updatedAt: '' } as DoctrineReview;
+                const updateReview = (patch: Partial<DoctrineReview>) => setDoctrineReviews(previous => ({ ...previous, [key]: { ...review, ...patch, approved: patch.approved ?? false, updatedAt: new Date().toISOString() } }));
+                const approve = () => {
+                  const finalText = review.formulation.trim();
+                  if (!finalText || !review.claimLevel || review.approved) return;
+                  setDraftsByPassage(previous => {
+                    const existing = (previous[passageDraftKey] || emptyNotes).doctrine;
+                    const marker = '[Approved doctrinal formulation · ' + group.claim + ']';
+                    const block = marker + '\\n' + finalText + '\\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\\nTensions / qualifications: ' + review.tensions.trim() : '') + (review.unresolved.trim() ? '\\nOpen questions: ' + review.unresolved.trim() : '');
+                    return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.includes(marker) ? existing : existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
+                  });
+                  updateReview({ approved: true });
+                };
+                return <article className="doctrine-review-card" key={key}>
+                  <div className="doctrine-review-source"><span className="eyebrow">ORIGINAL RESEARCH CLAIM</span><strong>{group.claim}</strong><p>{synthesis.conclusion}</p>{synthesis.reasoning && <small>Research reasoning: {synthesis.reasoning}</small>}<span className="doctrine-review-preserve">Original synthesis and linked evidence remain unchanged.</span></div>
+                  <label>What level of claim is warranted?
+                    <select value={review.claimLevel} onChange={event=>updateReview({claimLevel:event.target.value as DoctrineReview['claimLevel']})}>
+                      <option value="">Select classification</option><option value="explicit">Explicit biblical teaching — directly stated in the passage</option><option value="necessary_implication">Necessary implication — follows from the text’s teaching</option><option value="broader_inference">Broader theological inference — synthesis beyond a single explicit statement</option>
+                    </select>
+                  </label>
+                  <label>Supporting Scripture passages<textarea rows={2} value={review.supportingPassages} onChange={event=>updateReview({supportingPassages:event.target.value})} placeholder="List references and briefly explain how each passage contributes. Check each in its own literary and historical context."/></label>
+                  <label>Apparent tensions, counter-texts or qualifications<textarea rows={3} value={review.tensions} onChange={event=>updateReview({tensions:event.target.value})} placeholder="Record passages or teachings that appear to challenge, qualify or create tension with this formulation. Explain rather than harmonise prematurely."/></label>
+                  <label>Unresolved questions<textarea rows={2} value={review.unresolved} onChange={event=>updateReview({unresolved:event.target.value})} placeholder="What still requires examination? Leave genuine uncertainties visible."/></label>
+                  <label>Refined doctrinal formulation<textarea rows={3} value={review.formulation} onChange={event=>updateReview({formulation:event.target.value})} placeholder="Write a concise statement no broader than the textual and canonical evidence warrants."/></label>
+                  <div className="doctrine-review-actions"><span>{review.approved ? 'Approved and added to Doctrine notes' : review.updatedAt ? 'Review saved in this browser' : 'Awaiting theological review'}</span><button type="button" className="primary-button" disabled={!review.claimLevel || !review.formulation.trim() || review.approved} onClick={approve}>{review.approved ? 'Approved' : 'Approve formulation & add to notes'}</button></div>
+                  <small className="doctrine-review-caution">Approval records your judgement; it is not an automated doctrinal verdict. Counts, source ratings and cross-reference links do not establish theological truth by themselves.</small>
+                </article>;
+              })}
+            </section>}
             <section className="research-evidence-panel" aria-label="Research and Scripture evidence">
               <div><strong>Research &amp; Scripture evidence</strong><span>Attach the selected Bible text to support the notes you are recording.</span></div>
               <div className="research-evidence-actions">

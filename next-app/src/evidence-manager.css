@@ -69,3 +69,17 @@
 .evidence-record-rationale{display:grid;gap:5px;color:#647368;font-size:10px;font-weight:650}
 .evidence-record-rationale textarea{width:100%;box-sizing:border-box;min-height:48px;resize:vertical;border:1px solid #e0e8df;border-radius:6px;background:#fbfcfa;padding:7px 9px;color:#405246;font:11px/1.5 'DM Sans',sans-serif}
 .evidence-record-rationale textarea:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+
+
+/* Evidence audit: surface verification gaps and let the researcher isolate evidence types. */
+.evidence-audit-summary{display:grid;gap:5px;margin:12px 0;padding:11px 12px;border:1px solid #e0e8df;border-radius:8px;background:#f4f8f3}
+.evidence-audit-summary>div{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#355540;font-size:11px}
+.evidence-audit-summary>div span{font-weight:650;color:#55705c;text-align:right}
+.evidence-audit-summary p{margin:0;color:#69786d;font-size:10px;line-height:1.5}
+.evidence-filter-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:12px 0 4px}
+.evidence-filter-bar>span{margin-right:3px;color:#7a877d;font-size:10px;font-weight:650}
+.evidence-filter-bar button{border:1px solid #dce5dc;border-radius:99px;background:#fff;color:#607064;padding:6px 9px;font:600 10px 'DM Sans',sans-serif;cursor:pointer}
+.evidence-filter-bar button:hover{background:#f1f6f0;border-color:#b9cbbb}
+.evidence-filter-bar button.active{border-color:#78977e;background:#eaf2e9;color:#294f36}
+.evidence-filter-bar button:focus-visible{outline:2px solid #9bb9a1;outline-offset:2px}
+@media(max-width:600px){.evidence-audit-summary>div{align-items:flex-start;flex-direction:column;gap:3px}.evidence-audit-summary>div span{text-align:left}.evidence-filter-bar{gap:5px}.evidence-filter-bar button{padding:7px 8px}}

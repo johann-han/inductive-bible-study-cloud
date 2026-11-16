@@ -835,6 +835,14 @@ export default function App() {
                 const hasChallenge = group.challenges > 0;
                 const hasQualification = group.qualifies > 0;
                 const unresolvedVerification = group.verificationNotChecked + group.verificationOpened > 0;
+                const handoff = () => {
+                  setDraftsByPassage(previous => {
+                    const existing = (previous[passageDraftKey] || emptyNotes).doctrine;
+                    const block = '[Claim synthesis · ' + group.claim + ']\\n' + synthesis.conclusion.trim() + (synthesis.reasoning.trim() ? '\\nReasoning: ' + synthesis.reasoning.trim() : '') + '\\nResearch status: Ready for Doctrine review';
+                    return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
+                  });
+                  setStage('doctrine');
+                };
                 return <article className="claim-synthesis-card" key={synthesisKey}>
                   <div className="claim-synthesis-card-top"><strong>{group.claim}</strong><span>{group.records.length} linked source{group.records.length===1?'':'s'}</span></div>
                   <div className="claim-synthesis-evidence-grid">
@@ -849,7 +857,7 @@ export default function App() {
                   <label className="claim-synthesis-field">Reasoning and treatment of counter-evidence<textarea rows={3} value={synthesis.reasoning} onChange={event=>updateSynthesis({reasoning:event.target.value})} placeholder="Explain why the evidence is weighed this way. Address challenging or qualifying material and note any unresolved questions."/></label>
                   <div className="claim-synthesis-footer">
                     <label>Research assessment<select value={synthesis.status} onChange={event=>updateSynthesis({status:event.target.value as ClaimSynthesisStatus})}><option value="under_review">Under review</option><option value="provisional">Provisional conclusion</option><option value="ready_for_doctrine">Ready for Doctrine review</option><option value="revisit">Revisit / insufficient evidence</option></select></label>
-                    <button type="button" className="outline-button" disabled={!synthesis.conclusion.trim() || synthesis.status!=='ready_for_doctrine'} onClick={() => setDraftsByPassage(previous => { const existing=(previous[passageDraftKey] || emptyNotes).doctrine; const block='[Claim synthesis · '+group.claim+']\\n'+synthesis.conclusion.trim()+(synthesis.reasoning.trim()?'\\nReasoning: '+synthesis.reasoning.trim():'')+'\\nResearch status: Ready for Doctrine review'; return {...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey] || {}),activeStage:'doctrine',doctrine:existing.trimEnd()+(existing.trim()?'\\n\\n':'')+block}}; }); setStage('doctrine'); }}>Add to Doctrine notes</button>
+                    <button type="button" className="outline-button" disabled={!synthesis.conclusion.trim() || synthesis.status!=='ready_for_doctrine'} onClick={handoff}>Add to Doctrine notes</button>
                   </div>
                   <small className="claim-synthesis-saved">{synthesis.updatedAt ? 'Saved in this browser preview · '+new Date(synthesis.updatedAt).toLocaleString() : 'Not yet assessed'} · This is your research judgement, not an automated verdict.</small>
                 </article>;

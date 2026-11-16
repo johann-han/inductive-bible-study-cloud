@@ -48,9 +48,9 @@ const DEFINITIONS = [
   [/^infinitive construct$/i, 'Infinitive construct', 'A Hebrew non-finite verbal form that can function in constructions such as purpose, time or as a complement.'],
   [/^infinitive absolute$/i, 'Infinitive absolute', 'A Hebrew verbal form often used for emphasis or certainty, or in combination with another verb; the construction determines its force.']
 ];
-const normalize = value => String(value || '').trim().replace(/\\s+/g, ' ').replace(/[–—]/g, '-');
+const normalize = value => String(value || '').trim().replace(/\s+/g, ' ').replace(/[–—]/g, '-');
 export function explainMorphology(parsing) {
-  const groups = normalize(parsing).split(/\\s+-\\s+/).filter(Boolean);
+  const groups = normalize(parsing).split(/\s+-\s+/).filter(Boolean);
   const results = [];
   for (const group of groups) {
     const tokens = group.split(' ');

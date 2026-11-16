@@ -126,3 +126,33 @@
 .claim-synthesis-source>small{color:#7b877d;font-size:9px;line-height:1.45}
 .claim-synthesis-source>a{width:max-content;color:#386747;font-size:10px;font-weight:650;text-decoration:none}
 @media(max-width:600px){.claim-synthesis-source-heading{align-items:flex-start;flex-direction:column;gap:4px}}
+
+
+/* Doctrine review: preserve research provenance while making theological judgement explicit. */
+.doctrine-review-workspace{margin:18px 0 22px;padding:18px;border:1px solid #d9e4d8;border-radius:12px;background:#f7f9f5}
+.doctrine-review-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.doctrine-review-heading h3{margin:4px 0 6px;color:#294536;font:400 21px 'Libre Baskerville',Georgia,serif}
+.doctrine-review-heading p{max-width:720px;margin:0;color:#68766e;font-size:12px;line-height:1.6}
+.doctrine-review-heading>span{flex:none;padding:6px 9px;border:1px solid #dce5da;border-radius:999px;background:#fff;color:#52665a;font-size:11px;font-weight:650}
+.doctrine-review-card{display:grid;gap:12px;padding:15px;margin:12px 0;border:1px solid #dce5dc;border-radius:10px;background:#fff}
+.doctrine-review-source{display:grid;gap:7px;padding:12px;border-left:3px solid #b68a48;border-radius:7px;background:#f8f7f1}
+.doctrine-review-source>strong{color:#294536;font-size:14px;line-height:1.5}
+.doctrine-review-source>p{margin:0;color:#39483e;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.doctrine-review-source>small{color:#69776e;font-size:11px;line-height:1.5}
+.doctrine-review-preserve{color:#65766b;font-size:10px;font-weight:650}
+.doctrine-review-card>label{display:grid;gap:6px;color:#4d6054;font-size:12px;font-weight:650}
+.doctrine-review-card select,.doctrine-review-card textarea{width:100%;min-width:0;border:1px solid #dce5dc;border-radius:8px;background:#fff;color:#29392f;padding:10px 11px;font:13px/1.55 'DM Sans',sans-serif}
+.doctrine-review-card textarea{resize:vertical}
+.doctrine-review-card select:focus,.doctrine-review-card textarea:focus{outline:2px solid #8eaa91;outline-offset:1px}
+.doctrine-review-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:4px}
+.doctrine-review-actions>span{color:#65766b;font-size:11px}
+.doctrine-review-actions .primary-button{white-space:normal}
+.doctrine-review-caution{color:#7a6b51;font-size:10px;line-height:1.55}
+@media(max-width:640px){
+ .doctrine-review-workspace{padding:12px;margin:12px 0}
+ .doctrine-review-heading{flex-direction:column;gap:8px}
+ .doctrine-review-heading h3{font-size:18px}
+ .doctrine-review-card{padding:10px;gap:10px}
+ .doctrine-review-actions{align-items:stretch;flex-direction:column}
+ .doctrine-review-actions .primary-button{width:100%;justify-content:center}
+}

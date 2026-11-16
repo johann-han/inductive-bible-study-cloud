@@ -31,6 +31,13 @@ test('explains BSB Hebrew function-word labels', () => {
   assert.deepEqual(result.map(item => item.title), ['Conjunctive waw', 'Article', 'Direct object marker']);
 });
 
+test('explains remaining published BSB source labels without inventing a detailed parse', () => {
+  assert.deepEqual(explainMorphology('Interjection', 'Hebrew').map(item => item.title), ['Interjection']);
+  assert.deepEqual(explainMorphology('Number - fd', 'Aramaic').map(item => item.title), ['Numeral']);
+  assert.deepEqual(explainMorphology('Interrogative', 'Hebrew').map(item => item.title), ['Interrogative']);
+  assert.deepEqual(explainMorphology('Hebrew Word', 'Hebrew').map(item => item.title), ['Hebrew word']);
+});
+
 test('returns no fabricated explanation for unknown parsing text', () => {
   assert.deepEqual(explainMorphology('Unclassified XYZ'), []);
 });

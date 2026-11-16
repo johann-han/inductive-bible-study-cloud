@@ -21,6 +21,16 @@ test('explains Hebrew stems without treating them as Greek tense labels', () => 
   assert.ok(result.some(item => item.title === 'Third person'));
 });
 
+test('explains compound BSB Hebrew parsing labels with source separators and prefixes', () => {
+  const result = explainMorphology('Preposition-b | Noun - feminine singular', 'Hebrew');
+  assert.deepEqual(result.map(item => item.title), ['Preposition', 'Noun', 'Feminine gender', 'Singular number']);
+});
+
+test('explains BSB Hebrew function-word labels', () => {
+  const result = explainMorphology('Conjunctive waw, Article | Direct object marker', 'Hebrew');
+  assert.deepEqual(result.map(item => item.title), ['Conjunctive waw', 'Article', 'Direct object marker']);
+});
+
 test('returns no fabricated explanation for unknown parsing text', () => {
   assert.deepEqual(explainMorphology('Unclassified XYZ'), []);
 });

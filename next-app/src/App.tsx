@@ -186,13 +186,16 @@ function renderVerseWithAnnotations(
     if (item.start > cursor) parts.push(...renderMarkedText(text.slice(cursor, item.start), cursor, wordMarks, onRemoveWordMark));
     const word = text.slice(item.start, item.end);
     const detail = [item.originalText, item.transliteration, item.parsingFull || item.parsing].filter(Boolean).join(' · ');
+    const researchAction = item.parsingFull || item.parsing
+      ? 'Open Strong’s word study and grammar explanation'
+      : 'Open Strong’s word study';
     parts.push(
       <button className="strongs-token" type="button" key={item.start + '-' + item.end}
         data-strongs-id={id} data-word={word} data-start={item.start} data-end={item.end}
         data-original-text={item.originalText} data-transliteration={item.transliteration}
         data-parsing={item.parsing} data-parsing-full={item.parsingFull}
         data-language={item.language} data-gloss={item.gloss}
-        title={(detail ? detail + ' · ' : '') + 'Open Strong’s word study and grammar explanation'} aria-label={'Open Strong’s word study and grammar explanation for ' + word + ', ' + id}>
+        title={(detail ? detail + ' · ' : '') + researchAction} aria-label={researchAction + ' for ' + word + ', ' + id}>
         {renderMarkedText(word, item.start, wordMarks, onRemoveWordMark)}<sup>{id}</sup>
       </button>
     );
@@ -512,6 +515,10 @@ export default function App() {
   const selectedVerseRecords = bible?.verses.filter(item => selectedVerseNumbers.includes(item.number)).sort((a, b) => a.number - b.number) || [];
   const selectedVerseRecord = selectedVerseRecords.find(item => item.number === selectedVerse) || selectedVerseRecords[selectedVerseRecords.length - 1];
   const selectedVerseCitation = selectedVerseRecords.length ? book + ' ' + chapter + ':' + selectedVerseRecords.map(item => item.number).join(', ') : '';
+  const selectedMorphologyLabel = selectedMorphology?.parsingFull || selectedMorphology?.parsing || '';
+  const selectedMorphologyExplanation = selectedMorphologyLabel
+    ? explainMorphology(selectedMorphologyLabel, selectedMorphology?.language)
+    : [];
 
 
   const prepareEvidenceRecord = (input: { kind: EvidenceKind; reference: string; detail: string; source: string; sourceUrl?: string; sourceId?: string }) => {
@@ -990,7 +997,7 @@ export default function App() {
               <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setSelectedMorphology(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>
               {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}
               {lexiconError && <p className="lexicon-error" role="alert">{lexiconError}</p>}
-              {selectedMorphology && <section className="morphology-explainer" aria-label="Grammar and morphology explanation"><div className="morphology-explainer-heading"><div><span className="eyebrow">WORD FORM · PLAIN-LANGUAGE GUIDE</span><h4>Understanding the grammar</h4></div><span className="morphology-language">{selectedMorphology.language || 'Original language'}</span></div><p className="morphology-raw">{selectedMorphology.parsingFull || selectedMorphology.parsing || 'No morphology label supplied for this word.'}</p>{explainMorphology(selectedMorphology.parsingFull || selectedMorphology.parsing, selectedMorphology.language).length ? <div className="morphology-term-list">{explainMorphology(selectedMorphology.parsingFull || selectedMorphology.parsing, selectedMorphology.language).map((item,index)=><article className="morphology-term" key={item.title + index}><strong>{item.term} <span>— {item.title}</span></strong><p>{item.explanation}</p></article>)}</div> : <p className="morphology-unavailable">A plain-language explanation is not yet available for this particular parsing label. The original morphology label is shown above.</p>}<p className="morphology-caution">Grammar identifies the form; it does not by itself settle the meaning of the verse. Check the verb, clause, author’s argument and wider context before drawing an interpretation.</p></section>}{lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}
+              {selectedMorphologyLabel && <section className="morphology-explainer" aria-label="Grammar and morphology explanation"><div className="morphology-explainer-heading"><div><span className="eyebrow">WORD FORM · PLAIN-LANGUAGE GUIDE</span><h4>Understanding the grammar</h4></div><span className="morphology-language">{selectedMorphology?.language || 'Original language'}</span></div><p className="morphology-raw">{selectedMorphologyLabel}</p>{selectedMorphologyExplanation.length ? <div className="morphology-term-list">{selectedMorphologyExplanation.map((item,index)=><article className="morphology-term" key={item.title + index}><strong>{item.term} <span>— {item.title}</span></strong><p>{item.explanation}</p></article>)}</div> : <p className="morphology-unavailable">A plain-language explanation is not yet available for this particular parsing label. The original morphology label is shown above.</p>}<p className="morphology-caution">Grammar identifies the form; it does not by itself settle the meaning of the verse. Check the verb, clause, author’s argument and wider context before drawing an interpretation.</p></section>}{selectedMorphology && !selectedMorphologyLabel && <p className="morphology-unavailable">This source provides a Strong’s number for the selected word, but not its morphology. The lexicon entry remains available below.</p>}{lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}
             </section> : null}
 
             <div className="reader-notice" role="status" aria-live="polite">{readerNotice}</div>

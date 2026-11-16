@@ -5,8 +5,12 @@ const DEFINITIONS = [
   [/^pronoun$/i, 'Pronoun', 'A word that stands in for or refers to a noun.'],
   [/^article$/i, 'Article', 'A grammatical word used with a noun; in Greek it can also help identify a noun phrase or substantival expression.'],
   [/^adverb$/i, 'Adverb', 'A word that modifies a verb, adjective or another adverb, often describing manner, time or degree.'],
-  [/^preposition$/i, 'Preposition', 'A word expressing a relationship such as location, direction, means or association. Its object and context matter.'],
+  [/^preposition(?:-[a-z]+)?$/i, 'Preposition', 'A word expressing a relationship such as location, direction, means or association. Its object and context matter. A suffix on a Hebrew preposition identifies an attached pronominal ending; it does not change the word class.'],
   [/^conjunction$/i, 'Conjunction', 'A linking word connecting words, phrases or clauses and showing the flow of thought.'],
+  [/^conjunctive waw$/i, 'Conjunctive waw', 'The Hebrew conjunction waw, commonly rendered “and,” which links words, clauses or narrative units. Its precise relationship is determined by the surrounding syntax and discourse.'],
+  [/^direct object marker$/i, 'Direct object marker', 'A Hebrew particle that marks a definite direct object. It is normally not translated as a separate English word.'],
+  [/^negative particle$/i, 'Negative particle', 'A grammatical particle used to negate a word, phrase or clause. The construction and context determine its scope.'],
+  [/^particle$/i, 'Particle', 'A grammatical word whose contribution is determined by its construction and context rather than by a lexical meaning alone.'],
   [/^imperfect$/i, 'Imperfect tense', 'In the Greek indicative, the imperfect normally locates an action in past time and presents it imperfectively—as unfolding, continuing or repeated. Context determines the nuance; it does not automatically mean uninterrupted action.'],
   [/^present$/i, 'Present tense', 'Greek present forms commonly present an action imperfectively—as in progress, characteristic or repeated. In the indicative they usually refer to present time, but context can affect the sense.'],
   [/^aorist$/i, 'Aorist tense', 'The aorist commonly presents an action as a whole, without focusing on its internal progress. In the indicative it often refers to past time. It does not by itself mean “once” or “instantaneous”.'],
@@ -50,7 +54,12 @@ const DEFINITIONS = [
 ];
 const normalize = value => String(value || '').trim().replace(/\s+/g, ' ').replace(/[–—]/g, '-');
 export function explainMorphology(parsing, language = '') {
-  const groups = normalize(parsing).split(/\s+-\s+/).filter(Boolean);
+  // HelloAO's BSB interlinear uses all of these separators in published
+  // parsingFull values, for example: "Preposition-b | Noun - feminine
+  // singular" and "Conjunctive waw, Article | Noun - feminine singular".
+  // Keep hyphens that are part of a label (such as Preposition-b), while
+  // splitting the spaced hyphen used to join independent morphology terms.
+  const groups = normalize(parsing).split(/\s*\|\s*|,\s*|\s+-\s+/).filter(Boolean);
   const results = [];
   for (const group of groups) {
     const tokens = group.split(' ');

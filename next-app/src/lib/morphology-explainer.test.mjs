@@ -15,9 +15,9 @@ test('explains case, gender and number labels', () => {
 });
 
 test('explains Hebrew stems without treating them as Greek tense labels', () => {
-  const result = explainMorphology('Verb - Hiphil Perfect 3rd Person Masculine Singular');
+  const result = explainMorphology('Verb - Hiphil Perfect 3rd Person Masculine Singular', 'Hebrew');
   assert.ok(result.some(item => item.title === 'Hiphil stem'));
-  assert.ok(result.some(item => item.title === 'Perfect tense'));
+  assert.ok(result.some(item => item.title === 'Perfect form'));
   assert.ok(result.some(item => item.title === 'Third person'));
 });
 

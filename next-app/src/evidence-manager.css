@@ -83,3 +83,35 @@
 .evidence-filter-bar button.active{border-color:#78977e;background:#eaf2e9;color:#294f36}
 .evidence-filter-bar button:focus-visible{outline:2px solid #9bb9a1;outline-offset:2px}
 @media(max-width:600px){.evidence-audit-summary>div{align-items:flex-start;flex-direction:column;gap:3px}.evidence-audit-summary>div span{text-align:left}.evidence-filter-bar{gap:5px}.evidence-filter-bar button{padding:7px 8px}}
+
+
+/* Claim synthesis workspace: conclusions remain distinct from source records. */
+.claim-synthesis-workspace{display:grid;gap:12px;margin:16px 0;padding:15px;border:1px solid #dce6dc;border-radius:11px;background:#f8faf7}
+.claim-synthesis-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.claim-synthesis-heading h3{margin:3px 0 4px;color:#294735;font-size:16px}
+.claim-synthesis-heading p{max-width:650px;margin:0;color:#6c7b70;font-size:11px;line-height:1.55}
+.claim-synthesis-heading>span{flex:none;padding:4px 8px;border-radius:99px;background:#edf3ed;color:#42634d;font-size:10px;font-weight:700}
+.claim-synthesis-card{display:grid;gap:10px;padding:13px;border:1px solid #e0e8df;border-radius:9px;background:#fff}
+.claim-synthesis-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.claim-synthesis-card-top>strong{color:#2c4233;font-size:13px;line-height:1.5}
+.claim-synthesis-card-top>span{flex:none;color:#7b887d;font-size:10px}
+.claim-synthesis-evidence-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.claim-synthesis-evidence-grid>div{display:grid;gap:4px;min-width:0;padding:8px;border-radius:7px}
+.claim-synthesis-evidence-grid strong{font-size:10px}
+.claim-synthesis-evidence-grid small{font-size:9px;line-height:1.4}
+.synthesis-support{background:#edf5ed;color:#376847}
+.synthesis-challenge{background:#fbefed;color:#91483e}
+.synthesis-qualify{background:#f8f2e3;color:#82652d}
+.synthesis-context{background:#f0f2f0;color:#647168}
+.claim-synthesis-caution{margin:0;padding:8px 10px;border-left:2px solid #c49b53;background:#fbf8ef;color:#745d32;font-size:10px;line-height:1.5}
+.claim-synthesis-quality{display:grid;gap:4px;color:#778278;font-size:9px;line-height:1.5}
+.claim-synthesis-field{display:grid;gap:5px;color:#526257;font-size:10px;font-weight:700}
+.claim-synthesis-field textarea,.claim-synthesis-footer select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:7px;background:#fbfcfa;padding:9px 10px;color:#29392f;font:12px/1.55 'DM Sans',sans-serif}
+.claim-synthesis-field textarea{resize:vertical;min-height:64px}
+.claim-synthesis-field textarea:focus,.claim-synthesis-footer select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.claim-synthesis-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.claim-synthesis-footer>label{display:grid;gap:5px;min-width:min(100%,220px);color:#526257;font-size:10px;font-weight:700}
+.claim-synthesis-footer .outline-button{min-height:34px;padding:7px 11px;font-size:10px}
+.claim-synthesis-footer .outline-button:disabled{opacity:.45;cursor:not-allowed}
+.claim-synthesis-saved{color:#849087;font-size:9px;line-height:1.4}
+@media(max-width:700px){.claim-synthesis-workspace{padding:10px;margin:12px 0}.claim-synthesis-heading{flex-direction:column;gap:5px}.claim-synthesis-evidence-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.claim-synthesis-card{padding:10px}.claim-synthesis-footer{align-items:stretch;flex-direction:column}.claim-synthesis-footer>label{min-width:0}.claim-synthesis-footer .outline-button{width:100%;justify-content:center}}

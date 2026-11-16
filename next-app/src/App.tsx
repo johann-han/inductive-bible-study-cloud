@@ -20,6 +20,7 @@ import type { BibleChapter, BibleTranslation, PreviewDraftEntry, PreviewDrafts, 
 import { readPreviewMarkup, SCRIPTURE_MARKUP_TYPES, toggleVerseMarkup, writePreviewMarkup } from './lib/scripture-markup.mjs';
 import { readPreviewWordMarkup, toggleWordMarkup, writePreviewWordMarkup } from './lib/scripture-word-markup.mjs';
 import type { WordMarkupRange } from './lib/scripture-word-markup.mjs';
+import { explainMorphology } from './lib/morphology-explainer.mjs';
 import { addPreviewCrossReference, deletePreviewCrossReference, formatCrossReference, readPreviewCrossReferences, writePreviewCrossReferences } from './lib/cross-references.mjs';
 import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
@@ -164,7 +165,7 @@ function renderVerseWithAnnotations(
   text: string,
   annotations: WordAnnotation[],
   enabled: boolean,
-  onWordClick: (id: string, word: string) => void,
+  onWordClick: (id: string, word: string, annotation: WordAnnotation) => void,
   wordMarks: WordMarkupRange[] = [],
   onRemoveWordMark?: (start: number, end: number) => void
 ) {
@@ -187,7 +188,7 @@ function renderVerseWithAnnotations(
     const detail = [item.originalText, item.transliteration, item.parsingFull || item.parsing].filter(Boolean).join(' · ');
     parts.push(
       <button className="strongs-token" type="button" key={item.start + '-' + item.end}
-        title={detail || ('Open ' + id)} onClick={() => onWordClick(id, word)}>
+        title={detail || ('Open ' + id)} onClick={() => onWordClick(id, word, item)}>
         {renderMarkedText(word, item.start, wordMarks, onRemoveWordMark)}<sup>{id}</sup>
       </button>
     );
@@ -233,6 +234,7 @@ export default function App() {
   const [showStrongs, setShowStrongs] = useState(false);
   const [lexicon, setLexicon] = useState<StrongLexiconEntry | null>(null);
   const [lexiconWord, setLexiconWord] = useState('');
+  const [selectedMorphology, setSelectedMorphology] = useState<WordAnnotation | null>(null);
   const [lexiconLoading, setLexiconLoading] = useState(false);
   const [lexiconError, setLexiconError] = useState('');
   const lexiconRequestRef = useRef(0);
@@ -482,9 +484,10 @@ export default function App() {
     }
   };
 
-  const openLexicon = async (id: string, word: string) => {
+  const openLexicon = async (id: string, word: string, annotation: WordAnnotation) => {
     const requestId = ++lexiconRequestRef.current;
     setLexicon(null);
+    setSelectedMorphology(annotation);
     setLexiconWord(word);
     setLexiconError('');
     setLexiconLoading(true);
@@ -935,7 +938,7 @@ export default function App() {
               {!loadingBible && bibleError && <div className="reader-error" role="alert"><strong>Scripture could not be loaded.</strong><p>{bibleError}</p><button className="outline-button" type="button" onClick={() => setReaderReload(value => value + 1)}>Try again</button></div>}
               {!loadingBible && !bibleError && bible?.verses.map(verse => {
                 const tags = previewMarkup[passageDraftKey]?.[String(verse.number)] || [];
-                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={(event)=>{if(event.shiftKey && verseSelectionAnchorRef.current !== null){setSelectedVerseNumbers(selectVerseRange(verseSelectionAnchorRef.current,verse.number));}else{setSelectedVerseNumbers(current => toggleVerseSelection(current,verse.number));verseSelectionAnchorRef.current=verse.number;}setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p onMouseUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}} onKeyUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}}>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word) => void openLexicon(id, word), previewWordMarkup[passageDraftKey]?.[String(verse.number)] || [], (start, end) => {
+                return <button key={verse.number} type="button" className={selectedVerseNumbers.includes(verse.number)?'verse selected-verse':'verse'} aria-pressed={selectedVerseNumbers.includes(verse.number)} onClick={(event)=>{if(event.shiftKey && verseSelectionAnchorRef.current !== null){setSelectedVerseNumbers(selectVerseRange(verseSelectionAnchorRef.current,verse.number));}else{setSelectedVerseNumbers(current => toggleVerseSelection(current,verse.number));verseSelectionAnchorRef.current=verse.number;}setShowAddToStudy(false);setReaderNotice('');}}><span>{verse.number}</span><p onMouseUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}} onKeyUp={event=>{const offsets=getSelectedTextOffsets(event.currentTarget, window.getSelection());if(offsets){const selected=window.getSelection()?.toString().trim();if(selected)setSelectedTextMarkup({verse:verse.number,...offsets,text:selected});}}}>{renderVerseWithAnnotations(verse.text, bible?.annotations?.[String(verse.number)] || [], showStrongs, (id, word, annotation) => void openLexicon(id, word, annotation), previewWordMarkup[passageDraftKey]?.[String(verse.number)] || [], (start, end) => {
                   setPreviewWordMarkup(previous => {
                     const passage = { ...(previous[passageDraftKey] || {}) };
                     const remaining = (passage[String(verse.number)] || []).filter(range => range.end <= start || range.start >= end);
@@ -972,10 +975,10 @@ export default function App() {
             </div>}
             <div className="reader-footer"><span>Text source: {bible?.source || 'Bible text provider'} · Strong’s annotations are {showStrongs ? 'on' : 'off'}.</span></div>
             {lexiconLoading || lexiconError || lexicon ? <section className="lexicon-panel" aria-live="polite" aria-label="Strong's lexicon entry">
-              <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>
+              <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setSelectedMorphology(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); }} aria-label="Close lexicon entry">×</button></div>
               {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}
               {lexiconError && <p className="lexicon-error" role="alert">{lexiconError}</p>}
-              {lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}
+              {lexicon && <>{selectedMorphology && <section className="morphology-explainer" aria-label="Grammar and morphology explanation"><div className="morphology-explainer-heading"><div><span className="eyebrow">WORD FORM · PLAIN-LANGUAGE GUIDE</span><h4>Understanding the grammar</h4></div><span className="morphology-language">{selectedMorphology.language || 'Original language'}</span></div><p className="morphology-raw">{selectedMorphology.parsingFull || selectedMorphology.parsing || 'No morphology label supplied for this word.'}</p>{explainMorphology(selectedMorphology.parsingFull || selectedMorphology.parsing).length ? <div className="morphology-term-list">{explainMorphology(selectedMorphology.parsingFull || selectedMorphology.parsing).map((item,index)=><article className="morphology-term" key={item.title + index}><strong>{item.term} <span>— {item.title}</span></strong><p>{item.explanation}</p></article>)}</div> : <p className="morphology-unavailable">A plain-language explanation is not yet available for this particular parsing label. The original morphology label is shown above.</p>}<p className="morphology-caution">Grammar identifies the form; it does not by itself settle the meaning of the verse. Check the verb, clause, author’s argument and wider context before drawing an interpretation.</p></section>}<div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}
             </section> : null}
 
             <div className="reader-notice" role="status" aria-live="polite">{readerNotice}</div>

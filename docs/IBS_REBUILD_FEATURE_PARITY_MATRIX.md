@@ -132,3 +132,13 @@ Do not begin write-capable cloud integration until the staging target and compat
 - Legacy records remain valid and default to **not assessed**; no quality is inferred from source type or relationship.
 - The interface explains that these are researcher judgements, not automated reliability scores. Consider expertise, proximity to evidence, method, date and corroboration when assessing a source.
 - Preview-only browser storage remains isolated from production study data.
+ 
+### Morphology explanations and source verification (2026-11-16)
+- Clicking a Strong's-annotated word now carries its exact word-level morphology annotation into the lexicon panel.
+- The word-study panel explains recognised grammatical labels in plain language, including part of speech, Greek tense/aspect, mood, voice, person, number, case and gender, plus common Hebrew stems and forms.
+- The supplied Greek parsing pattern `Verb - Imperfect Indicative Active - 3d Person Singular` is decomposed into six separately explained terms.
+- The imperfect explanation distinguishes past-time imperfective presentation from a simplistic “continuous action” rule. The guide repeatedly cautions that syntax and context determine interpretation.
+- Unknown parsing labels remain visible but are not assigned invented definitions.
+- Evidence records now have a separate researcher-managed verification status: not checked, source opened, content checked against the claim, or independently corroborated. Verification notes are editable on existing records.
+- Claim summaries show verification counts separately from claim relationship and source-quality counts. The interface does not claim to automatically validate external URLs or source content.
+- All new fields remain optional/backward-compatible for legacy browser-local records; preview remains isolated from production data.

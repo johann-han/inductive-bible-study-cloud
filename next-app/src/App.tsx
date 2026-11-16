@@ -853,6 +853,15 @@ export default function App() {
                   </div>
                   {(hasChallenge || hasQualification || unresolvedVerification) && <p className="claim-synthesis-caution">{hasChallenge ? 'Counter-evidence is present. Address it explicitly rather than treating the supporting count as decisive. ' : ''}{hasQualification ? 'Qualifying evidence may require narrowing or refining the wording of the claim. ' : ''}{unresolvedVerification ? 'Some sources have not yet been checked at content level or independently corroborated.' : ''}</p>}
                   <div className="claim-synthesis-quality"><span>Researcher-assessed source quality: {group.qualityStrong} strong · {group.qualityModerate} moderate · {group.qualityLimited} limited · {group.qualityUnassessed} unassessed</span><span>Verification: {group.verificationContent} content checked · {group.verificationCorroborated} corroborated · {group.verificationOpened} opened · {group.verificationNotChecked} unchecked</span></div>
+                  <div className="claim-synthesis-source-list">
+                    <strong>Evidence considered</strong>
+                    {group.records.map(record => <div className="claim-synthesis-source" key={record.id}>
+                      <div className="claim-synthesis-source-heading"><b>{record.reference}</b><span className={'evidence-relationship-label relationship-'+(record.relationship || 'context')}>{record.relationship || 'context'}</span></div>
+                      <p>{record.detail}</p>
+                      <small>{record.kind} · {record.sourceQuality || 'unassessed'} quality · {record.verificationStatus || 'not_checked'}{record.assessmentRationale ? ' · '+record.assessmentRationale : ''}</small>
+                      {record.sourceUrl && <a href={record.sourceUrl} target="_blank" rel="noopener noreferrer">Open cited source ↗</a>}
+                    </div>)}
+                  </div>
                   <label className="claim-synthesis-field">Synthesis / reasoned conclusion<textarea rows={3} value={synthesis.conclusion} onChange={event=>updateSynthesis({conclusion:event.target.value})} placeholder="State what the evidence, considered together, warrants. Distinguish what is explicit, what is inferred, and what remains uncertain."/></label>
                   <label className="claim-synthesis-field">Reasoning and treatment of counter-evidence<textarea rows={3} value={synthesis.reasoning} onChange={event=>updateSynthesis({reasoning:event.target.value})} placeholder="Explain why the evidence is weighed this way. Address challenging or qualifying material and note any unresolved questions."/></label>
                   <div className="claim-synthesis-footer">

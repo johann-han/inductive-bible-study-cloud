@@ -156,3 +156,23 @@
  .doctrine-review-actions{align-items:stretch;flex-direction:column}
  .doctrine-review-actions .primary-button{width:100%;justify-content:center}
 }
+
+
+/* Scripture-wide comparison within the Doctrine Review workspace. */
+.doctrine-canonical-compare{display:grid;gap:9px;padding:14px;border:1px solid #d9e3dc;border-radius:9px;background:#fff}
+.doctrine-canonical-compare>div:first-child strong{color:#304b3a;font-size:13px}
+.doctrine-canonical-compare>div:first-child p{margin:4px 0 0;color:#6c796f;font-size:11px;line-height:1.55}
+.doctrine-canonical-compare>label{color:#4d6054;font-size:11px;font-weight:650}
+.doctrine-canonical-compare textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:8px;background:#fff;padding:10px;color:#29392f;font:13px/1.5 'DM Sans',sans-serif}
+.doctrine-compare-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.doctrine-compare-actions>span{color:#748076;font-size:10px}
+.doctrine-compare-error{margin:0;color:#9a4c3e;font-size:11px}
+.doctrine-compare-results{display:grid;gap:9px}
+.doctrine-compare-results article{display:grid;gap:6px;padding:11px;border:1px solid #e2e9e2;border-radius:8px;background:#fafbf9}
+.doctrine-compare-results article>strong{color:#304b3a;font-size:13px}
+.doctrine-compare-results article>p{margin:0;color:#344239;font-size:12px;line-height:1.7}
+.doctrine-compare-results article>small{color:#748076;font-size:10px;line-height:1.5}
+.doctrine-compare-results article>div{display:grid;gap:3px;padding-top:5px;border-top:1px solid #e7ece7}
+.doctrine-compare-results article>div b{color:#58695d;font-size:10px}
+.doctrine-compare-results article>div span{color:#4e6354;font-size:11px;line-height:1.5}
+@media(max-width:640px){.doctrine-canonical-compare{padding:11px}.doctrine-compare-actions{align-items:stretch;flex-direction:column}.doctrine-compare-actions .outline-button{width:100%}}

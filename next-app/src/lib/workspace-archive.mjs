@@ -134,7 +134,7 @@ function fingerprint(value) { return stableStringify(value); }
 function duplicateKey(store, item) {
   if (['evidence', 'crossReferences'].includes(store)) return String(item.id || '');
   if (store === 'dossierVersions') return String(item.id || '');
-  if (['drafts', 'scriptureMarkup', 'wordMarkup'].includes(store)) return String(item.key || '');
+  if (['drafts', 'scriptureMarkup', 'wordMarkup', 'markupColors', 'claimSynthesis', 'doctrineReviews'].includes(store)) return String(item.key || '');
   if (store === 'theologicalTensions') return String(item.id || '');
   return '';
 }

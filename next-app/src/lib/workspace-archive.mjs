@@ -18,10 +18,14 @@ export const WORKSPACE_ARCHIVE_STORES = Object.freeze({
 });
 
 const STORE_VALIDATORS = {
-  drafts: value => isPassageMap(value, record => isObject(record) &&
-    ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>
-      record[stage] === undefined || typeof record[stage] === 'string') &&
-    (record.activeStage === undefined || ['observe', 'interpret', 'doctrine', 'apply'].includes(record.activeStage))),
+  drafts: value => isObject(value) && Object.entries(value).every(([key, record]) => {
+    const match = key.match(/^(.+)\\|(\\d+)$/);
+    return Boolean(match && validBiblePassage(match[1], Number(match[2]))) &&
+      isObject(record) &&
+      ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>
+        record[stage] === undefined || typeof record[stage] === 'string') &&
+      (record.activeStage === undefined || ['observe', 'interpret', 'doctrine', 'apply'].includes(record.activeStage));
+  }),
   scriptureMarkup: value => isPassageMap(value, tags => Array.isArray(tags) &&
     tags.every(tag => VALID_TAGS.has(tag))),
   wordMarkup: value => isPassageMap(value, ranges => Array.isArray(ranges) && ranges.every(range =>

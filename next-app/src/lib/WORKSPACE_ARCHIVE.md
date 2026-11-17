@@ -4,7 +4,7 @@ The archive validation and import-planning module is pure: it has no browser-sto
 
 ## Formats
 
-- ibs-workspace-archive version 1 contains selected preview stores as a portable JSON envelope with per-store record counts.
+- ibs-workspace-archive version 2 contains selected preview stores as a portable JSON envelope with per-store record counts, including source-attributed Word Studies. Version 1 files are still accepted for legacy restore.
 - Existing ibs-theological-dossier-archive version 1 files are accepted and mapped to the dossier-version store.
 
 ## Safety model
@@ -23,6 +23,6 @@ Unknown extension fields inside supported records are preserved. This matters fo
 
 ## Scope
 
-- The archive covers the eleven preview stores listed in WORKSPACE_ARCHIVE_STORES, including saved source-attributed word studies (Strong’s ID, occurrence reference, translation, morphology, lexicon senses, source and researcher notes). Word-study records participate in preflight conflict review and Keep / Replace / Duplicate restore decisions.
+- Version 2 archives cover the eleven preview stores listed in WORKSPACE_ARCHIVE_STORES, including saved source-attributed word studies (Strong’s ID, occurrence reference, translation, morphology, lexicon senses, source and researcher notes). Word-study records participate in preflight conflict review and Keep / Replace / Duplicate restore decisions.
 - It does not export or migrate Supabase records, production data, account/authentication state, or the live application.
 - Browser-based acceptance on the PR preview remains a separate release gate.

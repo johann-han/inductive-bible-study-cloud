@@ -196,7 +196,10 @@ function inspectStore(store, incoming, existing) {
     if (identicalRecord && identicalLocation) identical++;
     else {
       conflicting++;
-      conflicts.push({ id, store, description: item.reference || item.title || item.issue || item.id });
+      const description = store === 'wordStudies'
+        ? item.strongsId + ' · ' + item.reference.book + ' ' + item.reference.chapter + ':' + item.reference.verse
+        : item.reference || item.title || item.issue || item.id;
+      conflicts.push({ id, store, description });
     }
   }
   return { incomingCount: incomingItems.length, identical, conflicting, newItems, conflicts };

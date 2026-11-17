@@ -1068,6 +1068,46 @@ export default function App() {
           </article>)}
         </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>{indexedTheologicalTensions.length ? 'No matching tension records' : 'No theological tensions recorded yet'}</h2><p>{indexedTheologicalTensions.length ? 'Adjust or clear your filters to see other records.' : 'Open a study, move to Doctrine review and add a record when two passages or interpretations appear to be in tension.'}</p>{indexedTheologicalTensions.length > 0 && <button className="text-button" type="button" onClick={()=>{setTensionSearch('');setTensionAssessmentFilter('all');setTensionStatusFilter('all');}}>Clear filters</button>}</div>}
         <p className="tension-overview-disclaimer">The register is a research index, not an automated judgement. “Resolved by researcher” records the researcher’s conclusion and does not independently establish that a perceived contradiction has been disproved. All entries remain in this browser preview.</p>
+      </section> : view === 'dossiers' ? <section className="dossier-management-view">
+        <div className="library-header"><div><div className="eyebrow">RESEARCH ARCHIVE · LOCAL PREVIEW</div><h1>Research Dossiers</h1><p>Manage saved, dated dossier snapshots independently of active studies. Each version preserves the research record as it stood when that dossier was saved.</p></div><button className="outline-button" type="button" onClick={()=>setView('tensions')}>Open Tension Register</button></div>
+        <div className="dossier-management-stats">
+          <article><small>SAVED DOSSIER VERSIONS</small><strong>{savedDossierVersions.length}</strong></article>
+          <article><small>RESEARCH QUESTIONS WITH DOSSIERS</small><strong>{new Set(savedDossierVersions.map(version=>version.tensionKey)).size}</strong></article>
+          <article><small>MOST RECENTLY SAVED</small><strong>{savedDossierVersions.length ? new Date([...savedDossierVersions].sort((a,b)=>Date.parse(b.savedAt)-Date.parse(a.savedAt))[0].savedAt).toLocaleDateString() : '—'}</strong></article>
+        </div>
+        <div className="dossier-management-toolbar">
+          <label>Search saved dossiers<input type="search" value={dossierSearch} onChange={event=>setDossierSearch(event.target.value)} placeholder="Search study, claim or conclusion…"/></label>
+          <span>{visibleDossierVersions.length} {visibleDossierVersions.length===1?'saved version':'saved versions'} shown</span>
+          <button type="button" className="text-button" onClick={()=>setDossierSearch('')}>Clear search</button>
+        </div>
+        {visibleDossierVersions.length ? <div className="dossier-management-list">
+          {visibleDossierVersions.map(version=><article className="dossier-management-card" key={version.id}>
+            <div className="dossier-management-card-heading"><div><span className="eyebrow">{version.studyPassage} · DOSSIER VERSION {version.versionNumber}</span><h2>{version.doctrinalClaim}</h2></div><span className="dossier-version-date">{new Date(version.savedAt).toLocaleString()}</span></div>
+            <div className="dossier-management-badges"><span>{version.dossier.assessmentLabel}</span><span>{version.dossier.statusLabel}</span><span>{version.dossier.history.length} history {version.dossier.history.length===1?'checkpoint':'checkpoints'}</span></div>
+            <p className="dossier-management-conclusion">{version.dossier.researchConclusion}</p>
+            <div className="dossier-management-card-footer">
+              <small>{version.dossier.evidence.length} linked evidence records · {version.dossier.history.length} recorded checkpoints · Saved locally</small>
+              <div><button type="button" className="primary-button" onClick={()=>openSavedDossierVersion(version)}>Open saved version</button><button type="button" className="outline-button" onClick={()=>downloadDossierFile(version.dossier,'markdown')}>Export Markdown</button><button type="button" className="text-button" onClick={()=>downloadDossierFile(version.dossier,'json')}>Export JSON</button></div>
+            </div>
+          </article>)}
+        </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="file-text"/></div><h2>{savedDossierVersions.length?'No matching dossier versions':'No saved dossiers yet'}</h2><p>{savedDossierVersions.length?'Change your search to find saved dossiers.':'Open a tension record in Doctrine review, prepare its dossier and choose Save dossier version. The archive keeps each dated snapshot separately.'}</p>{savedDossierVersions.length>0 && <button type="button" className="text-button" onClick={()=>setDossierSearch('')}>Clear search</button>}</div>}
+
+        {savedDossierVersions.length>1 && <section className="dossier-version-comparison">
+          <div className="dossier-version-comparison-heading"><div><span className="eyebrow">VERSION CONTROL</span><h2>Compare successive conclusions</h2><p>Choose two saved versions of the same tension record. The comparison highlights which research fields changed between snapshots.</p></div></div>
+          <div className="dossier-version-comparison-selectors">
+            <label>Earlier / baseline version<select value={dossierCompareLeftId} onChange={event=>{setDossierCompareLeftId(event.target.value);setDossierCompareRightId('');}}><option value="">Choose a dossier version</option>{[...savedDossierVersions].sort((a,b)=>Date.parse(b.savedAt)-Date.parse(a.savedAt)).map(version=><option key={version.id} value={version.id}>{version.studyPassage} · {version.doctrinalClaim} · Version {version.versionNumber}</option>)}</select></label>
+            <label>Later / comparison version<select value={dossierCompareRightId} disabled={!dossierCompareLeft} onChange={event=>setDossierCompareRightId(event.target.value)}><option value="">Choose a later or earlier version</option>{dossierCompareCandidates.filter(version=>version.id!==dossierCompareLeftId).sort((a,b)=>a.versionNumber-b.versionNumber).map(version=><option key={version.id} value={version.id}>{version.studyPassage} · Version {version.versionNumber} · {new Date(version.savedAt).toLocaleDateString()}</option>)}</select></label>
+          </div>
+          {dossierCompareLeft && dossierCompareRight && dossierVersionComparison ? <div className="dossier-version-diff">
+            <div className="dossier-version-diff-heading"><strong>Version {dossierVersionComparison.leftVersion}</strong><span>compared with</span><strong>Version {dossierVersionComparison.rightVersion}</strong><small>{dossierVersionComparison.changedFields.length} changed fields</small></div>
+            {dossierVersionComparison.changes.map(change=><article className={change.changed?'dossier-diff-row changed':'dossier-diff-row'} key={change.label}>
+              <strong>{change.label}</strong><div><small>Version {dossierVersionComparison.leftVersion}</small><p>{String(change.before || '—')}</p></div><div><small>Version {dossierVersionComparison.rightVersion}</small><p>{String(change.after || '—')}</p></div>
+              <span>{change.changed?'Changed':'Unchanged'}</span>
+            </article>)}
+          </div> : <p className="dossier-version-comparison-hint">{dossierCompareLeft ? 'Choose another saved version of the same research question to compare it with this baseline.' : 'Select a baseline version to begin comparing the research record.'}</p>}
+          <p className="dossier-version-archive-note">Version snapshots are append-only in this preview archive. The comparison reports differences in recorded fields; it does not judge whether a later interpretation is theologically correct.</p>
+        </section>}
+        <p className="dossier-management-storage-note">Storage: these dossier versions are held in this browser’s local storage. They are not yet synced to Supabase or the production Study Library. Export Markdown or JSON to retain independent copies before clearing browser data.</p>
       </section> : view === 'dossier' ? <section className="tension-dossier-view">
         {selectedTensionDossier ? <>
           <div className="tension-dossier-toolbar">

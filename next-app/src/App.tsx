@@ -27,7 +27,8 @@ import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mj
 import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReference } from './lib/standard-cross-references.mjs';
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheologicalTensionRecords } from './lib/theological-tensions.mjs';
-import type { IndexedTheologicalTension } from './lib/theological-tensions.mjs';
+import { appendTheologicalTensionHistory } from './lib/theological-tensions.mjs';
+import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
@@ -37,7 +38,8 @@ type EvidenceVerification = 'not_checked' | 'source_opened' | 'content_checked' 
 type ClaimSynthesisStatus = 'under_review' | 'provisional' | 'ready_for_doctrine' | 'revisit';
 type ClaimSynthesis = { status: ClaimSynthesisStatus; conclusion: string; reasoning: string; updatedAt: string };
 type DoctrineReview = { claimLevel: 'explicit' | 'necessary_implication' | 'broader_inference' | ''; supportingPassages: string; tensions: string; formulation: string; unresolved: string; approved: boolean; updatedAt: string };
-type TheologicalTension = { id: string; passageA: string; contextA: string; passageB: string; contextB: string; issue: string; analysis: string; uncertainty: string; assessment: 'unclassified' | 'apparent_tension' | 'complementary' | 'unresolved' | 'perceived_contradiction'; status: 'open' | 'under_review' | 'provisionally_addressed' | 'researcher_resolved'; updatedAt: string };
+type TheologicalTension = { id: string; passageA: string; contextA: string; passageB: string; contextB: string; issue: string; analysis: string; uncertainty: string; assessment: 'unclassified' | 'apparent_tension' | 'complementary' | 'unresolved' | 'perceived_contradiction'; status: 'open' | 'under_review' | 'provisionally_addressed' | 'researcher_resolved'; history?: TheologicalTensionHistoryEntry[]; updatedAt: string };
+type TensionHistoryDraft = { eventType: TensionHistoryEventType; researcherPosition: string; rationale: string; evidenceConsidered: string };
 const THEOLOGICAL_TENSION_STORAGE_KEY = 'ibs-next-generation-preview-theological-tensions-v1';
 function readTheologicalTensions(): Record<string, TheologicalTension[]> { try { const parsed = JSON.parse(window.localStorage.getItem(THEOLOGICAL_TENSION_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } }
 const DOCTRINE_REVIEW_STORAGE_KEY = 'ibs-next-generation-preview-doctrine-reviews-v1';
@@ -271,6 +273,8 @@ export default function App() {
   const [doctrineReviews, setDoctrineReviews] = useState<Record<string, DoctrineReview>>(() => typeof window === 'undefined' ? {} : readDoctrineReviews());
   const [theologicalTensions, setTheologicalTensions] = useState<Record<string, TheologicalTension[]>>(() => typeof window === 'undefined' ? {} : readTheologicalTensions());
   const [tensionImportSelections, setTensionImportSelections] = useState<Record<string, { a: string; b: string }>>({});
+  const [tensionHistoryDrafts, setTensionHistoryDrafts] = useState<Record<string, TensionHistoryDraft>>({});
+  const [tensionHistoryErrors, setTensionHistoryErrors] = useState<Record<string, string>>({});
   const [tensionSearch, setTensionSearch] = useState('');
   const [tensionAssessmentFilter, setTensionAssessmentFilter] = useState<TheologicalTension['assessment'] | 'all'>('all');
   const [tensionStatusFilter, setTensionStatusFilter] = useState<TheologicalTension['status'] | 'all'>('all');
@@ -1285,6 +1289,21 @@ export default function App() {
                   setDraftsByPassage(previous => {
                     const existing = (previous[passageDraftKey] || emptyNotes).doctrine;
                     const marker = '[Approved doctrinal formulation · ' + group.claim + ' · ' + new Date().toISOString() + ']';
+                    const historyNotes = tensionRecords.flatMap((record, index) => {
+                      const entries = Array.isArray(record.history) ? record.history : [];
+                      if (!entries.length) return [];
+                      return ['Research question ' + (index + 1) + ' — interpretation and resolution history', ...entries.map((entry, entryIndex) => [
+                        'Checkpoint ' + (entryIndex + 1) + ' · ' + entry.recordedAt,
+                        'Event: ' + entry.eventType.replaceAll('_', ' '),
+                        'Assessment: ' + (entry.previousAssessment ? entry.previousAssessment.replaceAll('_', ' ') + ' → ' : '') + entry.assessment.replaceAll('_', ' '),
+                        'Status: ' + (entry.previousStatus ? entry.previousStatus.replaceAll('_', ' ') + ' → ' : '') + entry.status.replaceAll('_', ' '),
+                        'Researcher position: ' + entry.researcherPosition,
+                        'Reason for recording: ' + entry.rationale,
+                        'Evidence considered: ' + (entry.evidenceConsidered || 'Not recorded'),
+                        'Analysis at checkpoint: ' + (entry.analysisSnapshot || 'Not recorded'),
+                        'Remaining uncertainty: ' + (entry.uncertaintySnapshot || 'None recorded')
+                      ].join('\n'))].join('\n');
+                    });
                     const tensionNotes = tensionRecords.map((record, index) => [
                       'Research question ' + (index + 1),
                       'Passage A: ' + (record.passageA || 'Not recorded'),
@@ -1297,7 +1316,7 @@ export default function App() {
                       'Research assessment: ' + record.assessment.replaceAll('_', ' '),
                       'Research status: ' + record.status.replaceAll('_', ' ')
                     ].join('\n')).join('\n\n');
-                    const block = marker + '\n' + finalText + '\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\nTensions / qualifications: ' + review.tensions.trim() : '') + (tensionNotes ? '\n\nTheological tension analysis register:\n' + tensionNotes : '') + (review.unresolved.trim() ? '\nOpen questions: ' + review.unresolved.trim() : '');
+                    const block = marker + '\n' + finalText + '\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\nTensions / qualifications: ' + review.tensions.trim() : '') + (tensionNotes ? '\n\nTheological tension analysis register:\n' + tensionNotes : '') + (historyNotes.length ? '\n\nInterpretation and resolution history:\n' + historyNotes : '') + (review.unresolved.trim() ? '\nOpen questions: ' + review.unresolved.trim() : '');
                     return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
                   });
                   updateReview({ approved: true });
@@ -1315,6 +1334,41 @@ export default function App() {
                     <div className="tension-register-heading"><div><strong>Theological tension analysis register</strong><p>Record each apparent tension as a separate research question. Examine both passages in context before assessing their relationship.</p><small className="tension-register-summary">{tensionRecords.length} record{tensionRecords.length === 1 ? '' : 's'} · {tensionRecords.filter(record => record.status === 'open' || record.status === 'under_review').length} open / under review</small></div><button type="button" className="outline-button" onClick={() => { resetApprovalIfNeeded(); setTheologicalTensions(previous => ({ ...previous, [key]: [...(previous[key] || []), { id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2), passageA: '', contextA: '', passageB: '', contextB: '', issue: '', analysis: '', uncertainty: '', assessment: 'unclassified', status: 'open', updatedAt: new Date().toISOString() }] })); }}>Add tension record</button></div>
                     {(theologicalTensions[key] || []).length === 0 ? <p className="tension-register-empty">No tension records have been added to this doctrinal claim.</p> : (theologicalTensions[key] || []).map((item, index) => {
                       const updateTension = (patch: Partial<TheologicalTension>) => { setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).map(record => record.id === item.id ? { ...record, ...patch, updatedAt: new Date().toISOString() } : record) })); resetApprovalIfNeeded(); };
+                      const tensionHistory = Array.isArray(item.history) ? item.history : [];
+                      const historyDraft = tensionHistoryDrafts[item.id] || {
+                        eventType: (tensionHistory.length ? 'interpretive_revision' : 'initial_position') as TensionHistoryEventType,
+                        researcherPosition: item.analysis || '',
+                        rationale: '',
+                        evidenceConsidered: ''
+                      };
+                      const saveHistoryCheckpoint = () => {
+                        try {
+                          const updated = appendTheologicalTensionHistory(item, historyDraft, {
+                            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'history-' + Date.now().toString(36) + Math.random().toString(36).slice(2,8),
+                            recordedAt: new Date().toISOString()
+                          });
+                          setTheologicalTensions(previous => ({
+                            ...previous,
+                            [key]: (previous[key] || []).map(record => record.id === item.id ? updated : record)
+                          }));
+                          setTensionHistoryDrafts(previous => ({
+                            ...previous,
+                            [item.id]: {
+                              eventType: 'interpretive_revision',
+                              researcherPosition: updated.analysis || historyDraft.researcherPosition,
+                              rationale: '',
+                              evidenceConsidered: ''
+                            }
+                          }));
+                          setTensionHistoryErrors(previous => ({ ...previous, [item.id]: '' }));
+                          resetApprovalIfNeeded();
+                        } catch (error) {
+                          setTensionHistoryErrors(previous => ({
+                            ...previous,
+                            [item.id]: error instanceof Error ? error.message : 'The history checkpoint could not be saved.'
+                          }));
+                        }
+                      };
                       return <article className="tension-register-card" key={item.id} data-tension-record-id={item.id} tabIndex={-1}>
                         <div className="tension-register-card-heading"><strong>Research question {index + 1}</strong><button type="button" className="text-button" onClick={() => { resetApprovalIfNeeded(); setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).filter(record => record.id !== item.id) })); }}>Remove</button></div>
                         <div className="tension-register-passages">
@@ -1360,6 +1414,42 @@ export default function App() {
                           <label>Research assessment<select value={item.assessment} onChange={event=>updateTension({assessment:event.target.value as TheologicalTension['assessment']})}><option value="unclassified">Not yet classified</option><option value="apparent_tension">Apparent tension</option><option value="complementary">Complementary perspectives</option><option value="unresolved">Unresolved relationship</option><option value="perceived_contradiction">Perceived contradiction — further examination required</option></select></label>
                           <label>Research status<select value={item.status} onChange={event=>updateTension({status:event.target.value as TheologicalTension['status']})}><option value="open">Open</option><option value="under_review">Under review</option><option value="provisionally_addressed">Provisionally addressed</option><option value="researcher_resolved">Resolved by researcher</option></select></label>
                         </div>
+                        <section className="tension-history" aria-label="Interpretation and resolution history">
+                          <div className="tension-history-heading"><div><strong>Interpretation &amp; resolution history</strong><p>Save a dated checkpoint when your interpretation, assessment or resolution changes. Earlier checkpoints are retained and cannot be edited or removed.</p></div><span>{tensionHistory.length} {tensionHistory.length === 1 ? 'checkpoint' : 'checkpoints'}</span></div>
+                          <div className="tension-history-form">
+                            <label>Checkpoint type<select value={historyDraft.eventType} onChange={event=>setTensionHistoryDrafts(previous=>({...previous,[item.id]:{...historyDraft,eventType:event.target.value as TensionHistoryEventType}}))}>
+                              <option value="initial_position">Initial research position</option>
+                              <option value="interpretive_revision">Revised interpretation</option>
+                              <option value="assessment_change">Changed assessment</option>
+                              <option value="resolution_proposed">Proposed resolution</option>
+                              <option value="resolution_revised">Revised resolution</option>
+                              <option value="reopened">Reopened for further study</option>
+                              <option value="other">Other research development</option>
+                            </select></label>
+                            <label>Current interpretive position<textarea rows={3} value={historyDraft.researcherPosition} onChange={event=>setTensionHistoryDrafts(previous=>({...previous,[item.id]:{...historyDraft,researcherPosition:event.target.value}}))} placeholder="State your current understanding of how the two passages relate. Be precise about what is established and what remains tentative."/></label>
+                            <label>Why is this checkpoint being recorded?<textarea rows={2} value={historyDraft.rationale} onChange={event=>setTensionHistoryDrafts(previous=>({...previous,[item.id]:{...historyDraft,rationale:event.target.value}}))} placeholder="Explain what changed, what prompted a review, or why this position needs to be preserved."/></label>
+                            <label>New evidence or considerations examined<textarea rows={2} value={historyDraft.evidenceConsidered} onChange={event=>setTensionHistoryDrafts(previous=>({...previous,[item.id]:{...historyDraft,evidenceConsidered:event.target.value}}))} placeholder="Record passages, context, language findings, historical sources or arguments considered since the previous checkpoint."/></label>
+                            {tensionHistoryErrors[item.id] && <p className="tension-history-error" role="alert">{tensionHistoryErrors[item.id]}</p>}
+                            <button type="button" className="outline-button" disabled={!historyDraft.researcherPosition.trim() || !historyDraft.rationale.trim()} onClick={saveHistoryCheckpoint}>Save dated history checkpoint</button>
+                          </div>
+                          <div className="tension-history-timeline">
+                            <strong>Recorded history</strong>
+                            {tensionHistory.length ? [...tensionHistory].reverse().map((entry, entryIndex) => <details className="tension-history-entry" key={entry.id}>
+                              <summary><span>Checkpoint {tensionHistory.length - entryIndex} · {entry.eventType.replaceAll('_',' ')}</span><time dateTime={entry.recordedAt}>{new Date(entry.recordedAt).toLocaleString()}</time></summary>
+                              <div className="tension-history-entry-body">
+                                <p><b>Assessment:</b> {entry.previousAssessment ? entry.previousAssessment.replaceAll('_',' ') + ' → ' : 'Initial position → '}{entry.assessment.replaceAll('_',' ')}</p>
+                                <p><b>Status:</b> {entry.previousStatus ? entry.previousStatus.replaceAll('_',' ') + ' → ' : 'Initial position → '}{entry.status.replaceAll('_',' ')}</p>
+                                <p><b>Interpretive position:</b> {entry.researcherPosition}</p>
+                                <p><b>Reason recorded:</b> {entry.rationale}</p>
+                                {entry.evidenceConsidered && <p><b>Evidence considered:</b> {entry.evidenceConsidered}</p>}
+                                {entry.analysisSnapshot && <p><b>Analysis at checkpoint:</b> {entry.analysisSnapshot}</p>}
+                                {entry.uncertaintySnapshot && <p><b>Remaining uncertainty:</b> {entry.uncertaintySnapshot}</p>}
+                                <div className="tension-history-passage-snapshot"><small>PASSAGE A · {entry.passageA || 'Reference not recorded'}</small><p>{entry.contextA || 'Context not recorded'}</p><small>PASSAGE B · {entry.passageB || 'Reference not recorded'}</small><p>{entry.contextB || 'Context not recorded'}</p></div>
+                              </div>
+                            </details>) : <p className="tension-history-empty">No formal history checkpoints yet. Save the initial research position to begin the record.</p>}
+                          </div>
+                          <p className="tension-history-caution">A checkpoint is a dated snapshot of the research record at this point in time. Editing the live fields does not rewrite earlier checkpoints; save a new checkpoint to document a significant change.</p>
+                        </section>
                         <small>Saved in this browser · {item.updatedAt ? new Date(item.updatedAt).toLocaleString() : 'Not yet saved'}. “Resolved by researcher” records your assessment; it does not certify that a contradiction has been disproved.</small>
                       </article>;
                     })}

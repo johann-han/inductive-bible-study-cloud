@@ -45,6 +45,7 @@ export type IndexedTheologicalTension = TheologicalTensionRecord & {
   studyKey: string;
   claimKey: string;
   studyPassage: string;
+  claimDisplay?: string;
 };
 
 export function listTheologicalTensionRecords(

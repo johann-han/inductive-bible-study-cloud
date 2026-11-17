@@ -1306,7 +1306,9 @@ export default function App() {
                         'Issue: ' + (entry.issue || 'Not recorded'),
                         'Reason for recording: ' + entry.rationale,
                         'Evidence considered: ' + (entry.evidenceConsidered || 'Not recorded'),
+                        'Previous analysis: ' + (entry.previousAnalysisSnapshot || 'No earlier checkpoint'),
                         'Analysis at checkpoint: ' + (entry.analysisSnapshot || 'Not recorded'),
+                        'Previous uncertainty: ' + (entry.previousUncertaintySnapshot || 'No earlier checkpoint'),
                         'Remaining uncertainty: ' + (entry.uncertaintySnapshot || 'None recorded')
                       ].join('\n'))].join('\n');
                     });
@@ -1361,7 +1363,7 @@ export default function App() {
                             ...previous,
                             [item.id]: {
                               eventType: 'interpretive_revision',
-                              researcherPosition: updated.analysis || historyDraft.researcherPosition,
+                              researcherPosition: historyDraft.researcherPosition,
                               rationale: '',
                               evidenceConsidered: ''
                             }
@@ -1449,7 +1451,9 @@ export default function App() {
                                 <p><b>Interpretive position:</b> {entry.researcherPosition}</p>
                                 <p><b>Reason recorded:</b> {entry.rationale}</p>
                                 {entry.evidenceConsidered && <p><b>Evidence considered:</b> {entry.evidenceConsidered}</p>}
+                                {entry.previousAnalysisSnapshot && <p><b>Previous analysis:</b> {entry.previousAnalysisSnapshot}</p>}
                                 {entry.analysisSnapshot && <p><b>Analysis at checkpoint:</b> {entry.analysisSnapshot}</p>}
+                                {entry.previousUncertaintySnapshot && <p><b>Previous uncertainty:</b> {entry.previousUncertaintySnapshot}</p>
                                 {entry.uncertaintySnapshot && <p><b>Remaining uncertainty:</b> {entry.uncertaintySnapshot}</p>}
                                 <div className="tension-history-passage-snapshot"><small>PASSAGE A · {entry.passageA || 'Reference not recorded'}</small><p>{entry.contextA || 'Context not recorded'}</p><small>PASSAGE B · {entry.passageB || 'Reference not recorded'}</small><p>{entry.contextB || 'Context not recorded'}</p></div>
                               </div>

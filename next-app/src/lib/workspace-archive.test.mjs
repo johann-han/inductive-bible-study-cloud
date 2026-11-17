@@ -62,7 +62,7 @@ test('exports a versioned workspace archive with exact per-store counts', () => 
   const archive = buildWorkspaceArchive(sample(), { exportedAt: '2026-11-17T08:00:00.000Z' });
   const validated = validateWorkspaceArchive(archive);
   assert.equal(archive.format, 'ibs-workspace-archive');
-  assert.equal(archive.archiveVersion, 1);
+  assert.equal(archive.archiveVersion, 2);
   assert.equal(validated.counts.dossierVersions, 1);
   assert.equal(validated.counts.theologicalTensions, 1);
   assert.equal(validated.counts.drafts, 1);
@@ -451,4 +451,18 @@ test('validates, merges and preserves source-attributed word studies', () => {
   const invalid = structuredClone(buildWorkspaceArchive(sample()));
   invalid.stores.wordStudies[0].sourceUrl = 'javascript:alert(1)';
   assert.throws(() => validateWorkspaceArchive(invalid), /wordStudies/);
+});
+
+test('imports legacy version-1 workspace archives without disturbing current word studies', () => {
+  const legacy = buildWorkspaceArchive(sample());
+  legacy.archiveVersion = 1;
+  delete legacy.stores.wordStudies;
+  delete legacy.counts.wordStudies;
+  const validated = validateWorkspaceArchive(legacy);
+  assert.equal(validated.archiveVersion, 1);
+  assert.equal(Object.hasOwn(validated.stores, 'wordStudies'), false);
+  const current = sample();
+  current.wordStudies[0].notes = 'Existing local lexical research remains untouched.';
+  const merged = applyWorkspaceArchiveImport(validated, current, {}, 'merge');
+  assert.deepEqual(merged.wordStudies, current.wordStudies);
 });

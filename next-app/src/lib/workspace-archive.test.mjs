@@ -176,3 +176,105 @@ test('replace mode honours keep and duplicate conflict decisions', () => {
   assert.equal(duplicated.claimSynthesis['Genesis 1::creation'].conclusion, 'Local claim');
   assert.equal(Object.keys(duplicated.claimSynthesis).length, 2);
 });
+
+test('archive validation checks exact count coverage, valid passage keys and unique record IDs', () => {
+  const archive = buildWorkspaceArchive(sample());
+  const missingCount = structuredClone(archive);
+  delete missingCount.counts.evidence;
+  assert.throws(() => validateWorkspaceArchive(missingCount), /counts do not match/);
+
+  const invalidPassage = structuredClone(archive);
+  invalidPassage.stores.drafts['Atlantis|1'] = { observe: 'Invalid book' };
+  invalidPassage.counts.drafts += 1;
+  assert.throws(() => validateWorkspaceArchive(invalidPassage), /drafts/);
+
+  const duplicateEvidence = structuredClone(archive);
+  duplicateEvidence.stores.evidence.push({ ...duplicateEvidence.stores.evidence[0] });
+  duplicateEvidence.counts.evidence += 1;
+  assert.throws(() => validateWorkspaceArchive(duplicateEvidence), /evidence/);
+});
+
+test('merge resolves tension conflicts by ID across different claim groups', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const source = sample().theologicalTensions['Genesis|1::creation'][0];
+  const current = sample();
+  current.theologicalTensions = {
+    'John|1::incarnation': [{ ...source, issue: 'Locally revised issue' }],
+    'Genesis|1::creation': [{ ...source, id: 'local-only', issue: 'Local-only record' }],
+    'Romans|8::hope': [{ ...source, id: 'outside-archive', issue: 'Outside archive group' }]
+  };
+
+  const kept = applyWorkspaceArchiveImport(validated, current, {
+    'theologicalTensions:tension-1': 'keep'
+  });
+  assert.equal(kept.theologicalTensions['John|1::incarnation'][0].issue, 'Locally revised issue');
+  assert.equal(kept.theologicalTensions['Genesis|1::creation'].some(item => item.id === 'tension-1'), false);
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    'theologicalTensions:tension-1': 'replace'
+  });
+  assert.equal(replaced.theologicalTensions['John|1::incarnation'], undefined);
+  assert.equal(replaced.theologicalTensions['Genesis|1::creation'].find(item => item.id === 'tension-1').issue, 'Creation');
+  assert.equal(replaced.theologicalTensions['Genesis|1::creation'].some(item => item.id === 'local-only'), true);
+
+  const duplicated = applyWorkspaceArchiveImport(validated, current, {
+    'theologicalTensions:tension-1': 'duplicate'
+  });
+  assert.equal(duplicated.theologicalTensions['John|1::incarnation'][0].issue, 'Locally revised issue');
+  const importedCopy = duplicated.theologicalTensions['Genesis|1::creation'].find(item => item.id !== 'local-only');
+  assert.ok(importedCopy);
+  assert.notEqual(importedCopy.id, 'tension-1');
+  assert.equal(duplicated.theologicalTensions['Romans|8::hope'][0].id, 'outside-archive');
+});
+
+test('replace mode replaces included tension groups but preserves groups absent from the archive', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const source = sample().theologicalTensions['Genesis|1::creation'][0];
+  const current = sample();
+  current.theologicalTensions['Genesis|1::creation'].push({
+    ...source, id: 'local-only', issue: 'Should be removed by group replacement'
+  });
+  current.theologicalTensions['Romans|8::hope'] = [{
+    ...source, id: 'outside-archive', issue: 'Must remain'
+  }];
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    'theologicalTensions:tension-1': 'keep'
+  }, 'replace');
+  assert.deepEqual(replaced.theologicalTensions['Genesis|1::creation'].map(item => item.id), ['tension-1']);
+  assert.equal(replaced.theologicalTensions['Romans|8::hope'][0].id, 'outside-archive');
+});
+
+test('duplicate decisions are rejected for single-value records that cannot retain a separate copy', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const cases = [
+    ['drafts', 'Genesis|1:1', current => { current.drafts['Genesis|1'].observe = 'Local draft'; }],
+    ['markupColors', 'key-word', current => { current.markupColors['key-word'] = '#000000'; }],
+    ['claimSynthesis', 'Genesis 1::creation', current => { current.claimSynthesis['Genesis 1::creation'].conclusion = 'Local claim'; }],
+    ['doctrineReviews', 'Genesis 1::creation', current => { current.doctrineReviews['Genesis 1::creation'].formulation = 'Local formulation'; }]
+  ];
+  for (const [store, id, mutate] of cases) {
+    const current = sample();
+    mutate(current);
+    assert.throws(
+      () => applyWorkspaceArchiveImport(validated, current, { [store + ':' + id]: 'duplicate' }),
+      /separate copy is not supported/
+    );
+  }
+});
+
+test('duplicate verse-markup decisions combine distinct tags without redundant copies', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const current = sample();
+  current.scriptureMarkup['Genesis|1']['1'] = ['contrast'];
+  current.wordMarkup['Genesis|1']['1'] = [{ start: 0, end: 3, tags: ['contrast'] }];
+
+  const result = applyWorkspaceArchiveImport(validated, current, {
+    'scriptureMarkup:Genesis|1:1': 'duplicate',
+    'wordMarkup:Genesis|1:1': 'duplicate'
+  });
+  assert.deepEqual(result.scriptureMarkup['Genesis|1']['1'].sort(), ['contrast', 'key-word']);
+  assert.deepEqual(result.wordMarkup['Genesis|1']['1'], [
+    { start: 0, end: 3, tags: ['contrast', 'key-word'] }
+  ]);
+});

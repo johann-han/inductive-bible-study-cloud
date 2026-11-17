@@ -27,7 +27,7 @@ import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mj
 import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReference } from './lib/standard-cross-references.mjs';
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheologicalTensionRecords } from './lib/theological-tensions.mjs';
-import { appendTheologicalTensionHistory, buildTheologicalTensionDossier, appendTheologicalDossierVersion, compareTheologicalDossierVersions, exportTheologicalDossierMarkdown } from './lib/theological-tensions.mjs';
+import { appendTheologicalTensionHistory, buildTheologicalTensionDossier, appendTheologicalDossierVersion, compareTheologicalDossierVersions, exportTheologicalDossierMarkdown, exportTheologicalDossierArchive } from './lib/theological-tensions.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -789,6 +789,20 @@ export default function App() {
     }
   };
 
+  const downloadDossierArchive = () => {
+    if (!savedDossierVersions.length) return;
+    const content = exportTheologicalDossierArchive(savedDossierVersions, { exportedAt: new Date().toISOString() });
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'ibs-theological-dossier-archive-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const downloadDossierFile = (
     dossier: typeof selectedTensionDossier,
     format: 'json' | 'markdown',
@@ -1083,7 +1097,7 @@ export default function App() {
         </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>{indexedTheologicalTensions.length ? 'No matching tension records' : 'No theological tensions recorded yet'}</h2><p>{indexedTheologicalTensions.length ? 'Adjust or clear your filters to see other records.' : 'Open a study, move to Doctrine review and add a record when two passages or interpretations appear to be in tension.'}</p>{indexedTheologicalTensions.length > 0 && <button className="text-button" type="button" onClick={()=>{setTensionSearch('');setTensionAssessmentFilter('all');setTensionStatusFilter('all');}}>Clear filters</button>}</div>}
         <p className="tension-overview-disclaimer">The register is a research index, not an automated judgement. “Resolved by researcher” records the researcher’s conclusion and does not independently establish that a perceived contradiction has been disproved. All entries remain in this browser preview.</p>
       </section> : view === 'dossiers' ? <section className="dossier-management-view">
-        <div className="library-header"><div><div className="eyebrow">RESEARCH ARCHIVE · LOCAL PREVIEW</div><h1>Research Dossiers</h1><p>Manage saved, dated dossier snapshots independently of active studies. Each version preserves the research record as it stood when that dossier was saved.</p></div><button className="outline-button" type="button" onClick={()=>setView('tensions')}>Open Tension Register</button></div>
+        <div className="library-header"><div><div className="eyebrow">RESEARCH ARCHIVE · LOCAL PREVIEW</div><h1>Research Dossiers</h1><p>Manage saved, dated dossier snapshots independently of active studies. Each version preserves the research record as it stood when that dossier was saved.</p></div><div className="dossier-management-header-actions"><button className="outline-button" type="button" disabled={!savedDossierVersions.length} onClick={downloadDossierArchive}>Export all versions (JSON)</button><button className="outline-button" type="button" onClick={()=>setView('tensions')}>Open Tension Register</button></div></div>
         <div className="dossier-management-stats">
           <article><small>SAVED DOSSIER VERSIONS</small><strong>{savedDossierVersions.length}</strong></article>
           <article><small>RESEARCH QUESTIONS WITH DOSSIERS</small><strong>{new Set(savedDossierVersions.map(version=>version.tensionKey)).size}</strong></article>

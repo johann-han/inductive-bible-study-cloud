@@ -60,3 +60,44 @@ export function filterTheologicalTensionRecords(
     status?: TensionStatus | 'all';
   }
 ): IndexedTheologicalTension[];
+
+
+export type TensionHistoryEventType =
+  | 'initial_position'
+  | 'interpretive_revision'
+  | 'assessment_change'
+  | 'resolution_proposed'
+  | 'resolution_revised'
+  | 'reopened'
+  | 'other';
+
+export type TheologicalTensionHistoryEntry = {
+  id: string;
+  recordedAt: string;
+  eventType: TensionHistoryEventType;
+  previousAssessment: TensionAssessment | null;
+  assessment: TensionAssessment;
+  previousStatus: TensionStatus | null;
+  status: TensionStatus;
+  passageA: string;
+  contextA: string;
+  passageB: string;
+  contextB: string;
+  issue: string;
+  researcherPosition: string;
+  analysisSnapshot: string;
+  evidenceConsidered: string;
+  uncertaintySnapshot: string;
+  rationale: string;
+};
+
+export function appendTheologicalTensionHistory(
+  record: TheologicalTensionRecord & { history?: TheologicalTensionHistoryEntry[] },
+  input: {
+    eventType: TensionHistoryEventType;
+    rationale: string;
+    researcherPosition: string;
+    evidenceConsidered?: string;
+  },
+  metadata: { id: string; recordedAt: string }
+): TheologicalTensionRecord & { history: TheologicalTensionHistoryEntry[] };

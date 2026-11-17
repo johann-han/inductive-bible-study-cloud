@@ -42,6 +42,7 @@ export interface BibleChapter {
 export type StudyStage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 export interface PreviewStudyDraft extends Record<StudyStage, string> {
   activeStage: StudyStage;
+  versionHistory?: import('./study-note-history.mjs').StudyNoteVersion[];
 }
 export interface PreviewDraftEntry {
   book: string;

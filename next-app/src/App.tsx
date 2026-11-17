@@ -943,7 +943,7 @@ export default function App() {
             {record.issue && <p className="tension-overview-issue"><strong>Issue examined:</strong> {record.issue}</p>}
             {record.analysis && <p className="tension-overview-analysis">{record.analysis}</p>}
             {record.uncertainty && <p className="tension-overview-uncertainty"><strong>Remaining uncertainty:</strong> {record.uncertainty}</p>}
-            <div className="tension-overview-card-footer"><small>Updated {record.updatedAt ? new Date(record.updatedAt).toLocaleString() : 'date not recorded'}</small><button className="primary-button" type="button" onClick={()=>openTheologicalTension(record)}>Open Doctrine review <Icon name="chevron"/></button></div>
+            <div className="tension-overview-card-footer"><small>Updated {record.updatedAt ? new Date(record.updatedAt).toLocaleString() : 'date not recorded'} · {(record.history || []).length} history {(record.history || []).length === 1 ? 'checkpoint' : 'checkpoints'}</small><button className="primary-button" type="button" onClick={()=>openTheologicalTension(record)}>Open Doctrine review <Icon name="chevron"/></button></div>
           </article>)}
         </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>{indexedTheologicalTensions.length ? 'No matching tension records' : 'No theological tensions recorded yet'}</h2><p>{indexedTheologicalTensions.length ? 'Adjust or clear your filters to see other records.' : 'Open a study, move to Doctrine review and add a record when two passages or interpretations appear to be in tension.'}</p>{indexedTheologicalTensions.length > 0 && <button className="text-button" type="button" onClick={()=>{setTensionSearch('');setTensionAssessmentFilter('all');setTensionStatusFilter('all');}}>Clear filters</button>}</div>}
         <p className="tension-overview-disclaimer">The register is a research index, not an automated judgement. “Resolved by researcher” records the researcher’s conclusion and does not independently establish that a perceived contradiction has been disproved. All entries remain in this browser preview.</p>
@@ -1297,6 +1297,7 @@ export default function App() {
                         'Event: ' + entry.eventType.replaceAll('_', ' '),
                         'Assessment: ' + (entry.previousAssessment ? entry.previousAssessment.replaceAll('_', ' ') + ' → ' : '') + entry.assessment.replaceAll('_', ' '),
                         'Status: ' + (entry.previousStatus ? entry.previousStatus.replaceAll('_', ' ') + ' → ' : '') + entry.status.replaceAll('_', ' '),
+                        'Previous recorded position: ' + (entry.previousResearcherPosition || 'No earlier checkpoint'),
                         'Researcher position: ' + entry.researcherPosition,
                         'Passage A: ' + (entry.passageA || 'Not recorded'),
                         'Passage A context: ' + (entry.contextA || 'Not recorded'),
@@ -1444,6 +1445,7 @@ export default function App() {
                               <div className="tension-history-entry-body">
                                 <p><b>Assessment:</b> {entry.previousAssessment ? entry.previousAssessment.replaceAll('_',' ') + ' → ' : 'Initial position → '}{entry.assessment.replaceAll('_',' ')}</p>
                                 <p><b>Status:</b> {entry.previousStatus ? entry.previousStatus.replaceAll('_',' ') + ' → ' : 'Initial position → '}{entry.status.replaceAll('_',' ')}</p>
+                                {entry.previousResearcherPosition && <p><b>Previous recorded position:</b> {entry.previousResearcherPosition}</p>}
                                 <p><b>Interpretive position:</b> {entry.researcherPosition}</p>
                                 <p><b>Reason recorded:</b> {entry.rationale}</p>
                                 {entry.evidenceConsidered && <p><b>Evidence considered:</b> {entry.evidenceConsidered}</p>}

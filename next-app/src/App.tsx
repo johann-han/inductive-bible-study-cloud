@@ -27,8 +27,8 @@ import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mj
 import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReference } from './lib/standard-cross-references.mjs';
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheologicalTensionRecords } from './lib/theological-tensions.mjs';
-import { appendTheologicalTensionHistory, buildTheologicalTensionDossier } from './lib/theological-tensions.mjs';
-import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry } from './lib/theological-tensions.mjs';
+import { appendTheologicalTensionHistory, buildTheologicalTensionDossier, appendTheologicalDossierVersion, compareTheologicalDossierVersions, exportTheologicalDossierMarkdown } from './lib/theological-tensions.mjs';
+import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
@@ -42,6 +42,18 @@ type TheologicalTension = { id: string; passageA: string; contextA: string; pass
 type TensionHistoryDraft = { eventType: TensionHistoryEventType; researcherPosition: string; rationale: string; evidenceConsidered: string };
 const THEOLOGICAL_TENSION_STORAGE_KEY = 'ibs-next-generation-preview-theological-tensions-v1';
 function readTheologicalTensions(): Record<string, TheologicalTension[]> { try { const parsed = JSON.parse(window.localStorage.getItem(THEOLOGICAL_TENSION_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } }
+const THEOLOGICAL_DOSSIER_VERSION_STORAGE_KEY = 'ibs-next-generation-preview-theological-dossier-versions-v1';
+function readTheologicalDossierVersions(): TheologicalDossierVersion[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(THEOLOGICAL_DOSSIER_VERSION_STORAGE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is TheologicalDossierVersion =>
+      item && typeof item === 'object' && typeof item.id === 'string' &&
+      typeof item.tensionKey === 'string' && typeof item.versionNumber === 'number' &&
+      item.dossier && typeof item.dossier === 'object'
+    );
+  } catch { return []; }
+}
 const DOCTRINE_REVIEW_STORAGE_KEY = 'ibs-next-generation-preview-doctrine-reviews-v1';
 function readDoctrineReviews(): Record<string, DoctrineReview> { try { const parsed = JSON.parse(window.localStorage.getItem(DOCTRINE_REVIEW_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } }
 const CLAIM_SYNTHESIS_STORAGE_KEY = 'ibs-next-generation-preview-claim-synthesis-v1';

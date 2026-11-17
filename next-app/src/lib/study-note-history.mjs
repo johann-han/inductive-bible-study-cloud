@@ -99,7 +99,7 @@ export function countStudyNoteVersionWords(snapshot) {
   const sections = cloneSections(snapshot?.sections);
   return Object.fromEntries(STUDY_NOTE_VERSION_STAGES.map(({ key, label }) => {
     const text = sections[key].trim();
-    return [key, { label, words: text ? text.split(/\\s+/).length : 0 }];
+    return [key, { label, words: text ? text.split(/\s+/).length : 0 }];
   }));
 }
 

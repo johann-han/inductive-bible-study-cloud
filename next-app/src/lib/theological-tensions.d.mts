@@ -133,20 +133,29 @@ export type TheologicalTensionDossier = {
   studyPassage: string;
   doctrinalClaim: string;
   claimLevel: string;
+  claimSynthesisStatus: string;
   originalSynthesis: string;
   synthesisReasoning: string;
   refinedDoctrinalFormulation: string;
+  doctrineSupportingPassages: string;
+  doctrineCounterTexts: string;
   doctrineReviewQuestions: string;
+  doctrineReviewApproved: boolean;
+  doctrineReviewUpdatedAt: string;
   assessment: string;
+  assessmentLabel: string;
   status: string;
+  statusLabel: string;
   passages: Array<{ label: string; reference: string; context: string }>;
   issue: string;
   interpretiveAnalysis: string;
+  currentResearcherPosition: string;
   researchConclusion: string;
   resolutionRationale: string;
   evidence: TheologicalTensionDossierEvidence[];
   history: TheologicalTensionHistoryEntry[];
   remainingUncertainty: string;
+  recordUpdatedAt: string;
   methodNote: string;
 };
 
@@ -156,10 +165,15 @@ export function buildTheologicalTensionDossier(
     generatedAt?: string;
     doctrineReview?: {
       claimLevel?: string;
+      supportingPassages?: string;
+      tensions?: string;
       formulation?: string;
       unresolved?: string;
+      approved?: boolean;
+      updatedAt?: string;
     };
     claimSynthesis?: {
+      status?: string;
       conclusion?: string;
       reasoning?: string;
     };

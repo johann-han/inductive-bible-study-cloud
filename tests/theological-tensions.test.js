@@ -291,3 +291,154 @@ test('research dossier states explicitly when no formal resolution or supporting
 test('research dossier builder rejects invalid tension records', () => {
   assert.throws(() => buildTheologicalTensionDossier(null), /valid theological tension record/);
 });
+
+
+import {
+  appendTheologicalDossierVersion,
+  compareTheologicalDossierVersions,
+  exportTheologicalDossierMarkdown
+} from '../next-app/src/lib/theological-tensions.mjs';
+
+const sampleDossierSnapshot = (overrides = {}) => ({
+  title: 'Research Conclusion and Resolution Dossier',
+  generatedAt: '2026-11-17T08:00:00.000Z',
+  studyPassage: 'Romans 3',
+  doctrinalClaim: 'Justification and works',
+  claimLevel: 'broader_inference',
+  claimSynthesisStatus: 'ready for doctrine',
+  originalSynthesis: 'Initial synthesis.',
+  synthesisReasoning: 'The evidence was assessed in context.',
+  refinedDoctrinalFormulation: 'A refined formulation.',
+  doctrineSupportingPassages: 'Romans 3:28',
+  doctrineCounterTexts: 'James 2:24',
+  doctrineReviewQuestions: 'How do the authors use the term works?',
+  doctrineReviewApproved: false,
+  doctrineReviewUpdatedAt: '2026-11-17T07:00:00.000Z',
+  assessment: 'unresolved',
+  assessmentLabel: 'Unresolved relationship',
+  status: 'under_review',
+  statusLabel: 'Under review',
+  passages: [
+    { label: 'Passage A', reference: 'Romans 3:28', context: 'Paul’s argument.' },
+    { label: 'Passage B', reference: 'James 2:24', context: 'James’s argument.' }
+  ],
+  issue: 'The relationship between faith and works.',
+  interpretiveAnalysis: 'The contexts are still being examined.',
+  currentResearcherPosition: 'The issue remains open.',
+  researchConclusion: 'No formal conclusion yet.',
+  resolutionRationale: 'No resolution rationale yet.',
+  evidence: [{ reference: 'Romans 3:28', detail: 'Textual evidence.', source: 'BSB', kind: 'Scripture', relationship: 'supports', sourceQuality: 'strong', verificationStatus: 'content_checked' }],
+  history: [],
+  remainingUncertainty: 'The term works requires further analysis.',
+  recordUpdatedAt: '2026-11-17T07:30:00.000Z',
+  methodNote: 'Researcher record only.',
+  ...overrides
+});
+
+test('dossier version archive numbers versions per tension record and preserves immutable snapshots', () => {
+  const source = sampleDossierSnapshot();
+  const first = appendTheologicalDossierVersion([], {
+    tensionKey: 'Romans|3::justification::tension-1',
+    tensionId: 'tension-1',
+    dossier: source
+  }, { id: 'dossier-version-1', savedAt: '2026-11-17T08:00:00.000Z' });
+  const changed = sampleDossierSnapshot({
+    generatedAt: '2026-11-17T09:00:00.000Z',
+    assessment: 'complementary',
+    assessmentLabel: 'Complementary perspectives',
+    researchConclusion: 'The passages address distinct aspects of the subject.'
+  });
+  const second = appendTheologicalDossierVersion(first, {
+    tensionKey: 'Romans|3::justification::tension-1',
+    tensionId: 'tension-1',
+    dossier: changed
+  }, { id: 'dossier-version-2', savedAt: '2026-11-17T09:00:00.000Z' });
+  const another = appendTheologicalDossierVersion(second, {
+    tensionKey: 'James|2::faith and works::tension-2',
+    tensionId: 'tension-2',
+    dossier: sampleDossierSnapshot({ studyPassage: 'James 2' })
+  }, { id: 'dossier-version-3', savedAt: '2026-11-17T09:30:00.000Z' });
+
+  assert.deepEqual(second.map(version => version.versionNumber), [1, 2]);
+  assert.equal(another[2].versionNumber, 1);
+  assert.equal(second[0].dossier.assessment, 'unresolved');
+  assert.equal(source.assessment, 'unresolved');
+  assert.equal(another[1].dossier.researchConclusion, 'The passages address distinct aspects of the subject.');
+  assert.equal(second[0].savedAt, '2026-11-17T08:00:00.000Z');
+});
+
+test('dossier version archive rejects incomplete, duplicate or invalid records', () => {
+  assert.throws(() => appendTheologicalDossierVersion([], null, { id: 'x', savedAt: '2026-11-17T08:00:00Z' }), /version record/);
+  assert.throws(() => appendTheologicalDossierVersion([], { dossier: sampleDossierSnapshot() }, { id: 'x', savedAt: '2026-11-17T08:00:00Z' }), /original tension record/);
+  assert.throws(() => appendTheologicalDossierVersion([], { tensionKey: 'record-1', dossier: {} }, { id: 'x', savedAt: '2026-11-17T08:00:00Z' }), /complete generated dossier/);
+  const first = appendTheologicalDossierVersion([], {
+    tensionKey: 'record-1', dossier: sampleDossierSnapshot()
+  }, { id: 'duplicate', savedAt: '2026-11-17T08:00:00Z' });
+  assert.throws(() => appendTheologicalDossierVersion(first, {
+    tensionKey: 'record-1', dossier: sampleDossierSnapshot()
+  }, { id: 'duplicate', savedAt: '2026-11-17T09:00:00Z' }), /IDs must be unique/);
+  assert.throws(() => appendTheologicalDossierVersion([], {
+    tensionKey: 'record-1', dossier: sampleDossierSnapshot()
+  }, { id: 'bad-time', savedAt: 'not-a-date' }), /valid dossier save timestamp/);
+});
+
+test('dossier version comparison reports changed conclusions and unchanged fields', () => {
+  const first = appendTheologicalDossierVersion([], {
+    tensionKey: 'Romans|3::claim::tension-a',
+    dossier: sampleDossierSnapshot()
+  }, { id: 'version-a', savedAt: '2026-11-17T08:00:00Z' })[0];
+  const second = appendTheologicalDossierVersion([first], {
+    tensionKey: 'Romans|3::claim::tension-a',
+    dossier: sampleDossierSnapshot({
+      assessment: 'complementary',
+      assessmentLabel: 'Complementary perspectives',
+      status: 'provisionally_addressed',
+      statusLabel: 'Provisionally addressed',
+      researchConclusion: 'The passages address complementary aspects.',
+      remainingUncertainty: 'Some questions remain.'
+    })
+  }, { id: 'version-b', savedAt: '2026-11-17T09:00:00Z' })[1];
+  const comparison = compareTheologicalDossierVersions(first, second);
+
+  assert.equal(comparison.leftVersion, 1);
+  assert.equal(comparison.rightVersion, 2);
+  assert.ok(comparison.changedFields.some(field => field.label === 'Research conclusion'));
+  assert.ok(comparison.changedFields.some(field => field.label === 'Research status'));
+  assert.ok(!comparison.changedFields.some(field => field.label === 'Original synthesis'));
+  assert.ok(comparison.changes.length >= 10);
+});
+
+test('dossier version comparison refuses versions belonging to different tension records', () => {
+  const one = { id: 'one', tensionKey: 'record-one', versionNumber: 1, dossier: sampleDossierSnapshot() };
+  const two = { id: 'two', tensionKey: 'record-two', versionNumber: 1, dossier: sampleDossierSnapshot() };
+  assert.throws(() => compareTheologicalDossierVersions(one, two), /same tension record/);
+});
+
+test('Markdown export includes the formal dossier sections, evidence and interpretation history', () => {
+  const markdown = exportTheologicalDossierMarkdown(sampleDossierSnapshot({
+    history: [{
+      recordedAt: '2026-11-17T08:00:00Z',
+      eventType: 'interpretive_revision',
+      previousAssessment: 'unresolved',
+      assessment: 'complementary',
+      previousStatus: 'under_review',
+      status: 'provisionally_addressed',
+      previousResearcherPosition: 'The issue remains open.',
+      researcherPosition: 'The passages address related but distinct questions.',
+      rationale: 'The wider contexts were examined.',
+      evidenceConsidered: 'Romans 3–4 and James 2.',
+      analysisSnapshot: 'The contexts were compared.',
+      uncertaintySnapshot: 'Some questions remain.'
+    }]
+  }));
+  assert.match(markdown, /Research Conclusion and Resolution Dossier/);
+  assert.match(markdown, /Scripture passages examined/);
+  assert.match(markdown, /Evidence reviewed/);
+  assert.match(markdown, /Research conclusion and proposed resolution/);
+  assert.match(markdown, /Interpretation and resolution history/);
+  assert.match(markdown, /The passages address related but distinct questions/);
+});
+
+test('Markdown export rejects missing dossier data', () => {
+  assert.throws(() => exportTheologicalDossierMarkdown(null), /snapshot is required/);
+});

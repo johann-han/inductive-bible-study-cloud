@@ -442,3 +442,13 @@ test('Markdown export includes the formal dossier sections, evidence and interpr
 test('Markdown export rejects missing dossier data', () => {
   assert.throws(() => exportTheologicalDossierMarkdown(null), /snapshot is required/);
 });
+
+
+test('Markdown export identifies archived dossier version and saved timestamp when supplied', () => {
+  const markdown = exportTheologicalDossierMarkdown(sampleDossierSnapshot(), {
+    versionNumber: 3,
+    savedAt: '17 November 2026, 09:00'
+  });
+  assert.match(markdown, /Archive version:\*\* 3/);
+  assert.match(markdown, /Saved to archive:\*\* 17 November 2026, 09:00/);
+});

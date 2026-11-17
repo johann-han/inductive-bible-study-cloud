@@ -960,3 +960,21 @@
   .word-study-reference { display: block; margin: 7px 0 0; }
   .word-study-source { flex-direction: column; }
 }
+
+
+/* Expandable Supporting Evidence editor in the Evidence Manager. */
+.evidence-detail-editor{display:grid;gap:7px;min-width:0}
+.evidence-detail-editor-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.evidence-detail-editor-heading label{margin:0}
+.evidence-detail-editor-heading .notes-expand-button{min-height:34px;padding:7px 11px;font-size:11px}
+.evidence-detail-editor textarea#evidence-supporting-detail{width:100%;min-height:82px;resize:vertical}
+.evidence-detail-editor textarea#evidence-supporting-detail.evidence-supporting-detail-expanded{height:68vh;min-height:520px;max-height:none;resize:vertical}
+@media(max-width:900px){
+ .evidence-detail-editor-heading{align-items:center}
+ .evidence-detail-editor textarea#evidence-supporting-detail.evidence-supporting-detail-expanded{height:65vh;min-height:55vh}
+}
+@media(max-width:560px){
+ .evidence-detail-editor-heading{gap:8px}
+ .evidence-detail-editor-heading .notes-expand-button{min-height:38px}
+ .evidence-detail-editor textarea#evidence-supporting-detail.evidence-supporting-detail-expanded{height:65vh;min-height:320px}
+}

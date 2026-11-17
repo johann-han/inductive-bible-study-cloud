@@ -303,10 +303,13 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
         const prior = Object.values(existing || {}).flat().find(item => item.id === record.id);
         if (!prior || fingerprint(prior) === fingerprint(record)) return record;
         const choice = decisions[store + ':' + record.id];
-        if (choice === 'keep') return prior;
-        if (choice === 'duplicate') return { ...record, id: createImportId() };
+        if (choice === 'keep' || choice === 'duplicate') return prior;
         return record;
       });
+      for (const record of records) {
+        const prior = Object.values(existing || {}).flat().find(item => item.id === record.id);
+        if (prior && fingerprint(prior) !== fingerprint(record) && decisions[store + ':' + record.id] === 'duplicate') output[key].push({ ...record, id: createImportId() });
+      }
     }
     for (const [key, records] of Object.entries(existing || {})) {
       const incomingIds = new Set(Object.values(incoming).flat().map(item => item.id));
@@ -324,7 +327,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
       if (fingerprint(prior) === fingerprint(output[index])) continue;
       const choice = decisions[store + ':' + prior.id];
       if (choice === 'keep') output[index] = prior;
-      else if (choice === 'duplicate') output.push({ ...output[index], id: createImportId() });
+      else if (choice === 'duplicate') { output[index] = prior; output.push({ ...incoming[index], id: createImportId() }); }
     }
     return output;
   }
@@ -347,7 +350,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
     if (!Object.prototype.hasOwnProperty.call(existing || {}, key) || fingerprint(existing[key]) === fingerprint(value)) continue;
     const choice = decisions[store + ':' + key];
     if (choice === 'keep') output[key] = existing[key];
-    else if (choice === 'duplicate') output[key + '::import-' + createImportId()] = value;
+    else if (choice === 'duplicate') { output[key] = existing[key]; output[key + '::import-' + createImportId()] = value; }
   }
   return output;
 }

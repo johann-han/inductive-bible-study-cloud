@@ -378,3 +378,27 @@ export function exportTheologicalDossierMarkdown(dossier, archiveMetadata = {}) 
   ];
   return lines.join('\n');
 }
+
+
+export function exportTheologicalDossierArchive(versions, metadata = {}) {
+  if (!Array.isArray(versions)) throw new TypeError('A dossier version archive is required.');
+  const exportedAt = typeof metadata.exportedAt === 'string' && Number.isFinite(Date.parse(metadata.exportedAt))
+    ? new Date(metadata.exportedAt).toISOString()
+    : new Date().toISOString();
+  const snapshot = versions.map(version => {
+    if (!version || typeof version !== 'object' || Array.isArray(version) ||
+        typeof version.id !== 'string' || !version.id.trim() ||
+        typeof version.tensionKey !== 'string' || !version.tensionKey.trim() ||
+        !version.dossier || typeof version.dossier !== 'object' || Array.isArray(version.dossier)) {
+      throw new TypeError('Every archived dossier version must include its ID, tension key and dossier snapshot.');
+    }
+    return dossierSnapshotCopy(version);
+  });
+  return JSON.stringify({
+    format: 'ibs-theological-dossier-archive',
+    archiveVersion: 1,
+    exportedAt,
+    dossierVersionCount: snapshot.length,
+    dossierVersions: snapshot
+  }, null, 2);
+}

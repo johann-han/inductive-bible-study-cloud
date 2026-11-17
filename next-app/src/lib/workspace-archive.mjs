@@ -25,7 +25,8 @@ const STORE_VALIDATORS = {
       isObject(record) &&
       ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>
         record[stage] === undefined || typeof record[stage] === 'string') &&
-      (record.activeStage === undefined || ['observe', 'interpret', 'doctrine', 'apply'].includes(record.activeStage));
+      (record.activeStage === undefined || ['observe', 'interpret', 'doctrine', 'apply'].includes(record.activeStage)) &&
+      isNoteVersionHistory(record.versionHistory);
   }),
   scriptureMarkup: value => isPassageMap(value, tags => Array.isArray(tags) &&
     tags.every(tag => VALID_TAGS.has(tag))),
@@ -59,6 +60,23 @@ const VALID_TAGS = new Set(['key-word', 'repeated-idea', 'contrast', 'command', 
 const ASSESSMENTS = new Set(['unclassified', 'apparent_tension', 'complementary', 'unresolved', 'perceived_contradiction']);
 const STATUSES = new Set(['open', 'under_review', 'provisionally_addressed', 'researcher_resolved']);
 const HISTORY_EVENT_TYPES = new Set(['initial_position', 'interpretive_revision', 'assessment_change', 'resolution_proposed', 'resolution_revised', 'reopened', 'other']);
+
+function isNoteVersionHistory(value) {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || value.length > 8) return false;
+  const ids = new Set();
+  return value.every(entry => {
+    if (!isObject(entry) || !nonEmpty(entry.id) || entry.id.length > 100 || ids.has(entry.id) ||
+        typeof entry.savedAt !== 'string' || !Number.isFinite(Date.parse(entry.savedAt)) ||
+        !['observe', 'interpret', 'doctrine', 'apply'].includes(entry.activeStage) ||
+        !isObject(entry.sections)) return false;
+    const validSections = ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>
+      typeof entry.sections[stage] === 'string' && entry.sections[stage].length <= 200000);
+    if (!validSections) return false;
+    ids.add(entry.id);
+    return true;
+  });
+}
 
 function isObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function nonEmpty(value) { return typeof value === 'string' && value.trim().length > 0; }

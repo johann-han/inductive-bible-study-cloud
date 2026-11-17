@@ -180,3 +180,38 @@ export function buildTheologicalTensionDossier(
     evidenceRecords?: Array<Partial<TheologicalTensionDossierEvidence>>;
   }
 ): TheologicalTensionDossier;
+
+
+export type TheologicalDossierVersion = {
+  id: string;
+  tensionKey: string;
+  tensionId: string;
+  studyPassage: string;
+  doctrinalClaim: string;
+  versionNumber: number;
+  savedAt: string;
+  dossier: TheologicalTensionDossier;
+};
+
+export function appendTheologicalDossierVersion(
+  existingVersions: TheologicalDossierVersion[],
+  input: { tensionKey: string; tensionId?: string; dossier: TheologicalTensionDossier },
+  metadata: { id: string; savedAt: string }
+): TheologicalDossierVersion[];
+
+export type TheologicalDossierVersionComparison = {
+  tensionKey: string;
+  leftVersion: number;
+  rightVersion: number;
+  leftSavedAt: string;
+  rightSavedAt: string;
+  changes: Array<{ label: string; before: string | number; after: string | number; changed: boolean }>;
+  changedFields: Array<{ label: string; before: string | number; after: string | number; changed: boolean }>;
+};
+
+export function compareTheologicalDossierVersions(
+  left: TheologicalDossierVersion,
+  right: TheologicalDossierVersion
+): TheologicalDossierVersionComparison;
+
+export function exportTheologicalDossierMarkdown(dossier: TheologicalTensionDossier): string;

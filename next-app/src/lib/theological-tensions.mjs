@@ -155,29 +155,54 @@ export function buildTheologicalTensionDossier(record, options = {}) {
       }))
     : [];
   const history = Array.isArray(record.history) ? record.history.map(entry => ({ ...entry })) : [];
+  const latestHistory = history.length ? history[history.length - 1] : null;
+  const assessment = dossierText(record.assessment, 'unclassified');
+  const status = dossierText(record.status, 'open');
+  const assessmentLabels = {
+    unclassified: 'Not yet classified',
+    apparent_tension: 'Apparent tension',
+    complementary: 'Complementary perspectives',
+    unresolved: 'Unresolved relationship',
+    perceived_contradiction: 'Perceived contradiction — further examination required'
+  };
+  const statusLabels = {
+    open: 'Open',
+    under_review: 'Under review',
+    provisionally_addressed: 'Provisionally addressed',
+    researcher_resolved: 'Resolved by researcher'
+  };
   return {
     title: 'Research Conclusion and Resolution Dossier',
     generatedAt,
     studyPassage: dossierText(record.studyPassage, dossierText(record.studyKey, 'Study passage not identified')),
     doctrinalClaim: dossierText(record.claimDisplay, dossierText(record.claimKey, 'Claim not recorded')),
-    claimLevel: dossierText(review.claimLevel, 'Not classified'),
+    claimLevel: dossierText(review.claimLevel, 'Not classified').replaceAll('_', ' '),
+    claimSynthesisStatus: dossierText(synthesis.status, 'No synthesis status recorded').replaceAll('_', ' '),
     originalSynthesis: dossierText(synthesis.conclusion, 'No claim synthesis recorded'),
     synthesisReasoning: dossierText(synthesis.reasoning, 'No synthesis reasoning recorded'),
     refinedDoctrinalFormulation: dossierText(review.formulation, 'No refined doctrinal formulation recorded'),
+    doctrineSupportingPassages: dossierText(review.supportingPassages, 'No supporting Scripture passages recorded in Doctrine review'),
+    doctrineCounterTexts: dossierText(review.tensions, 'No counter-texts or qualifications recorded in Doctrine review'),
     doctrineReviewQuestions: dossierText(review.unresolved, 'No Doctrine review questions recorded'),
-    assessment: dossierText(record.assessment, 'unclassified'),
-    status: dossierText(record.status, 'open'),
+    doctrineReviewApproved: Boolean(review.approved),
+    doctrineReviewUpdatedAt: dossierText(review.updatedAt, 'No Doctrine review timestamp recorded'),
+    assessment,
+    assessmentLabel: assessmentLabels[assessment] || assessment.replaceAll('_', ' '),
+    status,
+    statusLabel: statusLabels[status] || status.replaceAll('_', ' '),
     passages: [
       { label: 'Passage A', reference: dossierText(record.passageA, 'Reference not recorded'), context: dossierText(record.contextA, 'Context and meaning not recorded') },
       { label: 'Passage B', reference: dossierText(record.passageB, 'Reference not recorded'), context: dossierText(record.contextB, 'Context and meaning not recorded') }
     ],
     issue: dossierText(record.issue, 'No precise point of tension recorded'),
     interpretiveAnalysis: dossierText(record.analysis, 'No interpretive analysis recorded'),
+    currentResearcherPosition: dossierText(latestHistory?.researcherPosition, 'No formal researcher position has been saved in the interpretation history.'),
     researchConclusion: dossierText(record.resolution, 'No formal research conclusion or proposed resolution has been recorded.'),
     resolutionRationale: dossierText(record.resolutionRationale, 'No rationale for the proposed resolution has been recorded.'),
     evidence,
     history,
     remainingUncertainty: dossierText(record.uncertainty, 'No remaining uncertainty has been recorded.'),
+    recordUpdatedAt: dossierText(record.updatedAt, 'No record update date available'),
     methodNote: 'This dossier reports the researcher’s recorded work. It does not independently verify the interpretation, decide whether passages contradict one another, or resolve questions left open by the evidence.'
   };
 }

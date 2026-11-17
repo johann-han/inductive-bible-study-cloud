@@ -153,6 +153,9 @@ test('subsequent history checkpoints retain prior entries and record the previou
   assert.equal(second.history[1].previousAssessment, 'unresolved');
   assert.equal(second.history[1].assessment, 'complementary');
   assert.equal(second.history[1].previousStatus, 'under_review');
+  assert.match(second.history[1].previousResearcherPosition, /Question remains open/);
+  assert.equal(second.history[1].previousAnalysisSnapshot, historyRecord.analysis);
+  assert.equal(second.history[1].previousUncertaintySnapshot, historyRecord.uncertainty);
   assert.equal(second.history[1].status, 'provisionally_addressed');
   assert.match(second.history[1].analysisSnapshot, /different aspects/);
   assert.equal(first.history.length, 1);

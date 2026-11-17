@@ -111,6 +111,9 @@ export function appendTheologicalTensionHistory(record, input, metadata = {}) {
     passageB: cloneHistoryValue(record.passageB),
     contextB: cloneHistoryValue(record.contextB),
     issue: cloneHistoryValue(record.issue),
+    previousResolution: previous?.resolutionSnapshot ?? null,
+    resolutionSnapshot: cloneHistoryValue(record.resolution),
+    resolutionRationaleSnapshot: cloneHistoryValue(record.resolutionRationale),
     researcherPosition,
     analysisSnapshot: cloneHistoryValue(record.analysis),
     evidenceConsidered: typeof input.evidenceConsidered === 'string' ? input.evidenceConsidered.trim() : '',
@@ -119,4 +122,62 @@ export function appendTheologicalTensionHistory(record, input, metadata = {}) {
   });
   const history = [...existingHistory, entry];
   return { ...record, history, updatedAt: recordedAt };
+}
+
+
+function dossierText(value, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+export function buildTheologicalTensionDossier(record, options = {}) {
+  if (!record || typeof record !== 'object' || Array.isArray(record) || typeof record.id !== 'string' || !record.id.trim()) {
+    throw new TypeError('A valid theological tension record is required to prepare a dossier.');
+  }
+  const generatedAt = typeof options.generatedAt === 'string' && Number.isFinite(Date.parse(options.generatedAt))
+    ? new Date(options.generatedAt).toISOString()
+    : new Date().toISOString();
+  const review = options.doctrineReview && typeof options.doctrineReview === 'object' ? options.doctrineReview : {};
+  const synthesis = options.claimSynthesis && typeof options.claimSynthesis === 'object' ? options.claimSynthesis : {};
+  const evidence = Array.isArray(options.evidenceRecords)
+    ? options.evidenceRecords.filter(item => item && typeof item === 'object' && !Array.isArray(item)).map(item => ({
+        kind: dossierText(item.kind, 'Evidence'),
+        reference: dossierText(item.reference, 'Reference not recorded'),
+        detail: dossierText(item.detail, 'Evidence detail not recorded'),
+        source: dossierText(item.source, 'Source not recorded'),
+        sourceUrl: dossierText(item.sourceUrl),
+        relationship: dossierText(item.relationship, 'context'),
+        sourceQuality: dossierText(item.sourceQuality, 'unassessed'),
+        verificationStatus: dossierText(item.verificationStatus, 'not_checked'),
+        assessmentRationale: dossierText(item.assessmentRationale),
+        verificationRationale: dossierText(item.verificationRationale),
+        sourceQualityRationale: dossierText(item.sourceQualityRationale),
+        createdAt: dossierText(item.createdAt)
+      }))
+    : [];
+  const history = Array.isArray(record.history) ? record.history.map(entry => ({ ...entry })) : [];
+  return {
+    title: 'Research Conclusion and Resolution Dossier',
+    generatedAt,
+    studyPassage: dossierText(record.studyPassage, dossierText(record.studyKey, 'Study passage not identified')),
+    doctrinalClaim: dossierText(record.claimDisplay, dossierText(record.claimKey, 'Claim not recorded')),
+    claimLevel: dossierText(review.claimLevel, 'Not classified'),
+    originalSynthesis: dossierText(synthesis.conclusion, 'No claim synthesis recorded'),
+    synthesisReasoning: dossierText(synthesis.reasoning, 'No synthesis reasoning recorded'),
+    refinedDoctrinalFormulation: dossierText(review.formulation, 'No refined doctrinal formulation recorded'),
+    doctrineReviewQuestions: dossierText(review.unresolved, 'No Doctrine review questions recorded'),
+    assessment: dossierText(record.assessment, 'unclassified'),
+    status: dossierText(record.status, 'open'),
+    passages: [
+      { label: 'Passage A', reference: dossierText(record.passageA, 'Reference not recorded'), context: dossierText(record.contextA, 'Context and meaning not recorded') },
+      { label: 'Passage B', reference: dossierText(record.passageB, 'Reference not recorded'), context: dossierText(record.contextB, 'Context and meaning not recorded') }
+    ],
+    issue: dossierText(record.issue, 'No precise point of tension recorded'),
+    interpretiveAnalysis: dossierText(record.analysis, 'No interpretive analysis recorded'),
+    researchConclusion: dossierText(record.resolution, 'No formal research conclusion or proposed resolution has been recorded.'),
+    resolutionRationale: dossierText(record.resolutionRationale, 'No rationale for the proposed resolution has been recorded.'),
+    evidence,
+    history,
+    remainingUncertainty: dossierText(record.uncertainty, 'No remaining uncertainty has been recorded.'),
+    methodNote: 'This dossier reports the researcher’s recorded work. It does not independently verify the interpretation, decide whether passages contradict one another, or resolve questions left open by the evidence.'
+  };
 }

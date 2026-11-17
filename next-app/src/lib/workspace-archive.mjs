@@ -295,6 +295,63 @@ function mergeTensions(existing, incoming, decisions) {
   return output;
 }
 
+function replaceStoreWithDecisions(store, existing, incoming, decisions) {
+  if (store === 'theologicalTensions') {
+    const output = { ...incoming };
+    for (const [key, records] of Object.entries(incoming)) {
+      output[key] = records.map(record => {
+        const prior = Object.values(existing || {}).flat().find(item => item.id === record.id);
+        if (!prior || fingerprint(prior) === fingerprint(record)) return record;
+        const choice = decisions[store + ':' + record.id];
+        if (choice === 'keep') return prior;
+        if (choice === 'duplicate') return { ...record, id: createImportId() };
+        return record;
+      });
+    }
+    for (const [key, records] of Object.entries(existing || {})) {
+      const incomingIds = new Set(Object.values(incoming).flat().map(item => item.id));
+      const retained = records.filter(item => !incomingIds.has(item.id));
+      if (retained.length) output[key] = [...(output[key] || []), ...retained];
+    }
+    return output;
+  }
+  if (['evidence', 'crossReferences', 'dossierVersions'].includes(store)) {
+    const output = [...incoming];
+    const incomingIds = new Set(incoming.map(item => item.id));
+    for (const prior of existing || []) {
+      if (!incomingIds.has(prior.id)) continue;
+      const index = output.findIndex(item => item.id === prior.id);
+      if (fingerprint(prior) === fingerprint(output[index])) continue;
+      const choice = decisions[store + ':' + prior.id];
+      if (choice === 'keep') output[index] = prior;
+      else if (choice === 'duplicate') output.push({ ...output[index], id: createImportId() });
+    }
+    return output;
+  }
+  if (['drafts', 'scriptureMarkup', 'wordMarkup'].includes(store)) {
+    const output = { ...incoming };
+    for (const [passageKey, verses] of Object.entries(incoming)) {
+      output[passageKey] = { ...verses };
+      for (const [verse, value] of Object.entries(verses)) {
+        const prior = existing?.[passageKey]?.[verse];
+        if (prior === undefined || fingerprint(prior) === fingerprint(value)) continue;
+        const choice = decisions[store + ':' + passageKey + ':' + verse];
+        if (choice === 'keep') output[passageKey][verse] = prior;
+        else if (choice === 'duplicate' && Array.isArray(prior) && Array.isArray(value)) output[passageKey][verse] = [...prior, ...value];
+      }
+    }
+    return output;
+  }
+  const output = { ...incoming };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (!Object.prototype.hasOwnProperty.call(existing || {}, key) || fingerprint(existing[key]) === fingerprint(value)) continue;
+    const choice = decisions[store + ':' + key];
+    if (choice === 'keep') output[key] = existing[key];
+    else if (choice === 'duplicate') output[key + '::import-' + createImportId()] = value;
+  }
+  return output;
+}
+
 export function applyWorkspaceArchiveImport(validated, currentStores, decisions = {}, mode = 'merge') {
   const report = planWorkspaceArchiveImport(validated, currentStores);
   const conflictCount = Object.values(report).reduce((sum, item) => sum + item.conflicting, 0);
@@ -306,7 +363,7 @@ export function applyWorkspaceArchiveImport(validated, currentStores, decisions 
   const next = { ...currentStores };
   for (const [store, incoming] of Object.entries(validated.stores)) {
     if (mode === 'replace') {
-      next[store] = incoming;
+      next[store] = replaceStoreWithDecisions(store, currentStores[store], incoming, decisions);
       continue;
     }
     if (store === 'theologicalTensions') next[store] = mergeTensions(currentStores[store] || {}, incoming, decisions);

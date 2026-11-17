@@ -19,7 +19,7 @@ export const WORKSPACE_ARCHIVE_STORES = Object.freeze({
 
 const STORE_VALIDATORS = {
   drafts: value => isObject(value) && Object.entries(value).every(([key, record]) => {
-    const match = key.match(/^(.+)\\|(\\d+)$/);
+    const match = key.match(/^(.+)\|(\d+)$/);
     return Boolean(match && validBiblePassage(match[1], Number(match[2]))) &&
       isObject(record) &&
       ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>

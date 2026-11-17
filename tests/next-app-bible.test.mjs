@@ -396,7 +396,7 @@ test('preview draft persistence retains validated note history with the four sta
   assert.equal(writePreviewDrafts({ 'John|1': saved }, storage), true);
   const restored = readPreviewDrafts(storage)['John|1'];
   assert.deepEqual(restored, saved);
-  assert.equal(listPreviewDraftEntries({ 'John|1': restored })[0].wordCount, 3);
+  assert.equal(listPreviewDraftEntries({ 'John|1': restored })[0].wordCount, 4);
 });
 
 test('preview draft persistence discards invalid note history without discarding the study notes', () => {

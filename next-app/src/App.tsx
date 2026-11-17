@@ -789,7 +789,11 @@ export default function App() {
     }
   };
 
-  const downloadDossierFile = (dossier: typeof selectedTensionDossier, format: 'json' | 'markdown') => {
+  const downloadDossierFile = (
+    dossier: typeof selectedTensionDossier,
+    format: 'json' | 'markdown',
+    archiveVersion: TheologicalDossierVersion | null = selectedSavedDossierVersion
+  ) => {
     if (!dossier) return;
     const stem = (dossier.studyPassage + '-' + dossier.doctrinalClaim)
       .toLocaleLowerCase()
@@ -797,17 +801,29 @@ export default function App() {
       .replace(/^-|-$/g, '')
       .slice(0, 70) || 'theological-research-dossier';
     const content = format === 'json'
-      ? JSON.stringify(dossier, null, 2)
-      : exportTheologicalDossierMarkdown(dossier);
+      ? JSON.stringify(archiveVersion ? {
+          archive: {
+            id: archiveVersion.id,
+            tensionKey: archiveVersion.tensionKey,
+            tensionId: archiveVersion.tensionId,
+            versionNumber: archiveVersion.versionNumber,
+            savedAt: archiveVersion.savedAt
+          },
+          dossier
+        } : dossier, null, 2)
+      : exportTheologicalDossierMarkdown(dossier, archiveVersion ? {
+          versionNumber: archiveVersion.versionNumber,
+          savedAt: new Date(archiveVersion.savedAt).toLocaleString()
+        } : {});
     const blob = new Blob([content], { type: format === 'json' ? 'application/json;charset=utf-8' : 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = stem + (selectedSavedDossierVersion ? '-v' + selectedSavedDossierVersion.versionNumber : '') + (format === 'json' ? '.json' : '.md');
+    anchor.download = stem + (archiveVersion ? '-v' + archiveVersion.versionNumber : '') + (format === 'json' ? '.json' : '.md');
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
 
@@ -1085,7 +1101,7 @@ export default function App() {
             <p className="dossier-management-conclusion">{version.dossier.researchConclusion}</p>
             <div className="dossier-management-card-footer">
               <small>{version.dossier.evidence.length} linked evidence records · {version.dossier.history.length} recorded checkpoints · Saved locally</small>
-              <div><button type="button" className="primary-button" onClick={()=>openSavedDossierVersion(version)}>Open saved version</button><button type="button" className="outline-button" onClick={()=>downloadDossierFile(version.dossier,'markdown')}>Export Markdown</button><button type="button" className="text-button" onClick={()=>downloadDossierFile(version.dossier,'json')}>Export JSON</button></div>
+              <div><button type="button" className="primary-button" onClick={()=>openSavedDossierVersion(version)}>Open saved version</button><button type="button" className="outline-button" onClick={()=>downloadDossierFile(version.dossier,'markdown',version)}>Export Markdown</button><button type="button" className="text-button" onClick={()=>downloadDossierFile(version.dossier,'json',version)}>Export JSON</button></div>
             </div>
           </article>)}
         </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="file-text"/></div><h2>{savedDossierVersions.length?'No matching dossier versions':'No saved dossiers yet'}</h2><p>{savedDossierVersions.length?'Change your search to find saved dossiers.':'Open a tension record in Doctrine review, prepare its dossier and choose Save dossier version. The archive keeps each dated snapshot separately.'}</p>{savedDossierVersions.length>0 && <button type="button" className="text-button" onClick={()=>setDossierSearch('')}>Clear search</button>}</div>}
@@ -1123,7 +1139,7 @@ export default function App() {
             <span className="eyebrow">INDUCTIVE BIBLE STUDY · THEOLOGICAL RESEARCH</span>
             <h1>{activeTensionDossier.title}</h1>
             <p>A structured account of the passages examined, the interpretation reached, the evidence considered and the history of the researcher’s reasoning.</p>
-            <div className="tension-dossier-document-meta"><span>Prepared {new Date(activeTensionDossier.generatedAt).toLocaleString()}</span><span>Study: {activeTensionDossier.studyPassage}</span><span>Updated: {activeTensionDossier.recordUpdatedAt}</span></div>
+            <div className="tension-dossier-document-meta"><span>Prepared {new Date(activeTensionDossier.generatedAt).toLocaleString()}</span><span>Study: {activeTensionDossier.studyPassage}</span><span>Updated: {activeTensionDossier.recordUpdatedAt}</span>{selectedSavedDossierVersion && <span>Archived version {selectedSavedDossierVersion.versionNumber} · Saved {new Date(selectedSavedDossierVersion.savedAt).toLocaleString()}</span>}</div>
           </header>
 
           <section className="tension-dossier-summary-grid" aria-label="Dossier summary">

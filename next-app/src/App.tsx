@@ -1453,7 +1453,7 @@ export default function App() {
                                 {entry.evidenceConsidered && <p><b>Evidence considered:</b> {entry.evidenceConsidered}</p>}
                                 {entry.previousAnalysisSnapshot && <p><b>Previous analysis:</b> {entry.previousAnalysisSnapshot}</p>}
                                 {entry.analysisSnapshot && <p><b>Analysis at checkpoint:</b> {entry.analysisSnapshot}</p>}
-                                {entry.previousUncertaintySnapshot && <p><b>Previous uncertainty:</b> {entry.previousUncertaintySnapshot}</p>
+                                {entry.previousUncertaintySnapshot && <p><b>Previous uncertainty:</b> {entry.previousUncertaintySnapshot}</p>}
                                 {entry.uncertaintySnapshot && <p><b>Remaining uncertainty:</b> {entry.uncertaintySnapshot}</p>}
                                 <div className="tension-history-passage-snapshot"><small>PASSAGE A · {entry.passageA || 'Reference not recorded'}</small><p>{entry.contextA || 'Context not recorded'}</p><small>PASSAGE B · {entry.passageB || 'Reference not recorded'}</small><p>{entry.contextB || 'Context not recorded'}</p></div>
                               </div>

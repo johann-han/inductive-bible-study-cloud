@@ -15,6 +15,8 @@ export interface WordStudyRecord {
   gloss: string;
   senses: WordStudySense[];
   originalText: string;
+  wordStart?: number;
+  wordEnd?: number;
   language: string;
   parsing: string;
   parsingFull: string;

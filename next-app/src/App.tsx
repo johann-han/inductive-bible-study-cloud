@@ -1030,6 +1030,7 @@ export default function App() {
       <button className="nav-item nav-disabled" type="button" disabled title="Research tools are being integrated in a later rebuild phase"><Icon name="search"/>Word studies</button>
       <button className={view === 'references' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('references')}><Icon name="panel"/>Cross-references<span className="nav-count">{previewCrossReferences.length}</span></button>
       <button className={view === 'tensions' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('tensions')}><Icon name="panel"/>Theological tensions<span className="nav-count">{indexedTheologicalTensions.length}</span></button>
+      <button className={view === 'archive' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('archive')}><Icon name="file-text"/>Backup &amp; restore</button>
       <button className={view === 'dossiers' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('dossiers')}><Icon name="file-text"/>Research dossiers<span className="nav-count">{savedDossierVersions.length}</span></button>
       <button className="nav-item nav-disabled" type="button" disabled title="AI guidance will be reconnected after the contextual data adapter is complete"><Icon name="spark"/>AI study guide</button>
       <div className="sidebar-bottom"><div className="avatar">J</div><div><strong>Study workspace</strong><span>Preview environment</span></div><button className="icon-button" aria-label="Settings" type="button" disabled><Icon name="settings"/></button></div>
@@ -1037,9 +1038,31 @@ export default function App() {
     <main className="main-area">
       <header className="topbar">
         {view !== 'overview' && <button className="back-home-button" type="button" onClick={() => setView('overview')} aria-label="Back to start screen" title="Back to start screen"><Icon name="back"/><span>Home</span></button>}
-        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'dossiers' ? 'Research dossiers' : view === 'dossier' ? 'Research dossier' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
+        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'archive' ? 'Backup & restore' : view === 'dossiers' ? 'Research dossiers' : view === 'dossier' ? 'Research dossier' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
+      {view === 'archive' ? <section className="archive-workspace">
+        <div className="archive-page-heading"><span className="eyebrow">PORTABILITY &amp; RECOVERY</span><h1>Backup &amp; restore</h1><p>Export this preview workspace or inspect a saved archive. No data changes until you explicitly restore.</p></div>
+        <section className="archive-card">
+          <div><h2>Full workspace backup</h2><p>Studies and notes, Scripture and word markups, user cross-references, evidence, claim synthesis, doctrine reviews, theological tensions and dossier history.</p></div>
+          <button type="button" className="primary-button" onClick={downloadWorkspaceArchive}>Download full archive</button>
+          <button type="button" className="outline-button" onClick={downloadDossierArchive} disabled={!savedDossierVersions.length}>Download dossier-only archive</button>
+        </section>
+        <section className="archive-card">
+          <div><h2>Restore from archive</h2><p>JSON only · Maximum 25 MB · Supports full workspace and existing dossier-only archives.</p></div>
+          <label className="archive-file-picker">Choose archive file<input type="file" accept="application/json,.json" onChange={event => void inspectArchiveFile(event.target.files?.[0] || null)}/></label>
+          {archiveFile && <p className="archive-file-name">{archiveFile.name} · {(archiveFile.size / 1024).toFixed(1)} KB</p>}
+          {archiveError && <p className="archive-error" role="alert">{archiveError}</p>}
+          {archivePreview && archiveReport && <>
+            <div className="archive-preflight"><strong>Archive validated</strong><span>{archivePreview.kind === 'dossier' ? 'Dossier-only archive' : 'Full workspace archive'} · Version {archivePreview.archiveVersion}</span><span>Exported: {archivePreview.exportedAt ? new Date(archivePreview.exportedAt).toLocaleString() : 'Date not supplied'}</span></div>
+            <div className="archive-summary-table"><table><thead><tr><th>Data group</th><th>Incoming</th><th>New</th><th>Identical</th><th>Conflicts</th></tr></thead><tbody>{Object.entries(archiveReport).map(([store, report])=><tr key={store}><td>{store}</td><td>{report.incomingCount}</td><td>{report.newItems}</td><td>{report.identical}</td><td>{report.conflicting}</td></tr>)}</tbody></table></div>
+            {Object.values(archiveReport).some(report=>report.conflicts.length>0) && <section className="archive-conflict-list"><h3>Conflicting records</h3>{Object.entries(archiveReport).flatMap(([store,report])=>report.conflicts.map(conflict=><div className="archive-conflict" key={store+':'+conflict.id}><span><strong>{store}</strong> · {conflict.description || conflict.id}</span><select aria-label={'Conflict handling for '+store+' '+conflict.id} value={archiveDecisions[store+':'+conflict.id] || 'keep'} onChange={event=>setArchiveDecisions(previous=>({...previous,[store+':'+conflict.id]:event.target.value as 'keep'|'replace'|'duplicate'}))}><option value="keep">Keep local copy</option><option value="replace">Replace with archive copy</option><option value="duplicate">Import a separate copy</option></select></div>))}</section>}
+            <div className="archive-mode"><label>Restore strategy<select value={archiveMode} onChange={event=>setArchiveMode(event.target.value as 'merge'|'replace')}><option value="merge">Merge (recommended — keep local by default)</option><option value="replace">Replace imported data groups</option></select></label><p>Merge preserves unrelated records. Replace affects only groups in this archive and requires explicit duplicate decisions.</p></div>
+            <button type="button" className="primary-button" onClick={applyArchiveRestore} disabled={archiveWorking}>{archiveWorking?'Restoring…':'Restore validated archive'}</button>
+          </>}
+          {archiveNotice && <p className="archive-success" role="status">{archiveNotice}</p>}
+        </section>
+      </section> : null}
       {view === 'overview' ? <section className="dashboard-view">
         <div className="dashboard-hero">
           <div className="dashboard-hero-copy">

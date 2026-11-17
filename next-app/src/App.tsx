@@ -702,9 +702,9 @@ export default function App() {
     setView('word-studies');
   };
 
-  const updateWordStudyNotes = (id: string, notes: string) => {
+  const updateWordStudyNotes = (id: string, notes: string, markUpdated = false) => {
     setWordStudies(previous => previous.map(item => item.id === id
-      ? { ...item, notes, updatedAt: new Date().toISOString() } : item));
+      ? { ...item, notes, ...(markUpdated ? { updatedAt: new Date().toISOString() } : {}) } : item));
   };
 
   const removeWordStudy = (record: WordStudyRecord) => {
@@ -1259,7 +1259,7 @@ export default function App() {
           <div className="word-study-card-heading"><div><span className="word-study-id">{record.strongsId}</span><span className="word-study-reference">{record.reference.book} {record.reference.chapter}:{record.reference.verse} · {record.reference.translation}</span><h2>{record.lemma} <span>{record.transliteration}</span></h2><p>{record.englishWord} · {record.partOfSpeech || 'Part of speech not supplied'}</p></div><div className="word-study-card-actions"><button type="button" className="primary-button" onClick={() => openSavedWordStudyPassage(record)}>Open verse</button><button type="button" className="text-button" onClick={() => removeWordStudy(record)}>Remove</button></div></div>
           <div className="word-study-detail-grid"><div><span className="eyebrow">LEXICON GLOSS</span><p>{record.gloss || 'No gloss supplied by source.'}</p>{record.senses.map((sense,index)=><div className="word-study-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}</div><div><span className="eyebrow">OCCURRENCE MORPHOLOGY</span><p>{record.originalText || 'Original form not supplied'} · {record.language}</p><strong>{record.parsingFull || record.parsing || 'No parsing supplied by source'}</strong></div></div>
           {record.verseText && <blockquote className="word-study-verse">“{record.verseText}”</blockquote>}
-          <label className="word-study-notes">Researcher’s contextual notes<textarea value={record.notes} onChange={event => updateWordStudyNotes(record.id,event.target.value)} placeholder="Record how this word functions in this occurrence. Distinguish observation from lexical possibility and interpretation." rows={3}/></label>
+          <label className="word-study-notes">Researcher’s contextual notes<textarea defaultValue={record.notes} onChange={event => updateWordStudyNotes(record.id,event.target.value)} onBlur={event => updateWordStudyNotes(record.id,event.currentTarget.value,true)} placeholder="Record how this word functions in this occurrence. Distinguish observation from lexical possibility and interpretation." rows={3}/></label>
           <div className="word-study-source"><a href={record.sourceUrl} target="_blank" rel="noopener noreferrer">{record.source} · Open source record</a><span>Saved {new Date(record.createdAt).toLocaleString()}</span></div>
         </article>)}</div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="search"/></div><h2>{wordStudies.length ? 'No matching word studies' : 'Build your word-study collection'}</h2><p>{wordStudies.length ? 'Try searching by Strong’s ID, lemma, Scripture reference, morphology or your notes.' : 'In the Bible reader, enable Strong’s annotations, select a tagged word, inspect its lexicon entry and morphology, then choose “Save to Word Studies”. Your saved entries will be searchable here.'}</p>{wordStudies.length > 0 ? <button className="text-button" type="button" onClick={() => setWordStudyQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => { setShowStrongs(true); setView('reader'); }}>Open Bible reader <Icon name="chevron"/></button>}</div>}
       </section> : view === 'references' ? <section className="references-view">

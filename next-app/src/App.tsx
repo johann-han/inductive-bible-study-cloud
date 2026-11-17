@@ -986,7 +986,7 @@ export default function App() {
 
           <section className="tension-dossier-summary-grid" aria-label="Dossier summary">
             <article><small>DOCTRINAL CLAIM</small><strong>{selectedTensionDossier.doctrinalClaim}</strong></article>
-            <article><small>CLAIM LEVEL</small><strong>{selectedTensionDossier.claimLevel}</strong></article>
+            <article><small>CLAIM LEVEL</small><strong>{selectedTensionDossier.claimLevel.replaceAll('_', ' ')}</strong></article>
             <article><small>RESEARCH ASSESSMENT</small><strong>{selectedTensionDossier.assessmentLabel}</strong></article>
             <article><small>RESEARCH STATUS</small><strong>{selectedTensionDossier.statusLabel}</strong></article>
           </section>

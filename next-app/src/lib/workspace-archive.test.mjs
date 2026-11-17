@@ -152,3 +152,27 @@ test('preserves unknown extension properties inside validated research records',
   const restored = applyWorkspaceArchiveImport(validated, {});
   assert.deepEqual(restored.theologicalTensions['Genesis|1::creation'][0].futureExtension, { retained: true });
 });
+
+
+test('replace mode honours keep and duplicate conflict decisions', () => {
+  const incoming = sample();
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(incoming));
+  const current = sample();
+  current.evidence[0].detail = 'Local evidence';
+  current.claimSynthesis['Genesis 1::creation'].conclusion = 'Local claim';
+  const kept = applyWorkspaceArchiveImport(validated, current, {
+    'evidence:evidence-1': 'keep',
+    'claimSynthesis:Genesis 1::creation': 'keep'
+  }, 'replace');
+  assert.equal(kept.evidence[0].detail, 'Local evidence');
+  assert.equal(kept.claimSynthesis['Genesis 1::creation'].conclusion, 'Local claim');
+  const duplicated = applyWorkspaceArchiveImport(validated, current, {
+    'evidence:evidence-1': 'duplicate',
+    'claimSynthesis:Genesis 1::creation': 'duplicate'
+  }, 'replace');
+  assert.equal(duplicated.evidence.length, 2);
+  assert.equal(duplicated.evidence[0].detail, 'Local evidence');
+  assert.notEqual(duplicated.evidence[1].id, 'evidence-1');
+  assert.equal(duplicated.claimSynthesis['Genesis 1::creation'].conclusion, 'Local claim');
+  assert.equal(Object.keys(duplicated.claimSynthesis).length, 2);
+});

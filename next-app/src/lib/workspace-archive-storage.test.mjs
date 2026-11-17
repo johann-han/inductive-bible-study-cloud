@@ -89,6 +89,6 @@ test('reports when rollback itself cannot restore a previous value', () => {
 test('rejects malformed and duplicate storage write keys before any mutation', () => {
   const storage = makeStorage({ drafts: 'old-drafts' });
   assert.throws(() => persistWorkspaceArchiveWrites(storage, [['drafts', 'a'], ['drafts', 'b']]), /duplicate storage keys/);
-  assert.throws(() => persistWorkspaceArchiveWrites(storage, [['', 'value']]), /key\\/value string pairs/);
+  assert.throws(() => persistWorkspaceArchiveWrites(storage, [['', 'value']]), /key\/value string pairs/);
   assert.equal(storage.getItem('drafts'), 'old-drafts');
 });

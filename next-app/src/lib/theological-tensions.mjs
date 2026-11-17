@@ -206,3 +206,173 @@ export function buildTheologicalTensionDossier(record, options = {}) {
     methodNote: 'This dossier reports the researcher’s recorded work. It does not independently verify the interpretation, decide whether passages contradict one another, or resolve questions left open by the evidence.'
   };
 }
+
+
+function dossierSnapshotCopy(dossier) {
+  try {
+    return JSON.parse(JSON.stringify(dossier));
+  } catch {
+    throw new TypeError('The dossier must contain serializable research data.');
+  }
+}
+
+export function appendTheologicalDossierVersion(existingVersions, input, metadata = {}) {
+  const current = Array.isArray(existingVersions) ? existingVersions : [];
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError('A dossier version record is required.');
+  }
+  const tensionKey = typeof input.tensionKey === 'string' ? input.tensionKey.trim() : '';
+  if (!tensionKey) throw new TypeError('The dossier must be linked to its original tension record.');
+  const id = typeof metadata.id === 'string' ? metadata.id.trim() : '';
+  if (!id) throw new TypeError('A unique dossier version ID is required.');
+  if (current.some(version => version && version.id === id)) {
+    throw new TypeError('Dossier version IDs must be unique.');
+  }
+  const savedAt = typeof metadata.savedAt === 'string' && Number.isFinite(Date.parse(metadata.savedAt))
+    ? new Date(metadata.savedAt).toISOString()
+    : '';
+  if (!savedAt) throw new TypeError('A valid dossier save timestamp is required.');
+  const dossier = input.dossier && typeof input.dossier === 'object' && !Array.isArray(input.dossier)
+    ? dossierSnapshotCopy(input.dossier)
+    : null;
+  if (!dossier || typeof dossier.title !== 'string' || typeof dossier.generatedAt !== 'string') {
+    throw new TypeError('A complete generated dossier snapshot is required.');
+  }
+  const versionNumber = current.filter(version => version && version.tensionKey === tensionKey)
+    .reduce((highest, version) => Math.max(highest, Number(version.versionNumber) || 0), 0) + 1;
+  const version = Object.freeze({
+    id,
+    tensionKey,
+    tensionId: typeof input.tensionId === 'string' ? input.tensionId : '',
+    studyPassage: dossierText(dossier.studyPassage, 'Study passage not identified'),
+    doctrinalClaim: dossierText(dossier.doctrinalClaim, 'Claim not recorded'),
+    versionNumber,
+    savedAt,
+    dossier
+  });
+  return [...current, version];
+}
+
+export function compareTheologicalDossierVersions(left, right) {
+  if (!left || typeof left !== 'object' || !right || typeof right !== 'object') {
+    throw new TypeError('Choose two saved dossier versions to compare.');
+  }
+  if (!left.dossier || !right.dossier || typeof left.dossier !== 'object' || typeof right.dossier !== 'object') {
+    throw new TypeError('Both selected versions must contain a dossier snapshot.');
+  }
+  if (left.tensionKey !== right.tensionKey) {
+    throw new TypeError('Only versions of the same tension record can be compared.');
+  }
+  const fields = [
+    ['Assessment', 'assessmentLabel'],
+    ['Research status', 'statusLabel'],
+    ['Claim level', 'claimLevel'],
+    ['Original synthesis', 'originalSynthesis'],
+    ['Refined doctrinal formulation', 'refinedDoctrinalFormulation'],
+    ['Passage A context', 'passages.0.context'],
+    ['Passage B context', 'passages.1.context'],
+    ['Interpretive analysis', 'interpretiveAnalysis'],
+    ['Current researcher position', 'currentResearcherPosition'],
+    ['Research conclusion', 'researchConclusion'],
+    ['Resolution rationale', 'resolutionRationale'],
+    ['Remaining uncertainty', 'remainingUncertainty'],
+    ['Linked evidence count', 'evidence.length'],
+    ['History checkpoint count', 'history.length']
+  ];
+  const read = (object, path) => path.split('.').reduce((value, part) => {
+    if (value == null) return undefined;
+    if (part === 'length') return typeof value.length === 'number' ? value.length : undefined;
+    return value[part];
+  }, object);
+  const changes = fields.map(([label, path]) => ({
+    label,
+    before: read(left.dossier, path) ?? '',
+    after: read(right.dossier, path) ?? '',
+    changed: JSON.stringify(read(left.dossier, path) ?? '') !== JSON.stringify(read(right.dossier, path) ?? '')
+  }));
+  return {
+    tensionKey: left.tensionKey,
+    leftVersion: Number(left.versionNumber) || 0,
+    rightVersion: Number(right.versionNumber) || 0,
+    leftSavedAt: left.savedAt || '',
+    rightSavedAt: right.savedAt || '',
+    changes,
+    changedFields: changes.filter(item => item.changed)
+  };
+}
+
+export function exportTheologicalDossierMarkdown(dossier) {
+  if (!dossier || typeof dossier !== 'object' || Array.isArray(dossier)) {
+    throw new TypeError('A dossier snapshot is required for Markdown export.');
+  }
+  const section = (heading, value) => '## ' + heading + '\n\n' + dossierText(value, 'Not recorded') + '\n\n';
+  const passages = Array.isArray(dossier.passages) ? dossier.passages : [];
+  const evidence = Array.isArray(dossier.evidence) ? dossier.evidence : [];
+  const history = Array.isArray(dossier.history) ? dossier.history : [];
+  const lines = [
+    '# ' + dossierText(dossier.title, 'Research Dossier'),
+    '',
+    '**Study:** ' + dossierText(dossier.studyPassage, 'Not identified'),
+    '**Claim:** ' + dossierText(dossier.doctrinalClaim, 'Not recorded'),
+    '**Prepared:** ' + dossierText(dossier.generatedAt, 'Date not recorded'),
+    '',
+    section('Research question and scope', dossier.issue),
+    section('Original claim synthesis', dossier.originalSynthesis),
+    section('Synthesis reasoning', dossier.synthesisReasoning),
+    section('Refined doctrinal formulation', dossier.refinedDoctrinalFormulation),
+    '## Scripture passages examined',
+    '',
+    ...passages.flatMap(passage => ['### ' + passage.label + ' — ' + passage.reference, '', passage.context, '']),
+    section('Interpretive analysis', dossier.interpretiveAnalysis),
+    section('Current researcher position', dossier.currentResearcherPosition),
+    '## Evidence reviewed',
+    '',
+    ...(evidence.length ? evidence.flatMap((item, index) => [
+      '### ' + (index + 1) + '. ' + item.reference,
+      '',
+      '- Kind: ' + item.kind,
+      '- Source: ' + item.source,
+      '- Relationship: ' + item.relationship,
+      '- Quality: ' + item.sourceQuality,
+      '- Verification: ' + item.verificationStatus,
+      '',
+      item.detail,
+      item.assessmentRationale ? '\nAssessment rationale: ' + item.assessmentRationale : '',
+      item.verificationRationale ? '\nVerification rationale: ' + item.verificationRationale : '',
+      item.sourceQualityRationale ? '\nSource-quality rationale: ' + item.sourceQualityRationale : '',
+      ''
+    ]) : ['No linked evidence records were attached.', '']),
+    section('Research conclusion and proposed resolution', dossier.researchConclusion),
+    section('Rationale for the conclusion', dossier.resolutionRationale),
+    section('Remaining uncertainty', dossier.remainingUncertainty),
+    '## Interpretation and resolution history',
+    '',
+    ...(history.length ? history.flatMap((entry, index) => [
+      '### Checkpoint ' + (index + 1) + ' — ' + entry.eventType + ' — ' + entry.recordedAt,
+      '',
+      '**Assessment:** ' + (entry.previousAssessment || 'Initial position') + ' → ' + entry.assessment,
+      '**Status:** ' + (entry.previousStatus || 'Initial position') + ' → ' + entry.status,
+      '',
+      '**Previous position:** ' + (entry.previousResearcherPosition || 'None recorded'),
+      '',
+      '**Recorded position:** ' + entry.researcherPosition,
+      '',
+      '**Reason:** ' + entry.rationale,
+      '',
+      '**Evidence considered:** ' + (entry.evidenceConsidered || 'Not recorded'),
+      '',
+      '**Analysis:** ' + (entry.analysisSnapshot || 'Not recorded'),
+      '',
+      '**Uncertainty:** ' + (entry.uncertaintySnapshot || 'Not recorded'),
+      ''
+    ]) : ['No formal history checkpoints were recorded.', '']),
+    '## Methodological limitations',
+    '',
+    dossierText(dossier.methodNote, 'This document reports recorded research and does not independently verify its conclusions.'),
+    '',
+    '---',
+    'Generated from the locally saved IBS preview dossier. This document is a researcher-prepared record, not an automated theological verdict.',
+    ''
+  ];
+  return lines.join('\n');
+}

@@ -356,8 +356,12 @@ function replaceTensions(existing, incoming, decisions) {
   for (const [key, records] of Object.entries(incoming)) {
     for (const record of records) {
       const location = findTensionLocation(existing || {}, record.id);
-      if (!location || fingerprint(location.record) === fingerprint(record)) {
+      if (!location) {
         appendTension(output, key, record);
+        continue;
+      }
+      if (fingerprint(location.record) === fingerprint(record)) {
+        appendTension(output, location.key, location.record);
         continue;
       }
       const choice = decisions['theologicalTensions:' + record.id];

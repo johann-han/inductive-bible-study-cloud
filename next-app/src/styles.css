@@ -218,11 +218,16 @@
 @media(max-width:640px){.verse-action-context-heading{align-items:flex-start}.clear-verse-selection{min-height:34px}}
 
 
-/* Contextual cross-reference verse preview, matching the Strong's lexicon popover. */
-.standard-reference-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.standard-reference-links>button{border:1px solid #e2e9df;background:#f5f8f3;color:#315943;border-radius:6px;padding:5px 8px;font:600 11px 'DM Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s}
-.standard-reference-links>button:hover,.standard-reference-links>button:focus-visible,.standard-reference-links>button.active{background:#e8f0e7;border-color:#9eb7a1;color:#1e4b36;outline:none}
-.reference-verse-popover{position:relative;margin:12px 0 4px;padding:14px 16px;border:1px solid #dce6da;border-radius:10px;background:#fbfcfa;box-shadow:0 8px 24px rgba(26,55,40,.08);animation:reference-popover-in .16s ease-out}
+/* Hover / focus cross-reference previews, with click support for touch devices. */
+.standard-reference-links{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.standard-reference-action{position:relative;display:inline-flex;align-items:center;gap:6px;z-index:0}
+.standard-reference-action:has(.reference-verse-popover){z-index:40}
+.standard-reference-link{border:1px solid #e2e9df;background:#f5f8f3;color:#315943;border-radius:6px;padding:5px 8px;font:600 11px 'DM Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s}
+.standard-reference-link:hover,.standard-reference-link:focus-visible,.standard-reference-link.active{background:#e8f0e7;border-color:#9eb7a1;color:#1e4b36;outline:2px solid #cbdcc9;outline-offset:1px}
+.reference-attach-button{border:1px solid #e3e9e1;border-radius:6px;padding:5px 7px;background:#fff;color:#526d59;font:600 10px 'DM Sans',sans-serif;cursor:pointer}
+.reference-attach-button:hover,.reference-attach-button:focus-visible{background:#edf4ec;border-color:#b6cbb8;outline:none}
+.reference-verse-popover{position:absolute;top:calc(100% + 8px);left:0;z-index:80;width:min(380px,calc(100vw - 32px));max-height:min(65vh,420px);overflow:auto;margin:0;padding:14px 16px;border:1px solid #dce6da;border-radius:10px;background:#fbfcfa;box-shadow:0 12px 30px rgba(26,55,40,.18);animation:reference-popover-in .16s ease-out}
+.standard-reference-action:nth-last-child(-n+2) .reference-verse-popover{left:auto;right:0}
 @keyframes reference-popover-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .reference-verse-popover-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .reference-verse-popover-heading>div{display:grid;gap:5px}
@@ -236,7 +241,7 @@
 .reference-preview-open{display:flex;align-items:center;gap:3px;color:#286247;font-size:10px;font-weight:700;white-space:nowrap;padding-top:3px}
 .reference-preview-open svg{width:12px;height:12px}
 .reference-preview-hint{font-size:10px;color:#87948a;margin:8px 0 0}
-@media(max-width:560px){.reference-verse-popover{padding:12px}.reference-preview-verse{grid-template-columns:18px minmax(0,1fr);gap:7px}.reference-preview-open{grid-column:2;padding-top:0}}
+@media(max-width:560px){.reference-verse-popover{width:min(340px,calc(100vw - 24px));max-height:60vh;padding:12px}.reference-preview-verse{grid-template-columns:18px minmax(0,1fr);gap:7px}.reference-preview-open{grid-column:2;padding-top:0}}
 
 
 /* Word- and phrase-level observation markings */

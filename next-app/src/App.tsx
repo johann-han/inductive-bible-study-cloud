@@ -318,7 +318,7 @@ export default function App() {
   const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'needs_review' | EvidenceRelationship>('all');
   const [evidenceSourceUrl, setEvidenceSourceUrl] = useState('');
   const [evidenceSourceId, setEvidenceSourceId] = useState('');
-  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions' | 'dossier'>('overview');
+  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions' | 'dossiers' | 'dossier'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
@@ -428,6 +428,7 @@ export default function App() {
   useEffect(() => { try { window.localStorage.setItem(CLAIM_SYNTHESIS_STORAGE_KEY, JSON.stringify(claimSyntheses)); } catch { setEvidenceNotice('Claim synthesis could not be saved in this browser.'); } }, [claimSyntheses]);
   useEffect(() => { try { window.localStorage.setItem(DOCTRINE_REVIEW_STORAGE_KEY, JSON.stringify(doctrineReviews)); } catch { setEvidenceNotice('Doctrine review could not be saved in this browser.'); } }, [doctrineReviews]);
   useEffect(() => { try { window.localStorage.setItem(THEOLOGICAL_TENSION_STORAGE_KEY, JSON.stringify(theologicalTensions)); } catch { setEvidenceNotice('Theological tension register could not be saved in this browser.'); } }, [theologicalTensions]);
+  useEffect(() => { try { window.localStorage.setItem(THEOLOGICAL_DOSSIER_VERSION_STORAGE_KEY, JSON.stringify(savedDossierVersions)); } catch { setDossierNotice('Dossier versions could not be saved in this browser. Export important versions to keep your own copy.'); } }, [savedDossierVersions]);
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
   useEffect(() => {
     if (view !== 'references') return;

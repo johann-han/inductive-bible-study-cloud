@@ -211,3 +211,47 @@
 .tension-register-import-grid .outline-button:disabled{opacity:.45;cursor:not-allowed}
 .tension-register-imports>small{color:#7b877d;font-size:9px;line-height:1.5}
 @media(max-width:640px){.tension-register-imports{padding:8px}.tension-register-import-grid{grid-template-columns:minmax(0,1fr)}.tension-register-import-grid .outline-button{width:100%;justify-content:center}}
+
+
+/* Study-wide theological tension register overview. */
+.tensions-overview-view{width:min(100%,1440px);margin:0 auto;padding:28px 34px 48px;box-sizing:border-box}
+.tensions-overview-view>.library-header{margin-bottom:20px}
+.tensions-overview-view>.library-header h1{margin:5px 0 7px;color:#294536;font:400 30px 'Libre Baskerville',Georgia,serif}
+.tensions-overview-view>.library-header p{max-width:760px;margin:0;color:#68766e;font-size:12px;line-height:1.65}
+.tension-overview-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 17px}
+.tension-overview-stat-grid article{display:grid;gap:5px;min-width:0;padding:13px;border:1px solid #e0e7df;border-radius:9px;background:#fff}
+.tension-overview-stat-grid article>span{color:#65756a;font-size:10px;font-weight:650}
+.tension-overview-stat-grid article>strong{color:#294b37;font:400 25px 'Libre Baskerville',Georgia,serif;font-variant-numeric:tabular-nums}
+.tension-overview-stat-grid article>small{color:#7b877d;font-size:9px;line-height:1.4}
+.tension-overview-toolbar{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(2,minmax(150px,1fr)) auto;align-items:end;gap:10px;padding:13px;border:1px solid #e0e7df;border-radius:10px;background:#f8faf7}
+.tension-overview-toolbar>label{display:grid;gap:5px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.tension-overview-toolbar input,.tension-overview-toolbar select{width:100%;min-width:0;box-sizing:border-box;min-height:37px;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px 10px;color:#29392f;font:11px 'DM Sans',sans-serif}
+.tension-overview-toolbar input:focus,.tension-overview-toolbar select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.tension-clear-filters{padding:8px 5px;white-space:nowrap}
+.tension-overview-results-heading{display:flex;align-items:baseline;gap:5px;margin:16px 2px 9px;color:#69786e;font-size:10px}
+.tension-overview-results-heading strong{color:#304b3a;font-size:12px}
+.tension-overview-results-heading span{margin-left:auto;color:#859087}
+.tension-overview-list{display:grid;gap:11px}
+.tension-overview-card{display:grid;gap:11px;padding:15px;border:1px solid #dfe7df;border-radius:10px;background:#fff}
+.tension-overview-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.tension-overview-card-top>div:first-child{display:grid;gap:4px;min-width:0}
+.tension-overview-card-top .eyebrow{color:#7a887c;font-size:9px;font-weight:700;letter-spacing:.06em}
+.tension-overview-card-top h2{margin:0;color:#294536;font-size:14px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.tension-overview-badges{display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap;flex:none}
+.tension-overview-badges span{padding:4px 7px;border:1px solid #e0e7df;border-radius:99px;background:#f6f8f5;color:#596b5e;font-size:9px;font-weight:650;text-transform:capitalize}
+.tension-overview-passage-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.tension-overview-passage-pair>div{display:grid;align-content:start;gap:5px;min-width:0;padding:10px;border:1px solid #e6ece5;border-radius:8px;background:#fafbf9}
+.tension-overview-passage-pair small{color:#7b877d;font-size:9px;font-weight:750;letter-spacing:.05em}
+.tension-overview-passage-pair strong{color:#35513e;font-size:11px}
+.tension-overview-passage-pair p{margin:0;color:#5c6b60;font-size:10px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.tension-overview-issue,.tension-overview-analysis,.tension-overview-uncertainty{margin:0;color:#526257;font-size:10px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-overview-analysis{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.tension-overview-uncertainty{padding:8px 10px;border-left:2px solid #c19a54;background:#fbf8ef;color:#715c36}
+.tension-overview-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:9px;border-top:1px solid #edf1ec}
+.tension-overview-card-footer>small{color:#818c83;font-size:9px}
+.tension-overview-card-footer .primary-button{flex:none}
+.tension-overview-disclaimer{margin:15px 0 0;color:#78847a;font-size:9px;line-height:1.55}
+.tension-register-card[data-tension-record-id]:focus{outline:2px solid #9bb9a1;outline-offset:3px}
+@media(max-width:950px){.tension-overview-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.tension-overview-search{grid-column:1/-1}.tension-clear-filters{justify-self:start}}
+@media(max-width:700px){.tensions-overview-view{padding:18px 14px 32px}.tensions-overview-view>.library-header h1{font-size:24px}.tension-overview-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tension-overview-card{padding:11px}.tension-overview-card-top{flex-direction:column}.tension-overview-badges{justify-content:flex-start}.tension-overview-card-footer{align-items:stretch;flex-direction:column}.tension-overview-card-footer .primary-button{width:100%;justify-content:center}}
+@media(max-width:520px){.tension-overview-toolbar{grid-template-columns:minmax(0,1fr)}.tension-overview-search{grid-column:auto}.tension-overview-passage-pair{grid-template-columns:minmax(0,1fr)}.tension-overview-results-heading{align-items:flex-start;flex-wrap:wrap}.tension-overview-results-heading span{width:100%;margin-left:0}}

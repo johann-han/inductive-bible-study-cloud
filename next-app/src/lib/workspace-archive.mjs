@@ -125,7 +125,6 @@ function collectionFor(store, data) {
   if (store === 'theologicalTensions') return Object.entries(data).flatMap(([key, records]) => records.map(record => ({ key, record })));
   if (store === 'drafts' || store === 'scriptureMarkup' || store === 'wordMarkup') return Object.entries(data).flatMap(([key, verses]) => Object.entries(verses).map(([verse, value]) => ({ key: key + ':' + verse, value })));
   if (store === 'evidence' || store === 'crossReferences' || store === 'dossierVersions') return data;
-  if (['drafts', 'scriptureMarkup', 'wordMarkup'].includes(store)) return Object.entries(data).flatMap(([passageKey, verses]) => Object.entries(verses).map(([verse, value]) => ({ key: passageKey + ':' + verse, value })));
   if (isObject(data)) return Object.entries(data).map(([key, value]) => ({ key, value }));
   return [];
 }
@@ -146,8 +145,8 @@ function inspectStore(store, incoming, existing) {
   const conflicts = [];
   for (const entry of incomingItems) {
     const item = entry.record || entry;
-    const id = duplicateKey(store, item);
-    const prior = id ? existingById.get(id) : null;
+    const id = store === 'theologicalTensions' ? item.id : duplicateKey(store, item);
+    const prior = id ? existingById.get(store === 'theologicalTensions' ? id : id) : null;
     if (!prior) { newItems++; continue; }
     const priorItem = prior.record || prior;
     if (fingerprint(priorItem) === fingerprint(item)) identical++;

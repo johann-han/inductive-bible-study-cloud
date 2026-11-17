@@ -26,6 +26,7 @@ import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
 import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReference } from './lib/standard-cross-references.mjs';
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
+import { buildComparisonPassageImport } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
@@ -268,6 +269,7 @@ export default function App() {
   const [claimSyntheses, setClaimSyntheses] = useState<Record<string, ClaimSynthesis>>(() => typeof window === 'undefined' ? {} : readClaimSynthesis());
   const [doctrineReviews, setDoctrineReviews] = useState<Record<string, DoctrineReview>>(() => typeof window === 'undefined' ? {} : readDoctrineReviews());
   const [theologicalTensions, setTheologicalTensions] = useState<Record<string, TheologicalTension[]>>(() => typeof window === 'undefined' ? {} : readTheologicalTensions());
+  const [tensionImportSelections, setTensionImportSelections] = useState<Record<string, { a: string; b: string }>>({});
   const [doctrineCompareInput, setDoctrineCompareInput] = useState('');
   const [doctrineCompareResults, setDoctrineCompareResults] = useState<{ reference: string; text: string; related: string[]; source: string }[]>([]);
   const [doctrineCompareStatus, setDoctrineCompareStatus] = useState<'idle'|'loading'|'ready'|'error'>('idle');
@@ -1174,6 +1176,7 @@ export default function App() {
                 const key = claimSynthesisKey(passageDraftKey, group.claim);
                 const synthesis = claimSyntheses[key];
                 const review = doctrineReviews[key] || { claimLevel: '', supportingPassages: '', tensions: '', formulation: synthesis.conclusion, unresolved: '', approved: false, updatedAt: '' } as DoctrineReview;
+                const tensionRecords = theologicalTensions[key] || [];
                 const updateReview = (patch: Partial<DoctrineReview>) => setDoctrineReviews(previous => ({ ...previous, [key]: { ...review, ...patch, approved: patch.approved ?? false, updatedAt: new Date().toISOString() } }));
                 const approve = () => {
                   const finalText = review.formulation.trim();
@@ -1181,7 +1184,19 @@ export default function App() {
                   setDraftsByPassage(previous => {
                     const existing = (previous[passageDraftKey] || emptyNotes).doctrine;
                     const marker = '[Approved doctrinal formulation · ' + group.claim + ']';
-                    const block = marker + '\\n' + finalText + '\\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\\nTensions / qualifications: ' + review.tensions.trim() : '') + (review.unresolved.trim() ? '\\nOpen questions: ' + review.unresolved.trim() : '');
+                    const tensionNotes = tensionRecords.map((record, index) => [
+                      'Research question ' + (index + 1),
+                      'Passage A: ' + (record.passageA || 'Not recorded'),
+                      'Passage A context and meaning: ' + (record.contextA || 'Not recorded'),
+                      'Passage B: ' + (record.passageB || 'Not recorded'),
+                      'Passage B context and meaning: ' + (record.contextB || 'Not recorded'),
+                      'Issue examined: ' + (record.issue || 'Not recorded'),
+                      'Interpretive analysis: ' + (record.analysis || 'Not recorded'),
+                      'Remaining uncertainty: ' + (record.uncertainty || 'None recorded'),
+                      'Research assessment: ' + record.assessment.replaceAll('_', ' '),
+                      'Research status: ' + record.status.replaceAll('_', ' ')
+                    ].join('\n')).join('\n\n');
+                    const block = marker + '\n' + finalText + '\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\nTensions / qualifications: ' + review.tensions.trim() : '') + (tensionNotes ? '\n\nTheological tension analysis register:\n' + tensionNotes : '') + (review.unresolved.trim() ? '\nOpen questions: ' + review.unresolved.trim() : '');
                     return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.includes(marker) ? existing : existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
                   });
                   updateReview({ approved: true });
@@ -1196,7 +1211,7 @@ export default function App() {
                   <label>Supporting Scripture passages<textarea rows={2} value={review.supportingPassages} onChange={event=>updateReview({supportingPassages:event.target.value})} placeholder="List references and briefly explain how each passage contributes. Check each in its own literary and historical context."/></label>
                   <label>Apparent tensions, counter-texts or qualifications<textarea rows={3} value={review.tensions} onChange={event=>updateReview({tensions:event.target.value})} placeholder="Record passages or teachings that appear to challenge, qualify or create tension with this formulation. Explain rather than harmonise prematurely."/></label>
                   <section className="tension-register" aria-label="Theological tension analysis register">
-                    <div className="tension-register-heading"><div><strong>Theological tension analysis register</strong><p>Record each apparent tension as a separate research question. Examine both passages in context before assessing their relationship.</p></div><button type="button" className="outline-button" onClick={() => setTheologicalTensions(previous => ({ ...previous, [key]: [...(previous[key] || []), { id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2), passageA: '', contextA: '', passageB: '', contextB: '', issue: '', analysis: '', uncertainty: '', assessment: 'unclassified', status: 'open', updatedAt: new Date().toISOString() }] }))}>Add tension record</button></div>
+                    <div className="tension-register-heading"><div><strong>Theological tension analysis register</strong><p>Record each apparent tension as a separate research question. Examine both passages in context before assessing their relationship.</p><small className="tension-register-summary">{tensionRecords.length} record{tensionRecords.length === 1 ? '' : 's'} · {tensionRecords.filter(record => record.status === 'open' || record.status === 'under_review').length} open / under review</small></div><button type="button" className="outline-button" onClick={() => setTheologicalTensions(previous => ({ ...previous, [key]: [...(previous[key] || []), { id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2), passageA: '', contextA: '', passageB: '', contextB: '', issue: '', analysis: '', uncertainty: '', assessment: 'unclassified', status: 'open', updatedAt: new Date().toISOString() }] }))}>Add tension record</button></div>
                     {(theologicalTensions[key] || []).length === 0 ? <p className="tension-register-empty">No tension records have been added to this doctrinal claim.</p> : (theologicalTensions[key] || []).map((item, index) => {
                       const updateTension = (patch: Partial<TheologicalTension>) => setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).map(record => record.id === item.id ? { ...record, ...patch, updatedAt: new Date().toISOString() } : record) }));
                       return <article className="tension-register-card" key={item.id}>
@@ -1204,6 +1219,36 @@ export default function App() {
                         <div className="tension-register-passages">
                           <label>Passage A reference<input value={item.passageA} onChange={event=>updateTension({passageA:event.target.value})} placeholder="e.g. Romans 3:28"/></label>
                           <label>Passage B reference<input value={item.passageB} onChange={event=>updateTension({passageB:event.target.value})} placeholder="e.g. James 2:24"/></label>
+                        </div>
+                        <div className="tension-register-imports">
+                          <p>Bring in text already examined above. Import is explicit and will replace the selected side’s reference and context fields.</p>
+                          <div className="tension-register-import-grid">
+                            <label>Comparison result for Passage A
+                              <select value={(tensionImportSelections[item.id] || {a:'',b:''}).a} onChange={event=>setTensionImportSelections(previous=>({...previous,[item.id]:{...(previous[item.id] || {a:'',b:''}),a:event.target.value}}))}>
+                                <option value="">Choose a loaded comparison passage</option>
+                                {doctrineCompareResults.map(result=><option key={result.reference} value={result.reference}>{result.reference}</option>)}
+                              </select>
+                              <button type="button" className="outline-button" disabled={!(tensionImportSelections[item.id] || {a:'',b:''}).a} onClick={() => {
+                                const selected = doctrineCompareResults.find(result => result.reference === (tensionImportSelections[item.id] || {a:'',b:''}).a);
+                                if (!selected) return;
+                                const imported = buildComparisonPassageImport(selected);
+                                updateTension({passageA: imported.reference, contextA: imported.context});
+                              }}>Import into Passage A</button>
+                            </label>
+                            <label>Comparison result for Passage B
+                              <select value={(tensionImportSelections[item.id] || {a:'',b:''}).b} onChange={event=>setTensionImportSelections(previous=>({...previous,[item.id]:{...(previous[item.id] || {a:'',b:''}),b:event.target.value}}))}>
+                                <option value="">Choose a loaded comparison passage</option>
+                                {doctrineCompareResults.map(result=><option key={result.reference} value={result.reference}>{result.reference}</option>)}
+                              </select>
+                              <button type="button" className="outline-button" disabled={!(tensionImportSelections[item.id] || {a:'',b:''}).b} onClick={() => {
+                                const selected = doctrineCompareResults.find(result => result.reference === (tensionImportSelections[item.id] || {a:'',b:''}).b);
+                                if (!selected) return;
+                                const imported = buildComparisonPassageImport(selected);
+                                updateTension({passageB: imported.reference, contextB: imported.context});
+                              }}>Import into Passage B</button>
+                            </label>
+                          </div>
+                          {doctrineCompareResults.length === 0 ? <small>Load passages with Scripture-wide comparison above to enable direct import.</small> : <small>Imported wording retains the comparison translation/source label. It does not classify the relationship between the passages.</small>}
                         </div>
                         <label>Passage A — context and meaning<textarea rows={2} value={item.contextA} onChange={event=>updateTension({contextA:event.target.value})} placeholder="Record speaker, audience, literary setting, argument and what this passage asserts."/></label>
                         <label>Passage B — context and meaning<textarea rows={2} value={item.contextB} onChange={event=>updateTension({contextB:event.target.value})} placeholder="Examine the second passage independently in its own context."/></label>

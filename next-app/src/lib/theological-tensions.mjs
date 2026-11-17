@@ -301,7 +301,7 @@ export function compareTheologicalDossierVersions(left, right) {
   };
 }
 
-export function exportTheologicalDossierMarkdown(dossier) {
+export function exportTheologicalDossierMarkdown(dossier, archiveMetadata = {}) {
   if (!dossier || typeof dossier !== 'object' || Array.isArray(dossier)) {
     throw new TypeError('A dossier snapshot is required for Markdown export.');
   }
@@ -315,6 +315,8 @@ export function exportTheologicalDossierMarkdown(dossier) {
     '**Study:** ' + dossierText(dossier.studyPassage, 'Not identified'),
     '**Claim:** ' + dossierText(dossier.doctrinalClaim, 'Not recorded'),
     '**Prepared:** ' + dossierText(dossier.generatedAt, 'Date not recorded'),
+    ...(Number.isInteger(archiveMetadata.versionNumber) ? ['**Archive version:** ' + archiveMetadata.versionNumber] : []),
+    ...(typeof archiveMetadata.savedAt === 'string' && archiveMetadata.savedAt ? ['**Saved to archive:** ' + archiveMetadata.savedAt] : []),
     '',
     section('Research question and scope', dossier.issue),
     section('Original claim synthesis', dossier.originalSynthesis),

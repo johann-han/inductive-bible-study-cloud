@@ -1,3 +1,5 @@
+import { normalizeStudyNoteVersionHistory } from './study-note-history.mjs';
+
 const BIBLE_BOOK_ROWS = [
   ['Genesis', 'OT', 50, 'GEN'], ['Exodus', 'OT', 40, 'EXO'], ['Leviticus', 'OT', 27, 'LEV'],
   ['Numbers', 'OT', 36, 'NUM'], ['Deuteronomy', 'OT', 34, 'DEU'], ['Joshua', 'OT', 24, 'JOS'],
@@ -140,6 +142,8 @@ function normalizePreviewDrafts(input) {
     });
     const savedActiveStage = String(source.activeStage || '').toLowerCase();
     notes.activeStage = PREVIEW_STUDY_STAGES.includes(savedActiveStage) ? savedActiveStage : 'observe';
+    const versionHistory = normalizeStudyNoteVersionHistory(source.versionHistory);
+    if (versionHistory.length) notes.versionHistory = versionHistory;
     result[book.name + '|' + chapter] = notes;
   });
   return result;

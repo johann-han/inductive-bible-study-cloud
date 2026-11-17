@@ -56,3 +56,62 @@ export function filterTheologicalTensionRecords(records, filters = {}) {
     return searchable.includes(search);
   });
 }
+
+
+const HISTORY_EVENT_TYPES = new Set([
+  'initial_position',
+  'interpretive_revision',
+  'assessment_change',
+  'resolution_proposed',
+  'resolution_revised',
+  'reopened',
+  'other'
+]);
+
+function cloneHistoryValue(value) {
+  return value === undefined ? '' : value;
+}
+
+export function appendTheologicalTensionHistory(record, input, metadata = {}) {
+  if (!record || typeof record !== 'object' || Array.isArray(record) || typeof record.id !== 'string' || !record.id.trim()) {
+    throw new TypeError('A valid theological tension record is required.');
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError('A history entry is required.');
+  }
+  const eventType = typeof input.eventType === 'string' ? input.eventType : '';
+  if (!HISTORY_EVENT_TYPES.has(eventType)) throw new TypeError('Select a valid history event type.');
+  const rationale = typeof input.rationale === 'string' ? input.rationale.trim() : '';
+  if (!rationale) throw new TypeError('Explain why this research position is being recorded.');
+  const researcherPosition = typeof input.researcherPosition === 'string' ? input.researcherPosition.trim() : '';
+  if (!researcherPosition) throw new TypeError('Record the current interpretive position before saving history.');
+  const id = typeof metadata.id === 'string' && metadata.id.trim() ? metadata.id.trim() : '';
+  if (!id) throw new TypeError('A unique history entry ID is required.');
+  const recordedAt = typeof metadata.recordedAt === 'string' && Number.isFinite(Date.parse(metadata.recordedAt))
+    ? new Date(metadata.recordedAt).toISOString()
+    : '';
+  if (!recordedAt) throw new TypeError('A valid history timestamp is required.');
+
+  const previous = Array.isArray(record.history) ? record.history[record.history.length - 1] : null;
+  const entry = Object.freeze({
+    id,
+    recordedAt,
+    eventType,
+    previousAssessment: previous?.assessment ?? null,
+    assessment: cloneHistoryValue(record.assessment),
+    previousStatus: previous?.status ?? null,
+    status: cloneHistoryValue(record.status),
+    passageA: cloneHistoryValue(record.passageA),
+    contextA: cloneHistoryValue(record.contextA),
+    passageB: cloneHistoryValue(record.passageB),
+    contextB: cloneHistoryValue(record.contextB),
+    issue: cloneHistoryValue(record.issue),
+    researcherPosition,
+    analysisSnapshot: cloneHistoryValue(record.analysis),
+    evidenceConsidered: typeof input.evidenceConsidered === 'string' ? input.evidenceConsidered.trim() : '',
+    uncertaintySnapshot: cloneHistoryValue(record.uncertainty),
+    rationale
+  });
+  const history = [...(Array.isArray(record.history) ? record.history : []), entry];
+  return { ...record, history, updatedAt: recordedAt };
+}

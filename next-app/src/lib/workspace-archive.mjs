@@ -167,7 +167,9 @@ function inspectStore(store, incoming, existing) {
     const prior = id ? existingById.get(store === 'theologicalTensions' ? id : id) : null;
     if (!prior) { newItems++; continue; }
     const priorItem = prior.record || prior;
-    if (fingerprint(priorItem) === fingerprint(item)) identical++;
+    const identicalRecord = fingerprint(priorItem) === fingerprint(item);
+    const identicalLocation = store !== 'theologicalTensions' || prior.key === entry.key;
+    if (identicalRecord && identicalLocation) identical++;
     else {
       conflicting++;
       conflicts.push({ id, store, description: item.reference || item.title || item.issue || item.id });
@@ -354,7 +356,7 @@ function mergeTensions(existing, incoming, decisions) {
         appendTension(output, key, item);
         continue;
       }
-      if (fingerprint(location.record) === fingerprint(item)) continue;
+      if (location.key === key && fingerprint(location.record) === fingerprint(item)) continue;
       const decision = decisions['theologicalTensions:' + item.id] || 'keep';
       if (decision === 'replace') {
         removeTensionAt(output, location);
@@ -378,8 +380,8 @@ function replaceTensions(existing, incoming, decisions) {
         appendTension(output, key, record);
         continue;
       }
-      if (fingerprint(location.record) === fingerprint(record)) {
-        appendTension(output, location.key, location.record);
+      if (location.key === key && fingerprint(location.record) === fingerprint(record)) {
+        appendTension(output, key, location.record);
         continue;
       }
       const choice = decisions['theologicalTensions:' + record.id];
@@ -389,6 +391,7 @@ function replaceTensions(existing, incoming, decisions) {
         appendTension(output, location.key, location.record);
         appendTension(output, key, { ...record, id: createImportId() });
       } else {
+        removeTensionAt(output, location);
         appendTension(output, key, record);
       }
     }

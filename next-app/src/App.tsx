@@ -1268,9 +1268,9 @@ export default function App() {
                 {doctrineCompareStatus==='error' && <p className="doctrine-compare-error" role="alert">{doctrineCompareError}</p>}
                 {doctrineCompareResults.length>0 && <div className="doctrine-compare-results">{doctrineCompareResults.map(item=><article key={item.reference}><strong>{item.reference}</strong><p>{item.text}</p><small>Text source: {item.source}</small>{item.related.length>0 && <div><b>Associated cross-references</b><span>{item.related.join(' · ')}</span></div>}<small>Cross-reference links indicate possible textual connections, not proof of doctrinal agreement. Read each passage in its own context.</small></article>)}</div>}
               </div>
-              {doctrineReviewGroups.length === 0 ? <p className="evidence-manager-empty">No claim synthesis is marked Ready for Doctrine review for this passage. Complete the research assessment in the Evidence Manager first.</p> : doctrineReviewGroups.map(group => {
+              {doctrineReviewGroups.length === 0 ? <p className="evidence-manager-empty">No claim synthesis is ready for Doctrine review and no saved tension records are attached to this passage. Complete the research assessment in the Evidence Manager or add evidence to a claim first.</p> : doctrineReviewGroups.map(group => {
                 const key = claimSynthesisKey(passageDraftKey, group.claim);
-                const synthesis = claimSyntheses[key];
+                const synthesis = claimSyntheses[key] || { status: 'under_review' as ClaimSynthesisStatus, conclusion: '', reasoning: '', updatedAt: '' };
                 const review = doctrineReviews[key] || { claimLevel: '', supportingPassages: '', tensions: '', formulation: synthesis.conclusion, unresolved: '', approved: false, updatedAt: '' } as DoctrineReview;
                 const tensionRecords = theologicalTensions[key] || [];
                 const resetApprovalIfNeeded = () => setDoctrineReviews(previous => {

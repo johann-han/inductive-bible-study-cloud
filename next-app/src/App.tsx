@@ -30,6 +30,8 @@ import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheo
 import { appendTheologicalTensionHistory, buildTheologicalTensionDossier, appendTheologicalDossierVersion, compareTheologicalDossierVersions, exportTheologicalDossierMarkdown, exportTheologicalDossierArchive } from './lib/theological-tensions.mjs';
 import { buildWorkspaceArchive, validateWorkspaceArchive, planWorkspaceArchiveImport, applyWorkspaceArchiveImport, WORKSPACE_ARCHIVE_STORES } from './lib/workspace-archive.mjs';
 import { persistWorkspaceArchiveWrites } from './lib/workspace-archive-storage.mjs';
+import { readWordStudies, writeWordStudies, searchWordStudies } from './lib/word-studies.mjs';
+import type { WordStudyRecord } from './lib/word-studies.mjs';
 import { appendStudyNoteVersionSnapshot, countStudyNoteVersionWords, normalizeStudyNoteVersionHistory, restoreStudyNoteVersion } from './lib/study-note-history.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
@@ -277,6 +279,10 @@ export default function App() {
   const [showStrongs, setShowStrongs] = useState(false);
   const [lexicon, setLexicon] = useState<StrongLexiconEntry | null>(null);
   const [lexiconWord, setLexiconWord] = useState('');
+  const [lexiconPassage, setLexiconPassage] = useState<{ book: string; chapter: number; verse: number; translation: BibleTranslation } | null>(null);
+  const [wordStudies, setWordStudies] = useState<WordStudyRecord[]>(() => typeof window === 'undefined' ? [] : readWordStudies());
+  const [wordStudyQuery, setWordStudyQuery] = useState('');
+  const pendingWordStudyNavigationRef = useRef<WordStudyRecord['reference'] | null>(null);
   const [selectedMorphology, setSelectedMorphology] = useState<WordAnnotation | null>(null);
   const [lexiconLoading, setLexiconLoading] = useState(false);
   const [lexiconExpanded, setLexiconExpanded] = useState(false);
@@ -323,7 +329,7 @@ export default function App() {
   const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'needs_review' | EvidenceRelationship>('all');
   const [evidenceSourceUrl, setEvidenceSourceUrl] = useState('');
   const [evidenceSourceId, setEvidenceSourceId] = useState('');
-  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions' | 'archive' | 'dossiers' | 'dossier'>('overview');
+  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'word-studies' | 'references' | 'tensions' | 'archive' | 'dossiers' | 'dossier'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
@@ -376,6 +382,8 @@ export default function App() {
       entry.writtenStages.some(item => stages.find(candidate => candidate.id === item)?.label.toLocaleLowerCase().includes(query))
     );
   }, [allPreviewLibraryEntries, libraryQuery]);
+  const visibleWordStudies = useMemo(() => searchWordStudies(wordStudies, wordStudyQuery), [wordStudies, wordStudyQuery]);
+  const currentWordStudySaved = Boolean(lexicon && lexiconPassage && wordStudies.some(item => item.strongsId === lexicon.id.toUpperCase() && item.reference.book === lexiconPassage.book && item.reference.chapter === lexiconPassage.chapter && item.reference.verse === lexiconPassage.verse && item.reference.translation === lexiconPassage.translation));
 
 
   useEffect(() => {
@@ -446,6 +454,18 @@ export default function App() {
   useEffect(() => { try { window.localStorage.setItem(THEOLOGICAL_TENSION_STORAGE_KEY, JSON.stringify(theologicalTensions)); } catch { setEvidenceNotice('Theological tension register could not be saved in this browser.'); } }, [theologicalTensions]);
   useEffect(() => { try { window.localStorage.setItem(THEOLOGICAL_DOSSIER_VERSION_STORAGE_KEY, JSON.stringify(savedDossierVersions)); } catch { setDossierNotice('Dossier versions could not be saved in this browser. Export important versions to keep your own copy.'); } }, [savedDossierVersions]);
   useEffect(() => { writePreviewCrossReferences(previewCrossReferences); }, [previewCrossReferences]);
+  useEffect(() => { writeWordStudies(wordStudies); }, [wordStudies]);
+
+  useEffect(() => {
+    const pending = pendingWordStudyNavigationRef.current;
+    if (!pending || !bible || bible.book !== pending.book || bible.chapter !== pending.chapter) return;
+    if (bible.verses.some(verse => verse.number === pending.verse)) {
+      setSelectedVerseNumbers([pending.verse]);
+      verseSelectionAnchorRef.current = pending.verse;
+      setReaderNotice('Opened ' + pending.book + ' ' + pending.chapter + ':' + pending.verse + ' from Word Studies.');
+      pendingWordStudyNavigationRef.current = null;
+    }
+  }, [bible]);
   useEffect(() => {
     if (view !== 'references') return;
     const controller = new AbortController();
@@ -611,8 +631,9 @@ export default function App() {
     }
   };
 
-  const openLexicon = async (id: string, word: string, annotation: WordAnnotation) => {
+  const openLexicon = async (id: string, word: string, annotation: WordAnnotation, verseNumber: number) => {
     const requestId = ++lexiconRequestRef.current;
+    setLexiconPassage({ book, chapter, verse: verseNumber, translation });
     setLexicon(null);
     setSelectedMorphology(annotation);
     setLexiconExpanded(false);
@@ -652,6 +673,63 @@ export default function App() {
     setView('study');
   };
 
+  const saveCurrentWordStudy = () => {
+    if (!lexicon || !selectedMorphology || !lexiconPassage) return;
+    const now = new Date().toISOString();
+    const existing = wordStudies.find(item => item.strongsId === lexicon.id.toUpperCase() &&
+      item.reference.book === lexiconPassage.book && item.reference.chapter === lexiconPassage.chapter &&
+      item.reference.verse === lexiconPassage.verse && item.reference.translation === lexiconPassage.translation);
+    if (existing) {
+      setWordStudyQuery(lexicon.id);
+      setView('word-studies');
+      setReaderNotice('This word occurrence is already saved in Word Studies.');
+      return;
+    }
+    const verseText = bible?.book === lexiconPassage.book && bible.chapter === lexiconPassage.chapter
+      ? bible.verses.find(item => item.number === lexiconPassage.verse)?.text || '' : '';
+    const record: WordStudyRecord = {
+      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
+      strongsId: lexicon.id.toUpperCase(), englishWord: lexiconWord, lemma: lexicon.lemma,
+      transliteration: lexicon.transliteration, partOfSpeech: lexicon.partOfSpeech, gloss: lexicon.gloss,
+      senses: lexicon.senses.map(sense => ({ gloss: sense.gloss, definition: sense.definition })),
+      originalText: selectedMorphology.originalText, language: selectedMorphology.language,
+      parsing: selectedMorphology.parsing, parsingFull: selectedMorphology.parsingFull,
+      reference: { ...lexiconPassage }, verseText, source: lexicon.source, sourceUrl: lexicon.sourceUrl,
+      notes: '', createdAt: now, updatedAt: now
+    };
+    setWordStudies(previous => [record, ...previous]);
+    setWordStudyQuery('');
+    setView('word-studies');
+  };
+
+  const updateWordStudyNotes = (id: string, notes: string) => {
+    setWordStudies(previous => previous.map(item => item.id === id
+      ? { ...item, notes, updatedAt: new Date().toISOString() } : item));
+  };
+
+  const removeWordStudy = (record: WordStudyRecord) => {
+    if (!window.confirm('Remove the saved word study for ' + record.strongsId + ' at ' + record.reference.book + ' ' + record.reference.chapter + ':' + record.reference.verse + '?')) return;
+    setWordStudies(previous => previous.filter(item => item.id !== record.id));
+  };
+
+  const openSavedWordStudyPassage = (record: WordStudyRecord) => {
+    const target = record.reference;
+    setView('reader');
+    setShowStrongs(true);
+    if (bible?.book === target.book && bible.chapter === target.chapter && bible.translation === target.translation) {
+      if (bible.verses.some(verse => verse.number === target.verse)) {
+        setSelectedVerseNumbers([target.verse]);
+        verseSelectionAnchorRef.current = target.verse;
+        setReaderNotice('Opened ' + target.book + ' ' + target.chapter + ':' + target.verse + ' from Word Studies.');
+      }
+      return;
+    }
+    pendingWordStudyNavigationRef.current = { ...target };
+    setBook(target.book);
+    setChapter(target.chapter);
+    setTranslation(target.translation);
+  };
+
   const attachLexiconEvidence = () => {
     if (!lexicon) return;
     const context = [
@@ -664,7 +742,7 @@ export default function App() {
     ].join('\\n');
     prepareEvidenceRecord({
       kind: 'Lexicon / Strong’s',
-      reference: lexicon.id + ' · ' + book + ' ' + chapter + (selectedVerse ? ':' + selectedVerse : '') + ' · ' + lexiconWord,
+      reference: lexicon.id + ' · ' + (lexiconPassage ? lexiconPassage.book + ' ' + lexiconPassage.chapter + ':' + lexiconPassage.verse : book + ' ' + chapter) + ' · ' + lexiconWord,
       detail: context,
       source: lexicon.source,
       sourceUrl: lexicon.sourceUrl,
@@ -840,7 +918,7 @@ export default function App() {
 
   const readCurrentArchiveStores = () => ({
     drafts: readPreviewDrafts(), scriptureMarkup: readPreviewMarkup(), wordMarkup: readPreviewWordMarkup(),
-    markupColors, crossReferences: readPreviewCrossReferences(), evidence: readPreviewEvidence(),
+    markupColors, crossReferences: readPreviewCrossReferences(), evidence: readPreviewEvidence(), wordStudies: readWordStudies(),
     claimSynthesis: readClaimSynthesis(), doctrineReviews: readDoctrineReviews(),
     theologicalTensions: readTheologicalTensions(), dossierVersions: readTheologicalDossierVersions()
   });
@@ -885,6 +963,7 @@ export default function App() {
       if (Object.hasOwn(planned, 'doctrineReviews')) setDoctrineReviews(planned.doctrineReviews as Record<string, DoctrineReview>);
       if (Object.hasOwn(planned, 'theologicalTensions')) setTheologicalTensions(planned.theologicalTensions as Record<string, TheologicalTension[]>);
       if (Object.hasOwn(planned, 'dossierVersions')) setSavedDossierVersions(planned.dossierVersions as TheologicalDossierVersion[]);
+      if (Object.hasOwn(planned, 'wordStudies')) setWordStudies(planned.wordStudies as WordStudyRecord[]);
       setArchiveNotice('Archive restored successfully. Local records were handled according to the selected conflict decisions.');
       setArchiveFile(null); setArchivePreview(null); setArchiveReport(null); setArchiveDecisions({});
     } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The archive could not be restored.'); }
@@ -1077,7 +1156,7 @@ export default function App() {
       <button className={view === 'study' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('study')}><Icon name="library"/>Active study</button>
       <div className="sidebar-divider"/>
       <div className="workspace-label">RESEARCH</div>
-      <button className="nav-item nav-disabled" type="button" disabled title="Research tools are being integrated in a later rebuild phase"><Icon name="search"/>Word studies</button>
+      <button className={view === 'word-studies' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('word-studies')}><Icon name="search"/>Word studies<span className="nav-count">{wordStudies.length}</span></button>
       <button className={view === 'references' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('references')}><Icon name="panel"/>Cross-references<span className="nav-count">{previewCrossReferences.length}</span></button>
       <button className={view === 'tensions' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('tensions')}><Icon name="panel"/>Theological tensions<span className="nav-count">{indexedTheologicalTensions.length}</span></button>
       <button className={view === 'archive' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('archive')}><Icon name="file-text"/>Backup &amp; restore</button>
@@ -1088,13 +1167,13 @@ export default function App() {
     <main className="main-area">
       <header className="topbar">
         {view !== 'overview' && <button className="back-home-button" type="button" onClick={() => setView('overview')} aria-label="Back to start screen" title="Back to start screen"><Icon name="back"/><span>Home</span></button>}
-        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'archive' ? 'Backup & restore' : view === 'dossiers' ? 'Research dossiers' : view === 'dossier' ? 'Research dossier' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
+        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'word-studies' ? 'Word studies' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'archive' ? 'Backup & restore' : view === 'dossiers' ? 'Research dossiers' : view === 'dossier' ? 'Research dossier' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
       {view === 'archive' ? <section className="archive-workspace">
         <div className="archive-page-heading"><span className="eyebrow">PORTABILITY &amp; RECOVERY</span><h1>Backup &amp; restore</h1><p>Export this preview workspace or inspect a saved archive. No data changes until you explicitly restore.</p></div>
         <section className="archive-card">
-          <div><h2>Full workspace backup</h2><p>Studies and notes, Scripture and word markups, user cross-references, evidence, claim synthesis, doctrine reviews, theological tensions and dossier history.</p></div>
+          <div><h2>Full workspace backup</h2><p>Studies and notes, Scripture and word markups, saved word studies, user cross-references, evidence, claim synthesis, doctrine reviews, theological tensions and dossier history.</p></div>
           <button type="button" className="primary-button" onClick={downloadWorkspaceArchive}>Download full archive</button>
           <button type="button" className="outline-button" onClick={downloadDossierArchive} disabled={!savedDossierVersions.length}>Download dossier-only archive</button>
         </section>
@@ -1173,6 +1252,16 @@ export default function App() {
             <button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>Resume study <Icon name="chevron"/></button>
           </article>)}
         </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setView('reader')}>Open Bible reader <Icon name="chevron"/></button>}</div>}
+      </section> : view === 'word-studies' ? <section className="word-studies-view">
+        <div className="library-header"><div><div className="eyebrow">RESEARCH · ORIGINAL-LANGUAGE WORD STUDIES</div><h1>Word studies</h1><p>Save source-backed Strong’s entries and their occurrence-level morphology so you can search, revisit and annotate them alongside passage research. A lexical gloss is not, by itself, an interpretation of how a word functions in context.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Open Bible reader</button></div>
+        <div className="library-toolbar"><div className="library-result-count"><strong>{visibleWordStudies.length}</strong> of {wordStudies.length} saved {wordStudies.length === 1 ? 'word study' : 'word studies'}</div><input className="library-search" type="search" value={wordStudyQuery} onChange={event => setWordStudyQuery(event.target.value)} placeholder="Search Strong’s ID, lemma, passage, parsing or notes…" aria-label="Search saved word studies"/></div>
+        {visibleWordStudies.length ? <div className="word-study-results">{visibleWordStudies.map(record => <article className="word-study-card" key={record.id}>
+          <div className="word-study-card-heading"><div><span className="word-study-id">{record.strongsId}</span><span className="word-study-reference">{record.reference.book} {record.reference.chapter}:{record.reference.verse} · {record.reference.translation}</span><h2>{record.lemma} <span>{record.transliteration}</span></h2><p>{record.englishWord} · {record.partOfSpeech || 'Part of speech not supplied'}</p></div><div className="word-study-card-actions"><button type="button" className="primary-button" onClick={() => openSavedWordStudyPassage(record)}>Open verse</button><button type="button" className="text-button" onClick={() => removeWordStudy(record)}>Remove</button></div></div>
+          <div className="word-study-detail-grid"><div><span className="eyebrow">LEXICON GLOSS</span><p>{record.gloss || 'No gloss supplied by source.'}</p>{record.senses.map((sense,index)=><div className="word-study-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}</div><div><span className="eyebrow">OCCURRENCE MORPHOLOGY</span><p>{record.originalText || 'Original form not supplied'} · {record.language}</p><strong>{record.parsingFull || record.parsing || 'No parsing supplied by source'}</strong></div></div>
+          {record.verseText && <blockquote className="word-study-verse">“{record.verseText}”</blockquote>}
+          <label className="word-study-notes">Researcher’s contextual notes<textarea value={record.notes} onChange={event => updateWordStudyNotes(record.id,event.target.value)} placeholder="Record how this word functions in this occurrence. Distinguish observation from lexical possibility and interpretation." rows={3}/></label>
+          <div className="word-study-source"><a href={record.sourceUrl} target="_blank" rel="noopener noreferrer">{record.source} · Open source record</a><span>Saved {new Date(record.createdAt).toLocaleString()}</span></div>
+        </article>)}</div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="search"/></div><h2>{wordStudies.length ? 'No matching word studies' : 'Build your word-study collection'}</h2><p>{wordStudies.length ? 'Try searching by Strong’s ID, lemma, Scripture reference, morphology or your notes.' : 'In the Bible reader, enable Strong’s annotations, select a tagged word, inspect its lexicon entry and morphology, then choose “Save to Word Studies”. Your saved entries will be searchable here.'}</p>{wordStudies.length > 0 ? <button className="text-button" type="button" onClick={() => setWordStudyQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => { setShowStrongs(true); setView('reader'); }}>Open Bible reader <Icon name="chevron"/></button>}</div>}
       </section> : view === 'references' ? <section className="references-view">
         <div className="library-header"><div><div className="eyebrow">RESEARCH · PASSAGE CONNECTIONS</div><h1>Cross-references</h1><p>Explore standard Scripture connections alongside the links you have recorded in your own studies.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Return to Scripture</button></div>
         
@@ -1654,7 +1743,7 @@ export default function App() {
                   });
                   setSelectedTextMarkup(null);
                   setReaderNotice('Highlight removed.');
-                }, (id, word, annotation) => { void openLexicon(id, word, annotation); })}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></div>;
+                }, (id, word, annotation) => { void openLexicon(id, word, annotation, verse.number); })}{tags.length > 0 && <span className="verse-markup-tags" aria-label={'Observation tags: ' + tags.map(tag => SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag).join(', ')}>{tags.map(tag => { const type = SCRIPTURE_MARKUP_TYPES.find(item => item.id === tag); return <span className="verse-markup-tag" key={tag}>{type?.symbol} {type?.label}</span>; })}</span>}</p></div>;
               })}
               {!loadingBible && !bibleError && !bible?.verses.length && <div className="reader-message">No verse text was returned for this passage.</div>}
             </div>
@@ -1684,7 +1773,7 @@ export default function App() {
               <div className="lexicon-heading"><div><span className="eyebrow">WORD STUDY · {lexicon?.id || 'LOADING'}</span><h3>{lexiconWord}</h3></div><div className="word-study-heading-actions"><button className="word-study-expand-button" type="button" onClick={() => setLexiconExpanded(value => !value)} aria-expanded={lexiconExpanded}>{lexiconExpanded ? 'Collapse' : 'Expand'}</button><button className="tool-button" type="button" onClick={() => { lexiconRequestRef.current += 1; setLexicon(null); setSelectedMorphology(null); setLexiconError(''); setLexiconWord(''); setLexiconLoading(false); setLexiconExpanded(false); }} aria-label="Close lexicon entry">×</button></div></div>
               {lexiconLoading && <p className="lexicon-status">Loading verified lexicon data…</p>}
               {lexiconError && <p className="lexicon-error" role="alert">{lexiconError}</p>}
-              {selectedMorphologyLabel && <section className="morphology-explainer" aria-label="Grammar and morphology explanation"><div className="morphology-explainer-heading"><div><span className="eyebrow">WORD FORM · PLAIN-LANGUAGE GUIDE</span><h4>Understanding the grammar</h4></div><span className="morphology-language">{selectedMorphology?.language || 'Original language'}</span></div><p className="morphology-raw">{selectedMorphologyLabel}</p>{selectedMorphologyExplanation.length ? <div className="morphology-term-list">{selectedMorphologyExplanation.map((item,index)=><article className="morphology-term" key={item.title + index}><strong>{item.term} <span>— {item.title}</span></strong><p>{item.explanation}</p></article>)}</div> : <p className="morphology-unavailable">A plain-language explanation is not yet available for this particular parsing label. The original morphology label is shown above.</p>}<p className="morphology-caution">Grammar identifies the form; it does not by itself settle the meaning of the verse. Check the verb, clause, author’s argument and wider context before drawing an interpretation.</p></section>}{selectedMorphology && !selectedMorphologyLabel && <div className="morphology-unavailable">This KJV source provides a Strong’s number for the selected word, but not its occurrence morphology. <button type="button" className="text-button" onClick={() => { lexiconRequestRef.current += 1; setTranslation('BSB'); setLexicon(null); setSelectedMorphology(null); setLexiconWord(''); setLexiconError(''); setLexiconLoading(false); }}>Open this passage in BSB interlinear</button> to inspect source-backed word morphology.</div>}{lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}
+              {selectedMorphologyLabel && <section className="morphology-explainer" aria-label="Grammar and morphology explanation"><div className="morphology-explainer-heading"><div><span className="eyebrow">WORD FORM · PLAIN-LANGUAGE GUIDE</span><h4>Understanding the grammar</h4></div><span className="morphology-language">{selectedMorphology?.language || 'Original language'}</span></div><p className="morphology-raw">{selectedMorphologyLabel}</p>{selectedMorphologyExplanation.length ? <div className="morphology-term-list">{selectedMorphologyExplanation.map((item,index)=><article className="morphology-term" key={item.title + index}><strong>{item.term} <span>— {item.title}</span></strong><p>{item.explanation}</p></article>)}</div> : <p className="morphology-unavailable">A plain-language explanation is not yet available for this particular parsing label. The original morphology label is shown above.</p>}<p className="morphology-caution">Grammar identifies the form; it does not by itself settle the meaning of the verse. Check the verb, clause, author’s argument and wider context before drawing an interpretation.</p></section>}{selectedMorphology && !selectedMorphologyLabel && <div className="morphology-unavailable">This KJV source provides a Strong’s number for the selected word, but not its occurrence morphology. <button type="button" className="text-button" onClick={() => { lexiconRequestRef.current += 1; setTranslation('BSB'); setLexicon(null); setSelectedMorphology(null); setLexiconWord(''); setLexiconError(''); setLexiconLoading(false); }}>Open this passage in BSB interlinear</button> to inspect source-backed word morphology.</div>}{lexicon && <><div className="lexicon-meta"><strong>{lexicon.lemma}</strong><span>{lexicon.transliteration}</span><span>{lexicon.partOfSpeech}</span></div><p className="lexicon-gloss">{lexicon.gloss}</p>{lexicon.senses.map((sense,index)=><div className="lexicon-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}<div className="lexicon-evidence-actions"><a href={lexicon.sourceUrl} target="_blank" rel="noopener noreferrer">{lexicon.source} · Open source record</a><button type="button" className="outline-button" onClick={saveCurrentWordStudy} disabled={!selectedMorphology || !lexiconPassage || currentWordStudySaved}>{currentWordStudySaved ? 'Saved to Word Studies' : 'Save to Word Studies'}</button><button type="button" className="outline-button" onClick={attachLexiconEvidence}>Attach to Evidence Manager</button></div></>}
             </section> : null}
 
             <div className="reader-notice" role="status" aria-live="polite">{readerNotice}</div>

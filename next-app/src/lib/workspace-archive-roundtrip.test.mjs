@@ -7,6 +7,8 @@ import {
   applyWorkspaceArchiveImport
 } from './workspace-archive.mjs';
 
+const plainJson = value => JSON.parse(JSON.stringify(value));
+
 const markupColors = {
   'key-word': '#f5e7b9',
   'repeated-idea': '#dcece0',
@@ -120,9 +122,9 @@ test('round-trips the recovered PR #187 workspace into PR #188 without losing lo
     assert.deepEqual(validatedRoundTrip.stores.drafts[passage], draft);
   }
 
-  assert.deepEqual(validatedRoundTrip.stores.markupColors, markupColors);
+  assert.deepEqual(plainJson(validatedRoundTrip.stores.markupColors), markupColors);
   assert.deepEqual(validatedRoundTrip.stores.evidence, sourceEvidence);
-  assert.deepEqual(validatedRoundTrip.stores.claimSynthesis, sourceClaimSynthesis);
+  assert.deepEqual(plainJson(validatedRoundTrip.stores.claimSynthesis), sourceClaimSynthesis);
   assert.equal(validatedRoundTrip.counts.drafts, 5);
   assert.equal(validatedRoundTrip.counts.evidence, 1);
   assert.equal(validatedRoundTrip.counts.claimSynthesis, 1);

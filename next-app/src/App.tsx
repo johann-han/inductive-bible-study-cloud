@@ -1009,10 +1009,15 @@ export default function App() {
       return;
     }
     const addition = additions.map(item => book + ' ' + chapter + ':' + item.number + ' — ' + translation + '\n' + item.text).join('\n\n');
-    setDraftsByPassage(previous => ({
-      ...previous,
-      [targetKey]: { ...(previous[targetKey] || currentDraft), [targetStage]: existing.trim() ? existing + '\n\n' + addition : addition.trim(), activeStage: targetStage }
-    }));
+    setDraftsByPassage(previous => {
+      const current = { ...emptyNotes, ...(previous[targetKey] || currentDraft) };
+      const withHistory = appendStudyNoteVersionSnapshot(current);
+      const currentText = current[targetStage] || '';
+      return {
+        ...previous,
+        [targetKey]: { ...withHistory, [targetStage]: currentText.trim() ? currentText + '\n\n' + addition : addition.trim(), activeStage: targetStage }
+      };
+    });
     setStage(targetStage);
     if (targetBook !== book || targetChapter !== chapter) {
       setBook(targetBook);
@@ -1031,10 +1036,15 @@ export default function App() {
       return;
     }
     const addition = additions.map(item => '[' + observationCategory + '] ' + book + ' ' + chapter + ':' + item.number + ' — ' + translation + '\n' + item.text).join('\n\n');
-    setDraftsByPassage(previous => ({
-      ...previous,
-      [passageDraftKey]: { ...(previous[passageDraftKey] || emptyNotes), observe: existing.trim() ? existing + '\n\n' + addition : addition, activeStage: 'observe' }
-    }));
+    setDraftsByPassage(previous => {
+      const current = { ...emptyNotes, ...(previous[passageDraftKey] || emptyNotes) };
+      const withHistory = appendStudyNoteVersionSnapshot(current);
+      const currentText = current.observe || '';
+      return {
+        ...previous,
+        [passageDraftKey]: { ...withHistory, observe: currentText.trim() ? currentText + '\n\n' + addition : addition, activeStage: 'observe' }
+      };
+    });
     setStage('observe');
     setReaderNotice(additions.length + ' selected verse' + (additions.length === 1 ? '' : 's') + ' added to your Observation notes.');
   };

@@ -809,3 +809,38 @@
   .word-study-sheet .morphology-explainer{margin-top:10px}
 }
 @media(prefers-reduced-motion:reduce){.word-study-sheet{transition:none}}
+
+
+/* Validated archive backup and restoration workspace */
+.archive-workspace { width: min(1120px, calc(100% - 48px)); margin: 0 auto; padding: 38px 0 64px; }
+.archive-page-heading { margin-bottom: 26px; }
+.archive-page-heading h1 { margin: 8px 0 10px; font-family: Georgia, serif; font-size: clamp(30px, 4vw, 42px); color: var(--ink, #26372e); }
+.archive-page-heading p, .archive-card p { color: var(--muted, #68766d); line-height: 1.6; max-width: 760px; }
+.archive-card { background: var(--surface, #fffdf8); border: 1px solid var(--line, #e4e6dc); border-radius: 16px; padding: 24px; margin: 18px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; box-shadow: 0 5px 22px rgba(32, 48, 39, .04); }
+.archive-card > div:first-child { flex: 1 1 100%; }
+.archive-card h2 { margin: 0; font-size: 20px; color: var(--ink, #26372e); }
+.archive-file-picker { display: inline-flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--line, #d9ded5); border-radius: 10px; background: #f6f7f1; color: #304538; font-weight: 650; cursor: pointer; }
+.archive-file-picker input { max-width: 230px; }
+.archive-file-name, .archive-preflight span { color: var(--muted, #68766d); font-size: 13px; }
+.archive-preflight { display: grid; gap: 5px; padding: 14px 16px; border-radius: 10px; background: #edf4ed; color: #254d38; flex: 1 1 100%; }
+.archive-summary-table { width: 100%; overflow-x: auto; }
+.archive-summary-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.archive-summary-table th, .archive-summary-table td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line, #e4e6dc); white-space: nowrap; }
+.archive-summary-table th { color: #526257; font-weight: 700; }
+.archive-conflict-list { flex: 1 1 100%; border-top: 1px solid var(--line, #e4e6dc); padding-top: 14px; }
+.archive-conflict-list h3 { font-size: 15px; margin: 0 0 10px; }
+.archive-conflict { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid #edf0e9; font-size: 13px; }
+.archive-conflict select, .archive-mode select { max-width: 320px; width: 100%; padding: 9px; border: 1px solid #ccd5cb; border-radius: 8px; background: white; color: #27382e; }
+.archive-mode { flex: 1 1 100%; }
+.archive-mode label { display: grid; gap: 8px; font-weight: 650; }
+.archive-error { color: #9a382e; background: #fff1ee; padding: 12px 14px; border-radius: 8px; flex: 1 1 100%; }
+.archive-success { color: #28583a; background: #edf6ed; padding: 12px 14px; border-radius: 8px; flex: 1 1 100%; }
+@media (max-width: 680px) {
+  .archive-workspace { width: calc(100% - 28px); padding: 24px 0 42px; }
+  .archive-card { padding: 17px; align-items: stretch; }
+  .archive-card > button, .archive-file-picker { width: 100%; justify-content: center; }
+  .archive-file-picker { flex-wrap: wrap; }
+  .archive-file-picker input { max-width: 100%; width: 100%; }
+  .archive-conflict { align-items: stretch; flex-direction: column; }
+  .archive-conflict select, .archive-mode select { max-width: none; }
+}

@@ -729,10 +729,87 @@ export default function App() {
     });
   }, [selectedDossierRecord, evidenceRecords, doctrineReviews, claimSyntheses, dossierGeneratedAt]);
 
+  const selectedSavedDossierVersion = savedDossierVersions.find(version => version.id === selectedSavedDossierId) || null;
+  const activeTensionDossier = selectedSavedDossierVersion?.dossier || selectedTensionDossier;
+  const visibleDossierVersions = useMemo(() => {
+    const search = dossierSearch.trim().toLocaleLowerCase();
+    return [...savedDossierVersions]
+      .sort((left, right) => Date.parse(right.savedAt) - Date.parse(left.savedAt))
+      .filter(version => !search || [
+        version.studyPassage,
+        version.doctrinalClaim,
+        version.dossier.researchConclusion,
+        version.dossier.assessmentLabel,
+        version.dossier.statusLabel
+      ].filter(Boolean).join(' ').toLocaleLowerCase().includes(search));
+  }, [savedDossierVersions, dossierSearch]);
+  const dossierCompareLeft = savedDossierVersions.find(version => version.id === dossierCompareLeftId) || null;
+  const dossierCompareCandidates = dossierCompareLeft
+    ? savedDossierVersions.filter(version => version.tensionKey === dossierCompareLeft.tensionKey)
+    : savedDossierVersions;
+  const dossierCompareRight = savedDossierVersions.find(version => version.id === dossierCompareRightId) || null;
+  const dossierVersionComparison = useMemo(() => {
+    if (!dossierCompareLeft || !dossierCompareRight) return null;
+    try { return compareTheologicalDossierVersions(dossierCompareLeft, dossierCompareRight); }
+    catch { return null; }
+  }, [dossierCompareLeft, dossierCompareRight]);
+
   const prepareTheologicalDossier = (record: IndexedTheologicalTension) => {
     setSelectedTensionDossierKey(record.reviewKey + '::' + record.id);
+    setSelectedSavedDossierId(null);
     setDossierGeneratedAt(new Date().toISOString());
+    setDossierNotice('');
     setView('dossier');
+  };
+
+  const openSavedDossierVersion = (version: TheologicalDossierVersion) => {
+    setSelectedTensionDossierKey(version.tensionKey);
+    setSelectedSavedDossierId(version.id);
+    setDossierNotice('Viewing saved dossier version ' + version.versionNumber + '. This archived snapshot is read-only.');
+    setView('dossier');
+  };
+
+  const saveCurrentDossierVersion = () => {
+    if (!selectedTensionDossier || !selectedDossierRecord) return;
+    try {
+      const updated = appendTheologicalDossierVersion(savedDossierVersions, {
+        tensionKey: selectedTossierKey(),
+        tensionId: selectedDossierRecord.id,
+        dossier: selectedTensionDossier
+      }, {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'dossier-' + Date.now().toString(36) + Math.random().toString(36).slice(2,8),
+        savedAt: new Date().toISOString()
+      });
+      const created = updated[updated.length - 1];
+      setSavedDossierVersions(updated);
+      setSelectedSavedDossierId(created.id);
+      setDossierNotice('Dossier version ' + created.versionNumber + ' saved in this browser.');
+    } catch (error) {
+      setDossierNotice(error instanceof Error ? error.message : 'The dossier version could not be saved.');
+    }
+  };
+
+  const selectedTossierKey = () => selectedDossierRecord ? selectedDossierRecord.reviewKey + '::' + selectedDossierRecord.id : '';
+
+  const downloadDossierFile = (dossier: typeof selectedTensionDossier, format: 'json' | 'markdown') => {
+    if (!dossier) return;
+    const stem = (dossier.studyPassage + '-' + dossier.doctrinalClaim)
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 70) || 'theological-research-dossier';
+    const content = format === 'json'
+      ? JSON.stringify(dossier, null, 2)
+      : exportTheologicalDossierMarkdown(dossier);
+    const blob = new Blob([content], { type: format === 'json' ? 'application/json;charset=utf-8' : 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = stem + (selectedSavedDossierVersion ? '-v' + selectedSavedDossierVersion.versionNumber : '') + (format === 'json' ? '.json' : '.md');
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   };
 
 

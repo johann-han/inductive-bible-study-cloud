@@ -918,7 +918,7 @@ export default function App() {
 
   const readCurrentArchiveStores = () => ({
     drafts: readPreviewDrafts(), scriptureMarkup: readPreviewMarkup(), wordMarkup: readPreviewWordMarkup(),
-    markupColors, crossReferences: readPreviewCrossReferences(), evidence: readPreviewEvidence(), wordStudies: readWordStudies(),
+    markupColors, crossReferences: readPreviewCrossReferences(), evidence: readPreviewEvidence(),
     claimSynthesis: readClaimSynthesis(), doctrineReviews: readDoctrineReviews(),
     theologicalTensions: readTheologicalTensions(), dossierVersions: readTheologicalDossierVersions(), wordStudies
   });

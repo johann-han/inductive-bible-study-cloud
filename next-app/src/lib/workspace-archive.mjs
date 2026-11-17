@@ -197,6 +197,11 @@ export function validateWorkspaceArchive(input) {
       !isObject(archive.stores) || !isObject(archive.counts)) {
     throw new TypeError('Unsupported IBS archive format or version.');
   }
+  for (const store of Object.keys(archive.stores)) {
+    if (!Object.prototype.hasOwnProperty.call(STORE_VALIDATORS, store)) {
+      throw new TypeError('Archive contains an unsupported store "' + store + '". Refusing partial restoration.');
+    }
+  }
   const includedStores = Object.keys(archive.stores);
   const countStores = Object.keys(archive.counts);
   if (includedStores.length !== countStores.length || countStores.some(store => !Object.prototype.hasOwnProperty.call(archive.stores, store))) {
@@ -213,11 +218,6 @@ export function validateWorkspaceArchive(input) {
     if (archive.counts[store] !== counts[store]) throw new TypeError('Archive count does not match store "' + store + '".');
   }
   if (!Object.keys(stores).length) throw new TypeError('The archive contains no supported research data.');
-  for (const store of Object.keys(archive.stores)) {
-    if (!Object.prototype.hasOwnProperty.call(STORE_VALIDATORS, store)) {
-      throw new TypeError('Archive contains an unsupported store "' + store + '". Refusing partial restoration.');
-    }
-  }
   return { kind: 'workspace', archiveVersion: archive.archiveVersion, exportedAt: archive.exportedAt || null, stores, counts };
 }
 

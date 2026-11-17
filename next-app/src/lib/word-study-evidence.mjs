@@ -10,6 +10,7 @@ export function buildWordStudyEvidenceDraft(record) {
   const detail = [
     'Saved word study · source occurrence',
     'Selected English rendering: ' + (record.englishWord || 'Not supplied'),
+    'Scripture occurrence: ' + passage + ' · ' + reference.translation,
     'Strong’s number: ' + record.strongsId,
     'Lemma: ' + (record.lemma || 'Not supplied'),
     'Transliteration: ' + (record.transliteration || 'Not supplied'),

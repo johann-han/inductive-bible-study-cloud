@@ -36,6 +36,8 @@ export type TheologicalTensionRecord = {
   issue: string;
   analysis: string;
   uncertainty: string;
+  resolution?: string;
+  resolutionRationale?: string;
   assessment: TensionAssessment;
   status: TensionStatus;
   updatedAt: string;
@@ -88,6 +90,9 @@ export type TheologicalTensionHistoryEntry = {
   passageB: string;
   contextB: string;
   issue: string;
+  previousResolution: string | null;
+  resolutionSnapshot: string;
+  resolutionRationaleSnapshot: string;
   researcherPosition: string;
   analysisSnapshot: string;
   evidenceConsidered: string;
@@ -105,3 +110,59 @@ export function appendTheologicalTensionHistory(
   },
   metadata: { id: string; recordedAt: string }
 ): TheologicalTensionRecord & { history: TheologicalTensionHistoryEntry[] };
+
+
+export type TheologicalTensionDossierEvidence = {
+  kind: string;
+  reference: string;
+  detail: string;
+  source: string;
+  sourceUrl: string;
+  relationship: string;
+  sourceQuality: string;
+  verificationStatus: string;
+  assessmentRationale: string;
+  verificationRationale: string;
+  sourceQualityRationale: string;
+  createdAt: string;
+};
+
+export type TheologicalTensionDossier = {
+  title: string;
+  generatedAt: string;
+  studyPassage: string;
+  doctrinalClaim: string;
+  claimLevel: string;
+  originalSynthesis: string;
+  synthesisReasoning: string;
+  refinedDoctrinalFormulation: string;
+  doctrineReviewQuestions: string;
+  assessment: string;
+  status: string;
+  passages: Array<{ label: string; reference: string; context: string }>;
+  issue: string;
+  interpretiveAnalysis: string;
+  researchConclusion: string;
+  resolutionRationale: string;
+  evidence: TheologicalTensionDossierEvidence[];
+  history: TheologicalTensionHistoryEntry[];
+  remainingUncertainty: string;
+  methodNote: string;
+};
+
+export function buildTheologicalTensionDossier(
+  record: IndexedTheologicalTension & { resolution?: string; resolutionRationale?: string },
+  options?: {
+    generatedAt?: string;
+    doctrineReview?: {
+      claimLevel?: string;
+      formulation?: string;
+      unresolved?: string;
+    };
+    claimSynthesis?: {
+      conclusion?: string;
+      reasoning?: string;
+    };
+    evidenceRecords?: Array<Partial<TheologicalTensionDossierEvidence>>;
+  }
+): TheologicalTensionDossier;

@@ -153,6 +153,7 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 | Study Note History | Implemented in both Active Study and Study Notes editors. Up to eight snapshots are retained per passage, automatic capture is throttled to two minutes, identical content is not duplicated, and restoration first preserves the current note state. All four stage bodies and the active stage are included. | User confirmed the History control is visible and functional in the PR #188 preview on 17 November 2026. |
 | Backup and restore | Browser-local archive version 2 supports eleven stores, including saved Word Studies. Version 1 workspace archives and legacy dossier archives remain importable. Preflight conflict decisions and transactional rollback are retained. | PR #187 to PR #188 recovery and round-trip preservation were confirmed. No cloud or production records are included. |
 | Word Studies | A dedicated, searchable collection stores the Strong's identifier, lexical entry and senses, exact verse occurrence (including source offsets), translation, occurrence morphology, source attribution and researcher notes. Saved entries can reopen their verse and hand off the full source record to Evidence Manager. Word Studies participate in archive export/import. | User confirmed the Word Studies workflow works in the PR #188 preview on 17 November 2026. The Evidence Manager handoff is newly implemented and awaits browser acceptance. |
+| Supporting Evidence Editor | The Supporting evidence field in Evidence Manager has a dedicated Expand editor / Collapse editor control. Expanded height is viewport-relative and responsive on desktop and mobile; existing text is preserved when collapsing. | User confirmed the control works in the PR #188 preview on 17 November 2026. |
 | Storage boundary | Note history and Word Studies use preview-specific browser storage. Archive restore writes only stores present in the selected archive and keeps the existing merge/replace decisions. | Do not clear PR #188 preview site data or switch preview origins while the recovered local workspace is in use. |
 
 ### Saved Word Study → Evidence Manager handoff
@@ -161,3 +162,11 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 - It prepopulates the Evidence Manager with the saved Strong's ID, verse reference, source, source URL/ID, lexical glosses and senses, exact morphology, occurrence offsets, verse wording and researcher notes.
 - It does not invent a claim, automatically classify the item as supporting evidence, or mark the source verified. The researcher must formulate the claim, choose the relationship/quality and perform source verification.
 - The data conversion is covered by isolated unit tests. PR preview browser acceptance remains pending.
+
+
+### Supporting Evidence Editor expansion (2026-11-17)
+- The Supporting evidence field has an independent **Expand editor / Collapse editor** control; it does not expand the entire Evidence Manager.
+- The expanded writing area is viewport-sized on desktop and mobile, remains manually resizable, and preserves its content when collapsed.
+- Browser acceptance was confirmed by the user in the PR #188 preview on 17 November 2026.
+- Implementation commit: `8a4ab256fa5184033661fdee2bc2fdc4005943d6`.
+- CI completed successfully: TypeScript check, Vite build, and 343/343 tests passed.

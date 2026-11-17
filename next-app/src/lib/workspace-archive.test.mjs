@@ -48,7 +48,7 @@ const sample = () => ({
     id: 'word-study-1', strongsId: 'G3056', englishWord: 'Word', lemma: 'λόγος',
     transliteration: 'logos', partOfSpeech: 'Noun', gloss: 'word; message',
     senses: [{ gloss: 'word', definition: 'A spoken or written expression.' }],
-    originalText: 'λόγον', language: 'Greek', parsing: 'N-ASM',
+    originalText: 'λόγον', wordStart: 18, wordEnd: 23, language: 'Greek', parsing: 'N-ASM',
     parsingFull: 'Noun - Accusative Singular Masculine',
     reference: { book: 'John', chapter: 1, verse: 1, translation: 'BSB' },
     verseText: 'In the beginning was the Word.',

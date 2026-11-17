@@ -28,6 +28,7 @@ import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReferen
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheologicalTensionRecords } from './lib/theological-tensions.mjs';
 import { appendTheologicalTensionHistory, buildTheologicalTensionDossier, appendTheologicalDossierVersion, compareTheologicalDossierVersions, exportTheologicalDossierMarkdown, exportTheologicalDossierArchive } from './lib/theological-tensions.mjs';
+import { buildWorkspaceArchive, validateWorkspaceArchive, planWorkspaceArchiveImport, applyWorkspaceArchiveImport, WORKSPACE_ARCHIVE_STORES } from './lib/workspace-archive.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -338,6 +339,14 @@ export default function App() {
   const [referenceNotice, setReferenceNotice] = useState('');
   const [showAddToStudy, setShowAddToStudy] = useState(false);
   const [addToStudyTarget, setAddToStudyTarget] = useState('current');
+  const [archiveFile, setArchiveFile] = useState<File | null>(null);
+  const [archivePreview, setArchivePreview] = useState<ReturnType<typeof validateWorkspaceArchive> | null>(null);
+  const [archiveReport, setArchiveReport] = useState<Record<string, { incomingCount: number; identical: number; conflicting: number; newItems: number; conflicts: Array<{ id: string; store: string; description: string }> }> | null>(null);
+  const [archiveDecisions, setArchiveDecisions] = useState<Record<string, 'keep' | 'replace' | 'duplicate'>>({});
+  const [archiveMode, setArchiveMode] = useState<'merge' | 'replace'>('merge');
+  const [archiveNotice, setArchiveNotice] = useState('');
+  const [archiveError, setArchiveError] = useState('');
+  const [archiveWorking, setArchiveWorking] = useState(false);
   const [observationCategory, setObservationCategory] = useState('General observation');
 
 
@@ -787,6 +796,59 @@ export default function App() {
     } catch (error) {
       setDossierNotice(error instanceof Error ? error.message : 'The dossier version could not be saved.');
     }
+  };
+
+  const readCurrentArchiveStores = () => ({
+    drafts: readPreviewDrafts(), scriptureMarkup: readPreviewMarkup(), wordMarkup: readPreviewWordMarkup(),
+    markupColors, crossReferences: readPreviewCrossReferences(), evidence: readPreviewEvidence(),
+    claimSynthesis: readClaimSynthesis(), doctrineReviews: readDoctrineReviews(),
+    theologicalTensions: readTheologicalTensions(), dossierVersions: readTheologicalDossierVersions()
+  });
+
+  const downloadWorkspaceArchive = () => {
+    try {
+      const archive = buildWorkspaceArchive(readCurrentArchiveStores(), { exportedAt: new Date().toISOString() });
+      const blob = new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = 'ibs-workspace-archive-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setArchiveNotice('Full preview workspace archive downloaded.'); setArchiveError('');
+    } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The workspace archive could not be created.'); }
+  };
+
+  const inspectArchiveFile = async (file: File | null) => {
+    setArchiveFile(file); setArchivePreview(null); setArchiveReport(null); setArchiveDecisions({}); setArchiveNotice(''); setArchiveError('');
+    if (!file) return;
+    try {
+      if (file.size > 25 * 1024 * 1024) throw new Error('The archive exceeds the 25 MB import limit.');
+      const validated = validateWorkspaceArchive(await file.text());
+      setArchiveReport(planWorkspaceArchiveImport(validated, readCurrentArchiveStores())); setArchivePreview(validated);
+    } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The archive could not be validated.'); }
+  };
+
+  const applyArchiveRestore = () => {
+    if (!archivePreview || !archiveReport) return;
+    setArchiveWorking(true); setArchiveError('');
+    try {
+      const planned = applyWorkspaceArchiveImport(archivePreview, readCurrentArchiveStores(), archiveDecisions, archiveMode);
+      const writes = Object.entries(archivePreview.stores).map(([store]) => [WORKSPACE_ARCHIVE_STORES[store as keyof typeof WORKSPACE_ARCHIVE_STORES], JSON.stringify(planned[store as keyof typeof planned])] as [string, string]);
+      const before = new Map<string, string | null>();
+      try { for (const [key, value] of writes) { before.set(key, window.localStorage.getItem(key)); window.localStorage.setItem(key, value); } }
+      catch (error) { for (const [key, value] of before) { try { if (value === null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, value); } catch { /* best-effort rollback */ } } throw error; }
+      if (Object.hasOwn(planned, 'drafts')) setDraftsByPassage(planned.drafts as PreviewDrafts);
+      if (Object.hasOwn(planned, 'scriptureMarkup')) setPreviewMarkup(planned.scriptureMarkup);
+      if (Object.hasOwn(planned, 'wordMarkup')) setPreviewWordMarkup(planned.wordMarkup);
+      if (Object.hasOwn(planned, 'markupColors')) setMarkupColors(planned.markupColors as Record<string, string>);
+      if (Object.hasOwn(planned, 'crossReferences')) setPreviewCrossReferences(planned.crossReferences as PreviewCrossReference[]);
+      if (Object.hasOwn(planned, 'evidence')) setEvidenceRecords(planned.evidence as EvidenceRecord[]);
+      if (Object.hasOwn(planned, 'claimSynthesis')) setClaimSyntheses(planned.claimSynthesis as Record<string, ClaimSynthesis>);
+      if (Object.hasOwn(planned, 'doctrineReviews')) setDoctrineReviews(planned.doctrineReviews as Record<string, DoctrineReview>);
+      if (Object.hasOwn(planned, 'theologicalTensions')) setTheologicalTensions(planned.theologicalTensions as Record<string, TheologicalTension[]>);
+      if (Object.hasOwn(planned, 'dossierVersions')) setSavedDossierVersions(planned.dossierVersions as TheologicalDossierVersion[]);
+      setArchiveNotice('Archive restored successfully. Local records were handled according to the selected conflict decisions.');
+      setArchiveFile(null); setArchivePreview(null); setArchiveReport(null); setArchiveDecisions({});
+    } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The archive could not be restored.'); }
+    finally { setArchiveWorking(false); }
   };
 
   const downloadDossierArchive = () => {

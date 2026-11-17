@@ -289,3 +289,84 @@
 .tension-history-empty{margin:0;padding:9px;border:1px dashed #dce5dc;border-radius:7px;color:#78857b;font-size:10px;line-height:1.5}
 .tension-history-caution{margin:0;color:#78847a;font-size:9px;line-height:1.5}
 @media(max-width:640px){.tension-history{padding:9px}.tension-history-heading{align-items:flex-start;flex-direction:column}.tension-history-form{padding:9px}.tension-history-form>.outline-button{width:100%;justify-content:center}.tension-history-entry>summary{align-items:flex-start;flex-wrap:wrap}.tension-history-entry>summary time{width:100%;margin-left:0;text-align:left}}
+
+
+/* Formal Research Conclusion and Resolution Dossier. */
+.tension-dossier-view{width:min(100%,1120px);margin:0 auto;padding:24px 34px 52px;box-sizing:border-box;background:#fff}
+.tension-dossier-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.tension-dossier-toolbar>div{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.tension-dossier-preview-label{color:#829087;font-size:9px;font-weight:750;letter-spacing:.08em}
+.tension-dossier-header{padding:10px 0 18px;border-bottom:2px solid #344f3b}
+.tension-dossier-header h1{max-width:850px;margin:8px 0 9px;color:#233d2e;font:400 31px/1.2 'Libre Baskerville',Georgia,serif}
+.tension-dossier-header>p{max-width:780px;margin:0;color:#657368;font-size:12px;line-height:1.65}
+.tension-dossier-document-meta{display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:14px;color:#7c887e;font-size:9px}
+.tension-dossier-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:17px 0 22px}
+.tension-dossier-summary-grid article{display:grid;align-content:start;gap:6px;min-width:0;padding:11px;border:1px solid #dfe7df;border-radius:7px;background:#f8faf7}
+.tension-dossier-summary-grid small{color:#77857a;font-size:8px;font-weight:750;letter-spacing:.06em}
+.tension-dossier-summary-grid strong{color:#304c38;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.tension-dossier-section{display:grid;gap:9px;padding:0 0 18px;margin:0 0 18px;border-bottom:1px solid #e4eae3}
+.tension-dossier-section-heading{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.tension-dossier-section-heading>span{display:grid;place-items:center;width:25px;height:25px;flex:none;border-radius:50%;background:#edf3ed;color:#42634d;font-size:9px;font-weight:750}
+.tension-dossier-section-heading h2{margin:0;color:#294536;font:400 17px 'Libre Baskerville',Georgia,serif}
+.tension-dossier-section h3{margin:7px 0 0;color:#405746;font-size:11px;font-weight:750}
+.tension-dossier-section>p{margin:0;color:#47584b;font-size:11px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-callout{padding:11px 13px;border-left:3px solid #b68a48;border-radius:5px;background:#f8f7f1}
+.tension-dossier-callout small{color:#7a6b51;font-size:8px;font-weight:750;letter-spacing:.06em}
+.tension-dossier-callout p{margin:5px 0 0;color:#354b3a;font-size:12px;font-weight:650;line-height:1.6;white-space:pre-wrap}
+.tension-dossier-review-meta{display:flex;flex-wrap:wrap;gap:8px 18px;padding:9px 10px;border:1px solid #e5ebe4;border-radius:6px;color:#6e7c70;font-size:9px}
+.tension-dossier-scripture-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tension-dossier-scripture-card{display:grid;align-content:start;gap:6px;min-width:0;padding:12px;border:1px solid #dfe7df;border-radius:8px;background:#fafbf9}
+.tension-dossier-scripture-card>small{color:#7b877d;font-size:8px;font-weight:750;letter-spacing:.06em}
+.tension-dossier-scripture-card h3{margin:0;color:#31503b;font-size:13px}
+.tension-dossier-scripture-card p{margin:0;color:#526257;font-size:10px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-evidence-list{display:grid;gap:9px}
+.tension-dossier-evidence-card{display:grid;gap:6px;padding:11px;border:1px solid #e0e8df;border-radius:8px;background:#fff;break-inside:avoid;page-break-inside:avoid}
+.tension-dossier-evidence-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.tension-dossier-evidence-top>div{display:grid;gap:4px}
+.tension-dossier-evidence-top small{color:#78857b;font-size:8px;font-weight:750;letter-spacing:.04em}
+.tension-dossier-evidence-top h3{margin:0;color:#31503b;font-size:12px}
+.tension-dossier-evidence-top>span{padding:4px 7px;border:1px solid #e0e8df;border-radius:99px;background:#f6f8f5;color:#607064;font-size:8px;text-transform:capitalize}
+.tension-dossier-evidence-card>p{margin:0;color:#526257;font-size:10px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-evidence-meta{display:flex;gap:5px 12px;flex-wrap:wrap;color:#78857b;font-size:8px}
+.tension-dossier-evidence-meta span{overflow-wrap:anywhere}
+.tension-dossier-source-url{font-size:9px!important;overflow-wrap:anywhere}
+.tension-dossier-conclusion{padding:13px;border:1px solid #dce6dc;border-radius:8px;background:#f8faf7}
+.tension-dossier-history{display:grid;gap:10px}
+.tension-dossier-history-entry{display:grid;gap:6px;padding:11px;border:1px solid #dfe7df;border-radius:8px;background:#fff;break-inside:avoid;page-break-inside:avoid}
+.tension-dossier-history-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:7px;border-bottom:1px solid #edf1ec}
+.tension-dossier-history-top strong{color:#35523d;font-size:10px;text-transform:capitalize}
+.tension-dossier-history-top time{color:#7c897f;font-size:8px;text-align:right}
+.tension-dossier-history-entry>p{margin:0;color:#536258;font-size:9px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-history-passages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:4px}
+.tension-dossier-history-passages p{margin:0;padding:8px;border-radius:6px;background:#f7f9f6;color:#58685c;font-size:8px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-history-passages b{color:#34513b}
+.tension-dossier-footer{display:grid;gap:6px;padding-top:4px;color:#68776c}
+.tension-dossier-footer>p{margin:0;font-size:9px;line-height:1.6}
+.tension-dossier-footer>p:first-child{color:#344d3a;font-size:11px}
+.tension-dossier-signoff{display:flex;gap:12px 24px;flex-wrap:wrap;margin-top:15px;padding-top:10px;border-top:1px solid #dfe7df;color:#5e6e61;font-size:9px}
+.tension-dossier-print-footer{display:none}
+@media(max-width:700px){
+ .tension-dossier-view{padding:16px 14px 30px}
+ .tension-dossier-toolbar{align-items:stretch;flex-direction:column}
+ .tension-dossier-toolbar>div{align-items:stretch;flex-direction:column}
+ .tension-dossier-toolbar .outline-button,.tension-dossier-toolbar .primary-button{width:100%;justify-content:center}
+ .tension-dossier-header h1{font-size:24px}
+ .tension-dossier-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tension-dossier-scripture-grid,.tension-dossier-history-passages{grid-template-columns:minmax(0,1fr)}
+ .tension-dossier-section-heading h2{font-size:15px}
+}
+@page{margin:16mm}
+@media print{
+ html,body,#root{background:#fff!important;color:#202820!important}
+ body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .app-shell{display:block!important;min-height:0!important;background:#fff!important}
+ .sidebar,.topbar,.tension-dossier-toolbar{display:none!important}
+ .main-area{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important}
+ .tension-dossier-view{width:100%!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important}
+ .tension-dossier-header h1{font-size:25px}
+ .tension-dossier-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .tension-dossier-section,.tension-dossier-evidence-card,.tension-dossier-history-entry,.tension-dossier-scripture-card{break-inside:avoid;page-break-inside:avoid}
+ .tension-dossier-footer{break-inside:avoid;page-break-inside:avoid}
+ .tension-dossier-print-footer{display:block;margin-top:16px;padding-top:8px;border-top:1px solid #d6ded5;color:#7b877d;font-size:8px}
+ a{color:inherit!important;text-decoration:none!important}
+}

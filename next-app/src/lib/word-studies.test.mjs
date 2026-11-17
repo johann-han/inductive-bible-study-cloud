@@ -75,6 +75,14 @@ test('searches the verse, Strong ID, lemma, morphology and researcher notes', ()
   assert.equal(searchWordStudies(records, 'not-present').length, 0);
 });
 
+test('keeps repeated Strong’s entries from distinct source offsets in one verse', () => {
+  const first = record({ id: 'first-occurrence', wordStart: 8, wordEnd: 13 });
+  const second = record({ id: 'second-occurrence', wordStart: 24, wordEnd: 29 });
+  const normalized = normalizeWordStudies([first, second]);
+  assert.equal(normalized.length, 2);
+  assert.deepEqual(normalized.map(item => [item.wordStart, item.wordEnd]), [[8, 13], [24, 29]]);
+});
+
 test('preserves optional empty researcher notes', () => {
   assert.equal(isWordStudyRecord(record({ notes: '' })), true);
   assert.equal(normalizeWordStudies([record({ notes: '' })]).length, 1);

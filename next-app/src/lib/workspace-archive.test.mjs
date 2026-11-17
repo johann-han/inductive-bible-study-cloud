@@ -53,6 +53,7 @@ test('exports a versioned workspace archive with exact per-store counts', () => 
   assert.equal(archive.archiveVersion, 1);
   assert.equal(validated.counts.dossierVersions, 1);
   assert.equal(validated.counts.theologicalTensions, 1);
+  assert.equal(validated.counts.drafts, 1);
   assert.equal(Object.keys(WORKSPACE_ARCHIVE_STORES).length, 10);
 });
 
@@ -248,7 +249,7 @@ test('replace mode replaces included tension groups but preserves groups absent 
 test('duplicate decisions are rejected for single-value records that cannot retain a separate copy', () => {
   const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
   const cases = [
-    ['drafts', 'Genesis|1:1', current => { current.drafts['Genesis|1'].observe = 'Local draft'; }],
+    ['drafts', 'Genesis|1', current => { current.drafts['Genesis|1'].observe = 'Local draft'; }],
     ['markupColors', 'key-word', current => { current.markupColors['key-word'] = '#000000'; }],
     ['claimSynthesis', 'Genesis 1::creation', current => { current.claimSynthesis['Genesis 1::creation'].conclusion = 'Local claim'; }],
     ['doctrineReviews', 'Genesis 1::creation', current => { current.doctrineReviews['Genesis 1::creation'].formulation = 'Local formulation'; }]
@@ -277,4 +278,26 @@ test('duplicate verse-markup decisions combine distinct tags without redundant c
   assert.deepEqual(result.wordMarkup['Genesis|1']['1'], [
     { start: 0, end: 3, tags: ['contrast', 'key-word'] }
   ]);
+});
+
+test('draft preflight counts each passage once and merge decisions operate on the whole study draft', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const current = sample();
+  current.drafts['Genesis|1'].observe = 'Local draft';
+  current.drafts['John|1'] = { observe: 'Unrelated local study', interpret: '', doctrine: '', apply: '', activeStage: 'observe' };
+
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.drafts.incomingCount, 1);
+  assert.equal(report.drafts.conflicting, 1);
+  assert.equal(report.drafts.conflicts[0].id, 'Genesis|1');
+
+  const kept = applyWorkspaceArchiveImport(validated, current);
+  assert.equal(kept.drafts['Genesis|1'].observe, 'Local draft');
+  assert.equal(kept.drafts['John|1'].observe, 'Unrelated local study');
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    'drafts:Genesis|1': 'replace'
+  });
+  assert.equal(replaced.drafts['Genesis|1'].observe, 'Observed');
+  assert.equal(replaced.drafts['John|1'].observe, 'Unrelated local study');
 });

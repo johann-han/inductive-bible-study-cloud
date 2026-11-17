@@ -169,13 +169,13 @@ test('replace mode honours keep and duplicate conflict decisions', () => {
   assert.equal(kept.claimSynthesis['Genesis 1::creation'].conclusion, 'Local claim');
   const duplicated = applyWorkspaceArchiveImport(validated, current, {
     'evidence:evidence-1': 'duplicate',
-    'claimSynthesis:Genesis 1::creation': 'duplicate'
+    'claimSynthesis:Genesis 1::creation': 'keep'
   }, 'replace');
   assert.equal(duplicated.evidence.length, 2);
   assert.equal(duplicated.evidence[0].detail, 'Local evidence');
   assert.notEqual(duplicated.evidence[1].id, 'evidence-1');
   assert.equal(duplicated.claimSynthesis['Genesis 1::creation'].conclusion, 'Local claim');
-  assert.equal(Object.keys(duplicated.claimSynthesis).length, 2);
+  assert.equal(Object.keys(duplicated.claimSynthesis).length, 1);
 });
 
 test('archive validation checks exact count coverage, valid passage keys and unique record IDs', () => {

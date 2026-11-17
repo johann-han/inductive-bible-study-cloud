@@ -140,7 +140,8 @@ function duplicateKey(store, item) {
 }
 function collectionFor(store, data) {
   if (store === 'theologicalTensions') return Object.entries(data).flatMap(([key, records]) => records.map(record => ({ key, record })));
-  if (store === 'drafts' || store === 'scriptureMarkup' || store === 'wordMarkup') return Object.entries(data).flatMap(([key, verses]) => Object.entries(verses).map(([verse, value]) => ({ key: key + ':' + verse, value })));
+  if (store === 'drafts') return Object.entries(data).map(([key, value]) => ({ key, value }));
+  if (store === 'scriptureMarkup' || store === 'wordMarkup') return Object.entries(data).flatMap(([key, verses]) => Object.entries(verses).map(([verse, value]) => ({ key: key + ':' + verse, value })));
   if (store === 'evidence' || store === 'crossReferences' || store === 'dossierVersions') return data;
   if (isObject(data)) return Object.entries(data).map(([key, value]) => ({ key, value }));
   return [];
@@ -296,6 +297,19 @@ function duplicatePassageValue(store, existing, incoming) {
   }
   return existing;
 }
+function mergeDraftStore(existing, incoming, decisions) {
+  const output = { ...existing };
+  for (const [passageKey, value] of Object.entries(incoming)) {
+    if (!Object.prototype.hasOwnProperty.call(output, passageKey)) {
+      output[passageKey] = value;
+      continue;
+    }
+    if (fingerprint(output[passageKey]) === fingerprint(value)) continue;
+    const decision = decisions['drafts:' + passageKey] || 'keep';
+    if (decision === 'replace') output[passageKey] = value;
+  }
+  return output;
+}
 function mergePassageStore(store, existing, incoming, decisions) {
   const output = { ...existing };
   for (const [passageKey, incomingVerses] of Object.entries(incoming)) {
@@ -397,7 +411,16 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
     }
     return output;
   }
-  if (['drafts', 'scriptureMarkup', 'wordMarkup'].includes(store)) {
+  if (store === 'drafts') {
+    const output = { ...incoming };
+    for (const [passageKey, value] of Object.entries(incoming)) {
+      const prior = existing?.[passageKey];
+      if (prior === undefined || fingerprint(prior) === fingerprint(value)) continue;
+      if (decisions['drafts:' + passageKey] === 'keep') output[passageKey] = prior;
+    }
+    return output;
+  }
+  if (['scriptureMarkup', 'wordMarkup'].includes(store)) {
     const output = { ...incoming };
     for (const [passageKey, verses] of Object.entries(incoming)) {
       output[passageKey] = { ...verses };
@@ -451,8 +474,9 @@ export function applyWorkspaceArchiveImport(validated, currentStores, decisions 
       continue;
     }
     if (store === 'theologicalTensions') next[store] = mergeTensions(currentStores[store] || {}, incoming, decisions);
+    else if (store === 'drafts') next[store] = mergeDraftStore(currentStores[store] || {}, incoming, decisions);
     else if (['evidence', 'crossReferences', 'dossierVersions'].includes(store)) next[store] = mergeCollection(store, currentStores[store] || [], incoming, decisions);
-    else if (['drafts', 'scriptureMarkup', 'wordMarkup'].includes(store)) next[store] = mergePassageStore(store, currentStores[store] || {}, incoming, decisions);
+    else if (['scriptureMarkup', 'wordMarkup'].includes(store)) next[store] = mergePassageStore(store, currentStores[store] || {}, incoming, decisions);
     else next[store] = mergeKeyed(store, currentStores[store] || {}, incoming, decisions);
   }
   return next;

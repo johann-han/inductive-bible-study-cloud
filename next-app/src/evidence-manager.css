@@ -370,3 +370,82 @@
  .tension-dossier-print-footer{display:block;margin-top:16px;padding-top:8px;border-top:1px solid #d6ded5;color:#7b877d;font-size:8px}
  a{color:inherit!important;text-decoration:none!important}
 }
+
+
+/* Dossier management, archive, version comparison and portable exports. */
+.dossier-management-view{width:min(100%,1440px);margin:0 auto;padding:28px 34px 48px;box-sizing:border-box}
+.dossier-management-view>.library-header{margin-bottom:18px}
+.dossier-management-view>.library-header h1{margin:5px 0 7px;color:#294536;font:400 30px 'Libre Baskerville',Georgia,serif}
+.dossier-management-view>.library-header p{max-width:760px;margin:0;color:#68766e;font-size:12px;line-height:1.65}
+.dossier-management-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.dossier-management-stats article{display:grid;gap:6px;padding:12px;border:1px solid #dfe7df;border-radius:9px;background:#fff}
+.dossier-management-stats small{color:#77857a;font-size:8px;font-weight:750;letter-spacing:.06em}
+.dossier-management-stats strong{color:#294b37;font:400 23px 'Libre Baskerville',Georgia,serif;font-variant-numeric:tabular-nums}
+.dossier-management-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;align-items:end;gap:10px;padding:12px;border:1px solid #e0e7df;border-radius:9px;background:#f8faf7}
+.dossier-management-toolbar label{display:grid;gap:5px;color:#526257;font-size:10px;font-weight:700}
+.dossier-management-toolbar input{width:100%;min-width:0;box-sizing:border-box;min-height:37px;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px 10px;color:#29392f;font:11px 'DM Sans',sans-serif}
+.dossier-management-toolbar>span{padding:9px 0;color:#718075;font-size:10px}
+.dossier-management-list{display:grid;gap:10px;margin-top:14px}
+.dossier-management-card{display:grid;gap:10px;padding:14px;border:1px solid #dfe7df;border-radius:10px;background:#fff}
+.dossier-management-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.dossier-management-card-heading>div{display:grid;gap:5px;min-width:0}
+.dossier-management-card-heading .eyebrow{color:#7a887c;font-size:9px;font-weight:700;letter-spacing:.06em}
+.dossier-management-card-heading h2{margin:0;color:#294536;font-size:14px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.dossier-version-date{flex:none;color:#7d8a80;font-size:9px}
+.dossier-management-badges{display:flex;gap:5px;flex-wrap:wrap}
+.dossier-management-badges span{padding:4px 7px;border:1px solid #e0e7df;border-radius:99px;background:#f6f8f5;color:#596b5e;font-size:9px;text-transform:capitalize}
+.dossier-management-conclusion{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:0;color:#536258;font-size:11px;line-height:1.6;white-space:pre-wrap}
+.dossier-management-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:9px;border-top:1px solid #edf1ec}
+.dossier-management-card-footer>small{color:#818c83;font-size:9px}
+.dossier-management-card-footer>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dossier-management-card-footer .primary-button,.dossier-management-card-footer .outline-button{min-height:32px;padding:7px 10px;font-size:10px}
+.dossier-management-card-footer .text-button{padding:5px;font-size:10px}
+.dossier-version-comparison{display:grid;gap:12px;margin-top:20px;padding:15px;border:1px solid #dce6dc;border-radius:11px;background:#f8faf7}
+.dossier-version-comparison-heading h2{margin:4px 0;color:#294536;font:400 18px 'Libre Baskerville',Georgia,serif}
+.dossier-version-comparison-heading p{max-width:740px;margin:0;color:#6c796f;font-size:10px;line-height:1.55}
+.dossier-version-comparison-selectors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dossier-version-comparison-selectors label{display:grid;gap:5px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.dossier-version-comparison-selectors select{width:100%;min-width:0;box-sizing:border-box;min-height:38px;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px 10px;color:#29392f;font:11px 'DM Sans',sans-serif}
+.dossier-version-comparison-selectors select:disabled{opacity:.5}
+.dossier-version-diff{display:grid;gap:7px}
+.dossier-version-diff-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#6c796f;font-size:10px}
+.dossier-version-diff-heading strong{color:#35523d;font-size:11px}
+.dossier-version-diff-heading small{margin-left:auto;color:#79867c;font-size:9px}
+.dossier-diff-row{display:grid;grid-template-columns:minmax(145px,.55fr) repeat(2,minmax(0,1fr)) auto;gap:9px;align-items:start;padding:9px;border:1px solid #e2e9e1;border-radius:7px;background:#fff}
+.dossier-diff-row.changed{border-color:#d5c59f;background:#fffdf7}
+.dossier-diff-row>strong{color:#4c6051;font-size:10px;line-height:1.5}
+.dossier-diff-row>div{min-width:0}
+.dossier-diff-row>div small{color:#839087;font-size:8px;font-weight:700}
+.dossier-diff-row>div p{margin:4px 0 0;color:#58675d;font-size:9px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.dossier-diff-row>span{color:#728075;font-size:8px;text-align:right}
+.dossier-diff-row.changed>span{color:#8a6a35;font-weight:750}
+.dossier-version-comparison-hint{margin:0;color:#748176;font-size:10px;line-height:1.5}
+.dossier-version-archive-note,.dossier-management-storage-note{margin:0;color:#7b877d;font-size:9px;line-height:1.55}
+.dossier-management-storage-note{margin-top:15px}
+.dossier-management-notice{margin:0 0 13px;padding:8px 10px;border:1px solid #dce6dc;border-radius:7px;background:#f8faf7;color:#52665a;font-size:10px;line-height:1.5}
+.tension-dossier-toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.tension-dossier-toolbar-actions .dossier-screen-action{min-height:33px;padding:7px 10px;font-size:10px}
+@media(max-width:1000px){.dossier-management-card-footer{align-items:flex-start;flex-direction:column}.dossier-management-card-footer>div{width:100%}.dossier-management-card-footer>div .primary-button{flex:1}}
+@media(max-width:760px){
+ .dossier-management-view{padding:18px 14px 32px}
+ .dossier-management-view>.library-header h1{font-size:24px}
+ .dossier-management-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .dossier-management-stats article{padding:9px}
+ .dossier-management-stats strong{font-size:19px}
+ .dossier-management-toolbar{grid-template-columns:minmax(0,1fr) auto}
+ .dossier-management-toolbar label{grid-column:1/-1}
+ .dossier-management-toolbar>span{padding:0}
+ .dossier-management-card{padding:11px}
+ .dossier-management-card-heading{flex-direction:column;gap:4px}
+ .dossier-version-comparison{padding:10px}
+ .dossier-version-comparison-selectors{grid-template-columns:minmax(0,1fr)}
+ .dossier-diff-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}
+ .dossier-diff-row>strong{grid-column:1/-1}
+ .dossier-diff-row>span{grid-column:1/-1;text-align:left}
+ .tension-dossier-toolbar-actions{justify-content:flex-start}
+ .tension-dossier-toolbar-actions .dossier-screen-action{width:100%;justify-content:center}
+}
+@media print{
+ .dossier-management-view{display:none!important}
+ .dossier-management-notice{display:none!important}
+}

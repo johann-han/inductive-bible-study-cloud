@@ -1,7 +1,8 @@
 import { isWordStudyRecord } from './word-studies.mjs';
 
 const WORKSPACE_ARCHIVE_FORMAT = 'ibs-workspace-archive';
-const WORKSPACE_ARCHIVE_VERSION = 1;
+const WORKSPACE_ARCHIVE_VERSION = 2;
+const SUPPORTED_WORKSPACE_ARCHIVE_VERSIONS = new Set([1, WORKSPACE_ARCHIVE_VERSION]);
 const UNSAFE_RECORD_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const DOSSIER_ARCHIVE_FORMAT = 'ibs-theological-dossier-archive';
 const DOSSIER_ARCHIVE_VERSION = 1;
@@ -222,7 +223,7 @@ export function validateWorkspaceArchive(input) {
       counts: { dossierVersions: archive.dossierVersions.length }
     };
   }
-  if (archive.format !== WORKSPACE_ARCHIVE_FORMAT || archive.archiveVersion !== WORKSPACE_ARCHIVE_VERSION ||
+  if (archive.format !== WORKSPACE_ARCHIVE_FORMAT || !SUPPORTED_WORKSPACE_ARCHIVE_VERSIONS.has(archive.archiveVersion) ||
       !isObject(archive.stores) || !isObject(archive.counts)) {
     throw new TypeError('Unsupported IBS archive format or version.');
   }

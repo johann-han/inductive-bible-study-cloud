@@ -142,3 +142,16 @@ Do not begin write-capable cloud integration until the staging target and compat
 - Evidence records now have a separate researcher-managed verification status: not checked, source opened, content checked against the claim, or independently corroborated. Verification notes are editable on existing records.
 - Claim summaries show verification counts separately from claim relationship and source-quality counts. The interface does not claim to automatically validate external URLs or source content.
 - All new fields remain optional/backward-compatible for legacy browser-local records; preview remains isolated from production data.
+
+
+## PR #188 preview addendum — 17 November 2026
+
+The following capability increments are implemented on `feat/ibs-validated-archive-import`. They remain confined to the PR preview; they do not change the production application or Supabase records.
+
+| Area | Current PR #188 preview status | Acceptance boundary |
+|---|---|---|
+| Study Note History | Implemented in both Active Study and Study Notes editors. Up to eight snapshots are retained per passage, automatic capture is throttled to two minutes, identical content is not duplicated, and restoration first preserves the current note state. All four stage bodies and the active stage are included. | User confirmed the History control is visible and functional in the PR #188 preview on 17 November 2026. |
+| Backup and restore | Browser-local archive version 2 supports eleven stores, including saved Word Studies. Version 1 workspace archives and legacy dossier archives remain importable. Preflight conflict decisions and transactional rollback are retained. | PR #187 to PR #188 recovery and round-trip preservation were confirmed. No cloud or production records are included. |
+| Word Studies | A dedicated, searchable collection stores the Strong's identifier, lexical entry and senses, exact verse occurrence, translation, occurrence morphology, source attribution and researcher notes. Saved entries can reopen their verse. Word Studies participate in archive export/import. | Automated validation and CI are required; visual and interaction acceptance in the updated PR #188 preview remains pending. |
+| Storage boundary | Note history and Word Studies use preview-specific browser storage. Archive restore writes only stores present in the selected archive and keeps the existing merge/replace decisions. | Do not clear PR #188 preview site data or switch preview origins while the recovered local workspace is in use. |
+

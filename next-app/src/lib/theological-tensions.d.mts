@@ -28,6 +28,7 @@ export type TensionStatus =
 
 export type TheologicalTensionRecord = {
   id: string;
+  history?: TheologicalTensionHistoryEntry[];
   passageA: string;
   contextA: string;
   passageB: string;
@@ -79,6 +80,9 @@ export type TheologicalTensionHistoryEntry = {
   assessment: TensionAssessment;
   previousStatus: TensionStatus | null;
   status: TensionStatus;
+  previousResearcherPosition: string | null;
+  previousAnalysisSnapshot: string | null;
+  previousUncertaintySnapshot: string | null;
   passageA: string;
   contextA: string;
   passageB: string;

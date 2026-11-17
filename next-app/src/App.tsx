@@ -1298,6 +1298,11 @@ export default function App() {
                         'Assessment: ' + (entry.previousAssessment ? entry.previousAssessment.replaceAll('_', ' ') + ' → ' : '') + entry.assessment.replaceAll('_', ' '),
                         'Status: ' + (entry.previousStatus ? entry.previousStatus.replaceAll('_', ' ') + ' → ' : '') + entry.status.replaceAll('_', ' '),
                         'Researcher position: ' + entry.researcherPosition,
+                        'Passage A: ' + (entry.passageA || 'Not recorded'),
+                        'Passage A context: ' + (entry.contextA || 'Not recorded'),
+                        'Passage B: ' + (entry.passageB || 'Not recorded'),
+                        'Passage B context: ' + (entry.contextB || 'Not recorded'),
+                        'Issue: ' + (entry.issue || 'Not recorded'),
                         'Reason for recording: ' + entry.rationale,
                         'Evidence considered: ' + (entry.evidenceConsidered || 'Not recorded'),
                         'Analysis at checkpoint: ' + (entry.analysisSnapshot || 'Not recorded'),
@@ -1316,7 +1321,7 @@ export default function App() {
                       'Research assessment: ' + record.assessment.replaceAll('_', ' '),
                       'Research status: ' + record.status.replaceAll('_', ' ')
                     ].join('\n')).join('\n\n');
-                    const block = marker + '\n' + finalText + '\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\nTensions / qualifications: ' + review.tensions.trim() : '') + (tensionNotes ? '\n\nTheological tension analysis register:\n' + tensionNotes : '') + (historyNotes.length ? '\n\nInterpretation and resolution history:\n' + historyNotes : '') + (review.unresolved.trim() ? '\nOpen questions: ' + review.unresolved.trim() : '');
+                    const block = marker + '\n' + finalText + '\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\nTensions / qualifications: ' + review.tensions.trim() : '') + (tensionNotes ? '\n\nTheological tension analysis register:\n' + tensionNotes : '') + (historyNotes.length ? '\n\nInterpretation and resolution history:\n' + historyNotes.join('\n\n') : '') + (review.unresolved.trim() ? '\nOpen questions: ' + review.unresolved.trim() : '');
                     return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
                   });
                   updateReview({ approved: true });

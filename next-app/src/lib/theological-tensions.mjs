@@ -92,7 +92,9 @@ export function appendTheologicalTensionHistory(record, input, metadata = {}) {
     : '';
   if (!recordedAt) throw new TypeError('A valid history timestamp is required.');
 
-  const previous = Array.isArray(record.history) ? record.history[record.history.length - 1] : null;
+  const existingHistory = Array.isArray(record.history) ? record.history : [];
+  if (existingHistory.some(entry => entry && entry.id === id)) throw new TypeError('History entry IDs must be unique within a tension record.');
+  const previous = existingHistory.length ? existingHistory[existingHistory.length - 1] : null;
   const entry = Object.freeze({
     id,
     recordedAt,
@@ -112,6 +114,6 @@ export function appendTheologicalTensionHistory(record, input, metadata = {}) {
     uncertaintySnapshot: cloneHistoryValue(record.uncertainty),
     rationale
   });
-  const history = [...(Array.isArray(record.history) ? record.history : []), entry];
+  const history = [...existingHistory, entry];
   return { ...record, history, updatedAt: recordedAt };
 }

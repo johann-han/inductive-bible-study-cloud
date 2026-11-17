@@ -554,13 +554,15 @@ export default function App() {
     changeStage(stages[Math.max(0, Math.min(3, index + direction))].id);
   };
 
-  const updateStudyNote = (value: string) => {
+  const updateStudyNoteForPassage = (targetKey: string, targetStage: Stage, value: string) => {
     setDraftsByPassage(previous => {
-      const currentDraft = { ...emptyNotes, ...(previous[passageDraftKey] || {}) };
+      const currentDraft = { ...emptyNotes, ...(previous[targetKey] || {}) };
       const withHistory = appendStudyNoteVersionSnapshot(currentDraft);
-      return { ...previous, [passageDraftKey]: { ...withHistory, activeStage: stage, [stage]: value } };
+      return { ...previous, [targetKey]: { ...withHistory, activeStage: targetStage, [targetStage]: value } };
     });
   };
+
+  const updateStudyNote = (value: string) => updateStudyNoteForPassage(passageDraftKey, stage, value);
 
   const restoreStudyNoteVersionFromHistory = (snapshotId: string) => {
     const selected = noteVersionHistory.find(item => item.id === snapshotId);

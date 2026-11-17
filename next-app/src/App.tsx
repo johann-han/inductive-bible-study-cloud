@@ -773,7 +773,7 @@ export default function App() {
     if (!selectedTensionDossier || !selectedDossierRecord) return;
     try {
       const updated = appendTheologicalDossierVersion(savedDossierVersions, {
-        tensionKey: selectedTossierKey(),
+        tensionKey: selectedDossierRecord.reviewKey + '::' + selectedDossierRecord.id,
         tensionId: selectedDossierRecord.id,
         dossier: selectedTensionDossier
       }, {
@@ -788,8 +788,6 @@ export default function App() {
       setDossierNotice(error instanceof Error ? error.message : 'The dossier version could not be saved.');
     }
   };
-
-  const selectedTossierKey = () => selectedDossierRecord ? selectedDossierRecord.reviewKey + '::' + selectedDossierRecord.id : '';
 
   const downloadDossierFile = (dossier: typeof selectedTensionDossier, format: 'json' | 'markdown') => {
     if (!dossier) return;

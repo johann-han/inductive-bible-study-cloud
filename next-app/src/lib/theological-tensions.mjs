@@ -176,7 +176,7 @@ export function buildTheologicalTensionDossier(record, options = {}) {
     generatedAt,
     studyPassage: dossierText(record.studyPassage, dossierText(record.studyKey, 'Study passage not identified')),
     doctrinalClaim: dossierText(record.claimDisplay, dossierText(record.claimKey, 'Claim not recorded')),
-    claimLevel: dossierText(review.claimLevel, 'Not classified').replaceAll('_', ' '),
+    claimLevel: dossierText(review.claimLevel, 'Not classified'),
     claimSynthesisStatus: dossierText(synthesis.status, 'No synthesis status recorded').replaceAll('_', ' '),
     originalSynthesis: dossierText(synthesis.conclusion, 'No claim synthesis recorded'),
     synthesisReasoning: dossierText(synthesis.reasoning, 'No synthesis reasoning recorded'),

@@ -449,3 +449,7 @@
  .dossier-management-view{display:none!important}
  .dossier-management-notice{display:none!important}
 }
+
+
+.dossier-management-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+@media(max-width:760px){.dossier-management-header-actions{width:100%;justify-content:stretch}.dossier-management-header-actions .outline-button{flex:1;justify-content:center;white-space:normal}}

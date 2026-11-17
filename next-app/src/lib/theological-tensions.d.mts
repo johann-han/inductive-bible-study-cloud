@@ -218,3 +218,9 @@ export function exportTheologicalDossierMarkdown(
   dossier: TheologicalTensionDossier,
   archiveMetadata?: { versionNumber?: number; savedAt?: string }
 ): string;
+
+
+export function exportTheologicalDossierArchive(
+  versions: TheologicalDossierVersion[],
+  metadata?: { exportedAt?: string }
+): string;

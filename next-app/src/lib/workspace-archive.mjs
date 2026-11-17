@@ -1,3 +1,5 @@
+import { isWordStudyRecord } from './word-studies.mjs';
+
 const WORKSPACE_ARCHIVE_FORMAT = 'ibs-workspace-archive';
 const WORKSPACE_ARCHIVE_VERSION = 1;
 const UNSAFE_RECORD_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -15,7 +17,8 @@ export const WORKSPACE_ARCHIVE_STORES = Object.freeze({
   claimSynthesis: 'ibs-next-generation-preview-claim-synthesis-v1',
   doctrineReviews: 'ibs-next-generation-preview-doctrine-reviews-v1',
   theologicalTensions: 'ibs-next-generation-preview-theological-tensions-v1',
-  dossierVersions: 'ibs-next-generation-preview-theological-dossier-versions-v1'
+  dossierVersions: 'ibs-next-generation-preview-theological-dossier-versions-v1',
+  wordStudies: 'ibs-next-generation-preview-word-studies-v1'
 });
 
 const STORE_VALIDATORS = {
@@ -53,7 +56,8 @@ const STORE_VALIDATORS = {
   theologicalTensions: value => hasSafeKeys(value) && Object.values(value).every(records =>
     Array.isArray(records) && records.length <= 10000 && records.every(isTension)) &&
     hasUniqueIds(Object.values(value).flat()),
-  dossierVersions: value => Array.isArray(value) && value.length <= 20000 && value.every(isDossierVersion) && hasUniqueIds(value)
+  dossierVersions: value => Array.isArray(value) && value.length <= 20000 && value.every(isDossierVersion) && hasUniqueIds(value),
+  wordStudies: value => Array.isArray(value) && value.length <= 5000 && value.every(isWordStudyRecord) && hasUniqueIds(value)
 };
 
 const VALID_TAGS = new Set(['key-word', 'repeated-idea', 'contrast', 'command', 'promise', 'question']);
@@ -152,7 +156,7 @@ function stableStringify(value) {
 }
 function fingerprint(value) { return stableStringify(value); }
 function duplicateKey(store, item) {
-  if (['evidence', 'crossReferences'].includes(store)) return String(item.id || '');
+  if (['evidence', 'crossReferences', 'wordStudies'].includes(store)) return String(item.id || '');
   if (store === 'dossierVersions') return String(item.id || '');
   if (['drafts', 'scriptureMarkup', 'wordMarkup', 'markupColors', 'claimSynthesis', 'doctrineReviews'].includes(store)) return String(item.key || '');
   if (store === 'theologicalTensions') return String(item.id || '');
@@ -162,7 +166,7 @@ function collectionFor(store, data) {
   if (store === 'theologicalTensions') return Object.entries(data).flatMap(([key, records]) => records.map(record => ({ key, record })));
   if (store === 'drafts') return Object.entries(data).map(([key, value]) => ({ key, value }));
   if (store === 'scriptureMarkup' || store === 'wordMarkup') return Object.entries(data).flatMap(([key, verses]) => Object.entries(verses).map(([verse, value]) => ({ key: key + ':' + verse, value })));
-  if (store === 'evidence' || store === 'crossReferences' || store === 'dossierVersions') return data;
+  if (store === 'evidence' || store === 'crossReferences' || store === 'dossierVersions' || store === 'wordStudies') return data;
   if (isObject(data)) return Object.entries(data).map(([key, value]) => ({ key, value }));
   return [];
 }
@@ -421,7 +425,7 @@ function replaceTensions(existing, incoming, decisions) {
 
 function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   if (store === 'theologicalTensions') return replaceTensions(existing || {}, incoming, decisions);
-  if (['evidence', 'crossReferences', 'dossierVersions'].includes(store)) {
+  if (['evidence', 'crossReferences', 'dossierVersions', 'wordStudies'].includes(store)) {
     const output = [...incoming];
     const incomingIds = new Set(incoming.map(item => item.id));
     for (const prior of existing || []) {
@@ -467,7 +471,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   return output;
 }
 
-const DUPLICATE_SUPPORTED_STORES = new Set(['scriptureMarkup', 'wordMarkup', 'crossReferences', 'evidence', 'theologicalTensions', 'dossierVersions']);
+const DUPLICATE_SUPPORTED_STORES = new Set(['scriptureMarkup', 'wordMarkup', 'crossReferences', 'evidence', 'theologicalTensions', 'dossierVersions', 'wordStudies']);
 function validateImportDecisions(report, decisions) {
   for (const [store, item] of Object.entries(report)) {
     for (const conflict of item.conflicts) {
@@ -498,7 +502,7 @@ export function applyWorkspaceArchiveImport(validated, currentStores, decisions 
     }
     if (store === 'theologicalTensions') next[store] = mergeTensions(currentStores[store] || {}, incoming, decisions);
     else if (store === 'drafts') next[store] = mergeDraftStore(currentStores[store] || {}, incoming, decisions);
-    else if (['evidence', 'crossReferences', 'dossierVersions'].includes(store)) next[store] = mergeCollection(store, currentStores[store] || [], incoming, decisions);
+    else if (['evidence', 'crossReferences', 'dossierVersions', 'wordStudies'].includes(store)) next[store] = mergeCollection(store, currentStores[store] || [], incoming, decisions);
     else if (['scriptureMarkup', 'wordMarkup'].includes(store)) next[store] = mergePassageStore(store, currentStores[store] || {}, incoming, decisions);
     else next[store] = mergeKeyed(store, currentStores[store] || {}, incoming, decisions);
   }

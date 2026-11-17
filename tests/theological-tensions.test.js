@@ -91,3 +91,97 @@ test('tension filters return no entries for unmatched criteria and ignore malfor
   assert.deepEqual(filterTheologicalTensionRecords(rows, { status: 'researcher_resolved' }), []);
   assert.deepEqual(filterTheologicalTensionRecords(null), []);
 });
+
+
+import { appendTheologicalTensionHistory } from '../next-app/src/lib/theological-tensions.mjs';
+
+const historyRecord = {
+  id: 'tension-history-test',
+  passageA: 'Romans 3:28',
+  contextA: 'Paul addresses works of the law in his argument about justification.',
+  passageB: 'James 2:24',
+  contextB: 'James addresses a claim to faith that has no works.',
+  issue: 'How faith and works relate in each argument.',
+  analysis: 'The terms and contexts require further comparison.',
+  uncertainty: 'The relationship between the authors’ uses of “works” remains under examination.',
+  assessment: 'unresolved',
+  status: 'under_review',
+  updatedAt: '2026-11-17T06:00:00.000Z'
+};
+
+test('first history checkpoint records a complete dated snapshot without mutating the live record', () => {
+  const first = appendTheologicalTensionHistory(historyRecord, {
+    eventType: 'initial_position',
+    rationale: 'Record the first considered position before further study.',
+    researcherPosition: 'The passages may address different questions; this remains provisional.',
+    evidenceConsidered: 'Romans 3:28 and James 2:24 in their immediate paragraphs.'
+  }, { id: 'history-1', recordedAt: '2026-11-17T07:00:00.000Z' });
+
+  assert.equal(historyRecord.history, undefined);
+  assert.equal(first.history.length, 1);
+  assert.equal(first.history[0].previousAssessment, null);
+  assert.equal(first.history[0].previousStatus, null);
+  assert.equal(first.history[0].assessment, 'unresolved');
+  assert.equal(first.history[0].status, 'under_review');
+  assert.equal(first.history[0].passageA, 'Romans 3:28');
+  assert.equal(first.history[0].analysisSnapshot, historyRecord.analysis);
+  assert.equal(first.history[0].rationale, 'Record the first considered position before further study.');
+  assert.equal(first.updatedAt, '2026-11-17T07:00:00.000Z');
+});
+
+test('subsequent history checkpoints retain prior entries and record the previous assessment and status', () => {
+  const first = appendTheologicalTensionHistory(historyRecord, {
+    eventType: 'initial_position',
+    rationale: 'Initial reading.',
+    researcherPosition: 'Question remains open.'
+  }, { id: 'history-1', recordedAt: '2026-11-17T07:00:00.000Z' });
+  const revisedRecord = {
+    ...first,
+    assessment: 'complementary',
+    status: 'provisionally_addressed',
+    analysis: 'A later review suggests the authors address different aspects of the subject.'
+  };
+  const second = appendTheologicalTensionHistory(revisedRecord, {
+    eventType: 'interpretive_revision',
+    rationale: 'The wider arguments and use of “works” have now been examined.',
+    researcherPosition: 'The passages appear to be complementary, subject to further verification.',
+    evidenceConsidered: 'Romans 3–4 and James 2 in context.'
+  }, { id: 'history-2', recordedAt: '2026-11-17T08:00:00.000Z' });
+
+  assert.equal(second.history.length, 2);
+  assert.equal(second.history[0].id, 'history-1');
+  assert.equal(second.history[1].previousAssessment, 'unresolved');
+  assert.equal(second.history[1].assessment, 'complementary');
+  assert.equal(second.history[1].previousStatus, 'under_review');
+  assert.equal(second.history[1].status, 'provisionally_addressed');
+  assert.match(second.history[1].analysisSnapshot, /different aspects/);
+  assert.equal(first.history.length, 1);
+});
+
+test('history requires an event type, rationale, interpretive position, unique ID and valid timestamp', () => {
+  const validInput = {
+    eventType: 'other',
+    rationale: 'A documented reason.',
+    researcherPosition: 'A current position.'
+  };
+  assert.throws(() => appendTheologicalTensionHistory(historyRecord, null, { id: 'h', recordedAt: '2026-11-17T07:00:00Z' }), /history entry is required/);
+  assert.throws(() => appendTheologicalTensionHistory(historyRecord, { ...validInput, eventType: 'invented' }, { id: 'h', recordedAt: '2026-11-17T07:00:00Z' }), /event type/);
+  assert.throws(() => appendTheologicalTensionHistory(historyRecord, { ...validInput, rationale: ' ' }, { id: 'h', recordedAt: '2026-11-17T07:00:00Z' }), /Explain why/);
+  assert.throws(() => appendTheologicalTensionHistory(historyRecord, { ...validInput, researcherPosition: '' }, { id: 'h', recordedAt: '2026-11-17T07:00:00Z' }), /interpretive position/);
+  assert.throws(() => appendTheologicalTensionHistory(historyRecord, validInput, { id: '', recordedAt: '2026-11-17T07:00:00Z' }), /unique history entry ID/);
+  assert.throws(() => appendTheologicalTensionHistory(historyRecord, validInput, { id: 'h', recordedAt: 'invalid' }), /valid history timestamp/);
+});
+
+test('history is append-only and rejects reuse of an existing checkpoint ID', () => {
+  const first = appendTheologicalTensionHistory(historyRecord, {
+    eventType: 'initial_position',
+    rationale: 'Initial checkpoint.',
+    researcherPosition: 'Initial view.'
+  }, { id: 'fixed-id', recordedAt: '2026-11-17T07:00:00Z' });
+  assert.throws(() => appendTheologicalTensionHistory(first, {
+    eventType: 'other',
+    rationale: 'Attempt duplicate.',
+    researcherPosition: 'Another view.'
+  }, { id: 'fixed-id', recordedAt: '2026-11-17T08:00:00Z' }), /IDs must be unique/);
+  assert.equal(first.history.length, 1);
+});

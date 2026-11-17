@@ -29,6 +29,7 @@ import type { StandardCrossReferenceRow } from './lib/standard-cross-references.
 import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheologicalTensionRecords } from './lib/theological-tensions.mjs';
 import { appendTheologicalTensionHistory, buildTheologicalTensionDossier, appendTheologicalDossierVersion, compareTheologicalDossierVersions, exportTheologicalDossierMarkdown, exportTheologicalDossierArchive } from './lib/theological-tensions.mjs';
 import { buildWorkspaceArchive, validateWorkspaceArchive, planWorkspaceArchiveImport, applyWorkspaceArchiveImport, WORKSPACE_ARCHIVE_STORES } from './lib/workspace-archive.mjs';
+import { persistWorkspaceArchiveWrites } from './lib/workspace-archive-storage.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -834,9 +835,7 @@ export default function App() {
     try {
       const planned = applyWorkspaceArchiveImport(archivePreview, readCurrentArchiveStores(), archiveDecisions, archiveMode);
       const writes = Object.entries(archivePreview.stores).map(([store]) => [WORKSPACE_ARCHIVE_STORES[store as keyof typeof WORKSPACE_ARCHIVE_STORES], JSON.stringify(planned[store as keyof typeof planned])] as [string, string]);
-      const before = new Map<string, string | null>();
-      try { for (const [key, value] of writes) { before.set(key, window.localStorage.getItem(key)); window.localStorage.setItem(key, value); } }
-      catch (error) { for (const [key, value] of before) { try { if (value === null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, value); } catch { /* best-effort rollback */ } } throw error; }
+      persistWorkspaceArchiveWrites(window.localStorage, writes);
       if (Object.hasOwn(planned, 'drafts')) setDraftsByPassage(planned.drafts as PreviewDrafts);
       if (Object.hasOwn(planned, 'scriptureMarkup')) setPreviewMarkup(planned.scriptureMarkup as ReturnType<typeof readPreviewMarkup>);
       if (Object.hasOwn(planned, 'wordMarkup')) setPreviewWordMarkup(planned.wordMarkup as ReturnType<typeof readPreviewWordMarkup>);

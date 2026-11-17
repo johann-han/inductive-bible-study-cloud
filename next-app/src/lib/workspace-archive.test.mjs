@@ -301,3 +301,30 @@ test('draft preflight counts each passage once and merge decisions operate on th
   assert.equal(replaced.drafts['Genesis|1'].observe, 'Observed');
   assert.equal(replaced.drafts['John|1'].observe, 'Unrelated local study');
 });
+
+test('tension records moved between claim groups are treated as conflicts and Replace moves rather than duplicates them', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const tension = sample().theologicalTensions['Genesis|1::creation'][0];
+  const unrelated = { ...tension, id: 'john-local', issue: 'Separate local John claim' };
+  const current = sample();
+  current.theologicalTensions = {
+    'John|1::incarnation': [
+      { ...tension },
+      unrelated
+    ],
+    'Romans|8::hope': [{ ...tension, id: 'outside-archive', issue: 'Must remain' }]
+  };
+
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.theologicalTensions.conflicting, 1);
+  assert.equal(report.theologicalTensions.identical, 0);
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    'theologicalTensions:tension-1': 'replace'
+  }, 'replace');
+
+  assert.equal(replaced.theologicalTensions['John|1::incarnation'].some(item => item.id === 'tension-1'), false);
+  assert.equal(replaced.theologicalTensions['John|1::incarnation'][0].id, 'john-local');
+  assert.equal(replaced.theologicalTensions['Genesis|1::creation'].filter(item => item.id === 'tension-1').length, 1);
+  assert.equal(replaced.theologicalTensions['Romans|8::hope'][0].id, 'outside-archive');
+});

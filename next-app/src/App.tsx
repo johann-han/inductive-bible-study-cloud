@@ -920,7 +920,7 @@ export default function App() {
     drafts: readPreviewDrafts(), scriptureMarkup: readPreviewMarkup(), wordMarkup: readPreviewWordMarkup(),
     markupColors, crossReferences: readPreviewCrossReferences(), evidence: readPreviewEvidence(), wordStudies: readWordStudies(),
     claimSynthesis: readClaimSynthesis(), doctrineReviews: readDoctrineReviews(),
-    theologicalTensions: readTheologicalTensions(), dossierVersions: readTheologicalDossierVersions()
+    theologicalTensions: readTheologicalTensions(), dossierVersions: readTheologicalDossierVersions(), wordStudies
   });
 
   const downloadWorkspaceArchive = () => {

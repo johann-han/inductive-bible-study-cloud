@@ -18,9 +18,10 @@ export const WORKSPACE_ARCHIVE_STORES = Object.freeze({
 });
 
 const STORE_VALIDATORS = {
-  drafts: value => isObject(value) && Object.entries(value).every(([key, record]) =>
-    /^.+\|\d+$/.test(key) && isObject(record) && ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>
-      record[stage] === undefined || typeof record[stage] === 'string')),
+  drafts: value => isPassageMap(value, record => isObject(record) &&
+    ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>
+      record[stage] === undefined || typeof record[stage] === 'string') &&
+    (record.activeStage === undefined || ['observe', 'interpret', 'doctrine', 'apply'].includes(record.activeStage))),
   scriptureMarkup: value => isPassageMap(value, tags => Array.isArray(tags) &&
     tags.every(tag => VALID_TAGS.has(tag))),
   wordMarkup: value => isPassageMap(value, ranges => Array.isArray(ranges) && ranges.every(range =>
@@ -29,12 +30,12 @@ const STORE_VALIDATORS = {
     range.tags.length > 0 && range.tags.every(tag => VALID_TAGS.has(tag)))),
   markupColors: value => isObject(value) && Object.entries(value).every(([key, colour]) =>
     VALID_TAGS.has(key) && typeof colour === 'string' && /^#[0-9a-f]{6}$/i.test(colour)),
-  crossReferences: value => Array.isArray(value) && value.length <= 500 && value.every(isCrossReference),
+  crossReferences: value => Array.isArray(value) && value.length <= 500 && value.every(isCrossReference) && hasUniqueIds(value),
   evidence: value => Array.isArray(value) && value.length <= 20000 && value.every(item =>
     isObject(item) && nonEmpty(item.id) && nonEmpty(item.passageKey) &&
     ['observe', 'interpret', 'doctrine', 'apply'].includes(item.stage) &&
     typeof item.claim === 'string' && typeof item.reference === 'string' &&
-    typeof item.detail === 'string' && typeof item.source === 'string'),
+    typeof item.detail === 'string' && typeof item.source === 'string') && hasUniqueIds(value),
   claimSynthesis: value => isObject(value) && Object.values(value).every(item =>
     isObject(item) && ['under_review', 'provisional', 'ready_for_doctrine', 'revisit'].includes(item.status) &&
     typeof item.conclusion === 'string' && typeof item.reasoning === 'string' &&
@@ -44,8 +45,9 @@ const STORE_VALIDATORS = {
     ['supportingPassages', 'tensions', 'formulation', 'unresolved'].every(field => typeof item[field] === 'string') &&
     typeof item.approved === 'boolean' && validOptionalDate(item.updatedAt)),
   theologicalTensions: value => isObject(value) && Object.values(value).every(records =>
-    Array.isArray(records) && records.length <= 10000 && records.every(isTension)),
-  dossierVersions: value => Array.isArray(value) && value.length <= 20000 && value.every(isDossierVersion)
+    Array.isArray(records) && records.length <= 10000 && records.every(isTension)) &&
+    hasUniqueIds(Object.values(value).flat()),
+  dossierVersions: value => Array.isArray(value) && value.length <= 20000 && value.every(isDossierVersion) && hasUniqueIds(value)
 };
 
 const VALID_TAGS = new Set(['key-word', 'repeated-idea', 'contrast', 'command', 'promise', 'question']);
@@ -55,11 +57,22 @@ const HISTORY_EVENT_TYPES = new Set(['initial_position', 'interpretive_revision'
 
 function isObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function nonEmpty(value) { return typeof value === 'string' && value.trim().length > 0; }
+function hasUniqueIds(items) {
+  const ids = new Set();
+  for (const item of items) {
+    if (!isObject(item) || !nonEmpty(item.id) || ids.has(item.id)) return false;
+    ids.add(item.id);
+  }
+  return true;
+}
 function validOptionalDate(value) { return value === undefined || value === null || value === '' || (typeof value === 'string' && Number.isFinite(Date.parse(value))); }
 function isPassageMap(value, validate) {
-  return isObject(value) && Object.entries(value).every(([key, verses]) =>
-    /^.+\|\d+$/.test(key) && isObject(verses) && Object.entries(verses).every(([verse, data]) =>
-      Number.isInteger(Number(verse)) && Number(verse) > 0 && validate(data)));
+  return isObject(value) && Object.entries(value).every(([key, verses]) => {
+    const match = key.match(/^(.+)\|(\d+)$/);
+    return Boolean(match && validBiblePassage(match[1], Number(match[2]))) &&
+      isObject(verses) && Object.entries(verses).every(([verse, data]) =>
+        /^\d+$/.test(verse) && Number(verse) > 0 && Number(verse) <= 300 && validate(data));
+  });
 }
 function validBiblePassage(book, chapter) {
   const limits = {
@@ -179,6 +192,11 @@ export function validateWorkspaceArchive(input) {
       !isObject(archive.stores) || !isObject(archive.counts)) {
     throw new TypeError('Unsupported IBS archive format or version.');
   }
+  const includedStores = Object.keys(archive.stores);
+  const countStores = Object.keys(archive.counts);
+  if (includedStores.length !== countStores.length || countStores.some(store => !Object.prototype.hasOwnProperty.call(archive.stores, store))) {
+    throw new TypeError('Archive counts do not match the included data stores.');
+  }
   const stores = {};
   const counts = {};
   for (const [store, validator] of Object.entries(STORE_VALIDATORS)) {
@@ -259,6 +277,21 @@ function mergeKeyed(store, existing, incoming, decisions) {
   }
   return output;
 }
+function duplicatePassageValue(store, existing, incoming) {
+  if (store === 'scriptureMarkup') return Array.from(new Set([...existing, ...incoming]));
+  if (store === 'wordMarkup') {
+    const ranges = new Map();
+    for (const range of [...existing, ...incoming]) {
+      const key = range.start + ':' + range.end;
+      const prior = ranges.get(key);
+      ranges.set(key, prior
+        ? { ...prior, tags: Array.from(new Set([...prior.tags, ...range.tags])) }
+        : { ...range, tags: [...range.tags] });
+    }
+    return Array.from(ranges.values()).sort((a, b) => a.start - b.start || a.end - b.end);
+  }
+  return existing;
+}
 function mergePassageStore(store, existing, incoming, decisions) {
   const output = { ...existing };
   for (const [passageKey, incomingVerses] of Object.entries(incoming)) {
@@ -269,55 +302,80 @@ function mergePassageStore(store, existing, incoming, decisions) {
       const conflictId = passageKey + ':' + verse;
       const decision = decisions[store + ':' + conflictId] || 'keep';
       if (decision === 'replace') currentVerses[verse] = value;
-      else if (decision === 'duplicate') {
-        if (Array.isArray(currentVerses[verse]) && Array.isArray(value)) currentVerses[verse] = [...currentVerses[verse], ...value];
+      else if (decision === 'duplicate' && ['scriptureMarkup', 'wordMarkup'].includes(store)) {
+        currentVerses[verse] = duplicatePassageValue(store, currentVerses[verse], value);
       }
     }
     output[passageKey] = currentVerses;
   }
   return output;
 }
+function findTensionLocation(map, id) {
+  for (const [key, records] of Object.entries(map || {})) {
+    const index = records.findIndex(record => record.id === id);
+    if (index >= 0) return { key, index, record: records[index] };
+  }
+  return null;
+}
+function removeTensionAt(map, location) {
+  if (!location) return;
+  const records = [...(map[location.key] || [])];
+  records.splice(location.index, 1);
+  if (records.length) map[location.key] = records;
+  else delete map[location.key];
+}
+function appendTension(map, key, record) {
+  map[key] = [...(map[key] || []), record];
+}
 function mergeTensions(existing, incoming, decisions) {
-  const output = { ...existing };
+  const output = Object.fromEntries(Object.entries(existing || {}).map(([key, records]) => [key, [...records]]));
   for (const [key, items] of Object.entries(incoming)) {
-    const current = [...(output[key] || [])];
     for (const item of items) {
-      const index = current.findIndex(candidate => candidate.id === item.id);
-      if (index < 0) current.push(item);
-      else if (fingerprint(current[index]) !== fingerprint(item)) {
-        const decision = decisions['theologicalTensions:' + item.id] || 'keep';
-        if (decision === 'replace') current[index] = item;
-        else if (decision === 'duplicate') current.push({ ...item, id: createImportId() });
+      const location = findTensionLocation(output, item.id);
+      if (!location) {
+        appendTension(output, key, item);
+        continue;
+      }
+      if (fingerprint(location.record) === fingerprint(item)) continue;
+      const decision = decisions['theologicalTensions:' + item.id] || 'keep';
+      if (decision === 'replace') {
+        removeTensionAt(output, location);
+        appendTension(output, key, item);
+      } else if (decision === 'duplicate') {
+        appendTension(output, key, { ...item, id: createImportId() });
       }
     }
-    output[key] = current;
+  }
+  return output;
+}
+function replaceTensions(existing, incoming, decisions) {
+  const includedKeys = new Set(Object.keys(incoming));
+  const output = Object.fromEntries(Object.entries(existing || {})
+    .filter(([key]) => !includedKeys.has(key))
+    .map(([key, records]) => [key, [...records]]));
+  for (const [key, records] of Object.entries(incoming)) {
+    for (const record of records) {
+      const location = findTensionLocation(existing || {}, record.id);
+      if (!location || fingerprint(location.record) === fingerprint(record)) {
+        appendTension(output, key, record);
+        continue;
+      }
+      const choice = decisions['theologicalTensions:' + record.id];
+      if (choice === 'keep') {
+        appendTension(output, location.key, location.record);
+      } else if (choice === 'duplicate') {
+        appendTension(output, location.key, location.record);
+        appendTension(output, key, { ...record, id: createImportId() });
+      } else {
+        appendTension(output, key, record);
+      }
+    }
   }
   return output;
 }
 
 function replaceStoreWithDecisions(store, existing, incoming, decisions) {
-  if (store === 'theologicalTensions') {
-    const output = { ...incoming };
-    for (const [key, records] of Object.entries(incoming)) {
-      output[key] = records.map(record => {
-        const prior = Object.values(existing || {}).flat().find(item => item.id === record.id);
-        if (!prior || fingerprint(prior) === fingerprint(record)) return record;
-        const choice = decisions[store + ':' + record.id];
-        if (choice === 'keep' || choice === 'duplicate') return prior;
-        return record;
-      });
-      for (const record of records) {
-        const prior = Object.values(existing || {}).flat().find(item => item.id === record.id);
-        if (prior && fingerprint(prior) !== fingerprint(record) && decisions[store + ':' + record.id] === 'duplicate') output[key].push({ ...record, id: createImportId() });
-      }
-    }
-    for (const [key, records] of Object.entries(existing || {})) {
-      const incomingIds = new Set(Object.values(incoming).flat().map(item => item.id));
-      const retained = records.filter(item => !incomingIds.has(item.id));
-      if (retained.length) output[key] = [...(output[key] || []), ...retained];
-    }
-    return output;
-  }
+  if (store === 'theologicalTensions') return replaceTensions(existing || {}, incoming, decisions);
   if (['evidence', 'crossReferences', 'dossierVersions'].includes(store)) {
     const output = [...incoming];
     const incomingIds = new Set(incoming.map(item => item.id));
@@ -340,7 +398,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
         if (prior === undefined || fingerprint(prior) === fingerprint(value)) continue;
         const choice = decisions[store + ':' + passageKey + ':' + verse];
         if (choice === 'keep') output[passageKey][verse] = prior;
-        else if (choice === 'duplicate' && Array.isArray(prior) && Array.isArray(value)) output[passageKey][verse] = [...prior, ...value];
+        else if (choice === 'duplicate' && ['scriptureMarkup', 'wordMarkup'].includes(store)) output[passageKey][verse] = duplicatePassageValue(store, prior, value);
       }
     }
     return output;
@@ -355,8 +413,23 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   return output;
 }
 
+const DUPLICATE_SUPPORTED_STORES = new Set(['scriptureMarkup', 'wordMarkup', 'crossReferences', 'evidence', 'theologicalTensions', 'dossierVersions']);
+function validateImportDecisions(report, decisions) {
+  for (const [store, item] of Object.entries(report)) {
+    for (const conflict of item.conflicts) {
+      const decision = decisions[store + ':' + conflict.id];
+      if (decision !== undefined && !['keep', 'replace', 'duplicate'].includes(decision)) {
+        throw new TypeError('Invalid conflict decision for ' + store + '.');
+      }
+      if (decision === 'duplicate' && !DUPLICATE_SUPPORTED_STORES.has(store)) {
+        throw new TypeError('A separate copy is not supported for ' + store + ' records. Choose keep or replace.');
+      }
+    }
+  }
+}
 export function applyWorkspaceArchiveImport(validated, currentStores, decisions = {}, mode = 'merge') {
   const report = planWorkspaceArchiveImport(validated, currentStores);
+  validateImportDecisions(report, decisions);
   const conflictCount = Object.values(report).reduce((sum, item) => sum + item.conflicting, 0);
   if (mode !== 'merge' && mode !== 'replace') throw new TypeError('Choose merge or replace import mode.');
   if (mode === 'replace' && conflictCount && Object.entries(report).some(([store, item]) =>

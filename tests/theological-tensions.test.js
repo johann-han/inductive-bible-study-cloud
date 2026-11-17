@@ -228,8 +228,8 @@ test('research dossier assembles current passages, resolution, doctrine review, 
   };
   const dossier = buildTheologicalTensionDossier(record, {
     generatedAt: '2026-11-17T08:00:00.000Z',
-    doctrineReview: { claimLevel: 'broader_inference', formulation: 'A formulation derived from the wider canonical synthesis.', unresolved: 'Scope of the inference.' },
-    claimSynthesis: { conclusion: 'Research synthesis.', reasoning: 'Evidence was weighed in context.' },
+    doctrineReview: { claimLevel: 'broader_inference', supportingPassages: 'Romans 3:28 and James 2:24 in context.', tensions: 'The apparent difference requires careful reading of both arguments.', formulation: 'A formulation derived from the wider canonical synthesis.', unresolved: 'Scope of the inference.', approved: true, updatedAt: '2026-11-17T07:30:00.000Z' },
+    claimSynthesis: { status: 'ready_for_doctrine', conclusion: 'Research synthesis.', reasoning: 'Evidence was weighed in context.' },
     evidenceRecords: [{
       kind: 'Scripture', reference: 'Romans 3:28', detail: 'Textual evidence detail.',
       source: 'Berean Standard Bible', relationship: 'supports', sourceQuality: 'strong',
@@ -244,6 +244,13 @@ test('research dossier assembles current passages, resolution, doctrine review, 
   assert.equal(dossier.studyPassage, 'Romans 3');
   assert.equal(dossier.doctrinalClaim, 'Justification and works');
   assert.equal(dossier.claimLevel, 'broader_inference');
+  assert.equal(dossier.claimSynthesisStatus, 'ready for doctrine');
+  assert.equal(dossier.doctrineSupportingPassages, 'Romans 3:28 and James 2:24 in context.');
+  assert.equal(dossier.doctrineCounterTexts, 'The apparent difference requires careful reading of both arguments.');
+  assert.equal(dossier.doctrineReviewApproved, true);
+  assert.equal(dossier.doctrineReviewUpdatedAt, '2026-11-17T07:30:00.000Z');
+  assert.equal(dossier.assessmentLabel, 'Complementary perspectives');
+  assert.equal(dossier.statusLabel, 'Provisionally addressed');
   assert.equal(dossier.originalSynthesis, 'Research synthesis.');
   assert.equal(dossier.refinedDoctrinalFormulation, 'A formulation derived from the wider canonical synthesis.');
   assert.equal(dossier.researchConclusion, record.resolution);

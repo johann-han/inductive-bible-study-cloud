@@ -198,3 +198,16 @@
 .tension-register-caution{margin:0;padding:9px 10px;border-left:2px solid #bd9856;background:#fbf8ef;color:#735e37;font-size:10px;line-height:1.55}
 .tension-register .text-button{border:0;background:transparent;color:#8b5147;font:650 10px 'DM Sans',sans-serif;cursor:pointer}
 @media(max-width:640px){.tension-register{padding:10px}.tension-register-heading{align-items:stretch;flex-direction:column}.tension-register-heading .outline-button{width:100%;justify-content:center}.tension-register-passages,.tension-register-classification{grid-template-columns:minmax(0,1fr)}.tension-register-card{padding:10px}}
+
+
+.tension-register-summary{color:#708075;font-size:9px;line-height:1.45}
+.tension-register-imports{display:grid;gap:8px;padding:10px;border:1px solid #e2e9e1;border-radius:8px;background:#f8faf7}
+.tension-register-imports>p{margin:0;color:#647368;font-size:10px;line-height:1.5}
+.tension-register-import-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tension-register-import-grid>label{display:grid;align-content:start;gap:7px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.tension-register-import-grid select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px;color:#29392f;font:11px/1.4 'DM Sans',sans-serif}
+.tension-register-import-grid select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.tension-register-import-grid .outline-button{width:max-content;max-width:100%;white-space:normal}
+.tension-register-import-grid .outline-button:disabled{opacity:.45;cursor:not-allowed}
+.tension-register-imports>small{color:#7b877d;font-size:9px;line-height:1.5}
+@media(max-width:640px){.tension-register-imports{padding:8px}.tension-register-import-grid{grid-template-columns:minmax(0,1fr)}.tension-register-import-grid .outline-button{width:100%;justify-content:center}}

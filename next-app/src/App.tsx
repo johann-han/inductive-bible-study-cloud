@@ -289,6 +289,12 @@ export default function App() {
   const [tensionHistoryErrors, setTensionHistoryErrors] = useState<Record<string, string>>({});
   const [selectedTensionDossierKey, setSelectedTensionDossierKey] = useState('');
   const [dossierGeneratedAt, setDossierGeneratedAt] = useState('');
+  const [savedDossierVersions, setSavedDossierVersions] = useState<TheologicalDossierVersion[]>(() => typeof window === 'undefined' ? [] : readTheologicalDossierVersions());
+  const [selectedSavedDossierId, setSelectedSavedDossierId] = useState<string | null>(null);
+  const [dossierNotice, setDossierNotice] = useState('');
+  const [dossierSearch, setDossierSearch] = useState('');
+  const [dossierCompareLeftId, setDossierCompareLeftId] = useState('');
+  const [dossierCompareRightId, setDossierCompareRightId] = useState('');
   const [tensionSearch, setTensionSearch] = useState('');
   const [tensionAssessmentFilter, setTensionAssessmentFilter] = useState<TheologicalTension['assessment'] | 'all'>('all');
   const [tensionStatusFilter, setTensionStatusFilter] = useState<TheologicalTension['status'] | 'all'>('all');

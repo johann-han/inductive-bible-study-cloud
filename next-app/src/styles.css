@@ -926,3 +926,37 @@
   .study-note-history-counts{gap:4px}
 }
 
+
+
+/* Saved Word Studies workspace */
+.word-studies-view { display: flex; flex-direction: column; gap: 20px; max-width: 1180px; margin: 0 auto; padding: 30px clamp(16px, 3vw, 38px) 44px; }
+.word-study-results { display: flex; flex-direction: column; gap: 16px; }
+.word-study-card { min-width: 0; padding: 20px; border: 1px solid #dce6df; border-radius: 16px; background: #fff; box-shadow: 0 4px 16px rgba(28, 58, 43, .045); }
+.word-study-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.word-study-id { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 9px; background: #eaf2ec; color: #244d37; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.word-study-reference { margin-left: 9px; color: #69766e; font-size: 12px; }
+.word-study-card-heading h2 { margin: 9px 0 2px; color: #203d2e; font-size: 21px; font-weight: 750; }
+.word-study-card-heading h2 span { color: #65736a; font-size: 15px; font-weight: 500; }
+.word-study-card-heading p { margin: 0; color: #59675e; font-size: 13px; }
+.word-study-card-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.word-study-detail-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 22px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf1ed; }
+.word-study-detail-grid p { margin: 6px 0; color: #3e5045; font-size: 13px; line-height: 1.55; }
+.word-study-detail-grid > div > strong { display: block; margin-top: 8px; color: #294b37; font-size: 13px; }
+.word-study-sense { margin-top: 10px; padding-left: 11px; border-left: 2px solid #d6e4d9; }
+.word-study-sense strong { color: #304b39; font-size: 12px; }
+.word-study-sense p { margin: 3px 0 0; }
+.word-study-verse { margin: 16px 0 0; padding: 12px 15px; border-left: 3px solid #b8cdbd; border-radius: 0 8px 8px 0; background: #f6f9f6; color: #45574b; font-size: 13px; line-height: 1.6; }
+.word-study-notes { display: flex; flex-direction: column; gap: 7px; margin-top: 17px; color: #405348; font-size: 12px; font-weight: 700; }
+.word-study-notes textarea { width: 100%; min-height: 78px; resize: vertical; border: 1px solid #d8e2da; border-radius: 9px; padding: 10px 12px; background: #fbfcfb; color: #293a30; font: inherit; font-size: 13px; font-weight: 400; line-height: 1.5; }
+.word-study-notes textarea:focus { outline: 2px solid #9bb9a4; outline-offset: 1px; }
+.word-study-source { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 13px; padding-top: 11px; border-top: 1px solid #edf1ed; color: #718077; font-size: 11px; }
+.word-study-source a { color: #315d41; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 680px) {
+  .word-studies-view { padding: 18px 13px 30px; gap: 14px; }
+  .word-study-card { padding: 15px; }
+  .word-study-card-heading { flex-direction: column; gap: 12px; }
+  .word-study-card-actions { justify-content: flex-start; }
+  .word-study-detail-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .word-study-reference { display: block; margin: 7px 0 0; }
+  .word-study-source { flex-direction: column; }
+}

@@ -325,6 +325,7 @@ export default function App() {
   const [evidenceAssessmentRationale, setEvidenceAssessmentRationale] = useState('');
   const [evidenceReference, setEvidenceReference] = useState('');
   const [evidenceDetail, setEvidenceDetail] = useState('');
+  const [evidenceDetailExpanded, setEvidenceDetailExpanded] = useState(false);
   const [evidenceSource, setEvidenceSource] = useState('');
   const [evidenceNotice, setEvidenceNotice] = useState('');
   const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'needs_review' | EvidenceRelationship>('all');
@@ -1523,7 +1524,13 @@ export default function App() {
                 <label>Evidence type<select value={evidenceKind} onChange={event=>setEvidenceKind(event.target.value as EvidenceKind)}><option>Scripture</option><option>Cross-reference</option><option>Lexicon / Strong’s</option><option>Original-language research</option><option>Historical / contextual source</option></select></label>
               </div>
               <label>Reference<input value={evidenceReference} onChange={event=>setEvidenceReference(event.target.value)} placeholder="e.g. Leviticus 26:3–5"/></label>
-              <label>Supporting evidence<textarea rows={3} value={evidenceDetail} onChange={event=>setEvidenceDetail(event.target.value)} placeholder="Record the relevant wording, lexical detail, grammatical observation or source finding."/></label>
+              <div className="evidence-detail-editor">
+                <div className="evidence-detail-editor-heading">
+                  <label htmlFor="evidence-supporting-detail">Supporting evidence</label>
+                  <button type="button" className="outline-button notes-expand-button" onClick={() => setEvidenceDetailExpanded(value => !value)} aria-expanded={evidenceDetailExpanded} aria-controls="evidence-supporting-detail">{evidenceDetailExpanded ? 'Collapse editor' : 'Expand editor'}</button>
+                </div>
+                <textarea id="evidence-supporting-detail" className={evidenceDetailExpanded ? 'evidence-supporting-detail-expanded' : ''} rows={3} value={evidenceDetail} onChange={event=>setEvidenceDetail(event.target.value)} placeholder="Record the relevant wording, lexical detail, grammatical observation or source finding."/>
+              </div>
               <label>Source verification<select value={evidenceVerification} onChange={event=>setEvidenceVerification(event.target.value as EvidenceVerification)}><option value="not_checked">Not checked</option><option value="source_opened">Source opened</option><option value="content_checked">Content checked against the cited claim</option><option value="corroborated">Independently corroborated</option></select></label>
               <label>Verification notes<textarea rows={2} value={evidenceVerificationRationale} onChange={event=>setEvidenceVerificationRationale(event.target.value)} placeholder="Record what you checked, where, and any independent source used."/></label>
               <label>Reason for source-quality assessment<textarea rows={2} value={evidenceSourceQualityRationale} onChange={event=>setEvidenceSourceQualityRationale(event.target.value)} placeholder="Consider expertise, proximity to the evidence, method, date and corroboration."/></label>

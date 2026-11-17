@@ -30,6 +30,7 @@ import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheo
 import { appendTheologicalTensionHistory, buildTheologicalTensionDossier, appendTheologicalDossierVersion, compareTheologicalDossierVersions, exportTheologicalDossierMarkdown, exportTheologicalDossierArchive } from './lib/theological-tensions.mjs';
 import { buildWorkspaceArchive, validateWorkspaceArchive, planWorkspaceArchiveImport, applyWorkspaceArchiveImport, WORKSPACE_ARCHIVE_STORES } from './lib/workspace-archive.mjs';
 import { persistWorkspaceArchiveWrites } from './lib/workspace-archive-storage.mjs';
+import { appendStudyNoteVersionSnapshot, countStudyNoteVersionWords, normalizeStudyNoteVersionHistory, restoreStudyNoteVersion } from './lib/study-note-history.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -261,6 +262,8 @@ export default function App() {
   const [selectedTextMarkup, setSelectedTextMarkup] = useState<{ verse: number; start: number; end: number; text: string } | null>(null);
   const [draftSaveStatus, setDraftSaveStatus] = useState<'saving' | 'saved' | 'unavailable'>('saving');
   const [notesFontSize, setNotesFontSize] = useState(17);
+  const [showNoteHistory, setShowNoteHistory] = useState(false);
+  const [noteHistoryNotice, setNoteHistoryNotice] = useState('');
   const [book, setBook] = useState(initialPassage.book);
   const [chapter, setChapter] = useState(initialPassage.chapter);
   const [translation, setTranslation] = useState<BibleTranslation>(initialPassage.translation);
@@ -356,6 +359,7 @@ export default function App() {
   const emptyNotes: PreviewStudyDraft = { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' };
   const notesByStage = draftsByPassage[passageDraftKey] || emptyNotes;
   const note = notesByStage[stage];
+  const noteVersionHistory = useMemo(() => normalizeStudyNoteVersionHistory(notesByStage.versionHistory), [notesByStage.versionHistory]);
   const selectedVerse = selectedVerseNumbers.length ? selectedVerseNumbers[selectedVerseNumbers.length - 1] : null;
   const earlierStageEvidence = useMemo(() => getPreviewStageEvidence(notesByStage, stage), [notesByStage, stage]);
   const stagesWithNotes = useMemo(() => new Set(getPreviewWrittenStages(notesByStage)), [notesByStage]);
@@ -432,6 +436,8 @@ export default function App() {
 
   useEffect(() => {
     setSelectedTextMarkup(null);
+    setShowNoteHistory(false);
+    setNoteHistoryNotice('');
   }, [passageDraftKey]);
 
   useEffect(() => { try { window.localStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(evidenceRecords)); } catch { setEvidenceNotice('Evidence could not be saved in this browser.'); } }, [evidenceRecords]);
@@ -546,6 +552,37 @@ export default function App() {
   const move = (direction: number) => {
     const index = stages.findIndex(s => s.id === stage);
     changeStage(stages[Math.max(0, Math.min(3, index + direction))].id);
+  };
+
+  const updateStudyNote = (value: string) => {
+    setDraftsByPassage(previous => {
+      const currentDraft = { ...emptyNotes, ...(previous[passageDraftKey] || {}) };
+      const withHistory = appendStudyNoteVersionSnapshot(currentDraft);
+      return { ...previous, [passageDraftKey]: { ...withHistory, activeStage: stage, [stage]: value } };
+    });
+  };
+
+  const restoreStudyNoteVersionFromHistory = (snapshotId: string) => {
+    const selected = noteVersionHistory.find(item => item.id === snapshotId);
+    if (!selected) {
+      setNoteHistoryNotice('That note version is no longer available. Refresh the history and try again.');
+      return;
+    }
+    const restoredAt = new Date(selected.savedAt).toLocaleString();
+    const accepted = window.confirm(
+      'Restore the note sections saved on ' + restoredAt + '?\n\nThis replaces Observe, Interpretation, Doctrine and Discipleship notes for ' +
+      book + ' ' + chapter + '. A snapshot of the current notes will be kept first. Other study and research records will remain unchanged.'
+    );
+    if (!accepted) return;
+
+    setDraftsByPassage(previous => {
+      const currentDraft = { ...emptyNotes, ...(previous[passageDraftKey] || {}) };
+      const result = restoreStudyNoteVersion(currentDraft, snapshotId);
+      return result.restored ? { ...previous, [passageDraftKey]: result.draft } : previous;
+    });
+    setStage(selected.activeStage);
+    setShowNoteHistory(false);
+    setNoteHistoryNotice('Restored the selected note version. The previous notes were saved as a new history snapshot.');
   };
 
   const resumePreviewDraft = (entry: PreviewDraftEntry) => {
@@ -1890,8 +1927,21 @@ export default function App() {
               </div>
               <small>{selectedVerseRecords.length ? selectedVerseCitation + ' · ' + selectedVerseRecords.length + ' selected verse' + (selectedVerseRecords.length===1?'':'s') : 'Select one or more verses in the Bible Reader to attach their wording here.'} Scripture text is inserted with its reference and current translation.</small>
             </section>
-            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><button className="tool-button notes-expand-button" type="button" onClick={()=>setNotesExpanded(value=>!value)} aria-expanded={notesExpanded}>{notesExpanded?'Collapse editor':'Expand editor'}</button><span>{wordCount} words</span></div></div>
-            <textarea id="study-notes" className={notesExpanded?'notes-textarea-expanded':''} style={{fontSize: notesFontSize}} value={note} onChange={e=>setDraftsByPassage(prev=>({...prev,[passageDraftKey]:{...emptyNotes,...(prev[passageDraftKey] || {}),activeStage:stage,[stage]:e.target.value}}))} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
+            {showNoteHistory && <section id="study-note-history-panel" className="study-note-history" aria-label="Study note history">
+              <div className="study-note-history-heading"><div><strong>Study Note History · {book} {chapter}</strong><p>Earlier snapshots of Observe, Interpretation, Doctrine and Discipleship. Up to eight versions are retained for this passage.</p></div><button type="button" className="text-button" onClick={()=>setShowNoteHistory(false)}>Close</button></div>
+              {noteHistoryNotice && <p className="study-note-history-notice" role="status">{noteHistoryNotice}</p>}
+              {noteVersionHistory.length ? <div className="study-note-history-list">{noteVersionHistory.map((snapshot,index)=>{
+                const counts=countStudyNoteVersionWords(snapshot);
+                return <article className="study-note-history-item" key={snapshot.id}>
+                  <div className="study-note-history-item-heading"><div><strong>{new Date(snapshot.savedAt).toLocaleString()}</strong><span>Version {noteVersionHistory.length-index} · Active stage: {stages.find(item=>item.id===snapshot.activeStage)?.label || 'Observe'}</span></div><button type="button" className="outline-button" onClick={()=>restoreStudyNoteVersionFromHistory(snapshot.id)}>Restore this version</button></div>
+                  <div className="study-note-history-counts">{Object.values(counts).map(item=><span key={item.label}>{item.label}: {item.words} words</span>)}</div>
+                  <details className="study-note-history-preview"><summary>Preview saved notes</summary>{stages.map(item=><section key={item.id}><strong>{item.label}</strong><p>{snapshot.sections[item.id] || 'No notes in this section.'}</p></section>)}</details>
+                </article>;
+              })}</div> : <p className="study-note-history-empty">No earlier note versions have been saved for this passage yet. A dated snapshot is created as you edit; the current notes are also protected before any restoration.</p>}
+              <p className="study-note-history-footnote">History is stored with this passage in the browser preview and is included in full workspace backups. Restoring changes only the four stage notes and active stage; Scripture markup, evidence, claims, cross-references and research dossiers are left unchanged.</p>
+            </section>}
+            <div className="editor-heading"><label htmlFor="study-notes">STUDY NOTES</label><div className="editor-tools"><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.max(15,v-1))} aria-label="Decrease notes text size">A−</button><button className="tool-button" type="button" onClick={()=>setNotesFontSize(v=>Math.min(24,v+1))} aria-label="Increase notes text size">A+</button><button className="tool-button" type="button" onClick={()=>{setShowNoteHistory(value=>!value);setNoteHistoryNotice('');}} aria-expanded={showNoteHistory} aria-controls="study-note-history-panel" title="View and restore earlier versions of all four stage notes">History{noteVersionHistory.length ? ' ('+noteVersionHistory.length+')' : ''}</button><button className="tool-button notes-expand-button" type="button" onClick={()=>setNotesExpanded(value=>!value)} aria-expanded={notesExpanded}>{notesExpanded?'Collapse editor':'Expand editor'}</button><span>{wordCount} words</span></div></div>
+            <textarea id="study-notes" className={notesExpanded?'notes-textarea-expanded':''} style={{fontSize: notesFontSize}} value={note} onChange={e=>updateStudyNote(e.target.value)} placeholder={'Begin your '+current.label.toLowerCase()+' notes here…\n\nStudy-note cloud storage will be connected in a later, separately verified phase.'}/>
             <div className="editor-footer"><span>{draftSaveStatus === 'saving' ? 'Saving preview draft…' : draftSaveStatus === 'saved' ? 'Auto-saved in this preview only' : 'Browser storage unavailable · draft not saved'}</span><span>Text size {notesFontSize}px</span></div>
             <div className="stage-footer"><button className="outline-button" type="button" onClick={()=>move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" type="button" onClick={()=>move(1)} disabled={stage==='apply'}>Continue to next stage <Icon name="chevron"/></button></div>
           </section>

@@ -452,3 +452,30 @@ test('Markdown export identifies archived dossier version and saved timestamp wh
   assert.match(markdown, /Archive version:\*\* 3/);
   assert.match(markdown, /Saved to archive:\*\* 17 November 2026, 09:00/);
 });
+
+
+import { exportTheologicalDossierArchive } from '../next-app/src/lib/theological-tensions.mjs';
+
+test('full dossier archive export preserves all version metadata and snapshots', () => {
+  const versions = appendTheologicalDossierVersion([], {
+    tensionKey: 'Romans|3::claim::tension-1',
+    tensionId: 'tension-1',
+    dossier: sampleDossierSnapshot()
+  }, { id: 'archive-version-1', savedAt: '2026-11-17T08:00:00Z' });
+  const archive = JSON.parse(exportTheologicalDossierArchive(versions, {
+    exportedAt: '2026-11-17T10:00:00Z'
+  }));
+
+  assert.equal(archive.format, 'ibs-theological-dossier-archive');
+  assert.equal(archive.archiveVersion, 1);
+  assert.equal(archive.exportedAt, '2026-11-17T10:00:00.000Z');
+  assert.equal(archive.dossierVersionCount, 1);
+  assert.equal(archive.dossierVersions[0].id, 'archive-version-1');
+  assert.equal(archive.dossierVersions[0].versionNumber, 1);
+  assert.equal(archive.dossierVersions[0].dossier.researchConclusion, 'No formal conclusion yet.');
+});
+
+test('full dossier archive export rejects malformed version collections', () => {
+  assert.throws(() => exportTheologicalDossierArchive(null), /version archive is required/);
+  assert.throws(() => exportTheologicalDossierArchive([{ id: 'incomplete' }]), /must include its ID, tension key and dossier snapshot/);
+});

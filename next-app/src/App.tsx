@@ -300,7 +300,7 @@ export default function App() {
   const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'needs_review' | EvidenceRelationship>('all');
   const [evidenceSourceUrl, setEvidenceSourceUrl] = useState('');
   const [evidenceSourceId, setEvidenceSourceId] = useState('');
-  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions'>('overview');
+  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions' | 'dossier'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
@@ -971,6 +971,100 @@ export default function App() {
           </article>)}
         </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>{indexedTheologicalTensions.length ? 'No matching tension records' : 'No theological tensions recorded yet'}</h2><p>{indexedTheologicalTensions.length ? 'Adjust or clear your filters to see other records.' : 'Open a study, move to Doctrine review and add a record when two passages or interpretations appear to be in tension.'}</p>{indexedTheologicalTensions.length > 0 && <button className="text-button" type="button" onClick={()=>{setTensionSearch('');setTensionAssessmentFilter('all');setTensionStatusFilter('all');}}>Clear filters</button>}</div>}
         <p className="tension-overview-disclaimer">The register is a research index, not an automated judgement. “Resolved by researcher” records the researcher’s conclusion and does not independently establish that a perceived contradiction has been disproved. All entries remain in this browser preview.</p>
+      </section> : view === 'dossier' ? <section className="tension-dossier-view">
+        {selectedTensionDossier ? <>
+          <div className="tension-dossier-toolbar">
+            <button className="outline-button dossier-screen-action" type="button" onClick={() => setView('tensions')}>← Back to Tension Register</button>
+            <div><span className="tension-dossier-preview-label">RESEARCH DOSSIER · BROWSER PREVIEW</span><button className="primary-button dossier-screen-action" type="button" onClick={() => window.print()}>Print / Save as PDF</button></div>
+          </div>
+          <header className="tension-dossier-header">
+            <span className="eyebrow">INDUCTIVE BIBLE STUDY · THEOLOGICAL RESEARCH</span>
+            <h1>{selectedTensionDossier.title}</h1>
+            <p>A structured account of the passages examined, the interpretation reached, the evidence considered and the history of the researcher’s reasoning.</p>
+            <div className="tension-dossier-document-meta"><span>Prepared {new Date(selectedTensionDossier.generatedAt).toLocaleString()}</span><span>Study: {selectedTensionDossier.studyPassage}</span><span>Updated: {selectedTensionDossier.recordUpdatedAt}</span></div>
+          </header>
+
+          <section className="tension-dossier-summary-grid" aria-label="Dossier summary">
+            <article><small>DOCTRINAL CLAIM</small><strong>{selectedTensionDossier.doctrinalClaim}</strong></article>
+            <article><small>CLAIM LEVEL</small><strong>{selectedTensionDossier.claimLevel}</strong></article>
+            <article><small>RESEARCH ASSESSMENT</small><strong>{selectedTensionDossier.assessmentLabel}</strong></article>
+            <article><small>RESEARCH STATUS</small><strong>{selectedTensionDossier.statusLabel}</strong></article>
+          </section>
+
+          <section className="tension-dossier-section">
+            <div className="tension-dossier-section-heading"><span>01</span><h2>Research question and scope</h2></div>
+            <div className="tension-dossier-callout"><small>POINT OF APPARENT TENSION</small><p>{selectedTensionDossier.issue}</p></div>
+            <h3>Original claim synthesis</h3><p>{selectedTensionDossier.originalSynthesis}</p>
+            <h3>Research reasoning</h3><p>{selectedTensionDossier.synthesisReasoning}</p>
+            <h3>Refined doctrinal formulation</h3><p>{selectedTensionDossier.refinedDoctrinalFormulation}</p>
+            <div className="tension-dossier-review-meta"><span>Doctrine review: {selectedTensionDossier.doctrineReviewApproved ? 'Approved by researcher' : 'Not marked approved'}</span><span>Last review update: {selectedTensionDossier.doctrineReviewUpdatedAt}</span><span>Claim synthesis status: {selectedTensionDossier.claimSynthesisStatus}</span></div>
+          </section>
+
+          <section className="tension-dossier-section">
+            <div className="tension-dossier-section-heading"><span>02</span><h2>Scripture passages examined</h2></div>
+            <div className="tension-dossier-scripture-grid">{selectedTensionDossier.passages.map(passage=><article className="tension-dossier-scripture-card" key={passage.label}>
+              <small>{passage.label.toUpperCase()}</small><h3>{passage.reference}</h3><p>{passage.context}</p>
+            </article>)}</div>
+            <h3>Supporting Scripture recorded in Doctrine review</h3><p>{selectedTensionDossier.doctrineSupportingPassages}</p>
+            <h3>Counter-texts, tensions and qualifications recorded in Doctrine review</h3><p>{selectedTensionDossier.doctrineCounterTexts}</p>
+          </section>
+
+          <section className="tension-dossier-section">
+            <div className="tension-dossier-section-heading"><span>03</span><h2>Interpretive analysis</h2></div>
+            <p>{selectedTensionDossier.interpretiveAnalysis}</p>
+            <h3>Current researcher position</h3><p>{selectedTensionDossier.currentResearcherPosition}</p>
+          </section>
+
+          <section className="tension-dossier-section">
+            <div className="tension-dossier-section-heading"><span>04</span><h2>Evidence reviewed</h2></div>
+            {selectedTensionDossier.evidence.length ? <div className="tension-dossier-evidence-list">{selectedTensionDossier.evidence.map((entry,index)=><article className="tension-dossier-evidence-card" key={entry.reference+'-'+index}>
+              <div className="tension-dossier-evidence-top"><div><small>{entry.kind}</small><h3>{entry.reference}</h3></div><span>{entry.relationship.replaceAll('_',' ')}</span></div>
+              <p>{entry.detail}</p>
+              <div className="tension-dossier-evidence-meta"><span>Source: {entry.source}</span><span>Quality: {entry.sourceQuality.replaceAll('_',' ')}</span><span>Verification: {entry.verificationStatus.replaceAll('_',' ')}</span>{entry.createdAt && <span>Recorded: {new Date(entry.createdAt).toLocaleString()}</span>}</div>
+              {entry.assessmentRationale && <p><b>Assessment rationale:</b> {entry.assessmentRationale}</p>}
+              {entry.sourceQualityRationale && <p><b>Source-quality rationale:</b> {entry.sourceQualityRationale}</p>}
+              {entry.verificationRationale && <p><b>Verification rationale:</b> {entry.verificationRationale}</p>}
+              {entry.sourceUrl && <p className="tension-dossier-source-url"><b>Source link:</b> {entry.sourceUrl}</p>}
+            </article>)}</div> : <p>No linked evidence records were attached to this doctrinal claim when the dossier was prepared.</p>}
+          </section>
+
+          <section className="tension-dossier-section tension-dossier-conclusion">
+            <div className="tension-dossier-section-heading"><span>05</span><h2>Research conclusion and proposed resolution</h2></div>
+            <p>{selectedTensionDossier.researchConclusion}</p>
+            <h3>Rationale for the conclusion</h3><p>{selectedTensionDossier.resolutionRationale}</p>
+            <h3>Remaining uncertainty and open questions</h3><p>{selectedTensionDossier.remainingUncertainty}</p>
+            <h3>Outstanding Doctrine review questions</h3><p>{selectedTensionDossier.doctrineReviewQuestions}</p>
+          </section>
+
+          <section className="tension-dossier-section">
+            <div className="tension-dossier-section-heading"><span>06</span><h2>Interpretation and resolution history</h2></div>
+            {selectedTensionDossier.history.length ? <div className="tension-dossier-history">{selectedTensionDossier.history.map((entry,index)=><article className="tension-dossier-history-entry" key={entry.id}>
+              <div className="tension-dossier-history-top"><strong>Checkpoint {index+1} · {entry.eventType.replaceAll('_',' ')}</strong><time dateTime={entry.recordedAt}>{new Date(entry.recordedAt).toLocaleString()}</time></div>
+              <p><b>Assessment:</b> {entry.previousAssessment ? entry.previousAssessment.replaceAll('_',' ')+' → ' : 'Initial position → '}{entry.assessment.replaceAll('_',' ')}</p>
+              <p><b>Status:</b> {entry.previousStatus ? entry.previousStatus.replaceAll('_',' ')+' → ' : 'Initial position → '}{entry.status.replaceAll('_',' ')}</p>
+              {entry.previousResearcherPosition && <p><b>Previous position:</b> {entry.previousResearcherPosition}</p>}
+              <p><b>Recorded position:</b> {entry.researcherPosition}</p>
+              <p><b>Reason recorded:</b> {entry.rationale}</p>
+              {entry.evidenceConsidered && <p><b>Evidence considered:</b> {entry.evidenceConsidered}</p>}
+              {entry.previousAnalysisSnapshot && <p><b>Previous analysis:</b> {entry.previousAnalysisSnapshot}</p>}
+              {entry.analysisSnapshot && <p><b>Analysis at checkpoint:</b> {entry.analysisSnapshot}</p>}
+              {entry.previousResolution && <p><b>Previous proposed resolution:</b> {entry.previousResolution}</p>}
+              {entry.resolutionSnapshot && <p><b>Proposed resolution at checkpoint:</b> {entry.resolutionSnapshot}</p>}
+              {entry.resolutionRationaleSnapshot && <p><b>Resolution rationale at checkpoint:</b> {entry.resolutionRationaleSnapshot}</p>}
+              {entry.previousUncertaintySnapshot && <p><b>Previous uncertainty:</b> {entry.previousUncertaintySnapshot}</p>}
+              {entry.uncertaintySnapshot && <p><b>Remaining uncertainty:</b> {entry.uncertaintySnapshot}</p>}
+              <div className="tension-dossier-history-passages"><p><b>{entry.passageA || 'Passage A not recorded'}</b><br/>{entry.contextA || 'Context not recorded'}</p><p><b>{entry.passageB || 'Passage B not recorded'}</b><br/>{entry.contextB || 'Context not recorded'}</p></div>
+            </article>)}</div> : <p>No formal interpretation-history checkpoints had been recorded when this dossier was prepared.</p>}
+          </section>
+
+          <footer className="tension-dossier-footer">
+            <p><b>Research method and limitations</b></p>
+            <p>{selectedTensionDossier.methodNote}</p>
+            <p>This dossier is a snapshot of the researcher’s locally saved preview record, generated {new Date(selectedTensionDossier.generatedAt).toLocaleString()}. It is not a cloud-synchronised or independently verified theological finding.</p>
+            <div className="tension-dossier-signoff"><span>Researcher’s final review</span><span>Signature / initials: __________________________</span><span>Date: __________________</span></div>
+          </footer>
+          <div className="tension-dossier-print-footer">Inductive Bible Study · Research Conclusion and Resolution Dossier · {selectedTensionDossier.studyPassage}</div>
+        </> : <div className="library-empty"><h2>Dossier record is unavailable</h2><p>The selected tension record may have been removed from this preview. Return to the register and select an existing record.</p><button className="primary-button" type="button" onClick={()=>setView('tensions')}>Return to Tension Register</button></div>}
       </section> :
       view === 'study' ? <section className="active-study-view">
         <div className="active-study-header"><div><div className="eyebrow">ACTIVE INDUCTIVE STUDY</div><h1>{book} <em>{chapter}</em></h1><p>Work through the passage systematically. Your notes remain attached to this passage and stage.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}><Icon name="book"/> Open Bible reader</button></div>

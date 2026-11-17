@@ -43,7 +43,19 @@ const sample = () => ({
     history: [{ id: 'history-1', recordedAt: '2026-11-17T08:00:00.000Z', eventType: 'initial_position',
       researcherPosition: 'Complementary', rationale: 'Contextual reading', assessment: 'complementary', status: 'under_review' }]
   }] },
-  dossierVersions: [dossierVersion]
+  dossierVersions: [dossierVersion],
+  wordStudies: [{
+    id: 'word-study-1', strongsId: 'G3056', englishWord: 'Word', lemma: 'λόγος',
+    transliteration: 'logos', partOfSpeech: 'Noun', gloss: 'word; message',
+    senses: [{ gloss: 'word', definition: 'A spoken or written expression.' }],
+    originalText: 'λόγον', language: 'Greek', parsing: 'N-ASM',
+    parsingFull: 'Noun - Accusative Singular Masculine',
+    reference: { book: 'John', chapter: 1, verse: 1, translation: 'BSB' },
+    verseText: 'In the beginning was the Word.',
+    source: 'STEPBible Brief Lexicon', sourceUrl: 'https://www.stepbible.org/',
+    notes: 'Compare its use in the immediate context.',
+    createdAt: '2026-11-17T08:00:00.000Z', updatedAt: '2026-11-17T08:00:00.000Z'
+  }]
 });
 
 test('exports a versioned workspace archive with exact per-store counts', () => {
@@ -54,7 +66,8 @@ test('exports a versioned workspace archive with exact per-store counts', () => 
   assert.equal(validated.counts.dossierVersions, 1);
   assert.equal(validated.counts.theologicalTensions, 1);
   assert.equal(validated.counts.drafts, 1);
-  assert.equal(Object.keys(WORKSPACE_ARCHIVE_STORES).length, 10);
+  assert.equal(validated.counts.wordStudies, 1);
+  assert.equal(Object.keys(WORKSPACE_ARCHIVE_STORES).length, 11);
 });
 
 test('rejects malformed JSON, unsupported versions, count tampering and unknown stores', () => {
@@ -422,4 +435,20 @@ test('rejects malformed nested note history without rejecting legacy drafts that
     sections: { observe: 'Old', interpret: '', doctrine: '', apply: '' }
   }));
   assert.throws(() => validateWorkspaceArchive(tooMany), /drafts/);
+});
+
+test('validates, merges and preserves source-attributed word studies', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const current = sample();
+  current.wordStudies[0].notes = 'Retain this local research note.';
+  const merged = applyWorkspaceArchiveImport(validated, current);
+  assert.equal(merged.wordStudies[0].notes, 'Retain this local research note.');
+  const replaced = applyWorkspaceArchiveImport(validated, current, { 'wordStudies:word-study-1': 'replace' });
+  assert.equal(replaced.wordStudies[0].notes, 'Compare its use in the immediate context.');
+  const duplicated = applyWorkspaceArchiveImport(validated, current, { 'wordStudies:word-study-1': 'duplicate' });
+  assert.equal(duplicated.wordStudies.length, 2);
+  assert.notEqual(duplicated.wordStudies[1].id, 'word-study-1');
+  const invalid = structuredClone(buildWorkspaceArchive(sample()));
+  invalid.stores.wordStudies[0].sourceUrl = 'javascript:alert(1)';
+  assert.throws(() => validateWorkspaceArchive(invalid), /wordStudies/);
 });

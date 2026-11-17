@@ -214,4 +214,7 @@ export function compareTheologicalDossierVersions(
   right: TheologicalDossierVersion
 ): TheologicalDossierVersionComparison;
 
-export function exportTheologicalDossierMarkdown(dossier: TheologicalTensionDossier): string;
+export function exportTheologicalDossierMarkdown(
+  dossier: TheologicalTensionDossier,
+  archiveMetadata?: { versionNumber?: number; savedAt?: string }
+): string;

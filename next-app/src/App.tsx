@@ -27,7 +27,7 @@ import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mj
 import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReference } from './lib/standard-cross-references.mjs';
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
 import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheologicalTensionRecords } from './lib/theological-tensions.mjs';
-import { appendTheologicalTensionHistory } from './lib/theological-tensions.mjs';
+import { appendTheologicalTensionHistory, buildTheologicalTensionDossier } from './lib/theological-tensions.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -38,7 +38,7 @@ type EvidenceVerification = 'not_checked' | 'source_opened' | 'content_checked' 
 type ClaimSynthesisStatus = 'under_review' | 'provisional' | 'ready_for_doctrine' | 'revisit';
 type ClaimSynthesis = { status: ClaimSynthesisStatus; conclusion: string; reasoning: string; updatedAt: string };
 type DoctrineReview = { claimLevel: 'explicit' | 'necessary_implication' | 'broader_inference' | ''; supportingPassages: string; tensions: string; formulation: string; unresolved: string; approved: boolean; updatedAt: string };
-type TheologicalTension = { id: string; passageA: string; contextA: string; passageB: string; contextB: string; issue: string; analysis: string; uncertainty: string; assessment: 'unclassified' | 'apparent_tension' | 'complementary' | 'unresolved' | 'perceived_contradiction'; status: 'open' | 'under_review' | 'provisionally_addressed' | 'researcher_resolved'; history?: TheologicalTensionHistoryEntry[]; updatedAt: string };
+type TheologicalTension = { id: string; passageA: string; contextA: string; passageB: string; contextB: string; issue: string; analysis: string; uncertainty: string; resolution?: string; resolutionRationale?: string; assessment: 'unclassified' | 'apparent_tension' | 'complementary' | 'unresolved' | 'perceived_contradiction'; status: 'open' | 'under_review' | 'provisionally_addressed' | 'researcher_resolved'; history?: TheologicalTensionHistoryEntry[]; updatedAt: string };
 type TensionHistoryDraft = { eventType: TensionHistoryEventType; researcherPosition: string; rationale: string; evidenceConsidered: string };
 const THEOLOGICAL_TENSION_STORAGE_KEY = 'ibs-next-generation-preview-theological-tensions-v1';
 function readTheologicalTensions(): Record<string, TheologicalTension[]> { try { const parsed = JSON.parse(window.localStorage.getItem(THEOLOGICAL_TENSION_STORAGE_KEY) || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return {}; } }
@@ -275,6 +275,8 @@ export default function App() {
   const [tensionImportSelections, setTensionImportSelections] = useState<Record<string, { a: string; b: string }>>({});
   const [tensionHistoryDrafts, setTensionHistoryDrafts] = useState<Record<string, TensionHistoryDraft>>({});
   const [tensionHistoryErrors, setTensionHistoryErrors] = useState<Record<string, string>>({});
+  const [selectedTensionDossierKey, setSelectedTensionDossierKey] = useState('');
+  const [dossierGeneratedAt, setDossierGeneratedAt] = useState('');
   const [tensionSearch, setTensionSearch] = useState('');
   const [tensionAssessmentFilter, setTensionAssessmentFilter] = useState<TheologicalTension['assessment'] | 'all'>('all');
   const [tensionStatusFilter, setTensionStatusFilter] = useState<TheologicalTension['status'] | 'all'>('all');
@@ -693,6 +695,28 @@ export default function App() {
   const tensionUnresolvedCount = indexedTheologicalTensions.filter(item => item.assessment === 'unresolved' || item.assessment === 'perceived_contradiction').length;
   const tensionResolvedCount = indexedTheologicalTensions.filter(item => item.status === 'researcher_resolved').length;
 
+  const selectedDossierRecord = indexedTheologicalTensions.find(record => record.reviewKey + '::' + record.id === selectedTensionDossierKey) || null;
+  const selectedTensionDossier = useMemo(() => {
+    if (!selectedDossierRecord) return null;
+    const linkedEvidence = evidenceRecords.filter(item =>
+      item.passageKey === selectedDossierRecord.studyKey &&
+      item.claim.trim().toLocaleLowerCase() === selectedDossierRecord.claimKey
+    );
+    return buildTheologicalTensionDossier(selectedDossierRecord, {
+      generatedAt: dossierGeneratedAt,
+      doctrineReview: doctrineReviews[selectedDossierRecord.reviewKey],
+      claimSynthesis: claimSyntheses[selectedDossierRecord.reviewKey],
+      evidenceRecords: linkedEvidence
+    });
+  }, [selectedDossierRecord, evidenceRecords, doctrineReviews, claimSyntheses, dossierGeneratedAt]);
+
+  const prepareTheologicalDossier = (record: IndexedTheologicalTension) => {
+    setSelectedTensionDossierKey(record.reviewKey + '::' + record.id);
+    setDossierGeneratedAt(new Date().toISOString());
+    setView('dossier');
+  };
+
+
   const openTheologicalTension = (record: IndexedTheologicalTension) => {
     const [targetBook, chapterText] = record.studyKey.split('|');
     const targetChapter = Number(chapterText);
@@ -826,7 +850,7 @@ export default function App() {
     <main className="main-area">
       <header className="topbar">
         {view !== 'overview' && <button className="back-home-button" type="button" onClick={() => setView('overview')} aria-label="Back to start screen" title="Back to start screen"><Icon name="back"/><span>Home</span></button>}
-        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
+        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'dossier' ? 'Research dossier' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
       {view === 'overview' ? <section className="dashboard-view">
@@ -1418,6 +1442,8 @@ export default function App() {
                         <label>What exactly appears to be in tension?<textarea rows={2} value={item.issue} onChange={event=>updateTension({issue:event.target.value})} placeholder="State the precise propositions or interpretive claims being compared."/></label>
                         <label>Interpretive analysis and reasoning<textarea rows={3} value={item.analysis} onChange={event=>updateTension({analysis:event.target.value})} placeholder="Explain similarities, differences, genre, context, terminology and the reasoning for your assessment. Do not force a resolution."/></label>
                         <label>Remaining uncertainty<textarea rows={2} value={item.uncertainty} onChange={event=>updateTension({uncertainty:event.target.value})} placeholder="What evidence, context or interpretive question remains unresolved?"/></label>
+                        <label>Research conclusion / proposed resolution<textarea rows={3} value={item.resolution || ''} onChange={event=>updateTension({resolution:event.target.value})} placeholder="State the conclusion you currently judge the evidence to support. Mark it as provisional where appropriate; do not claim more certainty than the research warrants."/></label>
+                        <label>Rationale for the conclusion<textarea rows={2} value={item.resolutionRationale || ''} onChange={event=>updateTension({resolutionRationale:event.target.value})} placeholder="Explain how the contextual readings, evidence and interpretive reasoning support this conclusion."/></label>
                         <div className="tension-register-classification">
                           <label>Research assessment<select value={item.assessment} onChange={event=>updateTension({assessment:event.target.value as TheologicalTension['assessment']})}><option value="unclassified">Not yet classified</option><option value="apparent_tension">Apparent tension</option><option value="complementary">Complementary perspectives</option><option value="unresolved">Unresolved relationship</option><option value="perceived_contradiction">Perceived contradiction — further examination required</option></select></label>
                           <label>Research status<select value={item.status} onChange={event=>updateTension({status:event.target.value as TheologicalTension['status']})}><option value="open">Open</option><option value="under_review">Under review</option><option value="provisionally_addressed">Provisionally addressed</option><option value="researcher_resolved">Resolved by researcher</option></select></label>
@@ -1462,6 +1488,14 @@ export default function App() {
                           <p className="tension-history-caution">A checkpoint is a dated snapshot of the research record at this point in time. Editing the live fields does not rewrite earlier checkpoints; save a new checkpoint to document a significant change.</p>
                         </section>
                         <small>Saved in this browser · {item.updatedAt ? new Date(item.updatedAt).toLocaleString() : 'Not yet saved'}. “Resolved by researcher” records your assessment; it does not certify that a contradiction has been disproved.</small>
+                        <div className="tension-record-dossier-action"><button type="button" className="outline-button" onClick={() => prepareTheologicalDossier({
+                          ...item,
+                          reviewKey: key,
+                          studyKey: passageDraftKey,
+                          claimKey: group.claim.trim().toLocaleLowerCase(),
+                          claimDisplay: group.claim,
+                          studyPassage: book + ' ' + chapter
+                        })}>Prepare research dossier</button></div>
                       </article>;
                     })}
                     <p className="tension-register-caution">Methodological safeguard: do not assume that every difference is a contradiction, and do not assume that every apparent tension has an easy harmonisation. Preserve unresolved evidence and explain the grounds for any conclusion.</p>

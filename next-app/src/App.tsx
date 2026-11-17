@@ -678,7 +678,7 @@ export default function App() {
     const now = new Date().toISOString();
     const existing = wordStudies.find(item => item.strongsId === lexicon.id.toUpperCase() &&
       item.reference.book === lexiconPassage.book && item.reference.chapter === lexiconPassage.chapter &&
-      item.reference.verse === lexiconPassage.verse && item.reference.translation === lexiconPassage.translation);
+      item.reference.verse === lexiconPassage.verse && item.reference.translation === lexiconPassage.translation && item.wordStart === selectedMorphology?.start && item.wordEnd === selectedMorphology?.end);
     if (existing) {
       setWordStudyQuery(lexicon.id);
       setView('word-studies');
@@ -692,7 +692,7 @@ export default function App() {
       strongsId: lexicon.id.toUpperCase(), englishWord: lexiconWord, lemma: lexicon.lemma,
       transliteration: lexicon.transliteration, partOfSpeech: lexicon.partOfSpeech, gloss: lexicon.gloss,
       senses: lexicon.senses.map(sense => ({ gloss: sense.gloss, definition: sense.definition })),
-      originalText: selectedMorphology.originalText, language: selectedMorphology.language,
+      originalText: selectedMorphology.originalText, wordStart: selectedMorphology.start, wordEnd: selectedMorphology.end, language: selectedMorphology.language,
       parsing: selectedMorphology.parsing, parsingFull: selectedMorphology.parsingFull,
       reference: { ...lexiconPassage }, verseText, source: lexicon.source, sourceUrl: lexicon.sourceUrl,
       notes: '', createdAt: now, updatedAt: now

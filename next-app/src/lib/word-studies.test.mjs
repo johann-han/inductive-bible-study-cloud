@@ -39,7 +39,7 @@ test('rejects malformed Strong IDs, passages, dates and unsafe source URLs', () 
   assert.equal(isWordStudyRecord(record({ reference: { book: 'John', chapter: 22, verse: 1, translation: 'BSB' } })), false);
   assert.equal(isWordStudyRecord(record({ updatedAt: 'not-a-date' })), false);
   assert.equal(isWordStudyRecord(record({ sourceUrl: 'javascript:alert(1)' })), false);
-  assert.equal(isWordStudyRecord(record({ wordStart: 18 })), false);
+  assert.equal(isWordStudyRecord(record({ wordStart: 18, wordEnd: undefined })), false);
   assert.equal(isWordStudyRecord(record({ wordStart: 23, wordEnd: 18 })), false);
 });
 

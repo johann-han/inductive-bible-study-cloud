@@ -328,3 +328,35 @@ test('tension records moved between claim groups are treated as conflicts and Re
   assert.equal(replaced.theologicalTensions['Genesis|1::creation'].filter(item => item.id === 'tension-1').length, 1);
   assert.equal(replaced.theologicalTensions['Romans|8::hope'][0].id, 'outside-archive');
 });
+
+test('rejects prototype-sensitive keys in imported keyed research records', () => {
+  const unsafeClaims = buildWorkspaceArchive(sample());
+  unsafeClaims.stores.claimSynthesis = JSON.parse(JSON.stringify({
+    ...unsafeClaims.stores.claimSynthesis,
+    ['__proto__']: { status: 'provisional', conclusion: 'Injected', reasoning: '', updatedAt: '' }
+  }));
+  unsafeClaims.counts.claimSynthesis = Object.keys(unsafeClaims.stores.claimSynthesis).length;
+  assert.throws(() => validateWorkspaceArchive(unsafeClaims), /claimSynthesis/);
+
+  const unsafeTensions = buildWorkspaceArchive(sample());
+  const tension = unsafeTensions.stores.theologicalTensions['Genesis|1::creation'][0];
+  unsafeTensions.stores.theologicalTensions = JSON.parse(
+    JSON.stringify({ ['__proto__']: [tension] })
+  );
+  unsafeTensions.counts.theologicalTensions = 1;
+  assert.throws(() => validateWorkspaceArchive(unsafeTensions), /theologicalTensions/);
+});
+
+test('merge output maps cannot inherit or mutate a malicious local prototype key', () => {
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(sample()));
+  const unsafeLocalClaims = JSON.parse(
+    '{"__proto__":{"status":"under_review","conclusion":"Local legacy value","reasoning":"","updatedAt":""}}'
+  );
+  const current = sample();
+  current.claimSynthesis = unsafeLocalClaims;
+
+  const merged = applyWorkspaceArchiveImport(validated, current);
+  assert.equal(Object.getPrototypeOf(merged.claimSynthesis), null);
+  assert.equal(merged.claimSynthesis['__proto__'].conclusion, 'Local legacy value');
+  assert.equal(merged.claimSynthesis['Genesis 1::creation'].conclusion, 'Claim');
+});

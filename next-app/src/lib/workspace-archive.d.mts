@@ -1,6 +1,6 @@
 export type WorkspaceArchiveStore =
   | 'drafts' | 'scriptureMarkup' | 'wordMarkup' | 'markupColors' | 'crossReferences'
-  | 'evidence' | 'claimSynthesis' | 'doctrineReviews' | 'theologicalTensions' | 'dossierVersions';
+  | 'evidence' | 'claimSynthesis' | 'doctrineReviews' | 'theologicalTensions' | 'dossierVersions' | 'wordStudies';
 export interface ValidatedWorkspaceArchive {
   kind: 'workspace' | 'dossier';
   archiveVersion: number;

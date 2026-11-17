@@ -32,6 +32,7 @@ import { buildWorkspaceArchive, validateWorkspaceArchive, planWorkspaceArchiveIm
 import { persistWorkspaceArchiveWrites } from './lib/workspace-archive-storage.mjs';
 import { readWordStudies, writeWordStudies, searchWordStudies } from './lib/word-studies.mjs';
 import type { WordStudyRecord } from './lib/word-studies.mjs';
+import { buildWordStudyEvidenceDraft } from './lib/word-study-evidence.mjs';
 import { appendStudyNoteVersionSnapshot, countStudyNoteVersionWords, normalizeStudyNoteVersionHistory, restoreStudyNoteVersion } from './lib/study-note-history.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
@@ -712,6 +713,31 @@ export default function App() {
     setWordStudies(previous => previous.filter(item => item.id !== record.id));
   };
 
+  const attachSavedWordStudyEvidence = (record: WordStudyRecord) => {
+    const draft = buildWordStudyEvidenceDraft(record);
+    const targetPassageKey = record.reference.book + '|' + record.reference.chapter;
+    setBook(record.reference.book);
+    setChapter(record.reference.chapter);
+    setTranslation(record.reference.translation);
+    setStage(draftsByPassage[targetPassageKey]?.activeStage || 'observe');
+    setEvidenceClaim('');
+    setEvidenceKind(draft.kind);
+    setEvidenceRelationship('context');
+    setEvidenceSourceQuality('unassessed');
+    setEvidenceSourceQualityRationale('');
+    setEvidenceVerification('not_checked');
+    setEvidenceVerificationRationale('');
+    setEvidenceAssessmentRationale('');
+    setEvidenceReference(draft.reference);
+    setEvidenceDetail(draft.detail);
+    setEvidenceSource(draft.source);
+    setEvidenceSourceUrl(draft.sourceUrl || '');
+    setEvidenceSourceId(draft.sourceId || '');
+    setEvidenceNotice('Saved word-study details loaded. Formulate the claim you are assessing, then classify this source relationship. Verification remains not checked.');
+    setShowEvidence(true);
+    setView('study');
+  };
+
   const openSavedWordStudyPassage = (record: WordStudyRecord) => {
     const target = record.reference;
     setView('reader');
@@ -1256,7 +1282,7 @@ export default function App() {
         <div className="library-header"><div><div className="eyebrow">RESEARCH · ORIGINAL-LANGUAGE WORD STUDIES</div><h1>Word studies</h1><p>Save source-backed Strong’s entries and their occurrence-level morphology so you can search, revisit and annotate them alongside passage research. A lexical gloss is not, by itself, an interpretation of how a word functions in context.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Open Bible reader</button></div>
         <div className="library-toolbar"><div className="library-result-count"><strong>{visibleWordStudies.length}</strong> of {wordStudies.length} saved {wordStudies.length === 1 ? 'word study' : 'word studies'}</div><input className="library-search" type="search" value={wordStudyQuery} onChange={event => setWordStudyQuery(event.target.value)} placeholder="Search Strong’s ID, lemma, passage, parsing or notes…" aria-label="Search saved word studies"/></div>
         {visibleWordStudies.length ? <div className="word-study-results">{visibleWordStudies.map(record => <article className="word-study-card" key={record.id}>
-          <div className="word-study-card-heading"><div><span className="word-study-id">{record.strongsId}</span><span className="word-study-reference">{record.reference.book} {record.reference.chapter}:{record.reference.verse} · {record.reference.translation}</span><h2>{record.lemma} <span>{record.transliteration}</span></h2><p>{record.englishWord} · {record.partOfSpeech || 'Part of speech not supplied'}</p></div><div className="word-study-card-actions"><button type="button" className="primary-button" onClick={() => openSavedWordStudyPassage(record)}>Open verse</button><button type="button" className="text-button" onClick={() => removeWordStudy(record)}>Remove</button></div></div>
+          <div className="word-study-card-heading"><div><span className="word-study-id">{record.strongsId}</span><span className="word-study-reference">{record.reference.book} {record.reference.chapter}:{record.reference.verse} · {record.reference.translation}</span><h2>{record.lemma} <span>{record.transliteration}</span></h2><p>{record.englishWord} · {record.partOfSpeech || 'Part of speech not supplied'}</p></div><div className="word-study-card-actions"><button type="button" className="primary-button" onClick={() => openSavedWordStudyPassage(record)}>Open verse</button><button type="button" className="outline-button" onClick={() => attachSavedWordStudyEvidence(record)}>Attach to evidence</button><button type="button" className="text-button" onClick={() => removeWordStudy(record)}>Remove</button></div></div>
           <div className="word-study-detail-grid"><div><span className="eyebrow">LEXICON GLOSS</span><p>{record.gloss || 'No gloss supplied by source.'}</p>{record.senses.map((sense,index)=><div className="word-study-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}</div><div><span className="eyebrow">OCCURRENCE MORPHOLOGY</span><p>{record.originalText || 'Original form not supplied'} · {record.language}</p><strong>{record.parsingFull || record.parsing || 'No parsing supplied by source'}</strong></div></div>
           {record.verseText && <blockquote className="word-study-verse">“{record.verseText}”</blockquote>}
           <label className="word-study-notes">Researcher’s contextual notes<textarea defaultValue={record.notes} onChange={event => updateWordStudyNotes(record.id,event.target.value)} onBlur={event => updateWordStudyNotes(record.id,event.currentTarget.value,true)} placeholder="Record how this word functions in this occurrence. Distinguish observation from lexical possibility and interpretation." rows={3}/></label>

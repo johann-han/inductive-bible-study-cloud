@@ -23,6 +23,6 @@ Unknown extension fields inside supported records are preserved. This matters fo
 
 ## Scope
 
-- The archive covers the ten preview stores listed in WORKSPACE_ARCHIVE_STORES.
+- The archive covers the eleven preview stores listed in WORKSPACE_ARCHIVE_STORES, including saved source-attributed word studies (Strong’s ID, occurrence reference, translation, morphology, lexicon senses, source and researcher notes). Word-study records participate in preflight conflict review and Keep / Replace / Duplicate restore decisions.
 - It does not export or migrate Supabase records, production data, account/authentication state, or the live application.
 - Browser-based acceptance on the PR preview remains a separate release gate.

@@ -360,3 +360,66 @@ test('merge output maps cannot inherit or mutate a malicious local prototype key
   assert.equal(merged.claimSynthesis['__proto__'].conclusion, 'Local legacy value');
   assert.equal(merged.claimSynthesis['Genesis 1::creation'].conclusion, 'Claim');
 });
+
+
+test('accepts and preserves validated four-stage study note history', () => {
+  const archive = buildWorkspaceArchive(sample());
+  const snapshot = {
+    id: 'note-version-1',
+    savedAt: '2026-11-17T12:00:00.000Z',
+    activeStage: 'interpret',
+    sections: {
+      observe: 'Earlier observation',
+      interpret: 'Earlier interpretation',
+      doctrine: '',
+      apply: ''
+    }
+  };
+  archive.stores.drafts['Genesis|1'].versionHistory = [snapshot];
+  const validated = validateWorkspaceArchive(archive);
+  const merged = applyWorkspaceArchiveImport(validated, {});
+  assert.deepEqual(merged.drafts['Genesis|1'].versionHistory, [snapshot]);
+  assert.deepEqual(validateWorkspaceArchive(buildWorkspaceArchive(merged)).stores.drafts['Genesis|1'].versionHistory, [snapshot]);
+});
+
+test('rejects malformed nested note history without rejecting legacy drafts that have no history', () => {
+  const legacy = buildWorkspaceArchive(sample());
+  assert.equal(validateWorkspaceArchive(legacy).counts.drafts, 1);
+
+  const invalidDate = structuredClone(legacy);
+  invalidDate.stores.drafts['Genesis|1'].versionHistory = [{
+    id: 'bad-date',
+    savedAt: 'not-a-date',
+    activeStage: 'observe',
+    sections: { observe: 'Old', interpret: '', doctrine: '', apply: '' }
+  }];
+  assert.throws(() => validateWorkspaceArchive(invalidDate), /drafts/);
+
+  const missingSection = structuredClone(legacy);
+  missingSection.stores.drafts['Genesis|1'].versionHistory = [{
+    id: 'missing-stage',
+    savedAt: '2026-11-17T12:00:00.000Z',
+    activeStage: 'observe',
+    sections: { observe: 'Old', interpret: '', doctrine: '' }
+  }];
+  assert.throws(() => validateWorkspaceArchive(missingSection), /drafts/);
+
+  const duplicateIds = structuredClone(legacy);
+  const snapshot = {
+    id: 'duplicate',
+    savedAt: '2026-11-17T12:00:00.000Z',
+    activeStage: 'observe',
+    sections: { observe: 'Old', interpret: '', doctrine: '', apply: '' }
+  };
+  duplicateIds.stores.drafts['Genesis|1'].versionHistory = [snapshot, snapshot];
+  assert.throws(() => validateWorkspaceArchive(duplicateIds), /drafts/);
+
+  const tooMany = structuredClone(legacy);
+  tooMany.stores.drafts['Genesis|1'].versionHistory = Array.from({ length: 9 }, (_, index) => ({
+    id: 'version-' + index,
+    savedAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+    activeStage: 'observe',
+    sections: { observe: 'Old', interpret: '', doctrine: '', apply: '' }
+  }));
+  assert.throws(() => validateWorkspaceArchive(tooMany), /drafts/);
+});

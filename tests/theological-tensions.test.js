@@ -188,3 +188,99 @@ test('history is append-only and rejects reuse of an existing checkpoint ID', ()
   }, { id: 'fixed-id', recordedAt: '2026-11-17T08:00:00Z' }), /IDs must be unique/);
   assert.equal(first.history.length, 1);
 });
+
+
+import { buildTheologicalTensionDossier } from '../next-app/src/lib/theological-tensions.mjs';
+
+test('research dossier assembles current passages, resolution, doctrine review, evidence and full history', () => {
+  const record = {
+    id: 'dossier-1',
+    studyKey: 'Romans|3',
+    studyPassage: 'Romans 3',
+    claimKey: 'justification',
+    claimDisplay: 'Justification and works',
+    passageA: 'Romans 3:28',
+    contextA: 'Paul’s argument about justification and works of the law.',
+    passageB: 'James 2:24',
+    contextB: 'James addresses a claim to faith without works.',
+    issue: 'The apparent relationship between faith, works and justification.',
+    analysis: 'The authors’ arguments and uses of works have been compared.',
+    uncertainty: 'The full relationship requires continued contextual examination.',
+    resolution: 'The passages address distinct aspects of the relationship between faith and works.',
+    resolutionRationale: 'The researcher considers each author’s immediate argument and audience.',
+    assessment: 'complementary',
+    status: 'provisionally_addressed',
+    history: [
+      {
+        id: 'history-1', recordedAt: '2026-11-17T07:00:00.000Z',
+        eventType: 'initial_position', previousAssessment: null, assessment: 'unresolved',
+        previousStatus: null, status: 'under_review',
+        previousResearcherPosition: null, previousAnalysisSnapshot: null, previousUncertaintySnapshot: null,
+        previousResolution: null, resolutionSnapshot: '',
+        resolutionRationaleSnapshot: '',
+        passageA: 'Romans 3:28', contextA: 'Earlier contextual note.',
+        passageB: 'James 2:24', contextB: 'Earlier contextual note.',
+        issue: 'Faith and works', researcherPosition: 'The relationship remains open.',
+        analysisSnapshot: 'Initial reading.', evidenceConsidered: 'Romans 3 and James 2.',
+        uncertaintySnapshot: 'Meaning of works.', rationale: 'Initial review.'
+      }
+    ]
+  };
+  const dossier = buildTheologicalTensionDossier(record, {
+    generatedAt: '2026-11-17T08:00:00.000Z',
+    doctrineReview: { claimLevel: 'broader_inference', formulation: 'A formulation derived from the wider canonical synthesis.', unresolved: 'Scope of the inference.' },
+    claimSynthesis: { conclusion: 'Research synthesis.', reasoning: 'Evidence was weighed in context.' },
+    evidenceRecords: [{
+      kind: 'Scripture', reference: 'Romans 3:28', detail: 'Textual evidence detail.',
+      source: 'Berean Standard Bible', relationship: 'supports', sourceQuality: 'strong',
+      verificationStatus: 'content_checked', assessmentRationale: 'Direct contextual relevance.',
+      verificationRationale: 'Checked against the cited passage.', sourceQualityRationale: 'Primary text.',
+      createdAt: '2026-11-17T06:00:00.000Z'
+    }]
+  });
+
+  assert.equal(dossier.title, 'Research Conclusion and Resolution Dossier');
+  assert.equal(dossier.generatedAt, '2026-11-17T08:00:00.000Z');
+  assert.equal(dossier.studyPassage, 'Romans 3');
+  assert.equal(dossier.doctrinalClaim, 'Justification and works');
+  assert.equal(dossier.claimLevel, 'broader_inference');
+  assert.equal(dossier.originalSynthesis, 'Research synthesis.');
+  assert.equal(dossier.refinedDoctrinalFormulation, 'A formulation derived from the wider canonical synthesis.');
+  assert.equal(dossier.researchConclusion, record.resolution);
+  assert.equal(dossier.resolutionRationale, record.resolutionRationale);
+  assert.equal(dossier.passages[0].reference, 'Romans 3:28');
+  assert.equal(dossier.passages[1].reference, 'James 2:24');
+  assert.equal(dossier.evidence.length, 1);
+  assert.equal(dossier.evidence[0].verificationStatus, 'content_checked');
+  assert.equal(dossier.history.length, 1);
+  assert.equal(dossier.history[0].researcherPosition, 'The relationship remains open.');
+  assert.match(dossier.methodNote, /does not independently verify/);
+});
+
+test('research dossier states explicitly when no formal resolution or supporting material exists', () => {
+  const dossier = buildTheologicalTensionDossier({
+    id: 'dossier-empty',
+    studyKey: 'John|1',
+    claimKey: 'the word',
+    passageA: '',
+    contextA: '',
+    passageB: '',
+    contextB: '',
+    issue: '',
+    analysis: '',
+    uncertainty: '',
+    assessment: 'unclassified',
+    status: 'open',
+    history: []
+  }, { generatedAt: '2026-11-17T08:00:00Z' });
+
+  assert.match(dossier.researchConclusion, /No formal research conclusion/);
+  assert.match(dossier.passages[0].context, /not recorded/i);
+  assert.match(dossier.issue, /No precise point/);
+  assert.equal(dossier.evidence.length, 0);
+  assert.equal(dossier.history.length, 0);
+});
+
+test('research dossier builder rejects invalid tension records', () => {
+  assert.throws(() => buildTheologicalTensionDossier(null), /valid theological tension record/);
+});

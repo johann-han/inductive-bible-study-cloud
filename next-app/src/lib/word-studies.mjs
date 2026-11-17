@@ -22,7 +22,9 @@ export function isWordStudyRecord(value) {
   const strongsId = typeof value.strongsId === 'string' ? value.strongsId.toUpperCase() : '';
   const sourceUrl = value.sourceUrl === undefined ? '' : value.sourceUrl;
   const senses = value.senses;
-  return boundedString(value.id, 100, false) &&
+  const occurrenceOffsetsValid = (value.wordStart === undefined && value.wordEnd === undefined) ||
+    (Number.isInteger(value.wordStart) && value.wordStart >= 0 && Number.isInteger(value.wordEnd) && value.wordEnd > value.wordStart);
+  return occurrenceOffsetsValid && boundedString(value.id, 100, false) &&
     /^[HG]\d{1,6}$/.test(strongsId) &&
     boundedString(value.englishWord, 200, false) &&
     boundedString(value.lemma, 300, false) &&

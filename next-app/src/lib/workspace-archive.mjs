@@ -1,5 +1,6 @@
 const WORKSPACE_ARCHIVE_FORMAT = 'ibs-workspace-archive';
 const WORKSPACE_ARCHIVE_VERSION = 1;
+const UNSAFE_RECORD_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const DOSSIER_ARCHIVE_FORMAT = 'ibs-theological-dossier-archive';
 const DOSSIER_ARCHIVE_VERSION = 1;
 const MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
@@ -40,15 +41,15 @@ const STORE_VALIDATORS = {
     ['observe', 'interpret', 'doctrine', 'apply'].includes(item.stage) &&
     typeof item.claim === 'string' && typeof item.reference === 'string' &&
     typeof item.detail === 'string' && typeof item.source === 'string') && hasUniqueIds(value),
-  claimSynthesis: value => isObject(value) && Object.values(value).every(item =>
+  claimSynthesis: value => hasSafeKeys(value) && Object.values(value).every(item =>
     isObject(item) && ['under_review', 'provisional', 'ready_for_doctrine', 'revisit'].includes(item.status) &&
     typeof item.conclusion === 'string' && typeof item.reasoning === 'string' &&
     validOptionalDate(item.updatedAt)),
-  doctrineReviews: value => isObject(value) && Object.values(value).every(item =>
+  doctrineReviews: value => hasSafeKeys(value) && Object.values(value).every(item =>
     isObject(item) && ['', 'explicit', 'necessary_implication', 'broader_inference'].includes(item.claimLevel) &&
     ['supportingPassages', 'tensions', 'formulation', 'unresolved'].every(field => typeof item[field] === 'string') &&
     typeof item.approved === 'boolean' && validOptionalDate(item.updatedAt)),
-  theologicalTensions: value => isObject(value) && Object.values(value).every(records =>
+  theologicalTensions: value => hasSafeKeys(value) && Object.values(value).every(records =>
     Array.isArray(records) && records.length <= 10000 && records.every(isTension)) &&
     hasUniqueIds(Object.values(value).flat()),
   dossierVersions: value => Array.isArray(value) && value.length <= 20000 && value.every(isDossierVersion) && hasUniqueIds(value)
@@ -61,6 +62,7 @@ const HISTORY_EVENT_TYPES = new Set(['initial_position', 'interpretive_revision'
 
 function isObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function nonEmpty(value) { return typeof value === 'string' && value.trim().length > 0; }
+function hasSafeKeys(value) { return isObject(value) && Object.keys(value).every(key => !UNSAFE_RECORD_KEYS.has(key)); }
 function hasUniqueIds(items) {
   const ids = new Set();
   for (const item of items) {
@@ -271,7 +273,7 @@ function createImportId() {
   return 'import-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 function mergeKeyed(store, existing, incoming, decisions) {
-  const output = { ...existing };
+  const output = Object.assign(Object.create(null), existing || {});
   for (const [key, value] of Object.entries(incoming)) {
     if (!Object.prototype.hasOwnProperty.call(output, key)) { output[key] = value; continue; }
     if (fingerprint(output[key]) === fingerprint(value)) continue;
@@ -300,7 +302,7 @@ function duplicatePassageValue(store, existing, incoming) {
   return existing;
 }
 function mergeDraftStore(existing, incoming, decisions) {
-  const output = { ...existing };
+  const output = Object.assign(Object.create(null), existing || {});
   for (const [passageKey, value] of Object.entries(incoming)) {
     if (!Object.prototype.hasOwnProperty.call(output, passageKey)) {
       output[passageKey] = value;
@@ -313,7 +315,7 @@ function mergeDraftStore(existing, incoming, decisions) {
   return output;
 }
 function mergePassageStore(store, existing, incoming, decisions) {
-  const output = { ...existing };
+  const output = Object.assign(Object.create(null), existing || {});
   for (const [passageKey, incomingVerses] of Object.entries(incoming)) {
     const currentVerses = { ...(output[passageKey] || {}) };
     for (const [verse, value] of Object.entries(incomingVerses)) {
@@ -348,7 +350,7 @@ function appendTension(map, key, record) {
   map[key] = [...(map[key] || []), record];
 }
 function mergeTensions(existing, incoming, decisions) {
-  const output = Object.fromEntries(Object.entries(existing || {}).map(([key, records]) => [key, [...records]]));
+  const output = Object.assign(Object.create(null), Object.fromEntries(Object.entries(existing || {}).map(([key, records]) => [key, [...records]])));
   for (const [key, items] of Object.entries(incoming)) {
     for (const item of items) {
       const location = findTensionLocation(output, item.id);
@@ -370,9 +372,9 @@ function mergeTensions(existing, incoming, decisions) {
 }
 function replaceTensions(existing, incoming, decisions) {
   const includedKeys = new Set(Object.keys(incoming));
-  const output = Object.fromEntries(Object.entries(existing || {})
+  const output = Object.assign(Object.create(null), Object.fromEntries(Object.entries(existing || {})
     .filter(([key]) => !includedKeys.has(key))
-    .map(([key, records]) => [key, [...records]]));
+    .map(([key, records]) => [key, [...records]])));
   for (const [key, records] of Object.entries(incoming)) {
     for (const record of records) {
       const location = findTensionLocation(existing || {}, record.id);
@@ -415,7 +417,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
     return output;
   }
   if (store === 'drafts') {
-    const output = { ...incoming };
+    const output = Object.assign(Object.create(null), incoming);
     for (const [passageKey, value] of Object.entries(incoming)) {
       const prior = existing?.[passageKey];
       if (prior === undefined || fingerprint(prior) === fingerprint(value)) continue;
@@ -424,7 +426,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
     return output;
   }
   if (['scriptureMarkup', 'wordMarkup'].includes(store)) {
-    const output = { ...incoming };
+    const output = Object.assign(Object.create(null), incoming);
     for (const [passageKey, verses] of Object.entries(incoming)) {
       output[passageKey] = { ...verses };
       for (const [verse, value] of Object.entries(verses)) {
@@ -437,7 +439,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
     }
     return output;
   }
-  const output = { ...incoming };
+  const output = Object.assign(Object.create(null), incoming);
   for (const [key, value] of Object.entries(incoming)) {
     if (!Object.prototype.hasOwnProperty.call(existing || {}, key) || fingerprint(existing[key]) === fingerprint(value)) continue;
     const choice = decisions[store + ':' + key];

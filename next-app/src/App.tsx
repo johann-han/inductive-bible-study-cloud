@@ -1429,9 +1429,11 @@ export default function App() {
                 const unresolvedVerification = group.verificationNotChecked + group.verificationOpened > 0;
                 const handoff = () => {
                   setDraftsByPassage(previous => {
-                    const existing = (previous[passageDraftKey] || emptyNotes).doctrine;
+                    const currentDraft = { ...emptyNotes, ...(previous[passageDraftKey] || {}) };
+                    const withHistory = appendStudyNoteVersionSnapshot(currentDraft);
+                    const existing = currentDraft.doctrine;
                     const block = '[Claim synthesis · ' + group.claim + ']\\n' + synthesis.conclusion.trim() + (synthesis.reasoning.trim() ? '\\nReasoning: ' + synthesis.reasoning.trim() : '') + '\\nResearch status: Ready for Doctrine review';
-                    return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
+                    return { ...previous, [passageDraftKey]: { ...withHistory, activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
                   });
                   setStage('doctrine');
                 };
@@ -1498,10 +1500,23 @@ export default function App() {
             <div className="active-study-note-controls">
               <button className="tool-button" type="button" onClick={() => setNotesFontSize(value => Math.max(15,value-1))} aria-label="Decrease notes text size" title="Decrease text size">A−</button>
               <button className="tool-button" type="button" onClick={() => setNotesFontSize(value => Math.min(26,value+1))} aria-label="Increase notes text size" title="Increase text size">A+</button>
+              <button className="tool-button" type="button" onClick={() => {setShowNoteHistory(value=>!value);setNoteHistoryNotice('');}} aria-expanded={showNoteHistory} aria-controls="study-note-history-panel" title="View and restore earlier versions of all four stage notes">History{noteVersionHistory.length ? ' ('+noteVersionHistory.length+')' : ''}</button>
               <button className="outline-button notes-expand-button" type="button" onClick={() => setNotesExpanded(value => !value)} aria-expanded={notesExpanded}>{notesExpanded ? 'Collapse editor' : 'Expand editor'}</button>
             </div>
-          </div><details className="study-prompt-picker"><summary>Insert a structured study prompt</summary><div className="study-prompt-options">{stagePromptTemplates[stage].map(prompt => <button key={prompt.label} type="button" onClick={() => setDraftsByPassage(previous => { const existing = (previous[passageDraftKey] || emptyNotes)[stage]; const separator = existing.trim() ? (existing.endsWith('\n') ? '\n' : '\n\n') : ''; return {...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey]||{}),[stage]:existing+separator+prompt.text}}; })}>{prompt.label}</button>)}</div></details>
-          <textarea id="active-study-notes" className={notesExpanded ? 'active-study-notes-expanded' : ''} style={{fontSize:notesFontSize}} value={note} onChange={event => setDraftsByPassage(previous => ({...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey]||{}),[stage]:event.target.value}}))} placeholder={'Record your '+current.label.toLowerCase()+' notes for '+book+' '+chapter+'…'}/><div className="active-study-editor-footer"><span>{wordCount} words</span><span>Auto-saved in this preview · {notesFontSize}px</span></div>
+          </div>{showNoteHistory && <section id="study-note-history-panel" className="study-note-history" aria-label="Study note history">
+            <div className="study-note-history-heading"><div><strong>Study Note History · {book} {chapter}</strong><p>Earlier snapshots of Observe, Interpretation, Doctrine and Discipleship. Up to eight versions are retained for this passage.</p></div><button type="button" className="text-button" onClick={()=>setShowNoteHistory(false)}>Close</button></div>
+            {noteHistoryNotice && <p className="study-note-history-notice" role="status">{noteHistoryNotice}</p>}
+            {noteVersionHistory.length ? <div className="study-note-history-list">{noteVersionHistory.map((snapshot,index)=>{
+              const counts=countStudyNoteVersionWords(snapshot);
+              return <article className="study-note-history-item" key={snapshot.id}>
+                <div className="study-note-history-item-heading"><div><strong>{new Date(snapshot.savedAt).toLocaleString()}</strong><span>Version {noteVersionHistory.length-index} · Active stage: {stages.find(item=>item.id===snapshot.activeStage)?.label || 'Observe'}</span></div><button type="button" className="outline-button" onClick={()=>restoreStudyNoteVersionFromHistory(snapshot.id)}>Restore this version</button></div>
+                <div className="study-note-history-counts">{Object.values(counts).map(item=><span key={item.label}>{item.label}: {item.words} words</span>)}</div>
+                <details className="study-note-history-preview"><summary>Preview saved notes</summary>{stages.map(item=><section key={item.id}><strong>{item.label}</strong><p>{snapshot.sections[item.id] || 'No notes in this section.'}</p></section>)}</details>
+              </article>;
+            })}</div> : <p className="study-note-history-empty">No earlier note versions have been saved for this passage yet. A dated snapshot is created as you edit; the current notes are also protected before any restoration.</p>}
+            <p className="study-note-history-footnote">History is stored with this passage in the browser preview and is included in full workspace backups. Restoring changes only the four stage notes and active stage; Scripture markup, evidence, claims, cross-references and research dossiers are left unchanged.</p>
+          </section>}<details className="study-prompt-picker"><summary>Insert a structured study prompt</summary><div className="study-prompt-options">{stagePromptTemplates[stage].map(prompt => <button key={prompt.label} type="button" onClick={() => setDraftsByPassage(previous => { const existing = (previous[passageDraftKey] || emptyNotes)[stage]; const separator = existing.trim() ? (existing.endsWith('\n') ? '\n' : '\n\n') : ''; return {...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey]||{}),[stage]:existing+separator+prompt.text}}; })}>{prompt.label}</button>)}</div></details>
+          <textarea id="active-study-notes" className={notesExpanded ? 'active-study-notes-expanded' : ''} style={{fontSize:notesFontSize}} value={note} onChange={event => updateStudyNote(event.target.value)} placeholder={'Record your '+current.label.toLowerCase()+' notes for '+book+' '+chapter+'…'}/><div className="active-study-editor-footer"><span>{wordCount} words</span><span>Auto-saved in this preview · {notesFontSize}px</span></div>
           <div className="stage-footer"><button className="outline-button" type="button" onClick={() => move(-1)} disabled={stage==='observe'}>Previous stage</button><button className="primary-button" type="button" onClick={() => move(1)} disabled={stage==='apply'}>Next stage <Icon name="chevron"/></button></div>
         </section><aside className="active-study-source"><span className="eyebrow">SOURCE SCRIPTURE</span><h2>{book} {chapter}</h2><p>{translation} · {bible?.verses.length || 0} verses</p><div className="active-study-source-preview">{bible?.verses.slice(0,3).map(verse => <p key={verse.number}><b>{verse.number}</b> {verse.text}</p>) || <p>Scripture passage loading…</p>}</div><button className="primary-button" type="button" onClick={() => setView('reader')}>Read and mark passage <Icon name="chevron"/></button></aside></div>
       </section> : <div className="study-page">
@@ -1729,7 +1744,9 @@ export default function App() {
                   const finalText = review.formulation.trim();
                   if (!finalText || !review.claimLevel || review.approved) return;
                   setDraftsByPassage(previous => {
-                    const existing = (previous[passageDraftKey] || emptyNotes).doctrine;
+                    const currentDraft = { ...emptyNotes, ...(previous[passageDraftKey] || {}) };
+                    const withHistory = appendStudyNoteVersionSnapshot(currentDraft);
+                    const existing = currentDraft.doctrine;
                     const marker = '[Approved doctrinal formulation · ' + group.claim + ' · ' + new Date().toISOString() + ']';
                     const historyNotes = tensionRecords.flatMap((record, index) => {
                       const entries = Array.isArray(record.history) ? record.history : [];
@@ -1767,7 +1784,7 @@ export default function App() {
                       'Research status: ' + record.status.replaceAll('_', ' ')
                     ].join('\n')).join('\n\n');
                     const block = marker + '\n' + finalText + '\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\nTensions / qualifications: ' + review.tensions.trim() : '') + (tensionNotes ? '\n\nTheological tension analysis register:\n' + tensionNotes : '') + (historyNotes.length ? '\n\nInterpretation and resolution history:\n' + historyNotes.join('\n\n') : '') + (review.unresolved.trim() ? '\nOpen questions: ' + review.unresolved.trim() : '');
-                    return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
+                    return { ...previous, [passageDraftKey]: { ...withHistory, activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
                   });
                   updateReview({ approved: true });
                 };
@@ -1932,7 +1949,7 @@ export default function App() {
                   const citation = selectedVerseCitation;
                   const source = selectedVerseRecords.map(item => citation + ' · ' + translation + '\n' + item.text).join('\n\n');
                   const heading = '\n\n[Scripture evidence — ' + citation + ']\n' + source;
-                  setDraftsByPassage(previous => ({...previous,[passageDraftKey]:{...emptyNotes,...(previous[passageDraftKey] || {}),activeStage:stage,[stage]:(previous[passageDraftKey] || emptyNotes)[stage].trimEnd()+heading}}));
+                  updateStudyNote(note.trimEnd()+heading);
                 }}>＋ Insert selected verse evidence</button>
                 <button type="button" className="outline-button" onClick={() => {setView('reader');setShowStrongs(true);}}>Open word research</button>
                 <button type="button" className="outline-button" onClick={() => setView('references')}>Explore cross-references</button>

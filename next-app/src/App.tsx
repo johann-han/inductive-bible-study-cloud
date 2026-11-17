@@ -1177,13 +1177,18 @@ export default function App() {
                 const synthesis = claimSyntheses[key];
                 const review = doctrineReviews[key] || { claimLevel: '', supportingPassages: '', tensions: '', formulation: synthesis.conclusion, unresolved: '', approved: false, updatedAt: '' } as DoctrineReview;
                 const tensionRecords = theologicalTensions[key] || [];
+                const resetApprovalIfNeeded = () => setDoctrineReviews(previous => {
+                  const currentReview = previous[key];
+                  if (!currentReview?.approved) return previous;
+                  return { ...previous, [key]: { ...currentReview, approved: false, updatedAt: new Date().toISOString() } };
+                });
                 const updateReview = (patch: Partial<DoctrineReview>) => setDoctrineReviews(previous => ({ ...previous, [key]: { ...review, ...patch, approved: patch.approved ?? false, updatedAt: new Date().toISOString() } }));
                 const approve = () => {
                   const finalText = review.formulation.trim();
                   if (!finalText || !review.claimLevel || review.approved) return;
                   setDraftsByPassage(previous => {
                     const existing = (previous[passageDraftKey] || emptyNotes).doctrine;
-                    const marker = '[Approved doctrinal formulation · ' + group.claim + ']';
+                    const marker = '[Approved doctrinal formulation · ' + group.claim + ' · ' + new Date().toISOString() + ']';
                     const tensionNotes = tensionRecords.map((record, index) => [
                       'Research question ' + (index + 1),
                       'Passage A: ' + (record.passageA || 'Not recorded'),
@@ -1197,7 +1202,7 @@ export default function App() {
                       'Research status: ' + record.status.replaceAll('_', ' ')
                     ].join('\n')).join('\n\n');
                     const block = marker + '\n' + finalText + '\nClaim level: ' + review.claimLevel.replaceAll('_', ' ') + '\nSupporting passages reviewed: ' + (review.supportingPassages.trim() || 'Not recorded') + (review.tensions.trim() ? '\nTensions / qualifications: ' + review.tensions.trim() : '') + (tensionNotes ? '\n\nTheological tension analysis register:\n' + tensionNotes : '') + (review.unresolved.trim() ? '\nOpen questions: ' + review.unresolved.trim() : '');
-                    return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.includes(marker) ? existing : existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
+                    return { ...previous, [passageDraftKey]: { ...emptyNotes, ...(previous[passageDraftKey] || {}), activeStage: 'doctrine', doctrine: existing.trimEnd() + (existing.trim() ? '\\n\\n' : '') + block } };
                   });
                   updateReview({ approved: true });
                 };
@@ -1211,11 +1216,11 @@ export default function App() {
                   <label>Supporting Scripture passages<textarea rows={2} value={review.supportingPassages} onChange={event=>updateReview({supportingPassages:event.target.value})} placeholder="List references and briefly explain how each passage contributes. Check each in its own literary and historical context."/></label>
                   <label>Apparent tensions, counter-texts or qualifications<textarea rows={3} value={review.tensions} onChange={event=>updateReview({tensions:event.target.value})} placeholder="Record passages or teachings that appear to challenge, qualify or create tension with this formulation. Explain rather than harmonise prematurely."/></label>
                   <section className="tension-register" aria-label="Theological tension analysis register">
-                    <div className="tension-register-heading"><div><strong>Theological tension analysis register</strong><p>Record each apparent tension as a separate research question. Examine both passages in context before assessing their relationship.</p><small className="tension-register-summary">{tensionRecords.length} record{tensionRecords.length === 1 ? '' : 's'} · {tensionRecords.filter(record => record.status === 'open' || record.status === 'under_review').length} open / under review</small></div><button type="button" className="outline-button" onClick={() => setTheologicalTensions(previous => ({ ...previous, [key]: [...(previous[key] || []), { id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2), passageA: '', contextA: '', passageB: '', contextB: '', issue: '', analysis: '', uncertainty: '', assessment: 'unclassified', status: 'open', updatedAt: new Date().toISOString() }] }))}>Add tension record</button></div>
+                    <div className="tension-register-heading"><div><strong>Theological tension analysis register</strong><p>Record each apparent tension as a separate research question. Examine both passages in context before assessing their relationship.</p><small className="tension-register-summary">{tensionRecords.length} record{tensionRecords.length === 1 ? '' : 's'} · {tensionRecords.filter(record => record.status === 'open' || record.status === 'under_review').length} open / under review</small></div><button type="button" className="outline-button" onClick={() => { resetApprovalIfNeeded(); setTheologicalTensions(previous => ({ ...previous, [key]: [...(previous[key] || []), { id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2), passageA: '', contextA: '', passageB: '', contextB: '', issue: '', analysis: '', uncertainty: '', assessment: 'unclassified', status: 'open', updatedAt: new Date().toISOString() }] })); }}>Add tension record</button></div>
                     {(theologicalTensions[key] || []).length === 0 ? <p className="tension-register-empty">No tension records have been added to this doctrinal claim.</p> : (theologicalTensions[key] || []).map((item, index) => {
-                      const updateTension = (patch: Partial<TheologicalTension>) => setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).map(record => record.id === item.id ? { ...record, ...patch, updatedAt: new Date().toISOString() } : record) }));
+                      const updateTension = (patch: Partial<TheologicalTension>) => { setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).map(record => record.id === item.id ? { ...record, ...patch, updatedAt: new Date().toISOString() } : record) })); resetApprovalIfNeeded(); };
                       return <article className="tension-register-card" key={item.id}>
-                        <div className="tension-register-card-heading"><strong>Research question {index + 1}</strong><button type="button" className="text-button" onClick={() => setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).filter(record => record.id !== item.id) }))}>Remove</button></div>
+                        <div className="tension-register-card-heading"><strong>Research question {index + 1}</strong><button type="button" className="text-button" onClick={() => { resetApprovalIfNeeded(); setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).filter(record => record.id !== item.id) })); }}>Remove</button></div>
                         <div className="tension-register-passages">
                           <label>Passage A reference<input value={item.passageA} onChange={event=>updateTension({passageA:event.target.value})} placeholder="e.g. Romans 3:28"/></label>
                           <label>Passage B reference<input value={item.passageB} onChange={event=>updateTension({passageB:event.target.value})} placeholder="e.g. James 2:24"/></label>

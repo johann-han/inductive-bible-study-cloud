@@ -26,7 +26,8 @@ import type { PreviewCrossReference } from './lib/cross-references.mjs';
 import { selectVerseRange, toggleVerseSelection } from './lib/verse-selection.mjs';
 import { loadStandardCrossReferences, STANDARD_XREF_SOURCE, parseStandardReference } from './lib/standard-cross-references.mjs';
 import type { StandardCrossReferenceRow } from './lib/standard-cross-references.mjs';
-import { buildComparisonPassageImport } from './lib/theological-tensions.mjs';
+import { buildComparisonPassageImport, filterTheologicalTensionRecords, listTheologicalTensionRecords } from './lib/theological-tensions.mjs';
+import type { IndexedTheologicalTension } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
@@ -270,6 +271,10 @@ export default function App() {
   const [doctrineReviews, setDoctrineReviews] = useState<Record<string, DoctrineReview>>(() => typeof window === 'undefined' ? {} : readDoctrineReviews());
   const [theologicalTensions, setTheologicalTensions] = useState<Record<string, TheologicalTension[]>>(() => typeof window === 'undefined' ? {} : readTheologicalTensions());
   const [tensionImportSelections, setTensionImportSelections] = useState<Record<string, { a: string; b: string }>>({});
+  const [tensionSearch, setTensionSearch] = useState('');
+  const [tensionAssessmentFilter, setTensionAssessmentFilter] = useState<TheologicalTension['assessment'] | 'all'>('all');
+  const [tensionStatusFilter, setTensionStatusFilter] = useState<TheologicalTension['status'] | 'all'>('all');
+  const [pendingTensionFocusId, setPendingTensionFocusId] = useState<string | null>(null);
   const [doctrineCompareInput, setDoctrineCompareInput] = useState('');
   const [doctrineCompareResults, setDoctrineCompareResults] = useState<{ reference: string; text: string; related: string[]; source: string }[]>([]);
   const [doctrineCompareStatus, setDoctrineCompareStatus] = useState<'idle'|'loading'|'ready'|'error'>('idle');
@@ -289,7 +294,7 @@ export default function App() {
   const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'needs_review' | EvidenceRelationship>('all');
   const [evidenceSourceUrl, setEvidenceSourceUrl] = useState('');
   const [evidenceSourceId, setEvidenceSourceId] = useState('');
-  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references'>('overview');
+  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
@@ -338,6 +343,16 @@ export default function App() {
   useEffect(() => {
     setStage(draftsByPassage[passageDraftKey]?.activeStage || 'observe');
   }, [passageDraftKey]);
+  
+  useEffect(() => {
+    if (view !== 'study' || stage !== 'doctrine' || !pendingTensionFocusId) return;
+    const record = Array.from(document.querySelectorAll<HTMLElement>('[data-tension-record-id]'))
+      .find(element => element.dataset.tensionRecordId === pendingTensionFocusId);
+    if (!record) return;
+    record.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    record.focus({ preventScroll: true });
+    setPendingTensionFocusId(null);
+  }, [view, stage, passageDraftKey, pendingTensionFocusId, theologicalTensions]);
 
   useEffect(() => {
     setObservationIndexChapters({});
@@ -653,6 +668,47 @@ export default function App() {
     verificationCorroborated: group.records.filter(item => item.verificationStatus === 'corroborated').length
   }));
 
+  const doctrineReviewGroups = claimEvidenceGroups.filter(group => {
+    const key = claimSynthesisKey(passageDraftKey, group.claim);
+    const isReady = (claimSyntheses[key]?.status || 'under_review') === 'ready_for_doctrine';
+    return isReady || (theologicalTensions[key] || []).length > 0;
+  });
+  const indexedTheologicalTensions = useMemo(() => listTheologicalTensionRecords(theologicalTensions).map(record => ({
+    ...record,
+    claimDisplay: evidenceRecords.find(item =>
+      item.passageKey === record.studyKey &&
+      item.claim.trim().toLocaleLowerCase() === record.claimKey
+    )?.claim || record.claimKey
+  })), [theologicalTensions, evidenceRecords]);
+  const visibleTheologicalTensions = useMemo(() => filterTheologicalTensionRecords(indexedTheologicalTensions, {
+    search: tensionSearch,
+    assessment: tensionAssessmentFilter,
+    status: tensionStatusFilter
+  }), [indexedTheologicalTensions, tensionSearch, tensionAssessmentFilter, tensionStatusFilter]);
+  const tensionOpenCount = indexedTheologicalTensions.filter(item => item.status === 'open' || item.status === 'under_review').length;
+  const tensionUnresolvedCount = indexedTheologicalTensions.filter(item => item.assessment === 'unresolved' || item.assessment === 'perceived_contradiction').length;
+  const tensionResolvedCount = indexedTheologicalTensions.filter(item => item.status === 'researcher_resolved').length;
+
+  const openTheologicalTension = (record: IndexedTheologicalTension) => {
+    const [targetBook, chapterText] = record.studyKey.split('|');
+    const targetChapter = Number(chapterText);
+    const targetBookInfo = getBibleBook(targetBook);
+    if (!targetBookInfo || !Number.isInteger(targetChapter) || targetChapter < 1 || targetChapter > targetBookInfo.chapters) return;
+    setPendingTensionFocusId(record.id);
+    setDraftsByPassage(previous => ({
+      ...previous,
+      [record.studyKey]: {
+        ...emptyNotes,
+        ...(previous[record.studyKey] || {}),
+        activeStage: 'doctrine'
+      }
+    }));
+    setBook(targetBook);
+    setChapter(targetChapter);
+    setStage('doctrine');
+    setView('study');
+  };
+
   const compareDoctrinePassages = async () => {
     const raw = doctrineCompareInput.split(/[;,\n]+/).map(value => value.trim()).filter(Boolean);
     const parsed = raw.map(parseStandardReference);
@@ -759,13 +815,14 @@ export default function App() {
       <div className="workspace-label">RESEARCH</div>
       <button className="nav-item nav-disabled" type="button" disabled title="Research tools are being integrated in a later rebuild phase"><Icon name="search"/>Word studies</button>
       <button className={view === 'references' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('references')}><Icon name="panel"/>Cross-references<span className="nav-count">{previewCrossReferences.length}</span></button>
+      <button className={view === 'tensions' ? 'nav-item active' : 'nav-item'} type="button" onClick={() => setView('tensions')}><Icon name="panel"/>Theological tensions<span className="nav-count">{indexedTheologicalTensions.length}</span></button>
       <button className="nav-item nav-disabled" type="button" disabled title="AI guidance will be reconnected after the contextual data adapter is complete"><Icon name="spark"/>AI study guide</button>
       <div className="sidebar-bottom"><div className="avatar">J</div><div><strong>Study workspace</strong><span>Preview environment</span></div><button className="icon-button" aria-label="Settings" type="button" disabled><Icon name="settings"/></button></div>
     </aside>
     <main className="main-area">
       <header className="topbar">
         {view !== 'overview' && <button className="back-home-button" type="button" onClick={() => setView('overview')} aria-label="Back to start screen" title="Back to start screen"><Icon name="back"/><span>Home</span></button>}
-        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
+        <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
         <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
       {view === 'overview' ? <section className="dashboard-view">
@@ -847,6 +904,45 @@ export default function App() {
             {previewCrossReferences.length ? <div className="reference-list">{previewCrossReferences.map(item=>{const names=formatCrossReference(item);return <article className="reference-item" key={item.id}><div className="reference-pair"><button type="button" onClick={()=>{setBook(item.sourceBook);setChapter(item.sourceChapter);setView('reader');}}>{names.source}</button><span aria-hidden="true">↔</span><button type="button" onClick={()=>{setBook(item.targetBook);setChapter(item.targetChapter);setView('reader');}}>{names.target}</button></div>{item.note ? <p>{item.note}</p> : <p className="reference-muted">No connection note recorded.</p>}<div className="reference-item-footer"><span>USER-CREATED PREVIEW REFERENCE</span><div className="reference-item-actions"><button type="button" className="text-button" onClick={()=>attachUserCrossReference(item)}>＋ Attach evidence</button><button type="button" className="text-button" onClick={()=>setPreviewCrossReferences(previous=>deletePreviewCrossReference(previous,item.id))}>Remove</button></div></div></article>})}</div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>No saved connections yet</h2><p>Create a link between the current passage and another Scripture reference. You can return to either passage from your saved list.</p><button className="primary-button" type="button" onClick={()=>setView('reader')}>Open Bible reader <Icon name="chevron"/></button></div>}
           </section>
         </div><p className="reference-disclaimer">Standard references and user-created study connections are shown separately. Standard references are sourced from the licensed Treasury of Scripture Knowledge dataset; your own links remain local to this browser preview.</p>
+      </section> : view === 'tensions' ? <section className="tensions-overview-view">
+        <div className="library-header"><div><div className="eyebrow">RESEARCH · THEOLOGICAL CONSISTENCY</div><h1>Theological Tension Register</h1><p>Review apparent tensions recorded across your preview studies. This register organises researcher assessments; it does not decide whether passages agree or contradict.</p></div><button className="outline-button" type="button" onClick={() => setView('study')}>Return to active study</button></div>
+        <div className="tension-overview-stat-grid" aria-label="Tension register summary">
+          <article><span>Total records</span><strong>{indexedTheologicalTensions.length}</strong><small>Across saved preview studies</small></article>
+          <article><span>Open / under review</span><strong>{tensionOpenCount}</strong><small>Still requiring examination</small></article>
+          <article><span>Unresolved assessments</span><strong>{tensionUnresolvedCount}</strong><small>Includes perceived contradictions</small></article>
+          <article><span>Resolved by researcher</span><strong>{tensionResolvedCount}</strong><small>Recorded researcher judgement</small></article>
+        </div>
+        <div className="tension-overview-toolbar">
+          <label className="tension-overview-search">Search register<input type="search" value={tensionSearch} onChange={event=>setTensionSearch(event.target.value)} placeholder="Search passage, claim, issue or analysis…"/></label>
+          <label>Research assessment<select value={tensionAssessmentFilter} onChange={event=>setTensionAssessmentFilter(event.target.value as typeof tensionAssessmentFilter)}>
+            <option value="all">All assessments</option>
+            <option value="unclassified">Not yet classified</option>
+            <option value="apparent_tension">Apparent tension</option>
+            <option value="complementary">Complementary perspectives</option>
+            <option value="unresolved">Unresolved relationship</option>
+            <option value="perceived_contradiction">Perceived contradiction</option>
+          </select></label>
+          <label>Research status<select value={tensionStatusFilter} onChange={event=>setTensionStatusFilter(event.target.value as typeof tensionStatusFilter)}>
+            <option value="all">All statuses</option>
+            <option value="open">Open</option>
+            <option value="under_review">Under review</option>
+            <option value="provisionally_addressed">Provisionally addressed</option>
+            <option value="researcher_resolved">Resolved by researcher</option>
+          </select></label>
+          <button className="text-button tension-clear-filters" type="button" onClick={()=>{setTensionSearch('');setTensionAssessmentFilter('all');setTensionStatusFilter('all');}}>Clear filters</button>
+        </div>
+        <div className="tension-overview-results-heading"><strong>{visibleTheologicalTensions.length}</strong> {visibleTheologicalTensions.length === 1 ? 'record' : 'records'} shown <span>Sorted by most recently updated</span></div>
+        {visibleTheologicalTensions.length ? <div className="tension-overview-list">
+          {visibleTheologicalTensions.map(record=><article className="tension-overview-card" key={record.reviewKey + '::' + record.id}>
+            <div className="tension-overview-card-top"><div><span className="eyebrow">{record.studyPassage} · DOCTRINE REVIEW</span><h2>{record.claimDisplay}</h2></div><div className="tension-overview-badges"><span>{record.assessment.replaceAll('_',' ')}</span><span>{record.status.replaceAll('_',' ')}</span></div></div>
+            <div className="tension-overview-passage-pair"><div><small>PASSAGE A</small><strong>{record.passageA || 'Reference not recorded'}</strong><p>{record.contextA || 'Context not yet recorded'}</p></div><div><small>PASSAGE B</small><strong>{record.passageB || 'Reference not recorded'}</strong><p>{record.contextB || 'Context not yet recorded'}</p></div></div>
+            {record.issue && <p className="tension-overview-issue"><strong>Issue examined:</strong> {record.issue}</p>}
+            {record.analysis && <p className="tension-overview-analysis">{record.analysis}</p>}
+            {record.uncertainty && <p className="tension-overview-uncertainty"><strong>Remaining uncertainty:</strong> {record.uncertainty}</p>}
+            <div className="tension-overview-card-footer"><small>Updated {record.updatedAt ? new Date(record.updatedAt).toLocaleString() : 'date not recorded'}</small><button className="primary-button" type="button" onClick={()=>openTheologicalTension(record)}>Open Doctrine review <Icon name="chevron"/></button></div>
+          </article>)}
+        </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="panel"/></div><h2>{indexedTheologicalTensions.length ? 'No matching tension records' : 'No theological tensions recorded yet'}</h2><p>{indexedTheologicalTensions.length ? 'Adjust or clear your filters to see other records.' : 'Open a study, move to Doctrine review and add a record when two passages or interpretations appear to be in tension.'}</p>{indexedTheologicalTensions.length > 0 && <button className="text-button" type="button" onClick={()=>{setTensionSearch('');setTensionAssessmentFilter('all');setTensionStatusFilter('all');}}>Clear filters</button>}</div>}
+        <p className="tension-overview-disclaimer">The register is a research index, not an automated judgement. “Resolved by researcher” records the researcher’s conclusion and does not independently establish that a perceived contradiction has been disproved. All entries remain in this browser preview.</p>
       </section> :
       view === 'study' ? <section className="active-study-view">
         <div className="active-study-header"><div><div className="eyebrow">ACTIVE INDUCTIVE STUDY</div><h1>{book} <em>{chapter}</em></h1><p>Work through the passage systematically. Your notes remain attached to this passage and stage.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}><Icon name="book"/> Open Bible reader</button></div>
@@ -1163,7 +1259,7 @@ export default function App() {
               </div> : null}
             </section>
             {stage === 'doctrine' && <section className="doctrine-review-workspace" aria-label="Doctrine review and theological consistency">
-              <div className="doctrine-review-heading"><div><span className="eyebrow">THEOLOGICAL REVIEW</span><h3>Doctrine review &amp; consistency</h3><p>Review conclusions marked ready for Doctrine. Preserve the original research, classify the level of claim, compare Scripture in context and record unresolved tensions before approval.</p></div><span>{claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').length} ready</span></div>
+              <div className="doctrine-review-heading"><div><span className="eyebrow">THEOLOGICAL REVIEW</span><h3>Doctrine review &amp; consistency</h3><p>Review conclusions marked ready for Doctrine. Preserve the original research, classify the level of claim, compare Scripture in context and record unresolved tensions before approval.</p></div><span>{doctrineReviewGroups.length} ready</span></div>
               <div className="doctrine-canonical-compare">
                 <div><strong>Scripture-wide comparison</strong><p>Examine relevant passages alongside the current claim. Enter up to eight references, separated by commas or new lines. Chapter references and verse ranges are supported.</p></div>
                 <label htmlFor="doctrine-compare-references">Passages to compare</label>
@@ -1172,7 +1268,7 @@ export default function App() {
                 {doctrineCompareStatus==='error' && <p className="doctrine-compare-error" role="alert">{doctrineCompareError}</p>}
                 {doctrineCompareResults.length>0 && <div className="doctrine-compare-results">{doctrineCompareResults.map(item=><article key={item.reference}><strong>{item.reference}</strong><p>{item.text}</p><small>Text source: {item.source}</small>{item.related.length>0 && <div><b>Associated cross-references</b><span>{item.related.join(' · ')}</span></div>}<small>Cross-reference links indicate possible textual connections, not proof of doctrinal agreement. Read each passage in its own context.</small></article>)}</div>}
               </div>
-              {claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').length === 0 ? <p className="evidence-manager-empty">No claim synthesis is marked Ready for Doctrine review for this passage. Complete the research assessment in the Evidence Manager first.</p> : claimEvidenceGroups.filter(group => (claimSyntheses[claimSynthesisKey(passageDraftKey, group.claim)]?.status || 'under_review') === 'ready_for_doctrine').map(group => {
+              {doctrineReviewGroups.length === 0 ? <p className="evidence-manager-empty">No claim synthesis is marked Ready for Doctrine review for this passage. Complete the research assessment in the Evidence Manager first.</p> : doctrineReviewGroups.map(group => {
                 const key = claimSynthesisKey(passageDraftKey, group.claim);
                 const synthesis = claimSyntheses[key];
                 const review = doctrineReviews[key] || { claimLevel: '', supportingPassages: '', tensions: '', formulation: synthesis.conclusion, unresolved: '', approved: false, updatedAt: '' } as DoctrineReview;
@@ -1219,7 +1315,7 @@ export default function App() {
                     <div className="tension-register-heading"><div><strong>Theological tension analysis register</strong><p>Record each apparent tension as a separate research question. Examine both passages in context before assessing their relationship.</p><small className="tension-register-summary">{tensionRecords.length} record{tensionRecords.length === 1 ? '' : 's'} · {tensionRecords.filter(record => record.status === 'open' || record.status === 'under_review').length} open / under review</small></div><button type="button" className="outline-button" onClick={() => { resetApprovalIfNeeded(); setTheologicalTensions(previous => ({ ...previous, [key]: [...(previous[key] || []), { id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2), passageA: '', contextA: '', passageB: '', contextB: '', issue: '', analysis: '', uncertainty: '', assessment: 'unclassified', status: 'open', updatedAt: new Date().toISOString() }] })); }}>Add tension record</button></div>
                     {(theologicalTensions[key] || []).length === 0 ? <p className="tension-register-empty">No tension records have been added to this doctrinal claim.</p> : (theologicalTensions[key] || []).map((item, index) => {
                       const updateTension = (patch: Partial<TheologicalTension>) => { setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).map(record => record.id === item.id ? { ...record, ...patch, updatedAt: new Date().toISOString() } : record) })); resetApprovalIfNeeded(); };
-                      return <article className="tension-register-card" key={item.id}>
+                      return <article className="tension-register-card" key={item.id} data-tension-record-id={item.id} tabIndex={-1}>
                         <div className="tension-register-card-heading"><strong>Research question {index + 1}</strong><button type="button" className="text-button" onClick={() => { resetApprovalIfNeeded(); setTheologicalTensions(previous => ({ ...previous, [key]: (previous[key] || []).filter(record => record.id !== item.id) })); }}>Remove</button></div>
                         <div className="tension-register-passages">
                           <label>Passage A reference<input value={item.passageA} onChange={event=>updateTension({passageA:event.target.value})} placeholder="e.g. Romans 3:28"/></label>

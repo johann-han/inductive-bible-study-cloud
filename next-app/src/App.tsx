@@ -383,7 +383,7 @@ export default function App() {
     );
   }, [allPreviewLibraryEntries, libraryQuery]);
   const visibleWordStudies = useMemo(() => searchWordStudies(wordStudies, wordStudyQuery), [wordStudies, wordStudyQuery]);
-  const currentWordStudySaved = Boolean(lexicon && lexiconPassage && wordStudies.some(item => item.strongsId === lexicon.id.toUpperCase() && item.reference.book === lexiconPassage.book && item.reference.chapter === lexiconPassage.chapter && item.reference.verse === lexiconPassage.verse && item.reference.translation === lexiconPassage.translation));
+  const currentWordStudySaved = Boolean(lexicon && lexiconPassage && wordStudies.some(item => item.strongsId === lexicon.id.toUpperCase() && item.reference.book === lexiconPassage.book && item.reference.chapter === lexiconPassage.chapter && item.reference.verse === lexiconPassage.verse && item.reference.translation === lexiconPassage.translation && item.wordStart === selectedMorphology?.start && item.wordEnd === selectedMorphology?.end));
 
 
   useEffect(() => {

@@ -319,7 +319,7 @@ export default function App() {
   const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'needs_review' | EvidenceRelationship>('all');
   const [evidenceSourceUrl, setEvidenceSourceUrl] = useState('');
   const [evidenceSourceId, setEvidenceSourceId] = useState('');
-  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions' | 'dossiers' | 'dossier'>('overview');
+  const [view, setView] = useState<'overview' | 'library' | 'reader' | 'study' | 'references' | 'tensions' | 'archive' | 'dossiers' | 'dossier'>('overview');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [fontSize, setFontSize] = useState(19);
   const [previewCrossReferences, setPreviewCrossReferences] = useState<PreviewCrossReference[]>(() => readPreviewCrossReferences());
@@ -836,8 +836,8 @@ export default function App() {
       try { for (const [key, value] of writes) { before.set(key, window.localStorage.getItem(key)); window.localStorage.setItem(key, value); } }
       catch (error) { for (const [key, value] of before) { try { if (value === null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, value); } catch { /* best-effort rollback */ } } throw error; }
       if (Object.hasOwn(planned, 'drafts')) setDraftsByPassage(planned.drafts as PreviewDrafts);
-      if (Object.hasOwn(planned, 'scriptureMarkup')) setPreviewMarkup(planned.scriptureMarkup);
-      if (Object.hasOwn(planned, 'wordMarkup')) setPreviewWordMarkup(planned.wordMarkup);
+      if (Object.hasOwn(planned, 'scriptureMarkup')) setPreviewMarkup(planned.scriptureMarkup as ReturnType<typeof readPreviewMarkup>);
+      if (Object.hasOwn(planned, 'wordMarkup')) setPreviewWordMarkup(planned.wordMarkup as ReturnType<typeof readPreviewWordMarkup>);
       if (Object.hasOwn(planned, 'markupColors')) setMarkupColors(planned.markupColors as Record<string, string>);
       if (Object.hasOwn(planned, 'crossReferences')) setPreviewCrossReferences(planned.crossReferences as PreviewCrossReference[]);
       if (Object.hasOwn(planned, 'evidence')) setEvidenceRecords(planned.evidence as EvidenceRecord[]);

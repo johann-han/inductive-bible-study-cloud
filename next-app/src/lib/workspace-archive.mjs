@@ -181,6 +181,29 @@ function collectionFor(store, data) {
   if (isObject(data)) return Object.entries(data).map(([key, value]) => ({ key, value }));
   return [];
 }
+function deletedStudyPassageKey(item) {
+  return String(item && item.book || '') + '|' + Number(item && item.chapter);
+}
+function findDeletedStudyConflict(items, item) {
+  return items.find(prior =>
+    prior.id === item.id || deletedStudyPassageKey(prior) === deletedStudyPassageKey(item)
+  ) || null;
+}
+function assertUniqueDeletedStudies(items) {
+  const ids = new Set();
+  const passages = new Set();
+  for (const item of items) {
+    const passage = deletedStudyPassageKey(item);
+    if (ids.has(item.id) || passages.has(passage)) {
+      throw new TypeError(
+        'The selected Recently Deleted conflict decisions would create duplicate IDs or passage records. Revisit the Keep/Replace choices before restoring this archive.'
+      );
+    }
+    ids.add(item.id);
+    passages.add(passage);
+  }
+  return items;
+}
 function inspectStore(store, incoming, existing) {
   const valid = STORE_VALIDATORS[store](incoming);
   if (!valid) throw new TypeError('Archive store "' + store + '" failed schema validation.');
@@ -199,7 +222,9 @@ function inspectStore(store, incoming, existing) {
   for (const entry of incomingItems) {
     const item = store === 'theologicalTensions' ? entry.record : entry;
     const id = store === 'theologicalTensions' ? item.id : duplicateKey(store, item);
-    const prior = id ? existingById.get(store === 'theologicalTensions' ? id : id) : null;
+    const prior = store === 'deletedStudies'
+      ? findDeletedStudyConflict(existingItems, item)
+      : id ? existingById.get(id) : null;
     if (!prior) { newItems++; continue; }
     const priorItem = store === 'theologicalTensions' ? prior.record : prior;
     const identicalRecord = fingerprint(priorItem) === fingerprint(item);
@@ -209,7 +234,9 @@ function inspectStore(store, incoming, existing) {
       conflicting++;
       const description = store === 'wordStudies'
         ? item.strongsId + ' · ' + item.reference.book + ' ' + item.reference.chapter + ':' + item.reference.verse
-        : item.reference || item.title || item.issue || item.id;
+        : store === 'deletedStudies'
+          ? item.book + ' ' + item.chapter
+          : item.reference || item.title || item.issue || item.id;
       conflicts.push({ id, store, description });
     }
   }
@@ -293,6 +320,25 @@ export function planWorkspaceArchiveImport(validated, currentStores) {
 
 function mergeCollection(store, existing, incoming, decisions) {
   const output = Array.isArray(existing) ? [...existing] : [];
+  if (store === 'deletedStudies') {
+    const original = Array.isArray(existing) ? existing : [];
+    for (const item of incoming) {
+      const originalConflict = findDeletedStudyConflict(original, item);
+      if (!originalConflict) { output.push(item); continue; }
+      const decision = decisions['deletedStudies:' + item.id] || 'keep';
+      if (decision === 'keep') continue;
+      if (decision === 'replace') {
+        for (let index = output.length - 1; index >= 0; index--) {
+          if (output[index].id === item.id ||
+              deletedStudyPassageKey(output[index]) === deletedStudyPassageKey(item)) {
+            output.splice(index, 1);
+          }
+        }
+        output.push(item);
+      }
+    }
+    return assertUniqueDeletedStudies(output);
+  }
   const byId = new Map(output.map((item, index) => [duplicateKey(store, item), index]).filter(([id]) => id));
   for (const item of incoming) {
     const id = duplicateKey(store, item);
@@ -439,7 +485,33 @@ function replaceTensions(existing, incoming, decisions) {
 
 function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   if (store === 'theologicalTensions') return replaceTensions(existing || {}, incoming, decisions);
-  if (['evidence', 'crossReferences', 'dossierVersions', 'wordStudies', 'deletedStudies'].includes(store)) {
+  if (store === 'deletedStudies') {
+    const output = [...incoming];
+    for (const item of incoming) {
+      const prior = findDeletedStudyConflict(existing || [], item);
+      if (!prior) continue;
+      const decision = decisions['deletedStudies:' + item.id] || 'keep';
+      if (decision !== 'keep') continue;
+      const index = output.findIndex(candidate => candidate.id === item.id);
+      if (index < 0) continue;
+      const alreadyPreservedIndex = output.findIndex((candidate, candidateIndex) =>
+        candidateIndex !== index &&
+        (candidate.id === prior.id || deletedStudyPassageKey(candidate) === deletedStudyPassageKey(prior))
+      );
+      if (alreadyPreservedIndex >= 0) {
+        if (fingerprint(output[alreadyPreservedIndex]) === fingerprint(prior)) {
+          output.splice(index, 1);
+          continue;
+        }
+        throw new TypeError(
+          'The selected Recently Deleted conflict decisions would create duplicate IDs or passage records. Revisit the Keep/Replace choices before restoring this archive.'
+        );
+      }
+      output[index] = prior;
+    }
+    return assertUniqueDeletedStudies(output);
+  }
+  if (['evidence', 'crossReferences', 'dossierVersions', 'wordStudies'].includes(store)) {
     const output = [...incoming];
     const incomingIds = new Set(incoming.map(item => item.id));
     for (const prior of existing || []) {

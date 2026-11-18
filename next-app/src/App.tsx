@@ -35,6 +35,7 @@ import type { WordStudyRecord } from './lib/word-studies.mjs';
 import { buildWordStudyEvidenceDraft } from './lib/word-study-evidence.mjs';
 import { appendStudyNoteVersionSnapshot, countStudyNoteVersionWords, normalizeStudyNoteVersionHistory, restoreStudyNoteVersion } from './lib/study-note-history.mjs';
 import { auditStudyRecoveryState, listDeletedStudies, softDeleteStudy, restoreDeletedStudy, permanentlyDeleteStudy } from './lib/study-recovery.mjs';
+import { listPassageObservations } from './lib/study-observations.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -377,6 +378,12 @@ export default function App() {
   const earlierStageEvidence = useMemo(() => getPreviewStageEvidence(notesByStage, stage), [notesByStage, stage]);
   const stagesWithNotes = useMemo(() => new Set(getPreviewWrittenStages(notesByStage)), [notesByStage]);
   const wordCount = useMemo(() => note.trim() ? note.trim().split(/\s+/).length : 0, [note]);
+  const passageObservations = useMemo(() => listPassageObservations({
+    passageKey: passageDraftKey,
+    verses: bible?.verses || [],
+    scriptureMarkup: previewMarkup,
+    wordMarkup: previewWordMarkup
+  }), [passageDraftKey, bible, previewMarkup, previewWordMarkup]);
   const bookInfo = getBibleBook(book)!;
   const allPreviewLibraryEntries = useMemo(() => listPreviewDraftEntries(draftsByPassage), [draftsByPassage]);
   const dashboardStats = useMemo(() => summarizePreviewDraftEntries(allPreviewLibraryEntries), [allPreviewLibraryEntries]);
@@ -1595,6 +1602,26 @@ export default function App() {
         <nav className="stage-nav" aria-label="Study stages">{stages.map(item => <button key={item.id} className={stage===item.id?'stage-tab selected':'stage-tab'} type="button" onClick={() => changeStage(item.id)}><span className="stage-number">{item.number}</span><span>{item.label}</span>{stagesWithNotes.has(item.id) && <span className="stage-done">✓</span>}</button>)}</nav>
         <div className="active-study-grid"><section className={notesExpanded ? "active-study-editor notes-expanded" : "active-study-editor"}><div className="notes-topline"><div><span className="stage-counter">STAGE {current.number} OF 04</span><h2>{current.label}</h2></div><span className="draft-status">{draftSaveStatus === 'saved' ? 'Saved locally' : draftSaveStatus === 'saving' ? 'Saving…' : 'Local save unavailable'}</span></div><div className="question-copy"><strong>{current.question}</strong><p>{current.hint}</p></div>
           {showGuidance && <div className="guidance-content"><p>Work from the passage itself. Record what the text supports, keep observations distinct from conclusions, and refer to specific verses wherever possible.</p></div>}
+          {stage === 'observe' && <section className="observations-made-panel" aria-label="Observations made">
+            <div className="observations-made-heading">
+              <div><span className="eyebrow">TEXTUAL OBSERVATIONS</span><h3>Observations made</h3><p>Verse and phrase markings recorded for {book} {chapter}. Your written Observation notes remain separate below.</p></div>
+              <span className="observations-made-count">{passageObservations.length} recorded</span>
+            </div>
+            {passageObservations.length > 0 ? <ul className="observations-made-list">
+              {passageObservations.map(entry => <li key={entry.id}>
+                <div className="observations-made-entry">
+                  <div className="observations-made-entry-top"><strong>{book} {chapter}:{entry.verse}</strong><span>{entry.kind === 'phrase' ? 'Highlighted phrase' : 'Marked verse'}</span></div>
+                  <p>{entry.text}</p>
+                  <div className="observations-made-tags">{entry.tags.map(tag => <span key={tag}>{SCRIPTURE_MARKUP_TYPES.find(type => type.id === tag)?.label || tag}</span>)}</div>
+                  <button type="button" className="text-button" onClick={() => {setSelectedVerseNumbers([entry.verse]);verseSelectionAnchorRef.current=entry.verse;setView('reader');}}>View in Bible reader</button>
+                </div>
+              </li>)}
+            </ul> : <div className="observations-made-empty">
+              <p>No verse or phrase observations have been marked for this passage yet.</p>
+              <p>Select a verse or highlight a phrase in the Bible Reader, then choose an observation category. This panel will list those markings here; it will not treat quoted Scripture or unclassified notes as completed observations.</p>
+              <button type="button" className="outline-button" onClick={() => setView('reader')}>Open Bible reader</button>
+            </div>}
+          </section>}
           {earlierStageEvidence.length > 0 && <div className="evidence-strip"><div><i className="evidence-dot"/>Earlier-stage notes available</div><button className="text-button" type="button" onClick={() => setShowEvidence(v=>!v)}>{showEvidence ? 'Hide' : 'Review'}</button></div>}
           {showEvidence && <div className="guidance-content">{earlierStageEvidence.map(item => <p key={item.stage}><strong>{stages.find(stageItem => stageItem.id === item.stage)?.label || item.stage}:</strong> {item.text}</p>)}</div>}
           <section className="evidence-manager" aria-label="Evidence manager">

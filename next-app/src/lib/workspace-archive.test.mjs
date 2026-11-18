@@ -67,7 +67,7 @@ test('exports a versioned workspace archive with exact per-store counts', () => 
   assert.equal(validated.counts.theologicalTensions, 1);
   assert.equal(validated.counts.drafts, 1);
   assert.equal(validated.counts.wordStudies, 1);
-  assert.equal(Object.keys(WORKSPACE_ARCHIVE_STORES).length, 11);
+  assert.equal(Object.keys(WORKSPACE_ARCHIVE_STORES).length, 12);
 });
 
 test('rejects malformed JSON, unsupported versions, count tampering and unknown stores', () => {

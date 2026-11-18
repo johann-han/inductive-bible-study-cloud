@@ -1039,3 +1039,26 @@
  .preview-study-actions button{width:100%;min-height:40px;justify-content:center}
  .recently-deleted-intro{padding:13px}
 }
+
+
+/* Observe-stage summary of structured Scripture markings */
+.observations-made-panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:18px 0;min-width:0}
+.observations-made-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px}
+.observations-made-heading .eyebrow{display:block;margin-bottom:6px}
+.observations-made-heading h3{margin:0;color:var(--ink);font-size:18px;font-family:'Libre Baskerville',Georgia,serif}
+.observations-made-heading p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+.observations-made-count{flex:0 0 auto;background:var(--sage);color:var(--green-dark);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700}
+.observations-made-empty{background:var(--soft);border:1px dashed #cbd8cd;border-radius:9px;padding:15px 16px}
+.observations-made-empty p{margin:0 0 9px;color:var(--muted);font-size:13px;line-height:1.6}
+.observations-made-empty p:first-child{color:var(--ink);font-weight:700}
+.observations-made-empty .outline-button{margin-top:5px}
+.observations-made-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.observations-made-entry{border:1px solid var(--line);border-radius:9px;padding:13px 14px;background:var(--soft)}
+.observations-made-entry-top{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.observations-made-entry-top strong{font-size:13px;color:var(--green-dark)}
+.observations-made-entry-top span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.observations-made-entry p{margin:9px 0;color:var(--ink);font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.observations-made-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.observations-made-tags span{background:#edf2ed;color:#52675a;border-radius:5px;padding:4px 7px;font-size:11px}
+.observations-made-entry .text-button{margin-top:3px}
+@media(max-width:640px){.observations-made-panel{padding:16px;margin:14px 0}.observations-made-heading{gap:10px}.observations-made-heading h3{font-size:17px}.observations-made-entry-top{align-items:flex-start;flex-direction:column;gap:4px}}

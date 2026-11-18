@@ -551,3 +551,96 @@ test('archive validation rejects malformed or ambiguous Recently Deleted records
   duplicatePassage.counts.deletedStudies += 1;
   assert.throws(() => validateWorkspaceArchive(duplicatePassage), /deletedStudies/);
 });
+
+
+test('deleted-study preflight and merge detect a same-passage record with a different deletion ID', () => {
+  const incoming = sample();
+  incoming.deletedStudies = [deletedStudyFixture()];
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(incoming));
+  const local = {
+    ...deletedStudyFixture(),
+    id: 'local-deleted-genesis-1',
+    deletedAt: '2026-11-18T07:00:00.000Z',
+    record: { ...deletedStudyFixture().record, observe: 'Local copy to preserve.' }
+  };
+  const current = sample();
+  current.deletedStudies = [local];
+
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.deletedStudies.newItems, 0);
+  assert.equal(report.deletedStudies.conflicting, 1);
+  assert.equal(report.deletedStudies.conflicts[0].id, deletedStudyFixture().id);
+  assert.equal(report.deletedStudies.conflicts[0].description, 'Genesis 1');
+
+  const kept = applyWorkspaceArchiveImport(validated, current);
+  assert.equal(kept.deletedStudies.length, 1);
+  assert.equal(kept.deletedStudies[0].id, local.id);
+  assert.equal(kept.deletedStudies[0].record.observe, 'Local copy to preserve.');
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + deletedStudyFixture().id]: 'replace'
+  });
+  assert.equal(replaced.deletedStudies.length, 1);
+  assert.equal(replaced.deletedStudies[0].id, deletedStudyFixture().id);
+  assert.equal(replaced.deletedStudies[0].record.observe, 'The opening account identifies God as Creator.');
+});
+
+test('deleted-study preflight and merge detect a reused ID that points to a different passage', () => {
+  const incoming = sample();
+  incoming.deletedStudies = [deletedStudyFixture()];
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(incoming));
+  const local = { ...deletedStudyFixture(), book: 'John', chapter: 1 };
+  const current = sample();
+  current.deletedStudies = [local];
+
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.deletedStudies.conflicting, 1);
+  assert.equal(report.deletedStudies.conflicts[0].id, deletedStudyFixture().id);
+  assert.equal(report.deletedStudies.conflicts[0].description, 'Genesis 1');
+
+  const kept = applyWorkspaceArchiveImport(validated, current);
+  assert.equal(kept.deletedStudies.length, 1);
+  assert.equal(kept.deletedStudies[0].book, 'John');
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + deletedStudyFixture().id]: 'replace'
+  });
+  assert.equal(replaced.deletedStudies.length, 1);
+  assert.equal(replaced.deletedStudies[0].book, 'Genesis');
+});
+
+test('replace import preserves a shared deleted-study conflict only once and rejects incompatible Keep/Replace combinations', () => {
+  const incoming = sample();
+  const original = deletedStudyFixture();
+  incoming.deletedStudies = [
+    { ...original, book: 'John', chapter: 1 },
+    { ...original, id: 'incoming-genesis-copy' }
+  ];
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(incoming));
+  const current = sample();
+  current.deletedStudies = [original];
+
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.deletedStudies.conflicting, 2);
+
+  const kept = applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + original.id]: 'keep',
+    'deletedStudies:incoming-genesis-copy': 'keep'
+  }, 'replace');
+  assert.deepEqual(kept.deletedStudies, [original]);
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + original.id]: 'replace',
+    'deletedStudies:incoming-genesis-copy': 'replace'
+  }, 'replace');
+  assert.deepEqual(replaced.deletedStudies, incoming.deletedStudies);
+
+  assert.throws(() => applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + original.id]: 'keep',
+    'deletedStudies:incoming-genesis-copy': 'replace'
+  }, 'replace'), /duplicate IDs or passage records/);
+  assert.throws(() => applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + original.id]: 'replace',
+    'deletedStudies:incoming-genesis-copy': 'keep'
+  }, 'replace'), /duplicate IDs or passage records/);
+});

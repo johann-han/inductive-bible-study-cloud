@@ -638,11 +638,11 @@ test('replace import preserves a shared deleted-study conflict only once and rej
   assert.throws(() => applyWorkspaceArchiveImport(validated, current, {
     ['deletedStudies:' + original.id]: 'keep',
     'deletedStudies:incoming-genesis-copy': 'replace'
-  }, 'replace'), /duplicate IDs or passage records/);
+  }, 'replace'), /Keep\/Replace choices conflict/);
   assert.throws(() => applyWorkspaceArchiveImport(validated, current, {
     ['deletedStudies:' + original.id]: 'replace',
     'deletedStudies:incoming-genesis-copy': 'keep'
-  }, 'replace'), /duplicate IDs or passage records/);
+  }, 'replace'), /Keep\/Replace choices conflict/);
 });
 
 

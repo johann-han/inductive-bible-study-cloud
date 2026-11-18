@@ -978,3 +978,30 @@
  .evidence-detail-editor-heading .notes-expand-button{min-height:38px}
  .evidence-detail-editor textarea#evidence-supporting-detail.evidence-supporting-detail-expanded{height:65vh;min-height:320px}
 }
+
+
+/* Study Library recovery and Recently Deleted */
+.library-recovery-tabs{display:flex;gap:8px;margin:20px 0 14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.library-recovery-tabs button{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:8px 13px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:600 12px 'DM Sans',sans-serif;white-space:nowrap;cursor:pointer}
+.library-recovery-tabs button.active{border-bottom-color:#315b43;color:#294b38}
+.library-recovery-tabs button span{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#eef2ed;color:#53675a;font-size:10px}
+.library-recovery-tabs button:focus-visible{outline:2px solid #8aa995;outline-offset:2px}
+.library-recovery-notice{margin:12px 0;padding:10px 13px;border:1px solid #dce7dc;border-radius:8px;background:#f4f8f3;color:#315b43;font-size:12px;line-height:1.5}
+.preview-study-actions{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:8px;min-width:190px}
+.preview-study-actions button{white-space:nowrap}
+.recently-deleted-list{margin-top:10px}
+.recently-deleted-intro{margin:16px 0;padding:16px 18px;border:1px solid #e3e8df;border-radius:10px;background:#f8faf7}
+.recently-deleted-intro h2{margin:0 0 5px;color:#294b38;font-size:17px}
+.recently-deleted-intro p{margin:0;color:#68766e;font-size:12px;line-height:1.6}
+.recently-deleted-card{border-color:#e6e2dc}
+.recently-deleted-card .preview-study-meta .tag{background:#f2eee9;color:#76614f}
+.danger-button{border-color:#e6cbc4!important;color:#923f35!important}
+.danger-button:hover{background:#fff4f1!important;border-color:#d8aaa0!important}
+.library-recovery-footnote{margin:18px 0 0;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.6}
+@media(max-width:700px){
+ .library-recovery-tabs{margin:12px 0}
+ .library-recovery-tabs button{flex:1;justify-content:center;padding:7px 9px;font-size:11px}
+ .preview-study-actions{width:100%;min-width:0}
+ .preview-study-actions button{width:100%;min-height:40px;justify-content:center}
+ .recently-deleted-intro{padding:13px}
+}

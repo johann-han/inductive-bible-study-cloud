@@ -980,6 +980,40 @@
 }
 
 
+
+/* Read-only Study Library integrity report */
+.library-integrity-panel{margin:16px 0 18px;padding:15px 16px;border:1px solid #dfe6df;border-radius:10px;background:#fbfcfa}
+.library-integrity-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.library-integrity-heading strong{display:block;color:#294b38;font-size:14px}
+.library-integrity-heading p{max-width:720px;margin:4px 0 0;color:#68766e;font-size:11px;line-height:1.55}
+.library-integrity-heading button{flex-shrink:0}
+.library-integrity-report{margin-top:13px;padding-top:12px;border-top:1px solid #e5eae4}
+.library-integrity-summary{display:grid;grid-template-columns:1.25fr .7fr 1.1fr 1.3fr;gap:10px}
+.library-integrity-summary>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.library-integrity-summary .eyebrow{font-size:9px;letter-spacing:.08em;color:#849087}
+.library-integrity-summary strong{color:#32483a;font-size:13px;overflow-wrap:anywhere}
+.library-integrity-status.healthy{color:#315b43}
+.library-integrity-status.review{color:#936b20}
+.library-integrity-status.attention,.library-integrity-status.unreadable{color:#a04437}
+.library-integrity-timestamp{margin:9px 0;color:#879188;font-size:10px}
+.library-integrity-empty{margin:10px 0 0;color:#45634e;font-size:11px;line-height:1.6}
+.library-integrity-issues{display:grid;gap:8px}
+.library-integrity-issue{padding:10px 11px;border:1px solid #e8e4dc;border-radius:8px;background:#fff}
+.library-integrity-issue>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.library-integrity-issue strong{color:#455348;font-size:11px}
+.library-integrity-severity{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase}
+.library-integrity-severity.error{background:#f7e6e3;color:#963f34}
+.library-integrity-severity.warning{background:#f6f0df;color:#886820}
+.library-integrity-issue p{margin:6px 0 3px;color:#49574d;font-size:11px;line-height:1.5}
+.library-integrity-issue small{display:block;color:#778078;font-size:10px;line-height:1.5}
+.library-integrity-more,.library-integrity-caution{margin:5px 0 0;color:#805d2e;font-size:10px;line-height:1.5}
+@media(max-width:700px){
+ .library-integrity-panel{padding:12px}
+ .library-integrity-heading{align-items:stretch;flex-direction:column}
+ .library-integrity-heading button{width:100%;justify-content:center}
+ .library-integrity-summary{grid-template-columns:1fr 1fr}
+}
+
 /* Study Library recovery and Recently Deleted */
 .library-recovery-tabs{display:flex;gap:8px;margin:20px 0 14px;border-bottom:1px solid var(--line);overflow-x:auto}
 .library-recovery-tabs button{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:8px 13px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:600 12px 'DM Sans',sans-serif;white-space:nowrap;cursor:pointer}

@@ -487,27 +487,32 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   if (store === 'theologicalTensions') return replaceTensions(existing || {}, incoming, decisions);
   if (store === 'deletedStudies') {
     const output = [...incoming];
-    for (const item of incoming) {
-      const prior = findDeletedStudyConflict(existing || [], item);
-      if (!prior) continue;
-      const decision = decisions['deletedStudies:' + item.id] || 'keep';
-      if (decision !== 'keep') continue;
-      const index = output.findIndex(candidate => candidate.id === item.id);
-      if (index < 0) continue;
-      const alreadyPreservedIndex = output.findIndex((candidate, candidateIndex) =>
-        candidateIndex !== index &&
-        (candidate.id === prior.id || deletedStudyPassageKey(candidate) === deletedStudyPassageKey(prior))
+    for (const prior of existing || []) {
+      const matches = incoming.filter(item =>
+        item.id === prior.id ||
+        deletedStudyPassageKey(item) === deletedStudyPassageKey(prior)
       );
-      if (alreadyPreservedIndex >= 0) {
-        if (fingerprint(output[alreadyPreservedIndex]) === fingerprint(prior)) {
-          output.splice(index, 1);
-          continue;
-        }
+      const keepMatches = matches.filter(item =>
+        (decisions['deletedStudies:' + item.id] || 'keep') === 'keep'
+      );
+      if (!keepMatches.length) continue;
+
+      const keepIds = new Set(keepMatches.map(item => item.id));
+      for (let index = output.length - 1; index >= 0; index--) {
+        if (keepIds.has(output[index].id)) output.splice(index, 1);
+      }
+
+      const alreadyPresent = output.find(candidate =>
+        candidate.id === prior.id ||
+        deletedStudyPassageKey(candidate) === deletedStudyPassageKey(prior)
+      );
+      if (alreadyPresent) {
+        if (fingerprint(alreadyPresent) === fingerprint(prior)) continue;
         throw new TypeError(
           'The selected Recently Deleted conflict decisions would create duplicate IDs or passage records. Revisit the Keep/Replace choices before restoring this archive.'
         );
       }
-      output[index] = prior;
+      output.push(prior);
     }
     return assertUniqueDeletedStudies(output);
   }

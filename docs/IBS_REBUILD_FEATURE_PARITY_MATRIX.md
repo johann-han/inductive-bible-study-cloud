@@ -188,3 +188,10 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 - The audit does not repair, rewrite, merge, or remove records. The report is limited to these two recovery stores and is not a certification of other research stores, archive media or external backups.
 - Automated tests cover healthy state, malformed JSON, invalid active records, duplicate deleted passages, incomplete note records, invalid note history and the unchanged-storage guarantee.
 - Branch: `feat/ibs-study-library-recovery-import`; PR: [#190](https://github.com/johann-han/inductive-bible-study-cloud/pull/190). Browser acceptance remains required before merge.
+
+### Render preview isolation — PR #190
+- The repository Blueprint config sets `previews.generation: automatic` for the IBS web service.
+- Render documents that a pull-request service preview initially copies the base service's settings, including environment variables. Therefore, previews must not assume inherited cloud credentials are isolated.
+- The server detects Render's `IS_PULL_REQUEST=true` flag and returns HTTP 503 for every `/api/*` request before any application API handler executes. This prevents preview pages from reaching the configured Supabase, admin, sync and AI API handlers.
+- `tests/preview-api-isolation.test.js` verifies that the preview guard appears before the first API route and that the production handlers remain behind the guard.
+- Preview-local Study Library and recovery operations remain browser-storage only. Do not enable cloud features in the PR preview without a separate staging backend and explicit isolation verification.

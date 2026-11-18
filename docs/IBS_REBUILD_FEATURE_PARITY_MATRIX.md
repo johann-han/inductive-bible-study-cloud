@@ -195,3 +195,10 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 - The server detects Render's `IS_PULL_REQUEST=true` flag and returns HTTP 503 for every `/api/*` request before any application API handler executes. This prevents preview pages from reaching the configured Supabase, admin, sync and AI API handlers.
 - `tests/preview-api-isolation.test.js` verifies that the preview guard appears before the first API route and that the production handlers remain behind the guard.
 - Preview-local Study Library and recovery operations remain browser-storage only. Do not enable cloud features in the PR preview without a separate staging backend and explicit isolation verification.
+
+### Recently Deleted archive conflict identity safeguard — PR #190
+- Archive preflight now identifies a deleted-study collision by **either** its stable record ID **or** its canonical Bible book/chapter identity. This catches the same passage deleted at a different time (and therefore assigned a different ID), as well as a reused ID pointing to a different passage.
+- Merge and Replace decisions apply to the incoming record ID, but the resulting collection is checked for both unique IDs and unique passage identities before it can be written.
+- When individually selected Keep/Replace choices would create an ambiguous duplicate, import fails closed with an actionable error. No storage write is performed by the planning function.
+- Regression tests cover same-passage/different-ID collisions, same-ID/different-passage collisions, preserving a shared conflict exactly once, compatible replacement decisions, and rejection of incompatible decisions.
+- Latest verified commit: `cb8c23ca6b682c13b2a818abd9b90e47aac6a0fe`; CI run [#44352679948](https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44352679948) passed with 360/360 Node tests, TypeScript and Vite build.

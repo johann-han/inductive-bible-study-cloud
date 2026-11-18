@@ -466,3 +466,90 @@ test('imports legacy version-1 workspace archives without disturbing current wor
   const merged = applyWorkspaceArchiveImport(validated, current, {}, 'merge');
   assert.deepEqual(merged.wordStudies, current.wordStudies);
 });
+
+
+const deletedStudyFixture = () => ({
+  id: 'deleted-study-genesis-1-1794988800000',
+  book: 'Genesis',
+  chapter: 1,
+  deletedAt: '2026-11-18T08:00:00.000Z',
+  record: {
+    observe: 'The opening account identifies God as Creator.',
+    interpret: 'The passage presents God as the one who creates.',
+    doctrine: 'God is the Creator.',
+    apply: 'Respond with trust and worship.',
+    activeStage: 'doctrine',
+    versionHistory: [{
+      id: 'note-version-1',
+      savedAt: '2026-11-17T08:00:00.000Z',
+      activeStage: 'observe',
+      sections: { observe: 'An earlier observation.', interpret: '', doctrine: '', apply: '' }
+    }]
+  }
+});
+
+test('archive v2 validates, counts and restores Recently Deleted studies with all note stages and history', () => {
+  const source = sample();
+  source.deletedStudies = [deletedStudyFixture()];
+  const archive = buildWorkspaceArchive(source, { exportedAt: '2026-11-18T09:00:00.000Z' });
+  const validated = validateWorkspaceArchive(archive);
+
+  assert.equal(validated.counts.deletedStudies, 1);
+  assert.deepEqual(validated.stores.deletedStudies, source.deletedStudies);
+
+  const current = sample();
+  current.deletedStudies = [];
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.deletedStudies.newItems, 1);
+  assert.equal(report.deletedStudies.conflicting, 0);
+
+  const restored = applyWorkspaceArchiveImport(validated, current);
+  assert.deepEqual(restored.deletedStudies, source.deletedStudies);
+});
+
+test('archive import resolves deleted-study conflicts by ID in merge and replace modes', () => {
+  const incoming = sample();
+  incoming.deletedStudies = [deletedStudyFixture()];
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(incoming));
+  const current = sample();
+  current.deletedStudies = [{
+    ...deletedStudyFixture(),
+    record: { ...deletedStudyFixture().record, observe: 'Local version to preserve.' }
+  }];
+
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.deletedStudies.conflicting, 1);
+
+  const kept = applyWorkspaceArchiveImport(validated, current);
+  assert.equal(kept.deletedStudies[0].record.observe, 'Local version to preserve.');
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    'deletedStudies:' + deletedStudyFixture().id: 'replace'
+  });
+  assert.equal(replaced.deletedStudies[0].record.observe, 'The opening account identifies God as Creator.');
+
+  const duplicated = applyWorkspaceArchiveImport(validated, current, {
+    'deletedStudies:' + deletedStudyFixture().id: 'duplicate'
+  });
+  assert.equal(duplicated.deletedStudies.length, 2);
+  assert.notEqual(duplicated.deletedStudies[1].id, deletedStudyFixture().id);
+});
+
+test('archive validation rejects malformed or ambiguous Recently Deleted records before import', () => {
+  const archive = buildWorkspaceArchive({ deletedStudies: [deletedStudyFixture()] });
+  const invalidChapter = structuredClone(archive);
+  invalidChapter.stores.deletedStudies[0].chapter = 999;
+  assert.throws(() => validateWorkspaceArchive(invalidChapter), /deletedStudies/);
+
+  const invalidHistory = structuredClone(archive);
+  invalidHistory.stores.deletedStudies[0].record.versionHistory[0].activeStage = 'unknown';
+  assert.throws(() => validateWorkspaceArchive(invalidHistory), /deletedStudies/);
+
+  const duplicatePassage = structuredClone(archive);
+  duplicatePassage.stores.deletedStudies.push({
+    ...deletedStudyFixture(),
+    id: 'deleted-study-genesis-1-another'
+  });
+  duplicatePassage.counts.deletedStudies += 1;
+  assert.throws(() => validateWorkspaceArchive(duplicatePassage), /deletedStudies/);
+});

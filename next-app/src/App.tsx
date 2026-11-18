@@ -34,7 +34,7 @@ import { readWordStudies, writeWordStudies, searchWordStudies } from './lib/word
 import type { WordStudyRecord } from './lib/word-studies.mjs';
 import { buildWordStudyEvidenceDraft } from './lib/word-study-evidence.mjs';
 import { appendStudyNoteVersionSnapshot, countStudyNoteVersionWords, normalizeStudyNoteVersionHistory, restoreStudyNoteVersion } from './lib/study-note-history.mjs';
-import { listDeletedStudies, softDeleteStudy, restoreDeletedStudy, permanentlyDeleteStudy } from './lib/study-recovery.mjs';
+import { auditStudyRecoveryState, listDeletedStudies, softDeleteStudy, restoreDeletedStudy, permanentlyDeleteStudy } from './lib/study-recovery.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -251,6 +251,7 @@ export default function App() {
   const [deletedStudies, setDeletedStudies] = useState(() => { try { return typeof window === 'undefined' ? [] : listDeletedStudies(window.localStorage); } catch { return []; } });
   const [libraryNotice, setLibraryNotice] = useState(() => { try { if (typeof window !== 'undefined') listDeletedStudies(window.localStorage); return ''; } catch (error) { return error instanceof Error ? error.message : 'Recently Deleted could not be read.'; } });
   const [librarySection, setLibrarySection] = useState<'active' | 'deleted'>('active');
+  const [libraryAudit, setLibraryAudit] = useState<ReturnType<typeof auditStudyRecoveryState> | null>(null);
   const [previewMarkup, setPreviewMarkup] = useState(() => readPreviewMarkup());
   const [previewWordMarkup, setPreviewWordMarkup] = useState(() => readPreviewWordMarkup());
   const [showMarkupReview, setShowMarkupReview] = useState(false);
@@ -620,6 +621,7 @@ export default function App() {
       softDeleteStudy(window.localStorage, entry.book, entry.chapter);
       setDraftsByPassage(readPreviewDrafts());
       setDeletedStudies(listDeletedStudies(window.localStorage));
+      setLibraryAudit(null);
       setLibraryNotice(entry.book + ' ' + entry.chapter + ' was moved to Recently Deleted.');
     } catch (error) {
       setLibraryNotice(error instanceof Error ? error.message : 'The study could not be deleted.');
@@ -633,6 +635,7 @@ export default function App() {
       setDeletedStudies(listDeletedStudies(window.localStorage));
       setLibrarySection('active');
       setLibraryQuery('');
+      setLibraryAudit(null);
       setLibraryNotice(restored.book + ' ' + restored.chapter + ' was restored with its notes and history.');
     } catch (error) {
       setLibraryNotice(error instanceof Error ? error.message : 'The study could not be restored.');
@@ -645,6 +648,7 @@ export default function App() {
     try {
       permanentlyDeleteStudy(window.localStorage, id);
       setDeletedStudies(listDeletedStudies(window.localStorage));
+      setLibraryAudit(null);
       setLibraryNotice(bookName + ' ' + chapterNumber + ' was permanently deleted from this preview browser.');
     } catch (error) {
       setLibraryNotice(error instanceof Error ? error.message : 'The study could not be permanently deleted.');
@@ -1321,6 +1325,36 @@ export default function App() {
           <button type="button" role="tab" aria-selected={librarySection === 'deleted'} className={librarySection === 'deleted' ? 'active' : ''} onClick={() => {setLibrarySection('deleted');try {setDeletedStudies(listDeletedStudies(window.localStorage));setLibraryNotice('');} catch(error) {setLibraryNotice(error instanceof Error ? error.message : 'Recently Deleted could not be read.');}}}>Recently Deleted <span>{deletedStudies.length}</span></button>
         </div>
         {libraryNotice && <p className="library-recovery-notice" role="status">{libraryNotice}</p>}
+        <section className="library-integrity-panel" aria-label="Workspace data integrity">
+          <div className="library-integrity-heading">
+            <div><strong>Workspace integrity</strong><p>Check the active Study Library and Recently Deleted stores for damaged or incomplete records. This check is read-only and never changes your data.</p></div>
+            <button className="outline-button" type="button" onClick={() => {
+              try {
+                setLibraryAudit(auditStudyRecoveryState(window.localStorage));
+                setLibraryNotice('');
+              } catch (error) {
+                setLibraryNotice(error instanceof Error ? error.message : 'The integrity check could not run.');
+              }
+            }}>Run integrity check</button>
+          </div>
+          {libraryAudit && <div className="library-integrity-report">
+            <div className="library-integrity-summary">
+              <div><span className="eyebrow">RESULT</span><strong className={'library-integrity-status ' + libraryAudit.status}>{libraryAudit.status === 'healthy' ? 'No issues found' : libraryAudit.status === 'review' ? 'Review recommended' : libraryAudit.status === 'unreadable' ? 'Store could not be read' : 'Attention required'}</strong></div>
+              <div><span className="eyebrow">ACTIVE</span><strong>{libraryAudit.activeStudyCount}</strong></div>
+              <div><span className="eyebrow">RECENTLY DELETED</span><strong>{libraryAudit.deletedStudyCount}</strong></div>
+              <div><span className="eyebrow">ISSUES</span><strong>{libraryAudit.issueCount} · {libraryAudit.errorCount} errors · {libraryAudit.warningCount} warnings</strong></div>
+            </div>
+            <p className="library-integrity-timestamp">Inspected {new Date(libraryAudit.inspectedAt).toLocaleString()} · Read-only audit</p>
+            {libraryAudit.issues.length === 0 ? <p className="library-integrity-empty">The two recovery stores passed the available structural checks. Keep regular workspace exports; this check does not verify records in other research stores or external backups.</p> : <div className="library-integrity-issues">
+              {libraryAudit.issues.slice(0, 20).map((issue, index) => <article className="library-integrity-issue" key={issue.code + ':' + issue.location + ':' + index}>
+                <div><span className={'library-integrity-severity ' + issue.severity}>{issue.severity}</span><strong>{issue.store} · {issue.location}</strong></div>
+                <p>{issue.message}</p><small>{issue.recommendedAction}</small>
+              </article>)}
+              {libraryAudit.issues.length > 20 && <p className="library-integrity-more">Showing the first 20 of {libraryAudit.issues.length} reported issues.</p>}
+              <p className="library-integrity-caution">No automatic repair has been attempted. Export the workspace and review each issue before making changes.</p>
+            </div>}
+          </div>}
+        </section>
         {librarySection === 'active' ? <>
           <div className="library-toolbar"><div className="library-result-count"><strong>{allPreviewLibraryEntries.length}</strong> {allPreviewLibraryEntries.length === 1 ? 'study' : 'studies'}</div><input className="library-search" type="search" value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search passage, stage or notes…" aria-label="Search preview studies"/></div>
           {visiblePreviewLibraryEntries.length > 0 ? <div className="preview-study-list">

@@ -172,10 +172,19 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 - CI completed successfully: TypeScript check, Vite build, and 343/343 tests passed.
 
 
-### PR #189 integration — Study Library recovery (2026-11-18)
+### PR #190 integration — Study Library recovery (2026-11-18)
 - Recently Deleted uses a dedicated preview-only storage key. Soft deletion retains the original passage, all four study-stage notes, active stage and note-version history.
 - Restore returns a study to its original passage key and refuses to overwrite an active study at that passage. Permanent deletion remains a separately confirmed action.
 - Archive version 2 now recognises **twelve** stores. The new `deletedStudies` collection has explicit schema validation, unique record and passage identity checks, preflight conflict detection, and merge/replace/duplicate handling.
 - Import writes the trash store through the existing transactional archive storage adapter and refreshes the Recently Deleted view after a successful restore. Older v2 archives that predate the trash collection remain valid; absent stores are not written or cleared.
 - The recovery UI and archive logic remain local to the PR preview. No production, Supabase, Render deployment or `main` data is changed.
 - Automated tests cover archive export/import round-trip, note-history preservation, deleted-study conflicts and rejection of malformed or ambiguous trash records. Actual browser acceptance remains a release gate.
+
+
+### Read-only Study Library integrity audit — PR #190
+- The Study Library exposes **Run integrity check**, which audits the preview-specific active drafts and Recently Deleted stores without modifying either one.
+- The report checks raw JSON readability and root structure; canonical Bible passage keys; invalid records; repeated active or deleted passage identities; duplicate deleted-study IDs; all four note-stage fields; active-stage values; and note-version history structure.
+- Findings are classified as errors or warnings, with a recommended next action. A malformed store is reported as unreadable rather than silently normalized or reset.
+- The audit does not repair, rewrite, merge, or remove records. The report is limited to these two recovery stores and is not a certification of other research stores, archive media or external backups.
+- Automated tests cover healthy state, malformed JSON, invalid active records, duplicate deleted passages, incomplete note records, invalid note history and the unchanged-storage guarantee.
+- Branch: `feat/ibs-study-library-recovery-import`; PR: [#190](https://github.com/johann-han/inductive-bible-study-cloud/pull/190). Browser acceptance remains required before merge.

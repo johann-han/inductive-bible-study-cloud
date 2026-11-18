@@ -188,7 +188,7 @@ function inspectStore(store, incoming, existing) {
   const existingItems = collectionFor(store, existing);
   const existingById = new Map();
   for (const entry of existingItems) {
-    const item = entry.record || entry;
+    const item = store === 'theologicalTensions' ? entry.record : entry;
     const id = duplicateKey(store, item);
     if (id) existingById.set(id, entry);
   }
@@ -201,7 +201,7 @@ function inspectStore(store, incoming, existing) {
     const id = store === 'theologicalTensions' ? item.id : duplicateKey(store, item);
     const prior = id ? existingById.get(store === 'theologicalTensions' ? id : id) : null;
     if (!prior) { newItems++; continue; }
-    const priorItem = prior.record || prior;
+    const priorItem = store === 'theologicalTensions' ? prior.record : prior;
     const identicalRecord = fingerprint(priorItem) === fingerprint(item);
     const identicalLocation = store !== 'theologicalTensions' || prior.key === entry.key;
     if (identicalRecord && identicalLocation) identical++;

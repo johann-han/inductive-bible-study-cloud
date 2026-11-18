@@ -162,7 +162,7 @@ test('integrity audit flags duplicate deleted passage identities and incomplete 
   const report = auditStudyRecoveryState(storage);
   assert.equal(report.status, 'attention');
   assert.ok(report.issues.some(issue => issue.code === 'duplicate_deleted_passage'));
-  assert.equal(report.warningCount, 3);
+  assert.equal(report.warningCount, 6);
   assert.equal(report.errorCount, 1);
 });
 

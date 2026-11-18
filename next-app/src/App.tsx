@@ -74,6 +74,21 @@ function readPreviewEvidence(): EvidenceRecord[] {
   } catch { return []; }
 }
 
+
+function deletedStudyStageCount(record: Record<string, unknown>): number {
+  return ['observe', 'interpret', 'doctrine', 'apply'].filter(stage =>
+    typeof record[stage] === 'string' && (record[stage] as string).trim().length > 0
+  ).length;
+}
+
+function deletedStudyExcerpt(record: Record<string, unknown>): string {
+  for (const stage of ['observe', 'interpret', 'doctrine', 'apply']) {
+    const value = record[stage];
+    if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 220);
+  }
+  return 'This study contains no stage notes.';
+}
+
 const stages: { id: Stage; number: string; label: string; question: string; hint: string }[] = [
   { id: 'observe', number: '01', label: 'Observe', question: 'What does the passage say?', hint: 'Notice what is present before deciding what it means.' },
   { id: 'interpret', number: '02', label: 'Interpret', question: 'What does the passage mean?', hint: 'Use context, structure, words and the author’s flow of thought.' },
@@ -1148,7 +1163,7 @@ export default function App() {
         </> : <section className="recently-deleted-list" aria-label="Recently deleted studies">
           <div className="recently-deleted-intro"><div><h2>Recently Deleted</h2><p>Deleted studies remain here until you restore them or permanently remove them. Their original passage and all four note stages are preserved.</p></div></div>
           {deletedStudies.length ? deletedStudies.map(entry => <article className="preview-study-card recently-deleted-card" key={entry.id}>
-            <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">DELETED PREVIEW STUDY</span><span>Deleted {new Date(entry.deletedAt).toLocaleString()}</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{['observe','interpret','doctrine','apply'].filter(stage => typeof entry.record[stage] === 'string' && entry.record[stage].trim()).length} of 4 stages contain notes · Active stage: {stages.find(item => item.id === entry.record.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{(['observe','interpret','doctrine','apply'].map(stage => entry.record[stage] || '').find(value => value.trim()) || 'This study contains no stage notes.').slice(0,220)}</p></div>
+            <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">DELETED PREVIEW STUDY</span><span>Deleted {new Date(entry.deletedAt).toLocaleString()}</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{deletedStudyStageCount(entry.record)} of 4 stages contain notes · Active stage: {stages.find(item => item.id === entry.record.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{deletedStudyExcerpt(entry.record)}</p></div>
             <div className="preview-study-actions"><button className="primary-button" type="button" onClick={() => restorePreviewDraft(entry.id)}>Restore study</button><button className="outline-button danger-button" type="button" onClick={() => permanentlyDeletePreviewDraft(entry.id,entry.book,entry.chapter)}>Permanently delete</button></div>
           </article>) : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>Nothing in Recently Deleted</h2><p>When you remove a study from the library, it will appear here so that it can be restored.</p></div>}
         </section>}

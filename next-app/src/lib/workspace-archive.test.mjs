@@ -644,3 +644,34 @@ test('replace import preserves a shared deleted-study conflict only once and rej
     'deletedStudies:incoming-genesis-copy': 'keep'
   }, 'replace'), /duplicate IDs or passage records/);
 });
+
+
+test('Replace preflight keeps every local trash record in a shared ID-and-passage collision group', () => {
+  const base = deletedStudyFixture();
+  const secondLocal = {
+    ...base,
+    id: 'local-john-deleted',
+    book: 'John',
+    chapter: 1,
+    deletedAt: '2026-11-18T06:00:00.000Z'
+  };
+  const incoming = sample();
+  incoming.deletedStudies = [{ ...base, book: 'John', chapter: 1 }];
+  const validated = validateWorkspaceArchive(buildWorkspaceArchive(incoming));
+  const current = sample();
+  current.deletedStudies = [base, secondLocal];
+
+  const report = planWorkspaceArchiveImport(validated, current);
+  assert.equal(report.deletedStudies.conflicting, 1);
+  assert.equal(report.deletedStudies.conflicts[0].id, base.id);
+
+  const kept = applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + base.id]: 'keep'
+  }, 'replace');
+  assert.deepEqual(kept.deletedStudies, [base, secondLocal]);
+
+  const replaced = applyWorkspaceArchiveImport(validated, current, {
+    ['deletedStudies:' + base.id]: 'replace'
+  }, 'replace');
+  assert.deepEqual(replaced.deletedStudies, incoming.deletedStudies);
+});

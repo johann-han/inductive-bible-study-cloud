@@ -151,7 +151,7 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 | Area | Current PR #188 preview status | Acceptance boundary |
 |---|---|---|
 | Study Note History | Implemented in both Active Study and Study Notes editors. Up to eight snapshots are retained per passage, automatic capture is throttled to two minutes, identical content is not duplicated, and restoration first preserves the current note state. All four stage bodies and the active stage are included. | User confirmed the History control is visible and functional in the PR #188 preview on 17 November 2026. |
-| Backup and restore | Browser-local archive version 2 supports eleven stores, including saved Word Studies. Version 1 workspace archives and legacy dossier archives remain importable. Preflight conflict decisions and transactional rollback are retained. | PR #187 to PR #188 recovery and round-trip preservation were confirmed. No cloud or production records are included. |
+| Backup and restore | Browser-local archive version 2 supports twelve stores, including saved Word Studies and Recently Deleted study records. Version 1 workspace archives and legacy dossier archives remain importable. Preflight conflict decisions and transactional rollback are retained. | PR #187 to PR #188 recovery and round-trip preservation were confirmed. No cloud or production records are included. |
 | Word Studies | A dedicated, searchable collection stores the Strong's identifier, lexical entry and senses, exact verse occurrence (including source offsets), translation, occurrence morphology, source attribution and researcher notes. Saved entries can reopen their verse and hand off the full source record to Evidence Manager. Word Studies participate in archive export/import. | User confirmed the Word Studies workflow works in the PR #188 preview on 17 November 2026. The Evidence Manager handoff is newly implemented and awaits browser acceptance. |
 | Supporting Evidence Editor | The Supporting evidence field in Evidence Manager has a dedicated Expand editor / Collapse editor control. Expanded height is viewport-relative and responsive on desktop and mobile; existing text is preserved when collapsing. | User confirmed the control works in the PR #188 preview on 17 November 2026. |
 | Storage boundary | Note history and Word Studies use preview-specific browser storage. Archive restore writes only stores present in the selected archive and keeps the existing merge/replace decisions. | Do not clear PR #188 preview site data or switch preview origins while the recovered local workspace is in use. |
@@ -170,3 +170,12 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 - Browser acceptance was confirmed by the user in the PR #188 preview on 17 November 2026.
 - Implementation commit: `8a4ab256fa5184033661fdee2bc2fdc4005943d6`.
 - CI completed successfully: TypeScript check, Vite build, and 343/343 tests passed.
+
+
+### PR #189 integration — Study Library recovery (2026-11-18)
+- Recently Deleted uses a dedicated preview-only storage key. Soft deletion retains the original passage, all four study-stage notes, active stage and note-version history.
+- Restore returns a study to its original passage key and refuses to overwrite an active study at that passage. Permanent deletion remains a separately confirmed action.
+- Archive version 2 now recognises **twelve** stores. The new `deletedStudies` collection has explicit schema validation, unique record and passage identity checks, preflight conflict detection, and merge/replace/duplicate handling.
+- Import writes the trash store through the existing transactional archive storage adapter and refreshes the Recently Deleted view after a successful restore. Older v2 archives that predate the trash collection remain valid; absent stores are not written or cleared.
+- The recovery UI and archive logic remain local to the PR preview. No production, Supabase, Render deployment or `main` data is changed.
+- Automated tests cover archive export/import round-trip, note-history preservation, deleted-study conflicts and rejection of malformed or ambiguous trash records. Actual browser acceptance remains a release gate.

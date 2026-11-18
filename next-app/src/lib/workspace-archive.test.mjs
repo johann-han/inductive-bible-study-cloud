@@ -528,11 +528,9 @@ test('archive import resolves deleted-study conflicts by ID in merge and replace
   });
   assert.equal(replaced.deletedStudies[0].record.observe, 'The opening account identifies God as Creator.');
 
-  const duplicated = applyWorkspaceArchiveImport(validated, current, {
+  assert.throws(() => applyWorkspaceArchiveImport(validated, current, {
     ['deletedStudies:' + deletedStudyFixture().id]: 'duplicate'
-  });
-  assert.equal(duplicated.deletedStudies.length, 2);
-  assert.notEqual(duplicated.deletedStudies[1].id, deletedStudyFixture().id);
+  }), /separate copy is not supported/);
 });
 
 test('archive validation rejects malformed or ambiguous Recently Deleted records before import', () => {

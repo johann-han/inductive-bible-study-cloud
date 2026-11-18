@@ -184,10 +184,13 @@ function collectionFor(store, data) {
 function deletedStudyPassageKey(item) {
   return String(item && item.book || '') + '|' + Number(item && item.chapter);
 }
-function findDeletedStudyConflict(items, item) {
-  return items.find(prior =>
+function findDeletedStudyConflicts(items, item) {
+  return items.filter(prior =>
     prior.id === item.id || deletedStudyPassageKey(prior) === deletedStudyPassageKey(item)
-  ) || null;
+  );
+}
+function findDeletedStudyConflict(items, item) {
+  return findDeletedStudyConflicts(items, item)[0] || null;
 }
 function assertUniqueDeletedStudies(items) {
   const ids = new Set();
@@ -487,21 +490,32 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   if (store === 'theologicalTensions') return replaceTensions(existing || {}, incoming, decisions);
   if (store === 'deletedStudies') {
     const output = [...incoming];
+    const keepIncomingIds = new Set();
+    const preservedExisting = new Map();
     for (const prior of existing || []) {
-      const matches = incoming.filter(item =>
+      const conflicts = incoming.filter(item =>
         item.id === prior.id ||
         deletedStudyPassageKey(item) === deletedStudyPassageKey(prior)
       );
-      const keepMatches = matches.filter(item =>
-        (decisions['deletedStudies:' + item.id] || 'keep') === 'keep'
-      );
-      if (!keepMatches.length) continue;
-
-      const keepIds = new Set(keepMatches.map(item => item.id));
-      for (let index = output.length - 1; index >= 0; index--) {
-        if (keepIds.has(output[index].id)) output.splice(index, 1);
+      if (!conflicts.length) continue;
+      const choices = new Set(conflicts.map(item =>
+        decisions['deletedStudies:' + item.id] || 'keep'
+      ));
+      if (choices.size > 1) {
+        throw new TypeError(
+          'The selected Recently Deleted Keep/Replace choices conflict with one another. Use Keep for every record in this collision group or Replace for every record in it.'
+        );
       }
+      if (choices.has('keep')) {
+        conflicts.forEach(item => keepIncomingIds.add(item.id));
+        preservedExisting.set(prior.id, prior);
+      }
+    }
 
+    for (let index = output.length - 1; index >= 0; index--) {
+      if (keepIncomingIds.has(output[index].id)) output.splice(index, 1);
+    }
+    for (const prior of preservedExisting.values()) {
       const alreadyPresent = output.find(candidate =>
         candidate.id === prior.id ||
         deletedStudyPassageKey(candidate) === deletedStudyPassageKey(prior)

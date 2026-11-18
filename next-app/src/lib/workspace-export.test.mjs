@@ -16,6 +16,7 @@ function storageFrom(values = {}) {
 
 test('exports all ten PR #187 stores with importer-compatible counts', () => {
   const storage = storageFrom({
+    [WORKSPACE_EXPORT_STORES.deletedStudies]: JSON.stringify([{ id: 'deleted-1', book: 'Genesis', chapter: 1, deletedAt: '2026-11-18T08:00:00.000Z', record: { observe: 'Retained in trash' } }]),
     [WORKSPACE_EXPORT_STORES.drafts]: JSON.stringify({
       'Genesis|1': { observe: 'Observation', interpret: '', doctrine: '', apply: '', activeStage: 'observe' }
     }),
@@ -41,9 +42,10 @@ test('exports all ten PR #187 stores with importer-compatible counts', () => {
   assert.equal(archive.format, 'ibs-workspace-archive');
   assert.equal(archive.archiveVersion, 1);
   assert.equal(archive.exportedAt, '2026-11-17T08:00:00.000Z');
-  assert.equal(Object.keys(archive.stores).length, 10);
+  assert.equal(Object.keys(archive.stores).length, 11);
   assert.deepEqual(archive.counts, {
     drafts: 1,
+    deletedStudies: 1,
     scriptureMarkup: 2,
     wordMarkup: 1,
     markupColors: 1,
@@ -59,11 +61,12 @@ test('exports all ten PR #187 stores with importer-compatible counts', () => {
 test('includes absent stores as explicit empty values and does not omit defaults', () => {
   const archive = buildPreviewWorkspaceArchive(storageFrom());
   assert.deepEqual(archive.stores.drafts, {});
+  assert.deepEqual(archive.stores.deletedStudies, []);
   assert.deepEqual(archive.stores.scriptureMarkup, {});
   assert.deepEqual(archive.stores.crossReferences, []);
   assert.deepEqual(archive.stores.evidence, []);
   assert.deepEqual(archive.stores.dossierVersions, []);
-  assert.equal(Object.keys(archive.stores).length, 10);
+  assert.equal(Object.keys(archive.stores).length, 11);
   assert.ok(Object.values(archive.counts).every(count => count === 0));
 });
 

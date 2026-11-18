@@ -485,7 +485,7 @@ function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   return output;
 }
 
-const DUPLICATE_SUPPORTED_STORES = new Set(['scriptureMarkup', 'wordMarkup', 'crossReferences', 'evidence', 'theologicalTensions', 'dossierVersions', 'wordStudies', 'deletedStudies']);
+const DUPLICATE_SUPPORTED_STORES = new Set(['scriptureMarkup', 'wordMarkup', 'crossReferences', 'evidence', 'theologicalTensions', 'dossierVersions', 'wordStudies']);
 function validateImportDecisions(report, decisions) {
   for (const [store, item] of Object.entries(report)) {
     for (const conflict of item.conflicts) {

@@ -34,6 +34,7 @@ import { readWordStudies, writeWordStudies, searchWordStudies } from './lib/word
 import type { WordStudyRecord } from './lib/word-studies.mjs';
 import { buildWordStudyEvidenceDraft } from './lib/word-study-evidence.mjs';
 import { appendStudyNoteVersionSnapshot, countStudyNoteVersionWords, normalizeStudyNoteVersionHistory, restoreStudyNoteVersion } from './lib/study-note-history.mjs';
+import { listDeletedStudies, softDeleteStudy, restoreDeletedStudy, permanentlyDeleteStudy } from './lib/study-recovery.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
@@ -247,6 +248,9 @@ const initialPassage = readSavedPassage() || { book: 'Genesis', chapter: 1, tran
 export default function App() {
   const [stage, setStage] = useState<Stage>('observe');
   const [draftsByPassage, setDraftsByPassage] = useState<PreviewDrafts>(() => readPreviewDrafts());
+  const [deletedStudies, setDeletedStudies] = useState(() => { try { return typeof window === 'undefined' ? [] : listDeletedStudies(window.localStorage); } catch { return []; } });
+  const [libraryNotice, setLibraryNotice] = useState(() => { try { if (typeof window !== 'undefined') listDeletedStudies(window.localStorage); return ''; } catch (error) { return error instanceof Error ? error.message : 'Recently Deleted could not be read.'; } });
+  const [librarySection, setLibrarySection] = useState<'active' | 'deleted'>('active');
   const [previewMarkup, setPreviewMarkup] = useState(() => readPreviewMarkup());
   const [previewWordMarkup, setPreviewWordMarkup] = useState(() => readPreviewWordMarkup());
   const [showMarkupReview, setShowMarkupReview] = useState(false);
@@ -609,6 +613,44 @@ export default function App() {
     setNoteHistoryNotice('Restored the selected note version. The previous notes were saved as a new history snapshot.');
   };
 
+  const deletePreviewDraft = (entry: PreviewDraftEntry) => {
+    const confirmed = window.confirm('Move ' + entry.book + ' ' + entry.chapter + ' to Recently Deleted?\\n\\nAll four study stages and note history will be retained. You can restore it later.');
+    if (!confirmed) return;
+    try {
+      softDeleteStudy(window.localStorage, entry.book, entry.chapter);
+      setDraftsByPassage(readPreviewDrafts());
+      setDeletedStudies(listDeletedStudies(window.localStorage));
+      setLibraryNotice(entry.book + ' ' + entry.chapter + ' was moved to Recently Deleted.');
+    } catch (error) {
+      setLibraryNotice(error instanceof Error ? error.message : 'The study could not be deleted.');
+    }
+  };
+
+  const restorePreviewDraft = (id: string) => {
+    try {
+      const restored = restoreDeletedStudy(window.localStorage, id);
+      setDraftsByPassage(readPreviewDrafts());
+      setDeletedStudies(listDeletedStudies(window.localStorage));
+      setLibrarySection('active');
+      setLibraryQuery('');
+      setLibraryNotice(restored.book + ' ' + restored.chapter + ' was restored with its notes and history.');
+    } catch (error) {
+      setLibraryNotice(error instanceof Error ? error.message : 'The study could not be restored.');
+    }
+  };
+
+  const permanentlyDeletePreviewDraft = (id: string, bookName: string, chapterNumber: number) => {
+    const confirmed = window.confirm('Permanently delete ' + bookName + ' ' + chapterNumber + '?\\n\\nThis cannot be undone. Make sure you have a workspace backup if you may need this study again.');
+    if (!confirmed) return;
+    try {
+      permanentlyDeleteStudy(window.localStorage, id);
+      setDeletedStudies(listDeletedStudies(window.localStorage));
+      setLibraryNotice(bookName + ' ' + chapterNumber + ' was permanently deleted from this preview browser.');
+    } catch (error) {
+      setLibraryNotice(error instanceof Error ? error.message : 'The study could not be permanently deleted.');
+    }
+  };
+
   const resumePreviewDraft = (entry: PreviewDraftEntry) => {
     setBook(entry.book);
     setChapter(entry.chapter);
@@ -947,7 +989,8 @@ export default function App() {
     drafts: readPreviewDrafts(), scriptureMarkup: readPreviewMarkup(), wordMarkup: readPreviewWordMarkup(),
     markupColors, crossReferences: readPreviewCrossReferences(), evidence: readPreviewEvidence(),
     claimSynthesis: readClaimSynthesis(), doctrineReviews: readDoctrineReviews(),
-    theologicalTensions: readTheologicalTensions(), dossierVersions: readTheologicalDossierVersions(), wordStudies
+    theologicalTensions: readTheologicalTensions(), dossierVersions: readTheologicalDossierVersions(), wordStudies,
+    deletedStudies: listDeletedStudies(window.localStorage)
   });
 
   const downloadWorkspaceArchive = () => {
@@ -991,6 +1034,7 @@ export default function App() {
       if (Object.hasOwn(planned, 'theologicalTensions')) setTheologicalTensions(planned.theologicalTensions as Record<string, TheologicalTension[]>);
       if (Object.hasOwn(planned, 'dossierVersions')) setSavedDossierVersions(planned.dossierVersions as TheologicalDossierVersion[]);
       if (Object.hasOwn(planned, 'wordStudies')) setWordStudies(planned.wordStudies as WordStudyRecord[]);
+      if (Object.hasOwn(planned, 'deletedStudies')) setDeletedStudies(listDeletedStudies(window.localStorage));
       setArchiveNotice('Archive restored successfully. Local records were handled according to the selected conflict decisions.');
       setArchiveFile(null); setArchivePreview(null); setArchiveReport(null); setArchiveDecisions({});
     } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The archive could not be restored.'); }
@@ -1271,24 +1315,28 @@ export default function App() {
         </section>
         <p className="dashboard-preview-note"><strong>Preview environment:</strong> dashboard figures and study drafts are local to this browser. Account sign-in, cloud sync and the existing production library are not connected here.</p>
       </section> : view === 'library' ? <section className="library-view">
-        <div className="library-header"><div><div className="eyebrow">YOUR WORKSPACE · PREVIEW DRAFTS</div><h1>Study library</h1><p>Studies saved in this browser preview. These drafts are separate from your existing production library and are not synced to the cloud.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Return to study</button></div>
-        <div className="library-toolbar"><div className="library-result-count"><strong>{allPreviewLibraryEntries.length}</strong> {allPreviewLibraryEntries.length === 1 ? 'draft study' : 'draft studies'}</div><input className="library-search" type="search" value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search passage, stage or notes…" aria-label="Search preview studies"/></div>
-        {visiblePreviewLibraryEntries.length > 0 ? <div className="preview-study-list">
-          {visiblePreviewLibraryEntries.map(entry => <article className="preview-study-card" key={entry.book + '|' + entry.chapter}>
-            <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">LOCAL PREVIEW DRAFT</span><span>{entry.wordCount} words</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{entry.stageCount} of 4 stages have notes · Current stage: {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{entry.preview}</p><div className="preview-stage-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div></div>
-            <button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>Resume study <Icon name="chevron"/></button>
-          </article>)}
-        </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setView('reader')}>Open Bible reader <Icon name="chevron"/></button>}</div>}
-      </section> : view === 'word-studies' ? <section className="word-studies-view">
-        <div className="library-header"><div><div className="eyebrow">RESEARCH · ORIGINAL-LANGUAGE WORD STUDIES</div><h1>Word studies</h1><p>Save source-backed Strong’s entries and their occurrence-level morphology so you can search, revisit and annotate them alongside passage research. A lexical gloss is not, by itself, an interpretation of how a word functions in context.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Open Bible reader</button></div>
-        <div className="library-toolbar"><div className="library-result-count"><strong>{visibleWordStudies.length}</strong> of {wordStudies.length} saved {wordStudies.length === 1 ? 'word study' : 'word studies'}</div><input className="library-search" type="search" value={wordStudyQuery} onChange={event => setWordStudyQuery(event.target.value)} placeholder="Search Strong’s ID, lemma, passage, parsing or notes…" aria-label="Search saved word studies"/></div>
-        {visibleWordStudies.length ? <div className="word-study-results">{visibleWordStudies.map(record => <article className="word-study-card" key={record.id}>
-          <div className="word-study-card-heading"><div><span className="word-study-id">{record.strongsId}</span><span className="word-study-reference">{record.reference.book} {record.reference.chapter}:{record.reference.verse} · {record.reference.translation}</span><h2>{record.lemma} <span>{record.transliteration}</span></h2><p>{record.englishWord} · {record.partOfSpeech || 'Part of speech not supplied'}</p></div><div className="word-study-card-actions"><button type="button" className="primary-button" onClick={() => openSavedWordStudyPassage(record)}>Open verse</button><button type="button" className="outline-button" onClick={() => attachSavedWordStudyEvidence(record)}>Attach to evidence</button><button type="button" className="text-button" onClick={() => removeWordStudy(record)}>Remove</button></div></div>
-          <div className="word-study-detail-grid"><div><span className="eyebrow">LEXICON GLOSS</span><p>{record.gloss || 'No gloss supplied by source.'}</p>{record.senses.map((sense,index)=><div className="word-study-sense" key={index}><strong>{sense.gloss}</strong><p>{sense.definition}</p></div>)}</div><div><span className="eyebrow">OCCURRENCE MORPHOLOGY</span><p>{record.originalText || 'Original form not supplied'} · {record.language}</p><strong>{record.parsingFull || record.parsing || 'No parsing supplied by source'}</strong></div></div>
-          {record.verseText && <blockquote className="word-study-verse">“{record.verseText}”</blockquote>}
-          <label className="word-study-notes">Researcher’s contextual notes<textarea defaultValue={record.notes} onChange={event => updateWordStudyNotes(record.id,event.target.value)} onBlur={event => updateWordStudyNotes(record.id,event.currentTarget.value,true)} placeholder="Record how this word functions in this occurrence. Distinguish observation from lexical possibility and interpretation." rows={3}/></label>
-          <div className="word-study-source"><a href={record.sourceUrl} target="_blank" rel="noopener noreferrer">{record.source} · Open source record</a><span>Saved {new Date(record.createdAt).toLocaleString()}</span></div>
-        </article>)}</div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="search"/></div><h2>{wordStudies.length ? 'No matching word studies' : 'Build your word-study collection'}</h2><p>{wordStudies.length ? 'Try searching by Strong’s ID, lemma, Scripture reference, morphology or your notes.' : 'In the Bible reader, enable Strong’s annotations, select a tagged word, inspect its lexicon entry and morphology, then choose “Save to Word Studies”. Your saved entries will be searchable here.'}</p>{wordStudies.length > 0 ? <button className="text-button" type="button" onClick={() => setWordStudyQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => { setShowStrongs(true); setView('reader'); }}>Open Bible reader <Icon name="chevron"/></button>}</div>}
+        <div className="library-header"><div><div className="eyebrow">YOUR WORKSPACE · PREVIEW DRAFTS</div><h1>Study library</h1><p>Studies saved in this browser preview. These drafts are separate from your existing production library and are not synced to the cloud.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Return to Scripture</button></div>
+        <div className="library-recovery-tabs" role="tablist" aria-label="Study library sections">
+          <button type="button" role="tab" aria-selected={librarySection === 'active'} className={librarySection === 'active' ? 'active' : ''} onClick={() => {setLibrarySection('active');setLibraryNotice('');}}>Active studies <span>{allPreviewLibraryEntries.length}</span></button>
+          <button type="button" role="tab" aria-selected={librarySection === 'deleted'} className={librarySection === 'deleted' ? 'active' : ''} onClick={() => {setLibrarySection('deleted');try {setDeletedStudies(listDeletedStudies(window.localStorage));setLibraryNotice('');} catch(error) {setLibraryNotice(error instanceof Error ? error.message : 'Recently Deleted could not be read.');}}}>Recently Deleted <span>{deletedStudies.length}</span></button>
+        </div>
+        {libraryNotice && <p className="library-recovery-notice" role="status">{libraryNotice}</p>}
+        {librarySection === 'active' ? <>
+          <div className="library-toolbar"><div className="library-result-count"><strong>{allPreviewLibraryEntries.length}</strong> {allPreviewLibraryEntries.length === 1 ? 'study' : 'studies'}</div><input className="library-search" type="search" value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search passage, stage or notes…" aria-label="Search preview studies"/></div>
+          {visiblePreviewLibraryEntries.length > 0 ? <div className="preview-study-list">
+            {visiblePreviewLibraryEntries.map(entry => <article className="preview-study-card" key={entry.book + '|' + entry.chapter}>
+              <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">LOCAL PREVIEW DRAFT</span><span>{entry.wordCount} words</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{entry.stageCount} of 4 stages have notes · Current stage: {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{entry.preview}</p><div className="preview-stage-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div></div>
+              <div className="preview-study-actions"><button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>Resume study <Icon name="chevron"/></button><button className="outline-button" type="button" onClick={() => deletePreviewDraft(entry)}>Move to Recently Deleted</button></div>
+            </article>)}
+          </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setView('reader')}>Open Bible reader <Icon name="chevron"/></button>}</div>}
+        </> : <section className="recently-deleted-list" aria-label="Recently deleted studies">
+          <div className="recently-deleted-intro"><div><h2>Recently Deleted</h2><p>Deleted studies remain here until you restore them or permanently remove them. Their original passage and all four note stages are preserved.</p></div></div>
+          {deletedStudies.length ? deletedStudies.map(entry => <article className="preview-study-card recently-deleted-card" key={entry.id}>
+            <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">DELETED PREVIEW STUDY</span><span>Deleted {new Date(entry.deletedAt).toLocaleString()}</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{['observe','interpret','doctrine','apply'].filter(stage => typeof entry.record[stage] === 'string' && String(entry.record[stage]).trim()).length} of 4 stages contain notes · Active stage: {stages.find(item => item.id === entry.record.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{['observe','interpret','doctrine','apply'].map(stage => typeof entry.record[stage] === 'string' ? String(entry.record[stage]) : '').find(value => value.trim())?.trim().slice(0,220) || 'This study contains no stage notes.'}</p></div>
+            <div className="preview-study-actions"><button className="primary-button" type="button" onClick={() => restorePreviewDraft(entry.id)}>Restore study</button><button className="outline-button danger-button" type="button" onClick={() => permanentlyDeletePreviewDraft(entry.id,entry.book,entry.chapter)}>Permanently delete</button></div>
+          </article>) : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>Nothing in Recently Deleted</h2><p>When you remove a study from the library, it will appear here so that it can be restored.</p></div>}
+        </section>}
+        <p className="library-recovery-footnote">Storage: active and recently deleted studies are stored in this browser preview only. The full workspace backup now includes Recently Deleted items; this does not change or delete production-library records.</p>
       </section> : view === 'references' ? <section className="references-view">
         <div className="library-header"><div><div className="eyebrow">RESEARCH · PASSAGE CONNECTIONS</div><h1>Cross-references</h1><p>Explore standard Scripture connections alongside the links you have recorded in your own studies.</p></div><button className="outline-button" type="button" onClick={() => setView('reader')}>Return to Scripture</button></div>
         

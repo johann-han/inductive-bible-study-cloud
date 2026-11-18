@@ -1039,6 +1039,7 @@ export default function App() {
       if (Object.hasOwn(planned, 'dossierVersions')) setSavedDossierVersions(planned.dossierVersions as TheologicalDossierVersion[]);
       if (Object.hasOwn(planned, 'wordStudies')) setWordStudies(planned.wordStudies as WordStudyRecord[]);
       if (Object.hasOwn(planned, 'deletedStudies')) setDeletedStudies(listDeletedStudies(window.localStorage));
+      if (Object.hasOwn(planned, 'drafts') || Object.hasOwn(planned, 'deletedStudies')) setLibraryAudit(null);
       setArchiveNotice('Archive restored successfully. Local records were handled according to the selected conflict decisions.');
       setArchiveFile(null); setArchivePreview(null); setArchiveReport(null); setArchiveDecisions({});
     } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The archive could not be restored.'); }

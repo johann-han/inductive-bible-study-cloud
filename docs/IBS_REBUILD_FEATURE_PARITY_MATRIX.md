@@ -142,3 +142,12 @@ Do not begin write-capable cloud integration until the staging target and compat
 - Evidence records now have a separate researcher-managed verification status: not checked, source opened, content checked against the claim, or independently corroborated. Verification notes are editable on existing records.
 - Claim summaries show verification counts separately from claim relationship and source-quality counts. The interface does not claim to automatically validate external URLs or source content.
 - All new fields remain optional/backward-compatible for legacy browser-local records; preview remains isolated from production data.
+
+
+### Study Library recovery — Recently Deleted (2026-11-18)
+- The next-generation preview Study Library now supports soft deletion into a dedicated **Recently Deleted** collection. Deletion preserves the exact passage identity, all four study-stage note bodies, active stage and note-version history.
+- Restoring returns the record to its original `Book|chapter` passage key. A collision with a newer active study is rejected rather than silently overwritten.
+- Permanent deletion is a separate action in Recently Deleted and requires an explicit browser confirmation.
+- The trash store participates in the full workspace archive as an eleventh store, so deleted studies are retained in exported backups.
+- Recovery writes snapshot affected browser-storage values and attempt rollback if a write fails. The feature is limited to the isolated next-generation preview; it does not change `main`, the production Study Library, Supabase, Render deployment or any recovered production data.
+- Unit tests cover soft deletion, exact restoration, note-history preservation, collision handling, selective permanent deletion, malformed trash and failed-write rollback. PR preview browser acceptance remains required before merge.

@@ -14,7 +14,7 @@ function storageFrom(values = {}) {
   };
 }
 
-test('exports all ten PR #187 stores with importer-compatible counts', () => {
+test('exports all eleven PR #187 stores with importer-compatible counts', () => {
   const storage = storageFrom({
     [WORKSPACE_EXPORT_STORES.deletedStudies]: JSON.stringify([{ id: 'deleted-1', book: 'Genesis', chapter: 1, deletedAt: '2026-11-18T08:00:00.000Z', record: { observe: 'Retained in trash' } }]),
     [WORKSPACE_EXPORT_STORES.drafts]: JSON.stringify({

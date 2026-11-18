@@ -4,6 +4,7 @@ const MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
 
 export const WORKSPACE_EXPORT_STORES = Object.freeze({
   drafts: 'ibs-next-generation-preview-drafts-v1',
+  deletedStudies: 'ibs-next-generation-preview-deleted-studies-v1',
   scriptureMarkup: 'ibs-next-generation-preview-scripture-markup-v1',
   wordMarkup: 'ibs-next-generation-preview-word-markup-v1',
   markupColors: 'ibs-preview-markup-colors-v1',
@@ -15,7 +16,7 @@ export const WORKSPACE_EXPORT_STORES = Object.freeze({
   dossierVersions: 'ibs-next-generation-preview-theological-dossier-versions-v1'
 });
 
-const ARRAY_STORES = new Set(['crossReferences', 'evidence', 'dossierVersions']);
+const ARRAY_STORES = new Set(['crossReferences', 'evidence', 'dossierVersions', 'deletedStudies']);
 const PASSAGE_MAP_STORES = new Set(['scriptureMarkup', 'wordMarkup']);
 const OBJECT_STORES = new Set([
   'drafts', 'markupColors', 'claimSynthesis', 'doctrineReviews', 'theologicalTensions'

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DELETED_STUDIES_STORAGE_KEY,
+  auditStudyRecoveryState,
   PREVIEW_DRAFTS_STORAGE_KEY,
   listDeletedStudies,
   permanentlyDeleteStudy,
@@ -95,4 +96,84 @@ test('restore refuses to proceed when a storage write fails and rolls back earli
   assert.throws(() => restoreDeletedStudy(storage, 'gone'), /rolled back/);
   assert.deepEqual(JSON.parse(values.get(PREVIEW_DRAFTS_STORAGE_KEY)), {});
   assert.equal(JSON.parse(values.get(DELETED_STUDIES_STORAGE_KEY)).length, 1);
+});
+
+test('integrity audit reports healthy active and deleted studies without changing storage', () => {
+  const deleted = {
+    id: 'gone', book: 'John', chapter: 1,
+    deletedAt: '2026-11-18T08:00:00.000Z',
+    record: { ...original }
+  };
+  const initial = {
+    [PREVIEW_DRAFTS_STORAGE_KEY]: JSON.stringify({ 'Genesis|1': original }),
+    [DELETED_STUDIES_STORAGE_KEY]: JSON.stringify([deleted])
+  };
+  const storage = makeStorage(initial);
+  const beforeActive = storage.getItem(PREVIEW_DRAFTS_STORAGE_KEY);
+  const beforeTrash = storage.getItem(DELETED_STUDIES_STORAGE_KEY);
+  const report = auditStudyRecoveryState(storage);
+  assert.equal(report.status, 'healthy');
+  assert.equal(report.readOnly, true);
+  assert.equal(report.activeStudyCount, 1);
+  assert.equal(report.deletedStudyCount, 1);
+  assert.equal(report.issueCount, 0);
+  assert.equal(storage.getItem(PREVIEW_DRAFTS_STORAGE_KEY), beforeActive);
+  assert.equal(storage.getItem(DELETED_STUDIES_STORAGE_KEY), beforeTrash);
+});
+
+test('integrity audit identifies malformed JSON and leaves the raw value untouched', () => {
+  const storage = makeStorage({
+    [PREVIEW_DRAFTS_STORAGE_KEY]: '{',
+    [DELETED_STUDIES_STORAGE_KEY]: '[]'
+  });
+  const report = auditStudyRecoveryState(storage);
+  assert.equal(report.status, 'unreadable');
+  assert.equal(report.errorCount, 1);
+  assert.equal(report.issues[0].code, 'invalid_json');
+  assert.equal(storage.getItem(PREVIEW_DRAFTS_STORAGE_KEY), '{');
+});
+
+test('integrity audit reports invalid active keys and malformed records', () => {
+  const active = {
+    'Atlantis|1': original,
+    'Genesis|2': null
+  };
+  const storage = makeStorage({
+    [PREVIEW_DRAFTS_STORAGE_KEY]: JSON.stringify(active),
+    [DELETED_STUDIES_STORAGE_KEY]: '[]'
+  });
+  const report = auditStudyRecoveryState(storage);
+  assert.equal(report.status, 'attention');
+  assert.ok(report.issues.some(issue => issue.code === 'invalid_active_passage'));
+  assert.ok(report.issues.some(issue => issue.code === 'invalid_study_record'));
+});
+
+test('integrity audit flags duplicate deleted passage identities and incomplete note records', () => {
+  const entry = {
+    id: 'gone', book: 'Genesis', chapter: 1,
+    deletedAt: '2026-11-18T08:00:00.000Z',
+    record: { observe: 'Observation', activeStage: 'observe' }
+  };
+  const duplicate = { ...entry, id: 'gone-copy' };
+  const storage = makeStorage({
+    [PREVIEW_DRAFTS_STORAGE_KEY]: '{}',
+    [DELETED_STUDIES_STORAGE_KEY]: JSON.stringify([entry, duplicate])
+  });
+  const report = auditStudyRecoveryState(storage);
+  assert.equal(report.status, 'attention');
+  assert.ok(report.issues.some(issue => issue.code === 'duplicate_deleted_passage'));
+  assert.equal(report.warningCount, 3);
+  assert.equal(report.errorCount, 1);
+});
+
+test('integrity audit flags invalid note-version history without modifying it', () => {
+  const record = {
+    ...original,
+    versionHistory: [{ id: 'bad', savedAt: 'not-a-date', activeStage: 'unknown', sections: {} }]
+  };
+  const storage = makeStorage({ [PREVIEW_DRAFTS_STORAGE_KEY]: JSON.stringify({ 'Genesis|1': record }) });
+  const before = storage.getItem(PREVIEW_DRAFTS_STORAGE_KEY);
+  const report = auditStudyRecoveryState(storage);
+  assert.ok(report.issues.some(issue => issue.code === 'invalid_note_history'));
+  assert.equal(storage.getItem(PREVIEW_DRAFTS_STORAGE_KEY), before);
 });

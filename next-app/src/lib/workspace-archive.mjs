@@ -197,7 +197,7 @@ function inspectStore(store, incoming, existing) {
   let newItems = 0;
   const conflicts = [];
   for (const entry of incomingItems) {
-    const item = entry.record || entry;
+    const item = store === 'theologicalTensions' ? entry.record : entry;
     const id = store === 'theologicalTensions' ? item.id : duplicateKey(store, item);
     const prior = id ? existingById.get(store === 'theologicalTensions' ? id : id) : null;
     if (!prior) { newItems++; continue; }

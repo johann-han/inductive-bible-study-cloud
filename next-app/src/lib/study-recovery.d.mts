@@ -6,6 +6,26 @@ export type DeletedStudyEntry = {
   record: Record<string, unknown>;
 };
 
+export type StudyRecoveryAuditIssue = {
+  severity: 'error' | 'warning';
+  code: string;
+  store: string;
+  location: string;
+  message: string;
+  recommendedAction: string;
+};
+export type StudyRecoveryAudit = {
+  status: 'healthy' | 'review' | 'attention' | 'unreadable';
+  inspectedAt: string;
+  readOnly: true;
+  activeStudyCount: number;
+  deletedStudyCount: number;
+  issueCount: number;
+  errorCount: number;
+  warningCount: number;
+  issues: StudyRecoveryAuditIssue[];
+};
+export function auditStudyRecoveryState(storage: Storage): StudyRecoveryAudit;
 export const DELETED_STUDIES_STORAGE_KEY: string;
 export const PREVIEW_DRAFTS_STORAGE_KEY: string;
 export function listDeletedStudies(storage: Storage): DeletedStudyEntry[];

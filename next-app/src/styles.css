@@ -978,3 +978,15 @@
  .evidence-detail-editor-heading .notes-expand-button{min-height:38px}
  .evidence-detail-editor textarea#evidence-supporting-detail.evidence-supporting-detail-expanded{height:65vh;min-height:320px}
 }
+
+/* Full-workspace backup action for the PR #187 browser-local preview. */
+.workspace-export-button{white-space:nowrap}
+.workspace-export-status{max-width:280px;color:#52675a;font-size:11px;line-height:1.35}
+@media(max-width:900px){
+  .workspace-export-status{display:none}
+  .workspace-export-button{min-height:36px;padding:8px 10px;font-size:11px}
+}
+@media(max-width:560px){
+  .top-actions{gap:6px}
+  .workspace-export-button{padding:7px 8px;font-size:10px}
+}

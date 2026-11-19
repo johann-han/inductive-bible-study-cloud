@@ -1335,7 +1335,7 @@ export default function App() {
         </div>
 
         <div className="dashboard-stat-grid" aria-label="Preview study summary">
-          <article className="dashboard-stat"><span>Draft studies</span><strong>{dashboardStats.studyCount}</strong><small>Passages with saved notes</small></article>
+          <article className="dashboard-stat"><span>Draft studies</span><strong>{dashboardStats.studyCount}</strong><small>Passages in this preview library</small></article>
           <article className="dashboard-stat"><span>Stage notes</span><strong>{dashboardStats.stageNoteCount}</strong><small>Across the four study stages</small></article>
           <article className="dashboard-stat"><span>Words recorded</span><strong>{dashboardStats.wordCount.toLocaleString()}</strong><small>In this browser preview</small></article>
           <article className="dashboard-stat stage-stat">
@@ -1353,11 +1353,11 @@ export default function App() {
           </div>
           {allPreviewLibraryEntries.length > 0 ? <div className="dashboard-draft-grid">
             {allPreviewLibraryEntries.slice(0, 3).map(entry => <article className="dashboard-draft-card" key={entry.book + '|' + entry.chapter}>
-              <div className="dashboard-draft-top"><span>LOCAL PREVIEW DRAFT</span><span>{entry.wordCount} words</span></div>
+              <div className="dashboard-draft-top"><span>LOCAL PREVIEW DRAFT</span><span>{entry.stageCount === 0 ? 'Not started' : entry.wordCount + ' words'}</span></div>
               <h3>{entry.book} {entry.chapter}</h3>
-              <p>{entry.stageCount} of 4 stages with notes · Continue in {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p>
-              <div className="dashboard-draft-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div>
-              <button type="button" onClick={() => resumePreviewDraft(entry)}>Open study workspace <Icon name="chevron"/></button>
+              <p>{entry.stageCount === 0 ? 'No notes yet · Begin in Observe' : entry.stageCount + ' of 4 stages with notes · Continue in ' + (stages.find(item => item.id === entry.activeStage)?.label || 'Observe')}</p>
+              <div className="dashboard-draft-chips">{entry.writtenStages.length ? entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>) : <span>Not started</span>}</div>
+              <button type="button" onClick={() => resumePreviewDraft(entry)}>{entry.stageCount === 0 ? 'Start study' : 'Open study workspace'} <Icon name="chevron"/></button>
             </article>)}
           </div> : <div className="dashboard-empty">
             <div className="dashboard-empty-mark"><Icon name="book"/></div>
@@ -1407,8 +1407,8 @@ export default function App() {
           <div className="library-toolbar"><div className="library-result-count"><strong>{allPreviewLibraryEntries.length}</strong> {allPreviewLibraryEntries.length === 1 ? 'study' : 'studies'}</div><input className="library-search" type="search" value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search passage, stage or notes…" aria-label="Search preview studies"/></div>
           {visiblePreviewLibraryEntries.length > 0 ? <div className="preview-study-list">
             {visiblePreviewLibraryEntries.map(entry => <article className="preview-study-card" key={entry.book + '|' + entry.chapter}>
-              <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">LOCAL PREVIEW DRAFT</span><span>{entry.wordCount} words</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{entry.stageCount} of 4 stages have notes · Current stage: {stages.find(item => item.id === entry.activeStage)?.label || 'Observe'}</p><p className="preview-study-excerpt">{entry.preview}</p><div className="preview-stage-chips">{entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>)}</div></div>
-              <div className="preview-study-actions"><button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>Resume study <Icon name="chevron"/></button><button className="outline-button" type="button" onClick={() => deletePreviewDraft(entry)}>Move to Recently Deleted</button></div>
+              <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">LOCAL PREVIEW DRAFT</span><span>{entry.stageCount === 0 ? 'New draft' : entry.wordCount + ' words'}</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{entry.stageCount === 0 ? 'No notes recorded yet · Ready to begin in Observe' : entry.stageCount + ' of 4 stages have notes · Current stage: ' + (stages.find(item => item.id === entry.activeStage)?.label || 'Observe')}</p><p className="preview-study-excerpt">{entry.preview || 'This passage is saved as a draft, but no study notes have been recorded yet.'}</p><div className="preview-stage-chips">{entry.writtenStages.length ? entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>) : <span>Not started</span>}</div></div>
+              <div className="preview-study-actions"><button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>{entry.stageCount === 0 ? 'Start study' : 'Resume study'} <Icon name="chevron"/></button><button className="outline-button" type="button" onClick={() => deletePreviewDraft(entry)}>Move to Recently Deleted</button></div>
             </article>)}
           </div> : <div className="library-empty"><div className="library-empty-mark"><Icon name="library"/></div><h2>{allPreviewLibraryEntries.length ? 'No matching studies' : 'Your preview library is ready'}</h2><p>{allPreviewLibraryEntries.length ? 'Try a different passage, stage or note keyword.' : 'Choose a Bible passage and begin recording notes. Your preview drafts will appear here automatically as you work.'}</p>{allPreviewLibraryEntries.length ? <button className="text-button" type="button" onClick={() => setLibraryQuery('')}>Clear search</button> : <button className="primary-button" type="button" onClick={() => setView('reader')}>Open Bible reader <Icon name="chevron"/></button>}</div>}
         </> : <section className="recently-deleted-list" aria-label="Recently deleted studies">

@@ -958,7 +958,7 @@ export default function App() {
       const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
       anchor.href = url; anchor.download = 'ibs-workspace-archive-' + new Date().toISOString().slice(0, 10) + '.json';
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setWorkspaceExportNotice('Downloaded a complete version-' + archive.archiveVersion + ' archive with ' + Object.keys(archive.stores).length + ' data stores.');
+      setWorkspaceExportNotice('Downloaded a complete version-' + archive.archiveVersion + ' archive with ' + Object.keys(WORKSPACE_ARCHIVE_STORES).length + ' data stores.');
       setArchiveNotice('Full preview workspace archive downloaded.'); setArchiveError('');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The workspace archive could not be created.';

@@ -58,3 +58,22 @@ test('Evidence Manager requires a researcher-authored claim before saving handed
   assert.match(app, /onClick=\{addEvidenceRecord\}/);
   assert.match(app, /Formulate the claim you are assessing/);
 });
+
+
+test('Word Study saving is gated on a complete occurrence-level morphology and matching verse text', () => {
+  assert.match(app, /selectedMorphology\.originalText\.trim\(\)/);
+  assert.match(app, /selectedMorphology\.language\.trim\(\)/);
+  assert.match(app, /selectedMorphology\.parsingFull\.trim\(\) \|\| selectedMorphology\.parsing\.trim\(\)/);
+  assert.match(app, /selectedMorphology\.end <= selectedOccurrenceVerseText\.length/);
+  assert.match(app, /disabled=\{!canSaveCurrentWordStudy \|\| currentWordStudySaved\}/);
+  assert.match(app, /open this passage in BSB interlinear and select the word there/i);
+});
+
+test('Word Study save validates, writes and reads back the record before opening the library', () => {
+  const save = sliceBetween(app, 'const saveCurrentWordStudy = () => {', 'const updateWordStudyNotes = (id: string, notes: string, markUpdated = false) => {');
+  assert.match(save, /if \(!isWordStudyRecord\(record\)\)/);
+  assert.match(save, /if \(!writeWordStudies\(nextWordStudies\)\)/);
+  assert.match(save, /const persistedWordStudies = readWordStudies\(\)/);
+  assert.match(save, /persistedWordStudies\.some\(item => item\.id === record\.id\)/);
+  assert.ok(save.indexOf('writeWordStudies(nextWordStudies)') < save.indexOf("setView('word-studies')"));
+});

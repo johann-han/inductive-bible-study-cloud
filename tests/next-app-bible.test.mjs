@@ -284,6 +284,33 @@ test('preview study library lists every valid active draft, including empty draf
 });
 
 
+test('Study Library search index includes note text from all four stages, not only the preview excerpt', () => {
+  const [entry] = listPreviewDraftEntries({
+    'Romans|8': {
+      observe: 'Opening observation is visible in the card preview.',
+      interpret: 'Distinctive interpretive phrase searchable beyond the preview.',
+      doctrine: 'Doctrinal conclusion should also be searchable.',
+      apply: 'Concrete discipleship response should also be searchable.',
+      activeStage: 'observe'
+    }
+  });
+
+  assert.match(entry.preview, /Opening observation/);
+  assert.doesNotMatch(entry.preview, /Distinctive interpretive phrase/);
+  for (const phrase of [
+    'Opening observation',
+    'Distinctive interpretive phrase',
+    'Doctrinal conclusion',
+    'Concrete discipleship response'
+  ]) {
+    assert.ok(entry.searchText.includes(phrase), 'search index is missing: ' + phrase);
+  }
+
+  const appSource = readFileSync(new URL('../next-app/src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /entry\.searchText\.toLocaleLowerCase\(\)\.includes\(query\)/,
+    'Study Library filtering must use the complete note search index');
+});
+
 test('preview dashboard summary counts all active drafts but only populated stage notes', () => {
   const entries = listPreviewDraftEntries({
     'Romans|2': {

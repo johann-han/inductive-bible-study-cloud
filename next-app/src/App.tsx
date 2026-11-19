@@ -485,7 +485,7 @@ export default function App() {
 
   useEffect(() => {
     const pending = pendingWordStudyNavigationRef.current;
-    if (!pending || !bible || bible.book !== pending.book || bible.chapter !== pending.chapter) return;
+    if (!pending || !bible || bible.book !== pending.book || bible.chapter !== pending.chapter || bible.translation !== pending.translation) return;
     if (bible.verses.some(verse => verse.number === pending.verse)) {
       setSelectedVerseNumbers([pending.verse]);
       verseSelectionAnchorRef.current = pending.verse;

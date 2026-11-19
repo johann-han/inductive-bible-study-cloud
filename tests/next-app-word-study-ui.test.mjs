@@ -75,5 +75,7 @@ test('Word Study save validates, writes and reads back the record before opening
   assert.match(save, /if \(!writeWordStudies\(nextWordStudies\)\)/);
   assert.match(save, /const persistedWordStudies = readWordStudies\(\)/);
   assert.match(save, /persistedWordStudies\.some\(item => item\.id === record\.id\)/);
-  assert.ok(save.indexOf('writeWordStudies(nextWordStudies)') < save.indexOf("setView('word-studies')"));
+  const writeIndex = save.indexOf('writeWordStudies(nextWordStudies)');
+  const successNavigationIndex = save.indexOf("setView('word-studies')", writeIndex);
+  assert.ok(writeIndex >= 0 && successNavigationIndex > writeIndex);
 });

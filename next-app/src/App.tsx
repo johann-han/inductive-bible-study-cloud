@@ -394,7 +394,7 @@ export default function App() {
     if (!query) return allPreviewLibraryEntries;
     return allPreviewLibraryEntries.filter(entry =>
       (entry.book + ' ' + entry.chapter).toLocaleLowerCase().includes(query) ||
-      entry.preview.toLocaleLowerCase().includes(query) ||
+      entry.searchText.toLocaleLowerCase().includes(query) ||
       entry.writtenStages.some(item => stages.find(candidate => candidate.id === item)?.label.toLocaleLowerCase().includes(query))
     );
   }, [allPreviewLibraryEntries, libraryQuery]);

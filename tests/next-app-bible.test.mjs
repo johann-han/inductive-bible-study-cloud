@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   BIBLE_BOOKS,
   fetchBibleChapter,
@@ -262,24 +263,28 @@ test('preview draft storage failures are reported rather than claimed as saved',
 });
 
 
-test('preview study library lists only non-empty draft records with active stage and progress', () => {
+test('preview study library lists every valid active draft, including empty drafts', () => {
   const entries = listPreviewDraftEntries({
     'John|1': { observe: 'The Word was with God.', interpret: 'John introduces the Word.', doctrine: '', apply: '', activeStage: 'interpret' },
     'Genesis|1': { observe: 'God created.', interpret: '', doctrine: 'God is Creator.', apply: '', activeStage: 'doctrine' },
     'Mark|1': { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' },
     'Genesis|51': { observe: 'Invalid chapter', interpret: '', doctrine: '', apply: '', activeStage: 'observe' }
   });
-  assert.deepEqual(entries.map(entry => entry.book + '|' + entry.chapter), ['Genesis|1', 'John|1']);
+  assert.deepEqual(entries.map(entry => entry.book + '|' + entry.chapter), ['Genesis|1', 'Mark|1', 'John|1']);
   assert.equal(entries[0].activeStage, 'doctrine');
   assert.equal(entries[0].stageCount, 2);
   assert.equal(entries[0].wordCount, 5);
   assert.match(entries[0].preview, /God is Creator/);
-  assert.equal(entries[1].activeStage, 'interpret');
-  assert.equal(entries[1].stageCount, 2);
+  assert.equal(entries[1].activeStage, 'observe');
+  assert.equal(entries[1].stageCount, 0);
+  assert.equal(entries[1].wordCount, 0);
+  assert.equal(entries[1].preview, '');
+  assert.equal(entries[2].activeStage, 'interpret');
+  assert.equal(entries[2].stageCount, 2);
 });
 
 
-test('preview dashboard summary counts only real draft entries and written stages', () => {
+test('preview dashboard summary counts all active drafts but only populated stage notes', () => {
   const entries = listPreviewDraftEntries({
     'Romans|2': {
       observe: 'The audience is identified.',
@@ -299,7 +304,7 @@ test('preview dashboard summary counts only real draft entries and written stage
   });
   const summary = summarizePreviewDraftEntries(entries);
   assert.deepEqual(summary, {
-    studyCount: 2,
+    studyCount: 3,
     stageNoteCount: 4,
     wordCount: 15,
     stageCounts: { observe: 2, interpret: 1, doctrine: 1, apply: 0 }
@@ -367,6 +372,15 @@ test('saved-stage indicators are derived from non-empty notes in canonical workf
   assert.deepEqual(getPreviewWrittenStages({ observe: 12, interpret: ' ', doctrine: [], apply: '' }), []);
 });
 
+
+const nextAppSource = readFileSync(new URL('../next-app/src/App.tsx', import.meta.url), 'utf8');
+
+test('empty active drafts have a clear start state on the dashboard and in the Study Library', () => {
+  assert.match(nextAppSource, /entry\.stageCount === 0 \? 'Not started' : entry\.wordCount \+ ' words'/);
+  assert.match(nextAppSource, /entry\.stageCount === 0 \? 'No notes yet · Begin in Observe'/);
+  assert.match(nextAppSource, /entry\.preview \|\| 'This passage is saved as a draft, but no study notes have been recorded yet\.'/);
+  assert.match(nextAppSource, /entry\.stageCount === 0 \? 'Start study' : 'Resume study'/);
+});
 
 test('preview draft persistence retains validated note history with the four stage bodies', () => {
   const values = new Map();

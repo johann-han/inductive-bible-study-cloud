@@ -384,15 +384,9 @@ test('preview draft persistence retains validated note history with the four sta
       id: 'note-v1',
       savedAt: '2026-11-17T12:00:00.000Z',
       activeStage: 'observe',
-      sections: {
-        observe: 'Earlier observation',
-        interpret: '',
-        doctrine: '',
-        apply: ''
-      }
+      sections: { observe: 'Earlier observation', interpret: '', doctrine: '', apply: '' }
     }]
   };
-
   assert.equal(writePreviewDrafts({ 'John|1': saved }, storage), true);
   const restored = readPreviewDrafts(storage)['John|1'];
   assert.deepEqual(restored, saved);
@@ -402,23 +396,15 @@ test('preview draft persistence retains validated note history with the four sta
 test('preview draft persistence discards invalid note history without discarding the study notes', () => {
   const values = new Map([[PREVIEW_DRAFTS_STORAGE_KEY, JSON.stringify({
     'John|1': {
-      observe: 'Keep this note',
-      interpret: '',
-      doctrine: '',
-      apply: '',
+      observe: 'Keep this note', interpret: '', doctrine: '', apply: '',
       activeStage: 'observe',
       versionHistory: [{
-        id: 'bad-history',
-        savedAt: 'not-a-date',
-        activeStage: 'observe',
+        id: 'bad-history', savedAt: 'not-a-date', activeStage: 'observe',
         sections: { observe: 'Bad', interpret: '', doctrine: '', apply: '' }
       }]
     }
   })]]);
-  const storage = {
-    getItem: key => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, value)
-  };
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
   const restored = readPreviewDrafts(storage)['John|1'];
   assert.equal(restored.observe, 'Keep this note');
   assert.equal(restored.versionHistory, undefined);

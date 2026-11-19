@@ -35,7 +35,6 @@ import type { WordStudyRecord } from './lib/word-studies.mjs';
 import { buildWordStudyEvidenceDraft } from './lib/word-study-evidence.mjs';
 import { appendStudyNoteVersionSnapshot, countStudyNoteVersionWords, normalizeStudyNoteVersionHistory, restoreStudyNoteVersion } from './lib/study-note-history.mjs';
 import type { IndexedTheologicalTension, TensionHistoryEventType, TheologicalTensionHistoryEntry, TheologicalDossierVersion } from './lib/theological-tensions.mjs';
-import { buildPreviewWorkspaceArchive } from './lib/workspace-export.mjs';
 
 type Stage = 'observe' | 'interpret' | 'doctrine' | 'apply';
 type EvidenceKind = 'Scripture' | 'Cross-reference' | 'Lexicon / Strong’s' | 'Original-language research' | 'Historical / contextual source';
@@ -959,8 +958,13 @@ export default function App() {
       const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
       anchor.href = url; anchor.download = 'ibs-workspace-archive-' + new Date().toISOString().slice(0, 10) + '.json';
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setWorkspaceExportNotice('Downloaded a complete version-' + archive.archiveVersion + ' archive with ' + Object.keys(archive.stores).length + ' data stores.');
       setArchiveNotice('Full preview workspace archive downloaded.'); setArchiveError('');
-    } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The workspace archive could not be created.'); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The workspace archive could not be created.';
+      setWorkspaceExportNotice(message);
+      setArchiveError(message);
+    }
   };
 
   const inspectArchiveFile = async (file: File | null) => {
@@ -1011,26 +1015,6 @@ export default function App() {
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
-
-  const downloadWorkspaceArchive = () => {
-    try {
-      const archive = buildPreviewWorkspaceArchive(window.localStorage, { exportedAt: new Date().toISOString() });
-      const content = JSON.stringify(archive, null, 2);
-      const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'ibs-workspace-archive-' + new Date().toISOString().slice(0, 10) + '.json';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      const total = Object.values(archive.counts).reduce((sum, count) => sum + count, 0);
-      setWorkspaceExportNotice('Downloaded ' + total + ' stored entries across all 10 workspace datasets.');
-    } catch (error) {
-      setWorkspaceExportNotice(error instanceof Error ? error.message : 'The workspace archive could not be exported. No stored data was changed.');
-    }
   };
 
   const downloadDossierFile = (

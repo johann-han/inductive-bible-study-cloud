@@ -162,6 +162,9 @@ export function listPreviewDraftEntries(drafts) {
     const activeText = notes[activeStage] || '';
     const latestWrittenStage = writtenStages.length ? writtenStages[writtenStages.length - 1] : 'observe';
     const previewText = (activeText || notes[latestWrittenStage] || '').trim();
+    const searchText = writtenStages.map(function (stage) {
+      return notes[stage].trim();
+    }).join('\n');
     const wordCount = writtenStages.reduce(function (total, stage) {
       const content = notes[stage].trim();
       return total + (content ? content.split(/\s+/).length : 0);
@@ -173,7 +176,8 @@ export function listPreviewDraftEntries(drafts) {
       writtenStages: writtenStages,
       stageCount: writtenStages.length,
       wordCount: wordCount,
-      preview: previewText.slice(0, 220)
+      preview: previewText.slice(0, 220),
+      searchText: searchText
     };
   }).sort(function (a, b) {
     return (bookOrder.get(a.book) || 0) - (bookOrder.get(b.book) || 0) || a.chapter - b.chapter;

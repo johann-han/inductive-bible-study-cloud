@@ -175,8 +175,6 @@ export function listPreviewDraftEntries(drafts) {
       wordCount: wordCount,
       preview: previewText.slice(0, 220)
     };
-  }).filter(function (entry) {
-    return entry.stageCount > 0;
   }).sort(function (a, b) {
     return (bookOrder.get(a.book) || 0) - (bookOrder.get(b.book) || 0) || a.chapter - b.chapter;
   });

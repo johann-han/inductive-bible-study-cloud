@@ -79,3 +79,55 @@ test('Word Study save validates, writes and reads back the record before opening
   const successNavigationIndex = save.indexOf("setView('word-studies')", writeIndex);
   assert.ok(writeIndex >= 0 && successNavigationIndex > writeIndex);
 });
+
+test('saved Word Study handoff opens the exact study passage and carries its source provenance', () => {
+  const handoff = sliceBetween(
+    app,
+    'const attachSavedWordStudyEvidence = (record: WordStudyRecord) => {',
+    'const openSavedWordStudyPassage = (record: WordStudyRecord) => {'
+  );
+  for (const expression of [
+    /setBook\(record\.reference\.book\)/,
+    /setChapter\(record\.reference\.chapter\)/,
+    /setTranslation\(record\.reference\.translation\)/,
+    /setStage\(draftsByPassage\[targetPassageKey\]\?\.activeStage \|\| 'observe'\)/,
+    /setEvidenceRelationship\('context'\)/,
+    /setEvidenceReference\(draft\.reference\)/,
+    /setEvidenceDetail\(draft\.detail\)/,
+    /setEvidenceSource\(draft\.source\)/,
+    /setEvidenceSourceUrl\(draft\.sourceUrl \|\| ''\)/,
+    /setEvidenceSourceId\(draft\.sourceId \|\| ''\)/,
+    /setShowEvidence\(true\)/,
+    /setView\('study'\)/
+  ]) assert.match(handoff, expression);
+});
+
+test('opening a saved Word Study selects its verse only after the requested translation loads', () => {
+  const navigation = sliceBetween(
+    app,
+    'const openSavedWordStudyPassage = (record: WordStudyRecord) => {',
+    'const attachLexiconEvidence = () => {'
+  );
+  assert.match(navigation, /pendingWordStudyNavigationRef\.current = \{ \.\.\.target \}/);
+  const effect = sliceBetween(
+    app,
+    'useEffect(() => {\n    const pending = pendingWordStudyNavigationRef.current;',
+    '  }, [bible]);'
+  );
+  assert.match(effect, /bible\.book !== pending\.book/);
+  assert.match(effect, /bible\.chapter !== pending\.chapter/);
+  assert.match(effect, /bible\.translation !== pending\.translation/);
+  assert.match(effect, /setSelectedVerseNumbers\(\[pending\.verse\]\)/);
+});
+
+test('saving a handed-off Word Study evidence record keeps its active passage and provenance', () => {
+  const save = sliceBetween(app, 'const addEvidenceRecord = () => {', 'const currentPassageEvidence =');
+  assert.match(save, /passageKey: passageDraftKey, stage/);
+  assert.match(save, /claim: evidenceClaim\.trim\(\)/);
+  assert.match(save, /reference: evidenceReference\.trim\(\)/);
+  assert.match(save, /detail: evidenceDetail\.trim\(\)/);
+  assert.match(save, /source: evidenceSource\.trim\(\)/);
+  assert.match(save, /sourceUrl: evidenceSourceUrl\.trim\(\)/);
+  assert.match(save, /sourceId: evidenceSourceId\.trim\(\)/);
+  assert.match(app, /localStorage\.setItem\(EVIDENCE_STORAGE_KEY, JSON\.stringify\(evidenceRecords\)\)/);
+});

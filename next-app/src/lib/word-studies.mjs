@@ -82,9 +82,18 @@ export function readWordStudies(storage) {
 export function writeWordStudies(records, storage) {
   try {
     const target = storage || (typeof window !== 'undefined' ? window.localStorage : null);
-    if (!target) return false;
-    target.setItem(WORD_STUDIES_STORAGE_KEY, JSON.stringify(normalizeWordStudies(records)));
-    return true;
+    if (!target || !Array.isArray(records)) return false;
+    const normalized = normalizeWordStudies(records);
+    // Do not report a successful save when normalization would silently discard
+    // a malformed record or collapse duplicate IDs.
+    if (normalized.length !== records.length) return false;
+    const serialized = JSON.stringify(normalized);
+    target.setItem(WORD_STUDIES_STORAGE_KEY, serialized);
+    const stored = target.getItem(WORD_STUDIES_STORAGE_KEY);
+    if (stored !== serialized) return false;
+    const verified = normalizeWordStudies(JSON.parse(stored));
+    return verified.length === normalized.length &&
+      normalized.every(record => verified.some(item => item.id === record.id));
   } catch (_) {
     return false;
   }

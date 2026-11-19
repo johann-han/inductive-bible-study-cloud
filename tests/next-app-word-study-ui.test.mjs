@@ -20,6 +20,21 @@ test('saved Word Studies has a mounted searchable library route and an evidence 
   assert.match(app, /onClick=\{\(\) => openSavedWordStudyPassage\(record\)\}>Open verse/);
 });
 
+test('Word Studies navigation renders its page in the main view switch, not inside the breadcrumb', () => {
+  const breadcrumbStart = app.indexOf('<div className="crumbs">');
+  const breadcrumbEnd = app.indexOf('</div>', breadcrumbStart);
+  assert.ok(breadcrumbStart >= 0 && breadcrumbEnd > breadcrumbStart, 'expected a complete workspace breadcrumb');
+  const breadcrumb = app.slice(breadcrumbStart, breadcrumbEnd);
+  assert.match(breadcrumb, /view === 'word-studies' \? 'Word studies'/);
+  assert.doesNotMatch(breadcrumb, /<section className="word-studies-view">/);
+
+  const renderStart = app.indexOf("{view === 'archive' ? <section className=\"archive-workspace\">");
+  const activeStudyStart = app.indexOf("view === 'study' ? <section className=\"active-study-view\">", renderStart);
+  assert.ok(renderStart >= 0 && activeStudyStart > renderStart, 'expected the main page render switch');
+  const renderBranches = app.slice(renderStart, activeStudyStart);
+  assert.match(renderBranches, /: view === 'word-studies' \? <section className="word-studies-view">/);
+});
+
 test('saved Word Study handoff preloads attributed source evidence without inventing a claim or verification', () => {
   const handoff = sliceBetween(
     app,

@@ -52,6 +52,7 @@ export interface PreviewDraftEntry {
   stageCount: number;
   wordCount: number;
   preview: string;
+  searchText: string;
 }
 export type PreviewDrafts = Record<string, PreviewStudyDraft>;
 export interface PreviewStageEvidence {

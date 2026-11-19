@@ -310,6 +310,7 @@ export default function App() {
   const [savedDossierVersions, setSavedDossierVersions] = useState<TheologicalDossierVersion[]>(() => typeof window === 'undefined' ? [] : readTheologicalDossierVersions());
   const [selectedSavedDossierId, setSelectedSavedDossierId] = useState<string | null>(null);
   const [dossierNotice, setDossierNotice] = useState('');
+  const [workspaceExportNotice, setWorkspaceExportNotice] = useState('');
   const [dossierSearch, setDossierSearch] = useState('');
   const [dossierCompareLeftId, setDossierCompareLeftId] = useState('');
   const [dossierCompareRightId, setDossierCompareRightId] = useState('');
@@ -1011,8 +1012,13 @@ export default function App() {
       const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
       anchor.href = url; anchor.download = 'ibs-workspace-archive-' + new Date().toISOString().slice(0, 10) + '.json';
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setWorkspaceExportNotice('Downloaded a complete version-2 archive with ' + Object.keys(WORKSPACE_ARCHIVE_STORES).length + ' data stores.');
       setArchiveNotice('Full preview workspace archive downloaded.'); setArchiveError('');
-    } catch (error) { setArchiveError(error instanceof Error ? error.message : 'The workspace archive could not be created.'); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The workspace archive could not be created.';
+      setWorkspaceExportNotice(message);
+      setArchiveError(message);
+    }
   };
 
   const inspectArchiveFile = async (file: File | null) => {
@@ -1251,7 +1257,7 @@ export default function App() {
       <header className="topbar">
         {view !== 'overview' && <button className="back-home-button" type="button" onClick={() => setView('overview')} aria-label="Back to start screen" title="Back to start screen"><Icon name="back"/><span>Home</span></button>}
         <div className="crumbs"><span>Workspace</span><Icon name="chevron"/><strong>{view === 'overview' ? 'Overview' : view === 'library' ? 'Study library' : view === 'word-studies' ? 'Word studies' : view === 'references' ? 'Cross-references' : view === 'tensions' ? 'Theological tensions' : view === 'archive' ? 'Backup & restore' : view === 'dossiers' ? 'Research dossiers' : view === 'dossier' ? 'Research dossier' : view === 'study' ? 'Active study' : book + ' ' + chapter}</strong></div>
-        <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
+        <div className="top-actions"><span className="sync-status"><i/> Preview · local drafts only</span>{workspaceExportNotice && <span className="workspace-export-status" role="status">{workspaceExportNotice}</span>}<button className="soft-button workspace-export-button" type="button" onClick={downloadWorkspaceArchive} title="Download a validated version-2 archive of all preview data stores">Export workspace</button><button className="soft-button" type="button" disabled title="AI guidance is not connected in this phase"><Icon name="spark"/> AI Guide</button><button className="profile" type="button" disabled>J</button></div>
       </header>
       {view === 'archive' ? <section className="archive-workspace">
         <div className="archive-page-heading"><span className="eyebrow">PORTABILITY &amp; RECOVERY</span><h1>Backup &amp; restore</h1><p>Export this preview workspace or inspect a saved archive. No data changes until you explicitly restore.</p></div>

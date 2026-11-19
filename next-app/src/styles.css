@@ -1062,3 +1062,16 @@
 .observations-made-tags span{background:#edf2ed;color:#52675a;border-radius:5px;padding:4px 7px;font-size:11px}
 .observations-made-entry .text-button{margin-top:3px}
 @media(max-width:640px){.observations-made-panel{padding:16px;margin:14px 0}.observations-made-heading{gap:10px}.observations-made-heading h3{font-size:17px}.observations-made-entry-top{align-items:flex-start;flex-direction:column;gap:4px}}
+
+
+/* Validated full-workspace backup action for the PR #190 browser-local preview. */
+.workspace-export-button{white-space:nowrap}
+.workspace-export-status{max-width:280px;color:#52675a;font-size:11px;line-height:1.35}
+@media(max-width:900px){
+  .workspace-export-status{display:none}
+  .workspace-export-button{min-height:36px;padding:8px 10px;font-size:11px}
+}
+@media(max-width:560px){
+  .top-actions{gap:6px}
+  .workspace-export-button{padding:7px 8px;font-size:10px}
+}

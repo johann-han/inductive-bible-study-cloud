@@ -1,0 +1,455 @@
+
+/* Source-linked evidence manager in the Active Study workflow. */
+.evidence-manager{margin:12px 0 18px;padding:15px;border:1px solid #dce7dc;border-radius:11px;background:#fbfcfa}
+.evidence-manager-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.evidence-manager-heading strong{font-size:14px;color:#294b38}
+.evidence-manager-heading p{margin:4px 0 0;color:#748176;font-size:12px;line-height:1.5}
+.evidence-manager-heading>span{flex:none;padding:4px 8px;border-radius:99px;background:#edf3ed;color:#42634d;font-size:11px;font-weight:650}
+.evidence-manager-form{display:flex;flex-direction:column;gap:9px}
+.evidence-manager-form label{display:flex;flex-direction:column;gap:5px;color:#526257;font-size:11px;font-weight:650}
+.evidence-manager-form input,.evidence-manager-form select,.evidence-manager-form textarea{width:100%;min-width:0;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:9px 10px;color:#29392f;font:13px/1.5 'DM Sans',sans-serif}
+.evidence-manager-form textarea{resize:vertical;min-height:78px}
+.evidence-manager-row{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:9px}
+.evidence-manager-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.evidence-manager-actions .primary-button{min-height:36px;padding:8px 12px;font-size:11px}
+.evidence-manager-actions [role=status]{font-size:11px;color:#617467}
+.evidence-manager-list{display:grid;gap:8px;margin-top:13px}
+.evidence-manager-empty{margin:0;padding:12px;border:1px dashed #d8e2d8;border-radius:8px;color:#79867d;font-size:12px;line-height:1.5}
+.evidence-manager-item{padding:11px 12px;border:1px solid #e1e8e1;border-radius:8px;background:#fff;display:flex;flex-direction:column;gap:6px}
+.evidence-manager-item-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.evidence-manager-item-top span{color:#718075;font-size:10px;font-weight:700;letter-spacing:.04em}
+.evidence-manager-item-top button{padding:4px 7px;font-size:10px}
+.evidence-manager-item>strong{color:#2d4636;font-size:13px}
+.evidence-manager-item>b{color:#4f6c59;font-size:11px}
+.evidence-manager-item>p{margin:0;color:#4f5d53;font-size:12px;line-height:1.6;white-space:pre-wrap}
+.evidence-manager-item>small,.evidence-manager-disclaimer{color:#849087;font-size:10px;line-height:1.5}
+.evidence-manager-disclaimer{display:block;margin-top:12px}
+.evidence-manager-form input:focus,.evidence-manager-form select:focus,.evidence-manager-form textarea:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+@media(max-width:600px){.evidence-manager{padding:11px;margin:8px 0 13px}.evidence-manager-row{grid-template-columns:1fr}.evidence-manager-actions{align-items:stretch;flex-direction:column}.evidence-manager-actions .primary-button{width:100%;justify-content:center}}
+
+/* Research-to-evidence hand-off controls. */
+.standard-reference-action{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.reference-attach-button{border:1px solid #d7e3d8;border-radius:6px;background:#f7faf7;padding:4px 7px;color:#3b6248;font:600 10px 'DM Sans',sans-serif;cursor:pointer}
+.reference-attach-button:hover{background:#eaf2eb}
+.reference-item-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.lexicon-evidence-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px}
+.lexicon-evidence-actions .outline-button{min-height:34px;padding:7px 11px;font-size:11px}
+.evidence-source-provenance{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid #e1e9e1;border-radius:7px;background:#f6f9f6;color:#617267;font-size:11px}
+.evidence-source-provenance a,.evidence-record-source{color:#386747;font-weight:650;text-decoration:none}
+.evidence-source-provenance code{color:#768379;font-size:10px;overflow-wrap:anywhere}
+.evidence-record-source{font-size:11px}
+@media(max-width:600px){.lexicon-evidence-actions{align-items:stretch;flex-direction:column}.lexicon-evidence-actions .outline-button{width:100%}.standard-reference-action{gap:4px}.reference-attach-button{padding:5px 6px}}
+
+/* Claim-level evidence assessment. */
+.evidence-claim-register{display:grid;gap:10px;margin:14px 0;padding:13px;border:1px solid #e2e9e1;border-radius:10px;background:#f8faf7}
+.evidence-claim-register-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#314b38;font-size:12px}
+.evidence-claim-register-heading span{color:#7b897d;font-size:10px}
+.evidence-claim-summary{display:grid;gap:8px;padding:11px;border:1px solid #e5ebe4;border-radius:8px;background:#fff}
+.evidence-claim-summary>strong{font-size:12px;line-height:1.5;color:#283b2d}
+.evidence-claim-summary>small{font-size:10px;line-height:1.5;color:#778278}
+.evidence-relationship-counts{display:flex;gap:6px;flex-wrap:wrap}
+.evidence-relationship-counts span,.evidence-relationship-label{display:inline-flex;align-items:center;border-radius:20px;padding:3px 7px;font-size:10px;font-weight:650;font-style:normal}
+.relationship-supports{background:#e7f2e8;color:#376847}
+.relationship-challenges{background:#f8e9e6;color:#91483e}
+.relationship-qualifies{background:#f7f0dc;color:#82652d}
+.relationship-context{background:#edf0ee;color:#647168}
+.evidence-relationship-label{margin-left:4px}
+@media(max-width:600px){.evidence-claim-register{padding:10px}.evidence-claim-register-heading{align-items:flex-start;flex-direction:column;gap:3px}}
+
+/* Existing evidence can be reclassified after the surrounding passage is reviewed. */
+.evidence-manager-item-controls{display:flex;align-items:center;justify-content:flex-end;gap:9px;min-width:0}
+.evidence-record-relationship{display:flex;align-items:center;gap:6px;color:#77847a;font-size:10px;font-weight:650}
+.evidence-record-relationship select{max-width:165px;min-width:0;border:1px solid #dce5dc;border-radius:6px;background:#fbfcfa;padding:5px 7px;color:#405246;font:11px 'DM Sans',sans-serif}
+.evidence-record-relationship select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+@media(max-width:600px){.evidence-manager-item-top{align-items:flex-start;flex-direction:column}.evidence-manager-item-controls{width:100%;justify-content:space-between}.evidence-record-relationship{flex:1}.evidence-record-relationship select{flex:1;max-width:none}}
+
+.evidence-assessment-rationale{padding:8px 10px;border-left:2px solid #c5d5c6;background:#f7faf7;color:#59695d!important;font-size:11px!important}
+.evidence-assessment-rationale strong{color:#405a47}
+
+.evidence-record-rationale{display:grid;gap:5px;color:#647368;font-size:10px;font-weight:650}
+.evidence-record-rationale textarea{width:100%;box-sizing:border-box;min-height:48px;resize:vertical;border:1px solid #e0e8df;border-radius:6px;background:#fbfcfa;padding:7px 9px;color:#405246;font:11px/1.5 'DM Sans',sans-serif}
+.evidence-record-rationale textarea:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+
+
+/* Evidence audit: surface verification gaps and let the researcher isolate evidence types. */
+.evidence-audit-summary{display:grid;gap:5px;margin:12px 0;padding:11px 12px;border:1px solid #e0e8df;border-radius:8px;background:#f4f8f3}
+.evidence-audit-summary>div{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#355540;font-size:11px}
+.evidence-audit-summary>div span{font-weight:650;color:#55705c;text-align:right}
+.evidence-audit-summary p{margin:0;color:#69786d;font-size:10px;line-height:1.5}
+.evidence-filter-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:12px 0 4px}
+.evidence-filter-bar>span{margin-right:3px;color:#7a877d;font-size:10px;font-weight:650}
+.evidence-filter-bar button{border:1px solid #dce5dc;border-radius:99px;background:#fff;color:#607064;padding:6px 9px;font:600 10px 'DM Sans',sans-serif;cursor:pointer}
+.evidence-filter-bar button:hover{background:#f1f6f0;border-color:#b9cbbb}
+.evidence-filter-bar button.active{border-color:#78977e;background:#eaf2e9;color:#294f36}
+.evidence-filter-bar button:focus-visible{outline:2px solid #9bb9a1;outline-offset:2px}
+@media(max-width:600px){.evidence-audit-summary>div{align-items:flex-start;flex-direction:column;gap:3px}.evidence-audit-summary>div span{text-align:left}.evidence-filter-bar{gap:5px}.evidence-filter-bar button{padding:7px 8px}}
+
+
+/* Claim synthesis workspace: conclusions remain distinct from source records. */
+.claim-synthesis-workspace{display:grid;gap:12px;margin:16px 0;padding:15px;border:1px solid #dce6dc;border-radius:11px;background:#f8faf7}
+.claim-synthesis-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.claim-synthesis-heading h3{margin:3px 0 4px;color:#294735;font-size:16px}
+.claim-synthesis-heading p{max-width:650px;margin:0;color:#6c7b70;font-size:11px;line-height:1.55}
+.claim-synthesis-heading>span{flex:none;padding:4px 8px;border-radius:99px;background:#edf3ed;color:#42634d;font-size:10px;font-weight:700}
+.claim-synthesis-card{display:grid;gap:10px;padding:13px;border:1px solid #e0e8df;border-radius:9px;background:#fff}
+.claim-synthesis-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.claim-synthesis-card-top>strong{color:#2c4233;font-size:13px;line-height:1.5}
+.claim-synthesis-card-top>span{flex:none;color:#7b887d;font-size:10px}
+.claim-synthesis-evidence-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.claim-synthesis-evidence-grid>div{display:grid;gap:4px;min-width:0;padding:8px;border-radius:7px}
+.claim-synthesis-evidence-grid strong{font-size:10px}
+.claim-synthesis-evidence-grid small{font-size:9px;line-height:1.4}
+.synthesis-support{background:#edf5ed;color:#376847}
+.synthesis-challenge{background:#fbefed;color:#91483e}
+.synthesis-qualify{background:#f8f2e3;color:#82652d}
+.synthesis-context{background:#f0f2f0;color:#647168}
+.claim-synthesis-caution{margin:0;padding:8px 10px;border-left:2px solid #c49b53;background:#fbf8ef;color:#745d32;font-size:10px;line-height:1.5}
+.claim-synthesis-quality{display:grid;gap:4px;color:#778278;font-size:9px;line-height:1.5}
+.claim-synthesis-field{display:grid;gap:5px;color:#526257;font-size:10px;font-weight:700}
+.claim-synthesis-field textarea,.claim-synthesis-footer select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:7px;background:#fbfcfa;padding:9px 10px;color:#29392f;font:12px/1.55 'DM Sans',sans-serif}
+.claim-synthesis-field textarea{resize:vertical;min-height:64px}
+.claim-synthesis-field textarea:focus,.claim-synthesis-footer select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.claim-synthesis-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.claim-synthesis-footer>label{display:grid;gap:5px;min-width:min(100%,220px);color:#526257;font-size:10px;font-weight:700}
+.claim-synthesis-footer .outline-button{min-height:34px;padding:7px 11px;font-size:10px}
+.claim-synthesis-footer .outline-button:disabled{opacity:.45;cursor:not-allowed}
+.claim-synthesis-saved{color:#849087;font-size:9px;line-height:1.4}
+@media(max-width:700px){.claim-synthesis-workspace{padding:10px;margin:12px 0}.claim-synthesis-heading{flex-direction:column;gap:5px}.claim-synthesis-evidence-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.claim-synthesis-card{padding:10px}.claim-synthesis-footer{align-items:stretch;flex-direction:column}.claim-synthesis-footer>label{min-width:0}.claim-synthesis-footer .outline-button{width:100%;justify-content:center}}
+
+.claim-synthesis-source-list{display:grid;gap:7px;padding-top:9px;border-top:1px solid #edf1ec}
+.claim-synthesis-source-list>strong{color:#425b49;font-size:10px}
+.claim-synthesis-source{display:grid;gap:5px;padding:9px 10px;border:1px solid #e8ede7;border-radius:7px;background:#fbfcfa}
+.claim-synthesis-source-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.claim-synthesis-source-heading>b{min-width:0;color:#31483a;font-size:11px;overflow-wrap:anywhere}
+.claim-synthesis-source .evidence-relationship-label{margin:0;flex:none;text-transform:capitalize}
+.claim-synthesis-source>p{margin:0;color:#536258;font-size:10px;line-height:1.55;white-space:pre-wrap}
+.claim-synthesis-source>small{color:#7b877d;font-size:9px;line-height:1.45}
+.claim-synthesis-source>a{width:max-content;color:#386747;font-size:10px;font-weight:650;text-decoration:none}
+@media(max-width:600px){.claim-synthesis-source-heading{align-items:flex-start;flex-direction:column;gap:4px}}
+
+
+/* Doctrine review: preserve research provenance while making theological judgement explicit. */
+.doctrine-review-workspace{margin:18px 0 22px;padding:18px;border:1px solid #d9e4d8;border-radius:12px;background:#f7f9f5}
+.doctrine-review-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.doctrine-review-heading h3{margin:4px 0 6px;color:#294536;font:400 21px 'Libre Baskerville',Georgia,serif}
+.doctrine-review-heading p{max-width:720px;margin:0;color:#68766e;font-size:12px;line-height:1.6}
+.doctrine-review-heading>span{flex:none;padding:6px 9px;border:1px solid #dce5da;border-radius:999px;background:#fff;color:#52665a;font-size:11px;font-weight:650}
+.doctrine-review-card{display:grid;gap:12px;padding:15px;margin:12px 0;border:1px solid #dce5dc;border-radius:10px;background:#fff}
+.doctrine-review-source{display:grid;gap:7px;padding:12px;border-left:3px solid #b68a48;border-radius:7px;background:#f8f7f1}
+.doctrine-review-source>strong{color:#294536;font-size:14px;line-height:1.5}
+.doctrine-review-source>p{margin:0;color:#39483e;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.doctrine-review-source>small{color:#69776e;font-size:11px;line-height:1.5}
+.doctrine-review-preserve{color:#65766b;font-size:10px;font-weight:650}
+.doctrine-review-card>label{display:grid;gap:6px;color:#4d6054;font-size:12px;font-weight:650}
+.doctrine-review-card select,.doctrine-review-card textarea{width:100%;min-width:0;border:1px solid #dce5dc;border-radius:8px;background:#fff;color:#29392f;padding:10px 11px;font:13px/1.55 'DM Sans',sans-serif}
+.doctrine-review-card textarea{resize:vertical}
+.doctrine-review-card select:focus,.doctrine-review-card textarea:focus{outline:2px solid #8eaa91;outline-offset:1px}
+.doctrine-review-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:4px}
+.doctrine-review-actions>span{color:#65766b;font-size:11px}
+.doctrine-review-actions .primary-button{white-space:normal}
+.doctrine-review-caution{color:#7a6b51;font-size:10px;line-height:1.55}
+@media(max-width:640px){
+ .doctrine-review-workspace{padding:12px;margin:12px 0}
+ .doctrine-review-heading{flex-direction:column;gap:8px}
+ .doctrine-review-heading h3{font-size:18px}
+ .doctrine-review-card{padding:10px;gap:10px}
+ .doctrine-review-actions{align-items:stretch;flex-direction:column}
+ .doctrine-review-actions .primary-button{width:100%;justify-content:center}
+}
+
+
+/* Scripture-wide comparison within the Doctrine Review workspace. */
+.doctrine-canonical-compare{display:grid;gap:9px;padding:14px;border:1px solid #d9e3dc;border-radius:9px;background:#fff}
+.doctrine-canonical-compare>div:first-child strong{color:#304b3a;font-size:13px}
+.doctrine-canonical-compare>div:first-child p{margin:4px 0 0;color:#6c796f;font-size:11px;line-height:1.55}
+.doctrine-canonical-compare>label{color:#4d6054;font-size:11px;font-weight:650}
+.doctrine-canonical-compare textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:8px;background:#fff;padding:10px;color:#29392f;font:13px/1.5 'DM Sans',sans-serif}
+.doctrine-compare-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.doctrine-compare-actions>span{color:#748076;font-size:10px}
+.doctrine-compare-error{margin:0;color:#9a4c3e;font-size:11px}
+.doctrine-compare-results{display:grid;gap:9px}
+.doctrine-compare-results article{display:grid;gap:6px;padding:11px;border:1px solid #e2e9e2;border-radius:8px;background:#fafbf9}
+.doctrine-compare-results article>strong{color:#304b3a;font-size:13px}
+.doctrine-compare-results article>p{margin:0;color:#344239;font-size:12px;line-height:1.7}
+.doctrine-compare-results article>small{color:#748076;font-size:10px;line-height:1.5}
+.doctrine-compare-results article>div{display:grid;gap:3px;padding-top:5px;border-top:1px solid #e7ece7}
+.doctrine-compare-results article>div b{color:#58695d;font-size:10px}
+.doctrine-compare-results article>div span{color:#4e6354;font-size:11px;line-height:1.5}
+@media(max-width:640px){.doctrine-canonical-compare{padding:11px}.doctrine-compare-actions{align-items:stretch;flex-direction:column}.doctrine-compare-actions .outline-button{width:100%}}
+
+
+/* Researcher-led theological tension register. */
+.tension-register{display:grid;gap:11px;padding:14px;border:1px solid #d9e3dc;border-radius:10px;background:#f7f9f6}
+.tension-register-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.tension-register-heading>div{display:grid;gap:4px}
+.tension-register-heading strong{color:#304b3a;font-size:13px}
+.tension-register-heading p{margin:0;color:#6c796f;font-size:11px;line-height:1.55}
+.tension-register-heading .outline-button{flex:none}
+.tension-register-empty{margin:0;padding:10px;border:1px dashed #d8e2d8;border-radius:7px;color:#738076;font-size:11px}
+.tension-register-card{display:grid;gap:10px;padding:12px;border:1px solid #dfe7df;border-radius:9px;background:#fff}
+.tension-register-card-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tension-register-card-heading strong{color:#385542;font-size:12px}
+.tension-register-card label{display:grid;gap:5px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.tension-register-card input,.tension-register-card textarea,.tension-register-card select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:7px;background:#fbfcfa;padding:9px 10px;color:#29392f;font:12px/1.5 'DM Sans',sans-serif}
+.tension-register-card textarea{resize:vertical}
+.tension-register-card input:focus,.tension-register-card textarea:focus,.tension-register-card select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.tension-register-passages,.tension-register-classification{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.tension-register-card>small{color:#7b877d;font-size:9px;line-height:1.5}
+.tension-register-caution{margin:0;padding:9px 10px;border-left:2px solid #bd9856;background:#fbf8ef;color:#735e37;font-size:10px;line-height:1.55}
+.tension-register .text-button{border:0;background:transparent;color:#8b5147;font:650 10px 'DM Sans',sans-serif;cursor:pointer}
+@media(max-width:640px){.tension-register{padding:10px}.tension-register-heading{align-items:stretch;flex-direction:column}.tension-register-heading .outline-button{width:100%;justify-content:center}.tension-register-passages,.tension-register-classification{grid-template-columns:minmax(0,1fr)}.tension-register-card{padding:10px}}
+
+
+.tension-register-summary{color:#708075;font-size:9px;line-height:1.45}
+.tension-register-imports{display:grid;gap:8px;padding:10px;border:1px solid #e2e9e1;border-radius:8px;background:#f8faf7}
+.tension-register-imports>p{margin:0;color:#647368;font-size:10px;line-height:1.5}
+.tension-register-import-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tension-register-import-grid>label{display:grid;align-content:start;gap:7px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.tension-register-import-grid select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px;color:#29392f;font:11px/1.4 'DM Sans',sans-serif}
+.tension-register-import-grid select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.tension-register-import-grid .outline-button{width:max-content;max-width:100%;white-space:normal}
+.tension-register-import-grid .outline-button:disabled{opacity:.45;cursor:not-allowed}
+.tension-register-imports>small{color:#7b877d;font-size:9px;line-height:1.5}
+@media(max-width:640px){.tension-register-imports{padding:8px}.tension-register-import-grid{grid-template-columns:minmax(0,1fr)}.tension-register-import-grid .outline-button{width:100%;justify-content:center}}
+
+
+/* Study-wide theological tension register overview. */
+.tensions-overview-view{width:min(100%,1440px);margin:0 auto;padding:28px 34px 48px;box-sizing:border-box}
+.tensions-overview-view>.library-header{margin-bottom:20px}
+.tensions-overview-view>.library-header h1{margin:5px 0 7px;color:#294536;font:400 30px 'Libre Baskerville',Georgia,serif}
+.tensions-overview-view>.library-header p{max-width:760px;margin:0;color:#68766e;font-size:12px;line-height:1.65}
+.tension-overview-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 17px}
+.tension-overview-stat-grid article{display:grid;gap:5px;min-width:0;padding:13px;border:1px solid #e0e7df;border-radius:9px;background:#fff}
+.tension-overview-stat-grid article>span{color:#65756a;font-size:10px;font-weight:650}
+.tension-overview-stat-grid article>strong{color:#294b37;font:400 25px 'Libre Baskerville',Georgia,serif;font-variant-numeric:tabular-nums}
+.tension-overview-stat-grid article>small{color:#7b877d;font-size:9px;line-height:1.4}
+.tension-overview-toolbar{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(2,minmax(150px,1fr)) auto;align-items:end;gap:10px;padding:13px;border:1px solid #e0e7df;border-radius:10px;background:#f8faf7}
+.tension-overview-toolbar>label{display:grid;gap:5px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.tension-overview-toolbar input,.tension-overview-toolbar select{width:100%;min-width:0;box-sizing:border-box;min-height:37px;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px 10px;color:#29392f;font:11px 'DM Sans',sans-serif}
+.tension-overview-toolbar input:focus,.tension-overview-toolbar select:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.tension-clear-filters{padding:8px 5px;white-space:nowrap}
+.tension-overview-results-heading{display:flex;align-items:baseline;gap:5px;margin:16px 2px 9px;color:#69786e;font-size:10px}
+.tension-overview-results-heading strong{color:#304b3a;font-size:12px}
+.tension-overview-results-heading span{margin-left:auto;color:#859087}
+.tension-overview-list{display:grid;gap:11px}
+.tension-overview-card{display:grid;gap:11px;padding:15px;border:1px solid #dfe7df;border-radius:10px;background:#fff}
+.tension-overview-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.tension-overview-card-top>div:first-child{display:grid;gap:4px;min-width:0}
+.tension-overview-card-top .eyebrow{color:#7a887c;font-size:9px;font-weight:700;letter-spacing:.06em}
+.tension-overview-card-top h2{margin:0;color:#294536;font-size:14px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.tension-overview-badges{display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap;flex:none}
+.tension-overview-badges span{padding:4px 7px;border:1px solid #e0e7df;border-radius:99px;background:#f6f8f5;color:#596b5e;font-size:9px;font-weight:650;text-transform:capitalize}
+.tension-overview-passage-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.tension-overview-passage-pair>div{display:grid;align-content:start;gap:5px;min-width:0;padding:10px;border:1px solid #e6ece5;border-radius:8px;background:#fafbf9}
+.tension-overview-passage-pair small{color:#7b877d;font-size:9px;font-weight:750;letter-spacing:.05em}
+.tension-overview-passage-pair strong{color:#35513e;font-size:11px}
+.tension-overview-passage-pair p{margin:0;color:#5c6b60;font-size:10px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.tension-overview-issue,.tension-overview-analysis,.tension-overview-uncertainty{margin:0;color:#526257;font-size:10px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-overview-analysis{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.tension-overview-uncertainty{padding:8px 10px;border-left:2px solid #c19a54;background:#fbf8ef;color:#715c36}
+.tension-overview-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:9px;border-top:1px solid #edf1ec}
+.tension-overview-card-footer>small{color:#818c83;font-size:9px}
+.tension-overview-card-footer .primary-button{flex:none}
+.tension-overview-disclaimer{margin:15px 0 0;color:#78847a;font-size:9px;line-height:1.55}
+.tension-register-card[data-tension-record-id]:focus{outline:2px solid #9bb9a1;outline-offset:3px}
+@media(max-width:950px){.tension-overview-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.tension-overview-search{grid-column:1/-1}.tension-clear-filters{justify-self:start}}
+@media(max-width:700px){.tensions-overview-view{padding:18px 14px 32px}.tensions-overview-view>.library-header h1{font-size:24px}.tension-overview-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tension-overview-card{padding:11px}.tension-overview-card-top{flex-direction:column}.tension-overview-badges{justify-content:flex-start}.tension-overview-card-footer{align-items:stretch;flex-direction:column}.tension-overview-card-footer .primary-button{width:100%;justify-content:center}}
+@media(max-width:520px){.tension-overview-toolbar{grid-template-columns:minmax(0,1fr)}.tension-overview-search{grid-column:auto}.tension-overview-passage-pair{grid-template-columns:minmax(0,1fr)}.tension-overview-results-heading{align-items:flex-start;flex-wrap:wrap}.tension-overview-results-heading span{width:100%;margin-left:0}}
+
+
+/* Append-only interpretation and resolution history for each theological tension. */
+.tension-history{display:grid;gap:11px;margin-top:5px;padding:12px;border:1px solid #dce6dc;border-radius:9px;background:#f8faf7}
+.tension-history-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.tension-history-heading>div{display:grid;gap:4px}
+.tension-history-heading strong{color:#304b3a;font-size:12px}
+.tension-history-heading p{margin:0;color:#69786d;font-size:10px;line-height:1.5}
+.tension-history-heading>span{flex:none;padding:4px 7px;border:1px solid #dce5dc;border-radius:99px;background:#fff;color:#52665a;font-size:9px;font-weight:650}
+.tension-history-form{display:grid;gap:9px;padding:11px;border:1px solid #e2e9e1;border-radius:8px;background:#fff}
+.tension-history-form>label{display:grid;gap:5px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.tension-history-form select,.tension-history-form textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce5dc;border-radius:7px;background:#fbfcfa;padding:9px 10px;color:#29392f;font:12px/1.5 'DM Sans',sans-serif}
+.tension-history-form textarea{resize:vertical}
+.tension-history-form select:focus,.tension-history-form textarea:focus{outline:2px solid #9bb9a1;outline-offset:1px}
+.tension-history-form>.outline-button{width:max-content;max-width:100%;white-space:normal}
+.tension-history-form>.outline-button:disabled{opacity:.45;cursor:not-allowed}
+.tension-history-error{margin:0;padding:7px 9px;border-left:2px solid #b66b5d;background:#fbefed;color:#8c4338;font-size:10px;line-height:1.45}
+.tension-history-timeline{display:grid;gap:7px}
+.tension-history-timeline>strong{color:#526257;font-size:10px}
+.tension-history-entry{border:1px solid #e1e8e0;border-radius:7px;background:#fff;overflow:hidden}
+.tension-history-entry>summary{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 10px;color:#35513e;font-size:10px;font-weight:700;cursor:pointer;list-style:none}
+.tension-history-entry>summary::-webkit-details-marker{display:none}
+.tension-history-entry>summary::after{content:'+';color:#6c806f;font-size:14px}
+.tension-history-entry[open]>summary::after{content:'−'}
+.tension-history-entry>summary time{margin-left:auto;color:#808b82;font-size:9px;font-weight:500;text-align:right}
+.tension-history-entry-body{display:grid;gap:6px;padding:10px;border-top:1px solid #edf1ec}
+.tension-history-entry-body>p{margin:0;color:#56665a;font-size:10px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-history-entry-body>p b{color:#385542}
+.tension-history-passage-snapshot{display:grid;gap:4px;margin-top:3px;padding:9px;border:1px solid #e8ede7;border-radius:7px;background:#fafbf9}
+.tension-history-passage-snapshot small{color:#768479;font-size:9px;font-weight:750;letter-spacing:.04em}
+.tension-history-passage-snapshot p{margin:0 0 4px;color:#526257;font-size:10px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-history-empty{margin:0;padding:9px;border:1px dashed #dce5dc;border-radius:7px;color:#78857b;font-size:10px;line-height:1.5}
+.tension-history-caution{margin:0;color:#78847a;font-size:9px;line-height:1.5}
+@media(max-width:640px){.tension-history{padding:9px}.tension-history-heading{align-items:flex-start;flex-direction:column}.tension-history-form{padding:9px}.tension-history-form>.outline-button{width:100%;justify-content:center}.tension-history-entry>summary{align-items:flex-start;flex-wrap:wrap}.tension-history-entry>summary time{width:100%;margin-left:0;text-align:left}}
+
+
+/* Formal Research Conclusion and Resolution Dossier. */
+.tension-dossier-view{width:min(100%,1120px);margin:0 auto;padding:24px 34px 52px;box-sizing:border-box;background:#fff}
+.tension-dossier-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.tension-dossier-toolbar>div{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.tension-dossier-preview-label{color:#829087;font-size:9px;font-weight:750;letter-spacing:.08em}
+.tension-dossier-header{padding:10px 0 18px;border-bottom:2px solid #344f3b}
+.tension-dossier-header h1{max-width:850px;margin:8px 0 9px;color:#233d2e;font:400 31px/1.2 'Libre Baskerville',Georgia,serif}
+.tension-dossier-header>p{max-width:780px;margin:0;color:#657368;font-size:12px;line-height:1.65}
+.tension-dossier-document-meta{display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:14px;color:#7c887e;font-size:9px}
+.tension-dossier-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:17px 0 22px}
+.tension-dossier-summary-grid article{display:grid;align-content:start;gap:6px;min-width:0;padding:11px;border:1px solid #dfe7df;border-radius:7px;background:#f8faf7}
+.tension-dossier-summary-grid small{color:#77857a;font-size:8px;font-weight:750;letter-spacing:.06em}
+.tension-dossier-summary-grid strong{color:#304c38;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.tension-dossier-section{display:grid;gap:9px;padding:0 0 18px;margin:0 0 18px;border-bottom:1px solid #e4eae3}
+.tension-dossier-section-heading{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.tension-dossier-section-heading>span{display:grid;place-items:center;width:25px;height:25px;flex:none;border-radius:50%;background:#edf3ed;color:#42634d;font-size:9px;font-weight:750}
+.tension-dossier-section-heading h2{margin:0;color:#294536;font:400 17px 'Libre Baskerville',Georgia,serif}
+.tension-dossier-section h3{margin:7px 0 0;color:#405746;font-size:11px;font-weight:750}
+.tension-dossier-section>p{margin:0;color:#47584b;font-size:11px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-callout{padding:11px 13px;border-left:3px solid #b68a48;border-radius:5px;background:#f8f7f1}
+.tension-dossier-callout small{color:#7a6b51;font-size:8px;font-weight:750;letter-spacing:.06em}
+.tension-dossier-callout p{margin:5px 0 0;color:#354b3a;font-size:12px;font-weight:650;line-height:1.6;white-space:pre-wrap}
+.tension-dossier-review-meta{display:flex;flex-wrap:wrap;gap:8px 18px;padding:9px 10px;border:1px solid #e5ebe4;border-radius:6px;color:#6e7c70;font-size:9px}
+.tension-dossier-scripture-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tension-dossier-scripture-card{display:grid;align-content:start;gap:6px;min-width:0;padding:12px;border:1px solid #dfe7df;border-radius:8px;background:#fafbf9}
+.tension-dossier-scripture-card>small{color:#7b877d;font-size:8px;font-weight:750;letter-spacing:.06em}
+.tension-dossier-scripture-card h3{margin:0;color:#31503b;font-size:13px}
+.tension-dossier-scripture-card p{margin:0;color:#526257;font-size:10px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-evidence-list{display:grid;gap:9px}
+.tension-dossier-evidence-card{display:grid;gap:6px;padding:11px;border:1px solid #e0e8df;border-radius:8px;background:#fff;break-inside:avoid;page-break-inside:avoid}
+.tension-dossier-evidence-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.tension-dossier-evidence-top>div{display:grid;gap:4px}
+.tension-dossier-evidence-top small{color:#78857b;font-size:8px;font-weight:750;letter-spacing:.04em}
+.tension-dossier-evidence-top h3{margin:0;color:#31503b;font-size:12px}
+.tension-dossier-evidence-top>span{padding:4px 7px;border:1px solid #e0e8df;border-radius:99px;background:#f6f8f5;color:#607064;font-size:8px;text-transform:capitalize}
+.tension-dossier-evidence-card>p{margin:0;color:#526257;font-size:10px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-evidence-meta{display:flex;gap:5px 12px;flex-wrap:wrap;color:#78857b;font-size:8px}
+.tension-dossier-evidence-meta span{overflow-wrap:anywhere}
+.tension-dossier-source-url{font-size:9px!important;overflow-wrap:anywhere}
+.tension-dossier-conclusion{padding:13px;border:1px solid #dce6dc;border-radius:8px;background:#f8faf7}
+.tension-dossier-history{display:grid;gap:10px}
+.tension-dossier-history-entry{display:grid;gap:6px;padding:11px;border:1px solid #dfe7df;border-radius:8px;background:#fff;break-inside:avoid;page-break-inside:avoid}
+.tension-dossier-history-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:7px;border-bottom:1px solid #edf1ec}
+.tension-dossier-history-top strong{color:#35523d;font-size:10px;text-transform:capitalize}
+.tension-dossier-history-top time{color:#7c897f;font-size:8px;text-align:right}
+.tension-dossier-history-entry>p{margin:0;color:#536258;font-size:9px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-history-passages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:4px}
+.tension-dossier-history-passages p{margin:0;padding:8px;border-radius:6px;background:#f7f9f6;color:#58685c;font-size:8px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.tension-dossier-history-passages b{color:#34513b}
+.tension-dossier-footer{display:grid;gap:6px;padding-top:4px;color:#68776c}
+.tension-dossier-footer>p{margin:0;font-size:9px;line-height:1.6}
+.tension-dossier-footer>p:first-child{color:#344d3a;font-size:11px}
+.tension-dossier-signoff{display:flex;gap:12px 24px;flex-wrap:wrap;margin-top:15px;padding-top:10px;border-top:1px solid #dfe7df;color:#5e6e61;font-size:9px}
+.tension-dossier-print-footer{display:none}
+@media(max-width:700px){
+ .tension-dossier-view{padding:16px 14px 30px}
+ .tension-dossier-toolbar{align-items:stretch;flex-direction:column}
+ .tension-dossier-toolbar>div{align-items:stretch;flex-direction:column}
+ .tension-dossier-toolbar .outline-button,.tension-dossier-toolbar .primary-button{width:100%;justify-content:center}
+ .tension-dossier-header h1{font-size:24px}
+ .tension-dossier-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tension-dossier-scripture-grid,.tension-dossier-history-passages{grid-template-columns:minmax(0,1fr)}
+ .tension-dossier-section-heading h2{font-size:15px}
+}
+@page{margin:16mm}
+@media print{
+ html,body,#root{background:#fff!important;color:#202820!important}
+ body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .app-shell{display:block!important;min-height:0!important;background:#fff!important}
+ .sidebar,.topbar,.tension-dossier-toolbar{display:none!important}
+ .main-area{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important}
+ .tension-dossier-view{width:100%!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important}
+ .tension-dossier-header h1{font-size:25px}
+ .tension-dossier-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .tension-dossier-section,.tension-dossier-evidence-card,.tension-dossier-history-entry,.tension-dossier-scripture-card{break-inside:avoid;page-break-inside:avoid}
+ .tension-dossier-footer{break-inside:avoid;page-break-inside:avoid}
+ .tension-dossier-print-footer{display:block;margin-top:16px;padding-top:8px;border-top:1px solid #d6ded5;color:#7b877d;font-size:8px}
+ a{color:inherit!important;text-decoration:none!important}
+}
+
+
+/* Dossier management, archive, version comparison and portable exports. */
+.dossier-management-view{width:min(100%,1440px);margin:0 auto;padding:28px 34px 48px;box-sizing:border-box}
+.dossier-management-view>.library-header{margin-bottom:18px}
+.dossier-management-view>.library-header h1{margin:5px 0 7px;color:#294536;font:400 30px 'Libre Baskerville',Georgia,serif}
+.dossier-management-view>.library-header p{max-width:760px;margin:0;color:#68766e;font-size:12px;line-height:1.65}
+.dossier-management-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.dossier-management-stats article{display:grid;gap:6px;padding:12px;border:1px solid #dfe7df;border-radius:9px;background:#fff}
+.dossier-management-stats small{color:#77857a;font-size:8px;font-weight:750;letter-spacing:.06em}
+.dossier-management-stats strong{color:#294b37;font:400 23px 'Libre Baskerville',Georgia,serif;font-variant-numeric:tabular-nums}
+.dossier-management-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;align-items:end;gap:10px;padding:12px;border:1px solid #e0e7df;border-radius:9px;background:#f8faf7}
+.dossier-management-toolbar label{display:grid;gap:5px;color:#526257;font-size:10px;font-weight:700}
+.dossier-management-toolbar input{width:100%;min-width:0;box-sizing:border-box;min-height:37px;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px 10px;color:#29392f;font:11px 'DM Sans',sans-serif}
+.dossier-management-toolbar>span{padding:9px 0;color:#718075;font-size:10px}
+.dossier-management-list{display:grid;gap:10px;margin-top:14px}
+.dossier-management-card{display:grid;gap:10px;padding:14px;border:1px solid #dfe7df;border-radius:10px;background:#fff}
+.dossier-management-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.dossier-management-card-heading>div{display:grid;gap:5px;min-width:0}
+.dossier-management-card-heading .eyebrow{color:#7a887c;font-size:9px;font-weight:700;letter-spacing:.06em}
+.dossier-management-card-heading h2{margin:0;color:#294536;font-size:14px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.dossier-version-date{flex:none;color:#7d8a80;font-size:9px}
+.dossier-management-badges{display:flex;gap:5px;flex-wrap:wrap}
+.dossier-management-badges span{padding:4px 7px;border:1px solid #e0e7df;border-radius:99px;background:#f6f8f5;color:#596b5e;font-size:9px;text-transform:capitalize}
+.dossier-management-conclusion{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:0;color:#536258;font-size:11px;line-height:1.6;white-space:pre-wrap}
+.dossier-management-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:9px;border-top:1px solid #edf1ec}
+.dossier-management-card-footer>small{color:#818c83;font-size:9px}
+.dossier-management-card-footer>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dossier-management-card-footer .primary-button,.dossier-management-card-footer .outline-button{min-height:32px;padding:7px 10px;font-size:10px}
+.dossier-management-card-footer .text-button{padding:5px;font-size:10px}
+.dossier-version-comparison{display:grid;gap:12px;margin-top:20px;padding:15px;border:1px solid #dce6dc;border-radius:11px;background:#f8faf7}
+.dossier-version-comparison-heading h2{margin:4px 0;color:#294536;font:400 18px 'Libre Baskerville',Georgia,serif}
+.dossier-version-comparison-heading p{max-width:740px;margin:0;color:#6c796f;font-size:10px;line-height:1.55}
+.dossier-version-comparison-selectors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dossier-version-comparison-selectors label{display:grid;gap:5px;min-width:0;color:#526257;font-size:10px;font-weight:700}
+.dossier-version-comparison-selectors select{width:100%;min-width:0;box-sizing:border-box;min-height:38px;border:1px solid #dce5dc;border-radius:7px;background:#fff;padding:8px 10px;color:#29392f;font:11px 'DM Sans',sans-serif}
+.dossier-version-comparison-selectors select:disabled{opacity:.5}
+.dossier-version-diff{display:grid;gap:7px}
+.dossier-version-diff-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#6c796f;font-size:10px}
+.dossier-version-diff-heading strong{color:#35523d;font-size:11px}
+.dossier-version-diff-heading small{margin-left:auto;color:#79867c;font-size:9px}
+.dossier-diff-row{display:grid;grid-template-columns:minmax(145px,.55fr) repeat(2,minmax(0,1fr)) auto;gap:9px;align-items:start;padding:9px;border:1px solid #e2e9e1;border-radius:7px;background:#fff}
+.dossier-diff-row.changed{border-color:#d5c59f;background:#fffdf7}
+.dossier-diff-row>strong{color:#4c6051;font-size:10px;line-height:1.5}
+.dossier-diff-row>div{min-width:0}
+.dossier-diff-row>div small{color:#839087;font-size:8px;font-weight:700}
+.dossier-diff-row>div p{margin:4px 0 0;color:#58675d;font-size:9px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.dossier-diff-row>span{color:#728075;font-size:8px;text-align:right}
+.dossier-diff-row.changed>span{color:#8a6a35;font-weight:750}
+.dossier-version-comparison-hint{margin:0;color:#748176;font-size:10px;line-height:1.5}
+.dossier-version-archive-note,.dossier-management-storage-note{margin:0;color:#7b877d;font-size:9px;line-height:1.55}
+.dossier-management-storage-note{margin-top:15px}
+.dossier-management-notice{margin:0 0 13px;padding:8px 10px;border:1px solid #dce6dc;border-radius:7px;background:#f8faf7;color:#52665a;font-size:10px;line-height:1.5}
+.tension-dossier-toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.tension-dossier-toolbar-actions .dossier-screen-action{min-height:33px;padding:7px 10px;font-size:10px}
+@media(max-width:1000px){.dossier-management-card-footer{align-items:flex-start;flex-direction:column}.dossier-management-card-footer>div{width:100%}.dossier-management-card-footer>div .primary-button{flex:1}}
+@media(max-width:760px){
+ .dossier-management-view{padding:18px 14px 32px}
+ .dossier-management-view>.library-header h1{font-size:24px}
+ .dossier-management-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .dossier-management-stats article{padding:9px}
+ .dossier-management-stats strong{font-size:19px}
+ .dossier-management-toolbar{grid-template-columns:minmax(0,1fr) auto}
+ .dossier-management-toolbar label{grid-column:1/-1}
+ .dossier-management-toolbar>span{padding:0}
+ .dossier-management-card{padding:11px}
+ .dossier-management-card-heading{flex-direction:column;gap:4px}
+ .dossier-version-comparison{padding:10px}
+ .dossier-version-comparison-selectors{grid-template-columns:minmax(0,1fr)}
+ .dossier-diff-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}
+ .dossier-diff-row>strong{grid-column:1/-1}
+ .dossier-diff-row>span{grid-column:1/-1;text-align:left}
+ .tension-dossier-toolbar-actions{justify-content:flex-start}
+ .tension-dossier-toolbar-actions .dossier-screen-action{width:100%;justify-content:center}
+}
+@media print{
+ .dossier-management-view{display:none!important}
+ .dossier-management-notice{display:none!important}
+}
+
+
+.dossier-management-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+@media(max-width:760px){.dossier-management-header-actions{width:100%;justify-content:stretch}.dossier-management-header-actions .outline-button{flex:1;justify-content:center;white-space:normal}}

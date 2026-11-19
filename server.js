@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { removeNonConnectorEntries } = require('./mentor-response');
 const { sendAccessRequestNotification } = require('./lib/ibs-access-request-email');
+const { getStaticContentType } = require('./lib/static-content-type');
 
 function loadEnv() {
   const envPath = path.join(__dirname, '.env');
@@ -13,6 +14,7 @@ function loadEnv() {
   }
 }
 loadEnv();
+const IS_PULL_REQUEST_PREVIEW = process.env.IS_PULL_REQUEST === 'true';
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
@@ -423,6 +425,13 @@ function accessRequestPublicMessage() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  // Render PR previews may inherit production environment variables. Disable every
+  // existing API route in that environment so preview pages cannot expose live
+  // Supabase configuration, authenticate against production, run cloud sync,
+  // invoke server-managed AI, or reach admin/service-role endpoints.
+  if (IS_PULL_REQUEST_PREVIEW && url.pathname.startsWith('/api/')) {
+    return send(res, 503, { error: 'Application APIs are disabled in pull request previews. Use an isolated staging backend before enabling cloud features.' });
+  }
   if (req.method === 'GET' && url.pathname === '/api/standard-cross-references') {
     try {
       const tsv = await getStandardCrossReferenceTsv();
@@ -879,13 +888,7 @@ const server = http.createServer(async (req, res) => {
   if (!filePath.startsWith(path.resolve(__dirname) + path.sep)) return send(res, 403, { error: 'Forbidden.' });
   fs.readFile(filePath, (err, data) => {
     if (err) return send(res, 404, { error: 'Not found.' });
-    const type = filePath.endsWith('.html') ? 'text/html; charset=utf-8'
-      : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8'
-      : filePath.endsWith('.webmanifest') ? 'application/manifest+json; charset=utf-8'
-      : filePath.endsWith('.json') ? 'application/json; charset=utf-8'
-      : filePath.endsWith('.png') ? 'image/png'
-      : filePath.endsWith('.svg') ? 'image/svg+xml'
-      : 'application/octet-stream';
+    const type = getStaticContentType(filePath);
     const cacheControl = ['index.html', 'sw.js', 'manifest.webmanifest', 'cloud-sync.js'].includes(path.basename(filePath)) ? 'no-cache' : 'public, max-age=3600';
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheControl, 'X-Content-Type-Options': 'nosniff' });
     res.end(data);

@@ -209,7 +209,9 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
   assert.ok(app.includes("Archive.restoreWorkspaceArchive(window.localStorage, plan)"));
   assert.ok(app.includes("Archive.buildRestorePlan(current, archive, mode, statuses)"));
   assert.ok(archiveModule.includes("const FORMAT = 'kerygma-sermon-workspace'"));
-  assert.ok(archiveModule.includes("storage.setItem(STORAGE_KEY, nextSermons)"));
+  assert.ok(archiveModule.includes("storage.setItem(STORAGE_KEY, nextSermons)") === false);
+  assert.ok(archiveModule.includes("const PENDING_KEY = 'kerygma_pending_cloud_deletions'"));
+  assert.ok(app.includes('Archive.readRawPendingCloudDeletions(window.localStorage)'));
   assert.ok(!archiveModule.includes('localStorage.clear'));
 
   assert.ok(data.includes("target.setItem(STORAGE_KEY, JSON.stringify(rows))"));
@@ -396,7 +398,8 @@ test('workspace archive preserves every sermon field, extension data, IBS source
     }
   };
   const statuses = { [complete.id]: { claimA: 'reviewed', claimB: 'needs-research' } };
-  const archive = Archive.createWorkspaceArchive([complete], statuses, 'owner-a', '2026-11-20T08:00:00.000Z');
+  const pending = [{ sermon_id: 'deleted-1', sermon_data: { id: 'deleted-1', title: 'Deleted record' } }];
+  const archive = Archive.createWorkspaceArchive([complete], statuses, 'owner-a', '2026-11-20T08:00:00.000Z', pending, 'owner-a');
   const restored = Archive.parseWorkspaceArchive(JSON.stringify(archive));
   assert.equal(restored.sermonCount, 1);
   assert.equal(restored.ownerId, 'owner-a');
@@ -404,6 +407,8 @@ test('workspace archive preserves every sermon field, extension data, IBS source
   assert.deepEqual(restored.sermons[0].customExtension, complete.customExtension);
   assert.deepEqual(restored.sermons[0].inductiveStudySource, complete.inductiveStudySource);
   assert.deepEqual(restored.claimReviewStatuses, statuses);
+  assert.deepEqual(restored.pendingCloudDeletions, pending);
+  assert.equal(restored.pendingCloudDeletionsOwnerId, 'owner-a');
 });
 
 test('workspace archive rejects malformed data, unsupported versions and duplicate or missing sermon IDs', () => {
@@ -459,6 +464,8 @@ test('workspace restore writes only the existing sermon and claim-review keys', 
   const values = new Map([
     [Archive.STORAGE_KEY, JSON.stringify([{ id: 'existing', title: 'Existing' }])],
     [Archive.CLAIM_REVIEW_KEY, JSON.stringify({ existing: { claim: 'reviewed' } })],
+    [Archive.PENDING_KEY, JSON.stringify([{ sermon_id: 'old-deleted', sermon_data: { id: 'old-deleted' } }])],
+    [Archive.PENDING_OWNER_KEY, 'user-a'],
     ['unrelated-preference', 'keep']
   ]);
   const writes = [];
@@ -467,12 +474,16 @@ test('workspace restore writes only the existing sermon and claim-review keys', 
     setItem(key, value) { writes.push(key); values.set(key, value); },
     removeItem(key) { values.delete(key); }
   };
-  const archive = Archive.createWorkspaceArchive([{ id: 'added', title: 'Added' }], { added: { claim: 'reviewed' } }, null);
-  const plan = Archive.buildRestorePlan([{ id: 'existing', title: 'Existing' }], archive, 'skip-conflicts', { existing: { claim: 'reviewed' } });
+  const archive = Archive.createWorkspaceArchive([{ id: 'added', title: 'Added' }], { added: { claim: 'reviewed' } }, 'user-a', null,
+    [{ sermon_id: 'new-deleted', sermon_data: { id: 'new-deleted', title: 'Removed earlier' } }], 'user-a');
+  const plan = Archive.buildRestorePlan([{ id: 'existing', title: 'Existing' }], archive, 'skip-conflicts',
+    { existing: { claim: 'reviewed' } }, [{ sermon_id: 'old-deleted', sermon_data: { id: 'old-deleted' } }], 'user-a');
   assert.equal(Archive.restoreWorkspaceArchive(storage, plan), true);
-  assert.deepEqual(writes, [Archive.STORAGE_KEY, Archive.CLAIM_REVIEW_KEY]);
+  assert.deepEqual(writes, [Archive.STORAGE_KEY, Archive.CLAIM_REVIEW_KEY, Archive.PENDING_KEY, Archive.PENDING_OWNER_KEY]);
   assert.equal(JSON.parse(values.get(Archive.STORAGE_KEY)).length, 2);
   assert.deepEqual(JSON.parse(values.get(Archive.CLAIM_REVIEW_KEY)).added, { claim: 'reviewed' });
+  assert.deepEqual(JSON.parse(values.get(Archive.PENDING_KEY)).map(row => row.sermon_id), ['old-deleted', 'new-deleted']);
+  assert.equal(values.get(Archive.PENDING_OWNER_KEY), 'user-a');
   assert.equal(values.get('unrelated-preference'), 'keep');
 });
 
@@ -507,4 +518,6 @@ test('workspace archive owner information is retained and raw cache reads do not
   };
   assert.deepEqual(Archive.readRawSermonRecords(storage), raw);
   assert.equal(Archive.readOwnerId(storage), 'owner-raw');
+  assert.deepEqual(Archive.readRawPendingCloudDeletions(storage), []);
+  assert.equal(Archive.readPendingDeletionOwnerId(storage), null);
 });

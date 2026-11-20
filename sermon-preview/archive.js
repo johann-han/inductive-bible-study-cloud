@@ -10,6 +10,8 @@
   const STORAGE_KEY = 'kerygma_sermons';
   const CLAIM_REVIEW_KEY = 'kerygma_claim_review_status_v1';
   const OWNER_KEY = 'kerygma_local_owner_id';
+  const PENDING_KEY = 'kerygma_pending_cloud_deletions';
+  const PENDING_OWNER_KEY = 'kerygma_pending_cloud_deletions_owner_id';
   const MAX_SERMONS = 5000;
   const MAX_ID_LENGTH = 256;
 
@@ -53,9 +55,32 @@
     return cloneJson(value, 'Claim-review statuses');
   }
 
-  function createWorkspaceArchive(sermons, statuses, ownerId, exportedAt) {
+  function validatePendingDeletions(value, label) {
+    if (value == null) return [];
+    if (!Array.isArray(value)) throw new Error((label || 'Archive') + ' pending deletion queue must be an array.');
+    if (value.length > MAX_SERMONS) throw new Error('The archive contains too many pending deletion records.');
+    const ids = new Set();
+    return value.map((entry, index) => {
+      if (!isObject(entry)) throw new Error('The archive contains an invalid pending deletion at position ' + (index + 1) + '.');
+      const rawId = entry.sermon_id || entry.id;
+      const id = typeof rawId === 'string' ? rawId : String(rawId == null ? '' : rawId);
+      if (!id.trim() || id.length > MAX_ID_LENGTH) throw new Error('The archive contains a pending deletion without a valid sermon ID.');
+      if (ids.has(id)) throw new Error('The archive contains duplicate pending deletion ID "' + id + '".');
+      ids.add(id);
+      const safe = cloneJson(entry, 'Pending deletion "' + id + '"');
+      safe.sermon_id = id;
+      safe.sermon_data = isObject(entry.sermon_data) ? cloneJson(entry.sermon_data, 'Pending deletion data') : { id };
+      return safe;
+    });
+  }
+
+  function createWorkspaceArchive(sermons, statuses, ownerId, exportedAt, pendingDeletions, pendingDeletionOwnerId) {
     const records = validateSermons(sermons, 'Workspace backup');
     const reviewStatuses = validateStatuses(statuses, 'Workspace backup');
+    const pending = validatePendingDeletions(pendingDeletions, 'Workspace backup');
+    const pendingOwner = typeof pendingDeletionOwnerId === 'string' && pendingDeletionOwnerId.trim()
+      ? pendingDeletionOwnerId
+      : (pending.length && typeof ownerId === 'string' ? ownerId : null);
     return {
       format: FORMAT,
       version: VERSION,
@@ -64,7 +89,9 @@
       ownerId: typeof ownerId === 'string' && ownerId.trim() ? ownerId : null,
       sermonCount: records.length,
       sermons: records,
-      claimReviewStatuses: reviewStatuses
+      claimReviewStatuses: reviewStatuses,
+      pendingCloudDeletions: pending,
+      pendingCloudDeletionsOwnerId: pendingOwner
     };
   }
 
@@ -83,7 +110,10 @@
       throw new Error('The archive sermon count does not match its contents.');
     }
     const statuses = validateStatuses(parsed.claimReviewStatuses, 'Workspace archive');
+    const pending = validatePendingDeletions(parsed.pendingCloudDeletions, 'Workspace archive');
     const ownerId = typeof parsed.ownerId === 'string' && parsed.ownerId.trim() ? parsed.ownerId : null;
+    const pendingOwner = typeof parsed.pendingCloudDeletionsOwnerId === 'string' && parsed.pendingCloudDeletionsOwnerId.trim()
+      ? parsed.pendingCloudDeletionsOwnerId : (pending.length ? ownerId : null);
     return {
       format: FORMAT,
       version: VERSION,
@@ -92,7 +122,9 @@
       ownerId,
       sermonCount: sermons.length,
       sermons,
-      claimReviewStatuses: statuses
+      claimReviewStatuses: statuses,
+      pendingCloudDeletions: pending,
+      pendingCloudDeletionsOwnerId: pendingOwner
     };
   }
 
@@ -120,6 +152,26 @@
     return validateStatuses(parsed, 'Existing claim-review status store');
   }
 
+  function readRawPendingCloudDeletions(storage) {
+    if (!storage || typeof storage.getItem !== 'function') throw new Error('Browser storage is unavailable.');
+    let raw;
+    try { raw = storage.getItem(PENDING_KEY); }
+    catch (_) { throw new Error('The pending cloud-deletion queue could not be read.'); }
+    if (raw == null || raw === '') return [];
+    let parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (_) { throw new Error('The pending cloud-deletion queue contains invalid JSON.'); }
+    return validatePendingDeletions(parsed, 'Existing pending cloud-deletion queue');
+  }
+
+  function readPendingDeletionOwnerId(storage) {
+    if (!storage || typeof storage.getItem !== 'function') return null;
+    try {
+      const value = storage.getItem(PENDING_OWNER_KEY);
+      return typeof value === 'string' && value.trim() ? value : null;
+    } catch (_) { return null; }
+  }
+
   function readOwnerId(storage) {
     if (!storage || typeof storage.getItem !== 'function') return null;
     try {
@@ -128,7 +180,7 @@
     } catch (_) { return null; }
   }
 
-  function buildRestorePlan(existingRows, archiveInput, strategy, currentStatusInput) {
+  function buildRestorePlan(existingRows, archiveInput, strategy, currentStatusInput, currentPendingInput, currentPendingOwnerId) {
     const archive = parseWorkspaceArchive(archiveInput);
     const existing = validateSermons(existingRows, 'Current workspace');
     const mode = strategy === 'replace-conflicts' ? 'replace-conflicts' : 'skip-conflicts';
@@ -168,9 +220,30 @@
       }
     });
 
+    const currentPending = validatePendingDeletions(currentPendingInput || [], 'Current pending deletion queue');
+    const currentPendingIds = new Set(currentPending.map(entry => entry.sermon_id));
+    const pending = currentPending.slice();
+    archive.pendingCloudDeletions.forEach(entry => {
+      if (!currentPendingIds.has(entry.sermon_id)) {
+        currentPendingIds.add(entry.sermon_id);
+        pending.push(cloneJson(entry, 'Pending deletion "' + entry.sermon_id + '"'));
+      }
+    });
+    if (currentPending.length && archive.pendingCloudDeletions.length &&
+        currentPendingOwnerId && archive.pendingCloudDeletionsOwnerId &&
+        currentPendingOwnerId !== archive.pendingCloudDeletionsOwnerId) {
+      throw new Error('Pending deletion queues belong to different accounts. Switch to the matching account before restoring.');
+    }
+    const pendingOwner = pending.length
+      ? (currentPending.length ? (currentPendingOwnerId || archive.pendingCloudDeletionsOwnerId || archive.ownerId || null)
+        : (archive.pendingCloudDeletionsOwnerId || archive.ownerId || null))
+      : null;
+
     return {
       sermons: rows,
       claimReviewStatuses: nextStatuses,
+      pendingCloudDeletions: pending,
+      pendingCloudDeletionsOwnerId: pendingOwner,
       added,
       replaced,
       skipped,
@@ -183,38 +256,48 @@
     if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
       throw new Error('Browser storage is unavailable. No workspace data was changed.');
     }
-    if (!plan || !Array.isArray(plan.sermons) || !isObject(plan.claimReviewStatuses)) {
+    if (!plan || !Array.isArray(plan.sermons) || !isObject(plan.claimReviewStatuses) ||
+        !Array.isArray(plan.pendingCloudDeletions)) {
       throw new Error('The restore plan is invalid. No workspace data was changed.');
     }
 
-    const nextSermons = JSON.stringify(validateSermons(plan.sermons, 'Restore plan'));
-    const nextStatuses = JSON.stringify(validateStatuses(plan.claimReviewStatuses, 'Restore plan'));
-    let previousSermons;
-    let previousStatuses;
+    const writes = [
+      [STORAGE_KEY, JSON.stringify(validateSermons(plan.sermons, 'Restore plan'))],
+      [CLAIM_REVIEW_KEY, JSON.stringify(validateStatuses(plan.claimReviewStatuses, 'Restore plan'))],
+      [PENDING_KEY, JSON.stringify(validatePendingDeletions(plan.pendingCloudDeletions, 'Restore plan'))],
+      [PENDING_OWNER_KEY, plan.pendingCloudDeletions.length
+        ? String(plan.pendingCloudDeletionsOwnerId || '') : null]
+    ];
+    const snapshots = new Map();
     try {
-      previousSermons = storage.getItem(STORAGE_KEY);
-      previousStatuses = storage.getItem(CLAIM_REVIEW_KEY);
+      writes.forEach(([key]) => snapshots.set(key, storage.getItem(key)));
     } catch (_) {
       throw new Error('The current workspace could not be backed up before restore. No data was changed.');
     }
 
-    let sermonsWritten = false;
+    const written = [];
     try {
-      storage.setItem(STORAGE_KEY, nextSermons);
-      sermonsWritten = true;
-      storage.setItem(CLAIM_REVIEW_KEY, nextStatuses);
+      writes.forEach(([key, value]) => {
+        if (value === null) {
+          storage.removeItem(key);
+        } else {
+          storage.setItem(key, value);
+        }
+        written.push(key);
+      });
       return true;
     } catch (error) {
       let rollbackError = null;
-      if (sermonsWritten) {
+      for (const key of written.reverse()) {
         try {
-          if (previousSermons == null) storage.removeItem(STORAGE_KEY);
-          else storage.setItem(STORAGE_KEY, previousSermons);
+          const previous = snapshots.get(key);
+          if (previous == null) storage.removeItem(key);
+          else storage.setItem(key, previous);
         } catch (rollbackFailure) { rollbackError = rollbackFailure; }
       }
       const detail = rollbackError
-        ? ' The browser also prevented rollback of the sermon cache; use the downloaded workspace backup to recover.'
-        : ' The previous sermon cache was restored.';
+        ? ' The browser also prevented complete rollback; use the downloaded workspace backup to recover.'
+        : ' The previous workspace stores were restored.';
       throw new Error('Workspace restore failed: ' + (error && error.message ? error.message : 'Browser storage rejected the write.') + '.' + detail);
     }
   }
@@ -224,9 +307,9 @@
   }
 
   return {
-    FORMAT, VERSION, STORAGE_KEY, CLAIM_REVIEW_KEY, OWNER_KEY, MAX_SERMONS,
+    FORMAT, VERSION, STORAGE_KEY, CLAIM_REVIEW_KEY, OWNER_KEY, PENDING_KEY, PENDING_OWNER_KEY, MAX_SERMONS,
     createWorkspaceArchive, parseWorkspaceArchive, readRawSermonRecords,
-    readRawClaimReviewStatuses, readOwnerId, buildRestorePlan,
-    restoreWorkspaceArchive, countStatusGroups
+    readRawClaimReviewStatuses, readRawPendingCloudDeletions, readPendingDeletionOwnerId,
+    readOwnerId, buildRestorePlan, restoreWorkspaceArchive, countStatusGroups
   };
 });

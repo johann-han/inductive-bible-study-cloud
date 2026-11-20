@@ -1492,13 +1492,16 @@
       if (state.saveState === 'error') throw new Error('The latest edits could not be saved. Correct the storage problem before creating a backup.');
       const sermons = Archive.readRawSermonRecords(window.localStorage);
       const statuses = Archive.readRawClaimReviewStatuses(window.localStorage);
+      const pending = Archive.readRawPendingCloudDeletions(window.localStorage);
+      const pendingOwner = Archive.readPendingDeletionOwnerId(window.localStorage);
       const archive = Archive.createWorkspaceArchive(
-        sermons, statuses, Archive.readOwnerId(window.localStorage), new Date().toISOString()
+        sermons, statuses, Archive.readOwnerId(window.localStorage), new Date().toISOString(), pending, pendingOwner
       );
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       downloadJsonFile(archive, 'kerygma-workspace-backup-' + stamp + '.json');
-      window.alert('Workspace backup created. It contains ' + archive.sermonCount + ' sermon record(s) and ' +
-        Archive.countStatusGroups(archive.claimReviewStatuses) + ' claim-review status group(s).');
+      window.alert('Workspace backup created. It contains ' + archive.sermonCount + ' sermon record(s), ' +
+        Archive.countStatusGroups(archive.claimReviewStatuses) + ' claim-review status group(s), and ' +
+        archive.pendingCloudDeletions.length + ' pending cloud-deletion record(s).');
     } catch (error) {
       window.alert('Backup could not be created: ' + (error.message || 'Unknown error.'));
     }
@@ -1519,13 +1522,15 @@
       const archive = Archive.parseWorkspaceArchive(raw);
       const current = Archive.readRawSermonRecords(window.localStorage);
       const statuses = Archive.readRawClaimReviewStatuses(window.localStorage);
-      openWorkspaceRestoreConfirm(archive, current, statuses, file.name || 'workspace backup');
+      const pending = Archive.readRawPendingCloudDeletions(window.localStorage);
+      const pendingOwner = Archive.readPendingDeletionOwnerId(window.localStorage);
+      openWorkspaceRestoreConfirm(archive, current, statuses, pending, pendingOwner, file.name || 'workspace backup');
     }).catch(error => {
       window.alert('Workspace restore could not be prepared: ' + (error.message || 'Invalid archive.') + ' No local data was changed.');
     });
   }
 
-  function openWorkspaceRestoreConfirm(archive, existing, existingStatuses, fileName) {
+  function openWorkspaceRestoreConfirm(archive, existing, existingStatuses, existingPending, existingPendingOwner, fileName) {
     const modal = el('div', 'modal-backdrop');
     const dialog = el('section', 'modal-card');
     dialog.setAttribute('role', 'dialog');
@@ -1540,7 +1545,9 @@
     dialog.appendChild(el('p', 'modal-file-name', 'File: ' + fileName + ' · Archive version ' + archive.version));
 
     const ownerId = Archive.readOwnerId(window.localStorage);
-    const ownerMismatch = Boolean(archive.ownerId && ownerId && archive.ownerId !== ownerId);
+    const activeOwnerId = ownerId || existingPendingOwner;
+    const archiveOwnerId = archive.ownerId || archive.pendingCloudDeletionsOwnerId;
+    const ownerMismatch = Boolean(archiveOwnerId && activeOwnerId && archiveOwnerId !== activeOwnerId);
     const ownerNote = el('p', 'import-warning');
     ownerNote.hidden = !ownerMismatch;
     ownerNote.textContent = ownerMismatch
@@ -1549,12 +1556,13 @@
     dialog.appendChild(ownerNote);
 
     const summary = el('div', 'import-summary-grid');
-    const initialPlan = Archive.buildRestorePlan(existing, archive, 'skip-conflicts', existingStatuses);
+    const initialPlan = Archive.buildRestorePlan(existing, archive, 'skip-conflicts', existingStatuses, existingPending, existingPendingOwner);
     [
       ['Sermons in backup', archive.sermonCount],
       ['New sermon records', initialPlan.added],
       ['Matching IDs', initialPlan.skipped],
       ['Claim-review groups', Archive.countStatusGroups(archive.claimReviewStatuses)],
+      ['Pending cloud deletions', archive.pendingCloudDeletions.length],
       ['Backup created', archive.exportedAt || 'Not recorded']
     ].forEach(([label, value]) => {
       const item = el('div', 'import-stat');
@@ -1587,7 +1595,9 @@
         const mode = $('input[name="archive-restore-mode"]:checked', dialog)?.value || 'skip-conflicts';
         const current = Archive.readRawSermonRecords(window.localStorage);
         const statuses = Archive.readRawClaimReviewStatuses(window.localStorage);
-        const plan = Archive.buildRestorePlan(current, archive, mode, statuses);
+        const pending = Archive.readRawPendingCloudDeletions(window.localStorage);
+        const pendingOwner = Archive.readPendingDeletionOwnerId(window.localStorage);
+        const plan = Archive.buildRestorePlan(current, archive, mode, statuses, pending, pendingOwner);
         Archive.restoreWorkspaceArchive(window.localStorage, plan);
         state.sermons = Data.sortRecentSermons(Data.parseStoredSermons(
           Archive.readRawSermonRecords(window.localStorage)
@@ -1597,7 +1607,8 @@
         modal.remove();
         render();
         window.alert('Workspace restore completed. Added: ' + plan.added + ' · Replaced: ' + plan.replaced +
-          ' · Kept existing: ' + plan.skipped + '. No unrelated sermon records were deleted.');
+          ' · Kept existing: ' + plan.skipped + ' · Pending cloud deletions retained: ' + plan.pendingCloudDeletions.length +
+          '. No unrelated sermon records were deleted.');
       } catch (error) {
         window.alert(error.message || 'Workspace restore failed. The existing workspace was retained where possible.');
       }
@@ -1608,7 +1619,7 @@
 
     dialog.addEventListener('change', () => {
       const mode = $('input[name="archive-restore-mode"]:checked', dialog)?.value || 'skip-conflicts';
-      const plan = Archive.buildRestorePlan(existing, archive, mode, existingStatuses);
+      const plan = Archive.buildRestorePlan(existing, archive, mode, existingStatuses, existingPending, existingPendingOwner);
       collisionNote.hidden = plan.skipped === 0 && plan.replaced === 0;
       collisionNote.textContent = mode === 'replace-conflicts'
         ? plan.replaced + ' existing record(s) will be replaced. Records not included in this archive will remain unchanged.'

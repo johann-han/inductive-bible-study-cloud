@@ -176,3 +176,23 @@ Automated validation on exact PR head \`5733d879f698a65ca67fa0d6de2553b5702c4635
 - IBS and Kerygma source-aware regression checks: **174/174 passed**.
 
 This is automated/mock validation. No live Kerygma Supabase records were read or written during development. The new preview-origin sign-in, read-only preview and user-confirmed sync still require browser acceptance after the PR preview has deployed the latest head. The currently open Render preview tab was still serving an older build when checked. Production cutover remains unapproved.
+
+
+## Preview deployment verification — 2026-11-20
+
+The current Render preview now serves the explicit Account & Sync interface on the separate preview route:
+
+- Preview URL: https://inductive-bible-study-workspace-pr-191.onrender.com/sermon-preview/index.html
+- The rendered page displays the **Account & Sync** control.
+- Its initial status is **Cloud sync not connected · open Account & Sync to sign in**. The preview does not start cloud synchronisation at page load.
+- The interface presents a staged flow: preview-origin IBS sign-in, read-only cloud merge preview, then a distinct confirmation before synchronisation.
+- The top-level browser check confirms the deployed page and account entry point are present. It does **not** yet verify a real sign-in, Supabase read-only query, confirmed sync, account switch, tombstone delivery, or recovery round trip. Those remain user/browser acceptance gates.
+- The existing Current Studio link and production route remain available. No production route, schema, or live sermon record was changed.
+
+The latest verified branch head before this documentation update was `4bd7ec94ec63296bf2713a368b1407731e86bb50`. On that exact head, the three GitHub Actions workflows completed successfully:
+
+- IBS and Kerygma regression checks: **174/174 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44699864459
+- IBS CI: **254/254 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44699865350
+- IBS Regression Checks: **254/254 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44699864530
+
+PR #191 remains open, draft and unmerged. Production cutover still requires all browser acceptance gates and explicit user approval.

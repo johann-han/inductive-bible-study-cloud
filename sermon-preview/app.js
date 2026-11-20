@@ -2349,9 +2349,9 @@
         previewedUserId = previewResult.userId;
         const summary = [
           'Read-only preview · no records changed',
-          'Local preview sermons included: ' + previewResult.localSermonCount,
+          'Local sermons in this browser: ' + previewResult.localSermonCount,
           'Existing cloud sermons: ' + previewResult.cloudSermonCount,
-          'Expected merged library: ' + previewResult.mergedSermonCount
+          'Expected merged library after pending deletions: ' + previewResult.mergedSermonCount
         ];
         if (previewResult.accountSwitch) {
           summary.push('A local cache from another account will be backed up and excluded from this account’s merge (' + previewResult.previousAccountLocalSermonCount + ' sermon(s)).');
@@ -2431,9 +2431,9 @@
       }
       const confirmed = window.confirm(
         'Confirm the Kerygma cloud sync for ' + (session.user.email || '') + '?\n\n' +
-        'Read-only preview: ' + previewResult.localSermonCount + ' local sermon(s), ' +
+        'Read-only preview: ' + previewResult.localSermonCount + ' local sermon(s) before pending deletions, ' +
         previewResult.cloudSermonCount + ' existing cloud sermon(s), and ' +
-        previewResult.mergedSermonCount + ' sermon(s) after merge. ' +
+        previewResult.mergedSermonCount + ' sermon(s) after the projected merge and pending deletions. ' +
         (previewResult.accountSwitch ? 'The previous account’s local sermon and Claim Review status data will be backed up before switching. ' : '') +
         (pendingDeletes ? pendingDeletes + ' deletion tombstone(s) owned by this account will be sent: ' + pendingDeletionPreviews.map(item => item.title + ' (' + item.passage + ')').join('; ') + '. ' : '') +
         'The merged sermon records will be uploaded to the existing public.kerygma_sermons table. ' +

@@ -52,7 +52,7 @@ test('parses current Kerygma sermon records without changing their source fields
   assert.deepEqual(input[0], sample);
 });
 
-test('reads the existing browser cache without calling any storage write or delete method', () => {
+test('reads the existing browser cache without changing it', () => {
   const values = new Map([[Data.STORAGE_KEY, JSON.stringify([sample])]]);
   let reads = 0;
   let writes = 0;
@@ -67,6 +67,54 @@ test('reads the existing browser cache without calling any storage write or dele
   assert.equal(reads, 1);
   assert.equal(writes, 0);
   assert.equal(deletes, 0);
+});
+
+test('writes edited sermons only to the existing Kerygma cache key', () => {
+  const values = new Map([
+    [Data.STORAGE_KEY, JSON.stringify([sample])],
+    [Data.CLAIM_REVIEW_KEY, JSON.stringify({ 'sermon-1': { 'p1-s1-a': 'needs-research' } })],
+    ['unrelated-preference', 'keep-me']
+  ]);
+  const writes = [];
+  const deletes = [];
+  const storage = {
+    getItem(key) { return values.get(key) || null; },
+    setItem(key, value) { writes.push(key); values.set(key, value); },
+    removeItem(key) { deletes.push(key); values.delete(key); }
+  };
+  const records = Data.readLocalSermons(storage);
+  records[0].bigIdea = 'A carefully revised central claim.';
+  records[0].customExtension = { retained: true };
+  assert.equal(Data.writeLocalSermons(storage, records), true);
+  assert.deepEqual(writes, [Data.STORAGE_KEY]);
+  assert.deepEqual(deletes, []);
+  assert.equal(JSON.parse(values.get(Data.STORAGE_KEY))[0].bigIdea, 'A carefully revised central claim.');
+  assert.deepEqual(JSON.parse(values.get(Data.CLAIM_REVIEW_KEY)), { 'sermon-1': { 'p1-s1-a': 'needs-research' } });
+  assert.equal(values.get('unrelated-preference'), 'keep-me');
+});
+
+test('record normalization preserves existing extension fields and unknown sermon metadata', () => {
+  const raw = {
+    ...sample,
+    customExtension: { retained: true },
+    importMetadata: { schemaVersion: 1 },
+    inductiveStudySource: { ...sample.inductiveStudySource, extraSourceField: 'preserve' }
+  };
+  const normalized = Data.normalizeSermonForDisplay(raw);
+  assert.deepEqual(normalized.customExtension, raw.customExtension);
+  assert.deepEqual(normalized.importMetadata, raw.importMetadata);
+  assert.equal(normalized.inductiveStudySource.extraSourceField, 'preserve');
+});
+
+test('new sermon records retain the established Kerygma field contract', () => {
+  const record = Data.createSermonRecord();
+  assert.match(record.id, /^sermon-/);
+  for (const key of [
+    'title','passage','text','context','keywords','exeSubject','exeComplement','bigIdea','aim',
+    'outline','illustrations','appSeekers','appBelievers','appSuffering','manuscript'
+  ]) assert.ok(Object.hasOwn(record, key), 'missing existing Kerygma field: ' + key);
+  assert.equal(record.outline.length, 1);
+  assert.equal(record.inductiveStudySource, undefined);
 });
 
 test('malformed, missing and non-array storage returns an empty collection safely', () => {
@@ -125,7 +173,7 @@ test('recent sermon sorting uses saved update timestamps without mutating the in
   assert.deepEqual(records.map(row => row.id), ['older', 'newer']);
 });
 
-test('rebuild preview is isolated from the legacy studio and has no persistence or AI mutation path', () => {
+test('redesigned preview uses the existing local sermon cache and preserves the legacy studio route', () => {
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'sermon-preview', 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');
@@ -137,17 +185,64 @@ test('rebuild preview is isolated from the legacy studio and has no persistence 
   assert.ok(html.includes('/sermon-preview/data.js'));
   assert.ok(html.includes('/sermon-preview/app.js'));
   assert.ok(app.includes("Data.readLocalSermons(window.localStorage)"));
-  assert.ok(app.includes("'/sermon/index.html'"));
+  assert.ok(app.includes("window.open('/sermon/index.html'"));
+  assert.ok(app.includes("Data.writeLocalSermons(window.localStorage, state.sermons)"));
+  assert.ok(app.includes("fetch('/api/sermon-ai'") === false, 'AI calls should go through the shared callAI helper');
+  assert.ok(app.includes("fetch('/api/config'"));
+  assert.ok(app.includes("fetch('/api/sermon-ai'") === false);
+  assert.ok(app.includes("callAI(prompt.system, prompt.query, prompt.schema || null)"));
+  assert.ok(app.includes("callAI(systemPrompt, userQuery, null, 900)"));
+  assert.ok(app.includes("never edit, save or claim to have changed any sermon field") === false);
   assert.ok(data.includes("inductiveStudySource"));
-  assert.ok(!app.includes('localStorage.setItem'));
+  assert.ok(data.includes("target.setItem(STORAGE_KEY, JSON.stringify(rows))"));
   assert.ok(!app.includes('localStorage.removeItem'));
-  assert.ok(!app.includes('fetch('));
-  assert.ok(!data.includes('setItem('));
   assert.ok(!data.includes('removeItem('));
-  assert.ok(!data.includes('fetch('));
   assert.ok(legacy.includes('class ExpositoryStudio'));
   assert.ok(legacy.includes("localStorage.getItem('kerygma_sermons')"));
   assert.ok(server.includes("filePath.endsWith('.css') ? 'text/css; charset=utf-8'"));
+  assert.ok(server.includes("isKerygmaPreviewAsset"));
+});
+
+test('redesigned editor exposes five existing Kerygma stages, source review and protected AI workflows', () => {
+  const root = path.join(__dirname, '..');
+  const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'sermon-preview', 'styles.css'), 'utf8');
+  for (const required of [
+    'renderPassageStage','renderBigIdeaStage','renderOutlineStage','renderApplicationsStage','renderManuscriptStage',
+    'renderSourcePanel','renderEvidenceCard','handleImportFile','applyImportedPacket','exportCurrentSermon',
+    'runAIGeneration','sendGuide','sourcePromptContext'
+  ]) assert.ok(app.includes(required), 'missing redesigned workflow element: ' + required);
+  for (const required of ['Text & Exegesis','Big Idea & Proposition','Homiletical Outline','Illustrations & Application','Manuscript / Notes']) {
+    assert.ok(app.includes(required), 'missing established sermon stage: ' + required);
+  }
+  assert.ok(app.includes('supabaseClient.auth.getSession()'));
+  assert.ok(app.includes("Authorization: 'Bearer ' + token"));
+  assert.ok(app.includes('Source Inductive Study'));
+  assert.ok(app.includes('Claim-review migration is the next rebuild stage'));
+  assert.ok(css.includes('.sidebar'));
+  assert.ok(css.includes('.workflow-tabs'));
+  assert.ok(css.includes('@media(max-width:650px)'));
+});
+
+test('IBS packet import validates format, version, book, passage and all four stages before use', () => {
+  const packet = {
+    format: 'inductive-bible-study-sermon-source',
+    version: 1,
+    studyReference: { book: 'Romans', chapter: 2, display: 'Romans 2' },
+    sermonPassage: 'Romans 2:1-16',
+    translation: 'KJV',
+    sections: { observe: 'Observe note', interpret: 'Interpret note', doctrine: 'Doctrine note', discipleship: 'Discipleship note' },
+    passageOutline: { sections: [{ heading: 'Judgment', verseRange: '1-4' }] }
+  };
+  const normalized = Data.normalizeSourcePacket(packet);
+  assert.equal(normalized.sermonPassage, 'Romans 2:1-16');
+  assert.equal(normalized.sections.observe, 'Observe note');
+  assert.equal(normalized.sections.interpret, 'Interpret note');
+  assert.equal(normalized.sections.doctrine, 'Doctrine note');
+  assert.equal(normalized.sections.discipleship, 'Discipleship note');
+  assert.throws(() => Data.normalizeSourcePacket({ ...packet, version: 2 }), /version 1/i);
+  assert.throws(() => Data.normalizeSourcePacket({ ...packet, sermonPassage: 'John 1:1' }), /inside Romans 2/i);
+  assert.throws(() => Data.normalizeSourcePacket({ ...packet, sections: { observe: 'x' } }), /all four IBS study stages/i);
 });
 
 test('preview scripts parse as JavaScript and preserve the existing read-only route', () => {

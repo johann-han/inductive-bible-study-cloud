@@ -64,7 +64,18 @@ function createSupabaseMock({ session = null, rows = [], upsertError = null, que
         },
         async upsert(values, options) {
           upserts.push({ table, values, options });
-          return upsertError ? { error: upsertError } : { error: null };
+          if (upsertError) return { error: upsertError };
+          // Model Supabase's persisted upsert result so later merge logic sees
+          // the refreshed row, including a newly written deletion tombstone.
+          for (const value of values) {
+            const index = rows.findIndex(row =>
+              String(row.user_id || '') === String(value.user_id || '') &&
+              String(row.sermon_id || '') === String(value.sermon_id || '')
+            );
+            if (index >= 0) rows[index] = { ...rows[index], ...value };
+            else rows.push({ ...value });
+          }
+          return { error: null };
         }
       };
     }

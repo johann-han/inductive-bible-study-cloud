@@ -10,6 +10,7 @@ const MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
 
 export const WORKSPACE_ARCHIVE_STORES = Object.freeze({
   drafts: 'ibs-next-generation-preview-drafts-v1',
+  deletedStudies: 'ibs-next-generation-preview-deleted-studies-v1',
   scriptureMarkup: 'ibs-next-generation-preview-scripture-markup-v1',
   wordMarkup: 'ibs-next-generation-preview-word-markup-v1',
   markupColors: 'ibs-preview-markup-colors-v1',
@@ -23,6 +24,15 @@ export const WORKSPACE_ARCHIVE_STORES = Object.freeze({
 });
 
 const STORE_VALIDATORS = {
+  deletedStudies: value => Array.isArray(value) && value.length <= 10000 &&
+    value.every(item => isObject(item) && nonEmpty(item.id) && validBiblePassage(item.book, item.chapter) &&
+      typeof item.deletedAt === 'string' && Number.isFinite(Date.parse(item.deletedAt)) &&
+      hasSafeKeys(item.record) &&
+      ['observe', 'interpret', 'doctrine', 'apply'].every(stage =>
+        typeof item.record[stage] === 'string' && item.record[stage].length <= 200000) &&
+      ['observe', 'interpret', 'doctrine', 'apply'].includes(item.record.activeStage) &&
+      isNoteVersionHistory(item.record.versionHistory)) &&
+    hasUniqueIds(value) && new Set(value.map(item => item.book + '|' + item.chapter)).size === value.length,
   drafts: value => isObject(value) && Object.entries(value).every(([key, record]) => {
     const match = key.match(/^(.+)\|(\d+)$/);
     return Boolean(match && validBiblePassage(match[1], Number(match[2]))) &&
@@ -157,7 +167,7 @@ function stableStringify(value) {
 }
 function fingerprint(value) { return stableStringify(value); }
 function duplicateKey(store, item) {
-  if (['evidence', 'crossReferences', 'wordStudies'].includes(store)) return String(item.id || '');
+  if (['evidence', 'crossReferences', 'wordStudies', 'deletedStudies'].includes(store)) return String(item.id || '');
   if (store === 'dossierVersions') return String(item.id || '');
   if (['drafts', 'scriptureMarkup', 'wordMarkup', 'markupColors', 'claimSynthesis', 'doctrineReviews'].includes(store)) return String(item.key || '');
   if (store === 'theologicalTensions') return String(item.id || '');
@@ -167,9 +177,35 @@ function collectionFor(store, data) {
   if (store === 'theologicalTensions') return Object.entries(data).flatMap(([key, records]) => records.map(record => ({ key, record })));
   if (store === 'drafts') return Object.entries(data).map(([key, value]) => ({ key, value }));
   if (store === 'scriptureMarkup' || store === 'wordMarkup') return Object.entries(data).flatMap(([key, verses]) => Object.entries(verses).map(([verse, value]) => ({ key: key + ':' + verse, value })));
-  if (store === 'evidence' || store === 'crossReferences' || store === 'dossierVersions' || store === 'wordStudies') return data;
+  if (store === 'evidence' || store === 'crossReferences' || store === 'dossierVersions' || store === 'wordStudies' || store === 'deletedStudies') return data;
   if (isObject(data)) return Object.entries(data).map(([key, value]) => ({ key, value }));
   return [];
+}
+function deletedStudyPassageKey(item) {
+  return String(item && item.book || '') + '|' + Number(item && item.chapter);
+}
+function findDeletedStudyConflicts(items, item) {
+  return items.filter(prior =>
+    prior.id === item.id || deletedStudyPassageKey(prior) === deletedStudyPassageKey(item)
+  );
+}
+function findDeletedStudyConflict(items, item) {
+  return findDeletedStudyConflicts(items, item)[0] || null;
+}
+function assertUniqueDeletedStudies(items) {
+  const ids = new Set();
+  const passages = new Set();
+  for (const item of items) {
+    const passage = deletedStudyPassageKey(item);
+    if (ids.has(item.id) || passages.has(passage)) {
+      throw new TypeError(
+        'The selected Recently Deleted conflict decisions would create duplicate IDs or passage records. Revisit the Keep/Replace choices before restoring this archive.'
+      );
+    }
+    ids.add(item.id);
+    passages.add(passage);
+  }
+  return items;
 }
 function inspectStore(store, incoming, existing) {
   const valid = STORE_VALIDATORS[store](incoming);
@@ -178,7 +214,7 @@ function inspectStore(store, incoming, existing) {
   const existingItems = collectionFor(store, existing);
   const existingById = new Map();
   for (const entry of existingItems) {
-    const item = entry.record || entry;
+    const item = store === 'theologicalTensions' ? entry.record : entry;
     const id = duplicateKey(store, item);
     if (id) existingById.set(id, entry);
   }
@@ -187,11 +223,13 @@ function inspectStore(store, incoming, existing) {
   let newItems = 0;
   const conflicts = [];
   for (const entry of incomingItems) {
-    const item = entry.record || entry;
+    const item = store === 'theologicalTensions' ? entry.record : entry;
     const id = store === 'theologicalTensions' ? item.id : duplicateKey(store, item);
-    const prior = id ? existingById.get(store === 'theologicalTensions' ? id : id) : null;
+    const prior = store === 'deletedStudies'
+      ? findDeletedStudyConflict(existingItems, item)
+      : id ? existingById.get(id) : null;
     if (!prior) { newItems++; continue; }
-    const priorItem = prior.record || prior;
+    const priorItem = store === 'theologicalTensions' ? prior.record : prior;
     const identicalRecord = fingerprint(priorItem) === fingerprint(item);
     const identicalLocation = store !== 'theologicalTensions' || prior.key === entry.key;
     if (identicalRecord && identicalLocation) identical++;
@@ -199,7 +237,9 @@ function inspectStore(store, incoming, existing) {
       conflicting++;
       const description = store === 'wordStudies'
         ? item.strongsId + ' · ' + item.reference.book + ' ' + item.reference.chapter + ':' + item.reference.verse
-        : item.reference || item.title || item.issue || item.id;
+        : store === 'deletedStudies'
+          ? item.book + ' ' + item.chapter
+          : item.reference || item.title || item.issue || item.id;
       conflicts.push({ id, store, description });
     }
   }
@@ -283,6 +323,25 @@ export function planWorkspaceArchiveImport(validated, currentStores) {
 
 function mergeCollection(store, existing, incoming, decisions) {
   const output = Array.isArray(existing) ? [...existing] : [];
+  if (store === 'deletedStudies') {
+    const original = Array.isArray(existing) ? existing : [];
+    for (const item of incoming) {
+      const originalConflict = findDeletedStudyConflict(original, item);
+      if (!originalConflict) { output.push(item); continue; }
+      const decision = decisions['deletedStudies:' + item.id] || 'keep';
+      if (decision === 'keep') continue;
+      if (decision === 'replace') {
+        for (let index = output.length - 1; index >= 0; index--) {
+          if (output[index].id === item.id ||
+              deletedStudyPassageKey(output[index]) === deletedStudyPassageKey(item)) {
+            output.splice(index, 1);
+          }
+        }
+        output.push(item);
+      }
+    }
+    return assertUniqueDeletedStudies(output);
+  }
   const byId = new Map(output.map((item, index) => [duplicateKey(store, item), index]).filter(([id]) => id));
   for (const item of incoming) {
     const id = duplicateKey(store, item);
@@ -429,6 +488,48 @@ function replaceTensions(existing, incoming, decisions) {
 
 function replaceStoreWithDecisions(store, existing, incoming, decisions) {
   if (store === 'theologicalTensions') return replaceTensions(existing || {}, incoming, decisions);
+  if (store === 'deletedStudies') {
+    const output = [...incoming];
+    const keepIncomingIds = new Set();
+    const preservedExisting = new Map();
+    for (const prior of existing || []) {
+      const conflicts = incoming.filter(item =>
+        item.id === prior.id ||
+        deletedStudyPassageKey(item) === deletedStudyPassageKey(prior)
+      );
+      if (!conflicts.length) continue;
+      const choices = new Set(conflicts.map(item =>
+        decisions['deletedStudies:' + item.id] || 'keep'
+      ));
+      if (choices.size > 1) {
+        throw new TypeError(
+          'The selected Recently Deleted Keep/Replace choices conflict with one another. Use Keep for every record in this collision group or Replace for every record in it.'
+        );
+      }
+      if (choices.has('keep')) {
+        conflicts.forEach(item => keepIncomingIds.add(item.id));
+        preservedExisting.set(prior.id, prior);
+      }
+    }
+
+    for (let index = output.length - 1; index >= 0; index--) {
+      if (keepIncomingIds.has(output[index].id)) output.splice(index, 1);
+    }
+    for (const prior of preservedExisting.values()) {
+      const alreadyPresent = output.find(candidate =>
+        candidate.id === prior.id ||
+        deletedStudyPassageKey(candidate) === deletedStudyPassageKey(prior)
+      );
+      if (alreadyPresent) {
+        if (fingerprint(alreadyPresent) === fingerprint(prior)) continue;
+        throw new TypeError(
+          'The selected Recently Deleted conflict decisions would create duplicate IDs or passage records. Revisit the Keep/Replace choices before restoring this archive.'
+        );
+      }
+      output.push(prior);
+    }
+    return assertUniqueDeletedStudies(output);
+  }
   if (['evidence', 'crossReferences', 'dossierVersions', 'wordStudies'].includes(store)) {
     const output = [...incoming];
     const incomingIds = new Set(incoming.map(item => item.id));
@@ -506,7 +607,7 @@ export function applyWorkspaceArchiveImport(validated, currentStores, decisions 
     }
     if (store === 'theologicalTensions') next[store] = mergeTensions(currentStores[store] || {}, incoming, decisions);
     else if (store === 'drafts') next[store] = mergeDraftStore(currentStores[store] || {}, incoming, decisions);
-    else if (['evidence', 'crossReferences', 'dossierVersions', 'wordStudies'].includes(store)) next[store] = mergeCollection(store, currentStores[store] || [], incoming, decisions);
+    else if (['evidence', 'crossReferences', 'dossierVersions', 'wordStudies', 'deletedStudies'].includes(store)) next[store] = mergeCollection(store, currentStores[store] || [], incoming, decisions);
     else if (['scriptureMarkup', 'wordMarkup'].includes(store)) next[store] = mergePassageStore(store, currentStores[store] || {}, incoming, decisions);
     else next[store] = mergeKeyed(store, currentStores[store] || {}, incoming, decisions);
   }

@@ -151,7 +151,7 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 | Area | Current PR #188 preview status | Acceptance boundary |
 |---|---|---|
 | Study Note History | Implemented in both Active Study and Study Notes editors. Up to eight snapshots are retained per passage, automatic capture is throttled to two minutes, identical content is not duplicated, and restoration first preserves the current note state. All four stage bodies and the active stage are included. | User confirmed the History control is visible and functional in the PR #188 preview on 17 November 2026. |
-| Backup and restore | Browser-local archive version 2 supports eleven stores, including saved Word Studies. Version 1 workspace archives and legacy dossier archives remain importable. Preflight conflict decisions and transactional rollback are retained. | PR #187 to PR #188 recovery and round-trip preservation were confirmed. No cloud or production records are included. |
+| Backup and restore | Browser-local archive version 2 supports twelve stores, including saved Word Studies and Recently Deleted study records. Version 1 workspace archives and legacy dossier archives remain importable. Preflight conflict decisions and transactional rollback are retained. | PR #187 to PR #188 recovery and round-trip preservation were confirmed. No cloud or production records are included. |
 | Word Studies | A dedicated, searchable collection stores the Strong's identifier, lexical entry and senses, exact verse occurrence (including source offsets), translation, occurrence morphology, source attribution and researcher notes. Saved entries can reopen their verse and hand off the full source record to Evidence Manager. Word Studies participate in archive export/import. | User confirmed the Word Studies workflow works in the PR #188 preview on 17 November 2026. The Evidence Manager handoff is newly implemented and awaits browser acceptance. |
 | Supporting Evidence Editor | The Supporting evidence field in Evidence Manager has a dedicated Expand editor / Collapse editor control. Expanded height is viewport-relative and responsive on desktop and mobile; existing text is preserved when collapsing. | User confirmed the control works in the PR #188 preview on 17 November 2026. |
 | Storage boundary | Note history and Word Studies use preview-specific browser storage. Archive restore writes only stores present in the selected archive and keeps the existing merge/replace decisions. | Do not clear PR #188 preview site data or switch preview origins while the recovered local workspace is in use. |
@@ -170,3 +170,35 @@ The following capability increments are implemented on `feat/ibs-validated-archi
 - Browser acceptance was confirmed by the user in the PR #188 preview on 17 November 2026.
 - Implementation commit: `8a4ab256fa5184033661fdee2bc2fdc4005943d6`.
 - CI completed successfully: TypeScript check, Vite build, and 343/343 tests passed.
+
+
+### PR #190 integration — Study Library recovery (2026-11-18)
+- Recently Deleted uses a dedicated preview-only storage key. Soft deletion retains the original passage, all four study-stage notes, active stage and note-version history.
+- Restore returns a study to its original passage key and refuses to overwrite an active study at that passage. Permanent deletion remains a separately confirmed action.
+- Archive version 2 now recognises **twelve** stores. The new `deletedStudies` collection has explicit schema validation, unique record and passage identity checks, preflight conflict detection, and merge/replace/duplicate handling.
+- Import writes the trash store through the existing transactional archive storage adapter and refreshes the Recently Deleted view after a successful restore. Older v2 archives that predate the trash collection remain valid; absent stores are not written or cleared.
+- The recovery UI and archive logic remain local to the PR preview. No production, Supabase, Render deployment or `main` data is changed.
+- Automated tests cover archive export/import round-trip, note-history preservation, deleted-study conflicts and rejection of malformed or ambiguous trash records. Actual browser acceptance remains a release gate.
+
+
+### Read-only Study Library integrity audit — PR #190
+- The Study Library exposes **Run integrity check**, which audits the preview-specific active drafts and Recently Deleted stores without modifying either one.
+- The report checks raw JSON readability and root structure; canonical Bible passage keys; invalid records; repeated active or deleted passage identities; duplicate deleted-study IDs; all four note-stage fields; active-stage values; and note-version history structure.
+- Findings are classified as errors or warnings, with a recommended next action. A malformed store is reported as unreadable rather than silently normalized or reset.
+- The audit does not repair, rewrite, merge, or remove records. The report is limited to these two recovery stores and is not a certification of other research stores, archive media or external backups.
+- Automated tests cover healthy state, malformed JSON, invalid active records, duplicate deleted passages, incomplete note records, invalid note history and the unchanged-storage guarantee.
+- Branch: `feat/ibs-study-library-recovery-import`; PR: [#190](https://github.com/johann-han/inductive-bible-study-cloud/pull/190). Browser acceptance remains required before merge.
+
+### Render preview isolation — PR #190
+- The repository Blueprint config sets `previews.generation: automatic` for the IBS web service.
+- Render documents that a pull-request service preview initially copies the base service's settings, including environment variables. Therefore, previews must not assume inherited cloud credentials are isolated.
+- The server detects Render's `IS_PULL_REQUEST=true` flag and returns HTTP 503 for every `/api/*` request before any application API handler executes. This prevents preview pages from reaching the configured Supabase, admin, sync and AI API handlers.
+- `tests/preview-api-isolation.test.js` verifies that the preview guard appears before the first API route and that the production handlers remain behind the guard.
+- Preview-local Study Library and recovery operations remain browser-storage only. Do not enable cloud features in the PR preview without a separate staging backend and explicit isolation verification.
+
+### Recently Deleted archive conflict identity safeguard — PR #190
+- Archive preflight now identifies a deleted-study collision by **either** its stable record ID **or** its canonical Bible book/chapter identity. This catches the same passage deleted at a different time (and therefore assigned a different ID), as well as a reused ID pointing to a different passage.
+- Merge and Replace decisions apply to the incoming record ID, but the resulting collection is checked for both unique IDs and unique passage identities before it can be written.
+- When one incoming study collides with multiple local records, Keep preserves all matching local records once and Replace adopts the archive record. Incompatible mixed choices within the same collision group fail closed with an actionable error. No storage write is performed during preflight or import planning.
+- Regression tests cover same-passage/different-ID collisions, same-ID/different-passage collisions, preserving a shared conflict exactly once, compatible replacement decisions, and rejection of incompatible decisions.
+- Latest verified code commit: `6fad09a58382befb6dd95db9940146cbf30f884f`; CI run [#44353813102](https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44353813102) passed with 361/361 Node tests, TypeScript and Vite build. Documentation is current on the PR head.

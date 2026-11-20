@@ -57,6 +57,16 @@
 .preview-study-card h2{font:400 22px 'Libre Baskerville',Georgia,serif;color:#26392e;margin:10px 0 5px}
 .preview-study-progress{margin:0;color:#718076;font-size:12px}
 .preview-study-excerpt{max-width:760px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:12px 0 10px;color:#65746a;font-size:13px}
+.preview-study-search-match{margin:0 0 10px;color:#55745e;font-size:11px;line-height:1.5}
+.preview-study-search-match strong{font-weight:700;color:#355b43}
+.preview-study-search-excerpts{display:grid;gap:4px;margin:-5px 0 10px;max-width:760px}
+.preview-study-search-excerpt{margin:0;color:#66756b;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.preview-study-search-excerpt-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.preview-search-open-stage{display:inline-flex;align-items:center;gap:4px;flex:none;padding:2px 0;border:0;background:transparent;color:#456d51;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer}
+.preview-search-open-stage:hover{text-decoration:underline;color:#294b38}
+.preview-search-open-stage svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2}
+.preview-study-search-excerpt strong{font-weight:700;color:#52685a}
+.preview-search-highlight{background:#f4e8c8;color:#49391e;border-radius:2px;padding:0 2px}
 .preview-stage-chips{display:flex;flex-wrap:wrap;gap:6px}
 .preview-stage-chips span{border-radius:5px;background:#eff4ed;padding:4px 8px;color:#47634f;font-size:10px;font-weight:600}
 .preview-resume{flex:none}
@@ -979,7 +989,92 @@
  .evidence-detail-editor textarea#evidence-supporting-detail.evidence-supporting-detail-expanded{height:65vh;min-height:320px}
 }
 
-/* Full-workspace backup action for the PR #187 browser-local preview. */
+
+
+/* Read-only Study Library integrity report */
+.library-integrity-panel{margin:16px 0 18px;padding:15px 16px;border:1px solid #dfe6df;border-radius:10px;background:#fbfcfa}
+.library-integrity-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.library-integrity-heading strong{display:block;color:#294b38;font-size:14px}
+.library-integrity-heading p{max-width:720px;margin:4px 0 0;color:#68766e;font-size:11px;line-height:1.55}
+.library-integrity-heading button{flex-shrink:0}
+.library-integrity-report{margin-top:13px;padding-top:12px;border-top:1px solid #e5eae4}
+.library-integrity-summary{display:grid;grid-template-columns:1.25fr .7fr 1.1fr 1.3fr;gap:10px}
+.library-integrity-summary>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.library-integrity-summary .eyebrow{font-size:9px;letter-spacing:.08em;color:#849087}
+.library-integrity-summary strong{color:#32483a;font-size:13px;overflow-wrap:anywhere}
+.library-integrity-status.healthy{color:#315b43}
+.library-integrity-status.review{color:#936b20}
+.library-integrity-status.attention,.library-integrity-status.unreadable{color:#a04437}
+.library-integrity-timestamp{margin:9px 0;color:#879188;font-size:10px}
+.library-integrity-empty{margin:10px 0 0;color:#45634e;font-size:11px;line-height:1.6}
+.library-integrity-issues{display:grid;gap:8px}
+.library-integrity-issue{padding:10px 11px;border:1px solid #e8e4dc;border-radius:8px;background:#fff}
+.library-integrity-issue>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.library-integrity-issue strong{color:#455348;font-size:11px}
+.library-integrity-severity{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase}
+.library-integrity-severity.error{background:#f7e6e3;color:#963f34}
+.library-integrity-severity.warning{background:#f6f0df;color:#886820}
+.library-integrity-issue p{margin:6px 0 3px;color:#49574d;font-size:11px;line-height:1.5}
+.library-integrity-issue small{display:block;color:#778078;font-size:10px;line-height:1.5}
+.library-integrity-more,.library-integrity-caution{margin:5px 0 0;color:#805d2e;font-size:10px;line-height:1.5}
+@media(max-width:700px){
+ .library-integrity-panel{padding:12px}
+ .library-integrity-heading{align-items:stretch;flex-direction:column}
+ .library-integrity-heading button{width:100%;justify-content:center}
+ .library-integrity-summary{grid-template-columns:1fr 1fr}
+}
+
+/* Study Library recovery and Recently Deleted */
+.library-recovery-tabs{display:flex;gap:8px;margin:20px 0 14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.library-recovery-tabs button{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:8px 13px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:600 12px 'DM Sans',sans-serif;white-space:nowrap;cursor:pointer}
+.library-recovery-tabs button.active{border-bottom-color:#315b43;color:#294b38}
+.library-recovery-tabs button span{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#eef2ed;color:#53675a;font-size:10px}
+.library-recovery-tabs button:focus-visible{outline:2px solid #8aa995;outline-offset:2px}
+.library-recovery-notice{margin:12px 0;padding:10px 13px;border:1px solid #dce7dc;border-radius:8px;background:#f4f8f3;color:#315b43;font-size:12px;line-height:1.5}
+.preview-study-actions{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:8px;min-width:190px}
+.preview-study-actions button{white-space:nowrap}
+.recently-deleted-list{margin-top:10px}
+.recently-deleted-intro{margin:16px 0;padding:16px 18px;border:1px solid #e3e8df;border-radius:10px;background:#f8faf7}
+.recently-deleted-intro h2{margin:0 0 5px;color:#294b38;font-size:17px}
+.recently-deleted-intro p{margin:0;color:#68766e;font-size:12px;line-height:1.6}
+.recently-deleted-card{border-color:#e6e2dc}
+.recently-deleted-card .preview-study-meta .tag{background:#f2eee9;color:#76614f}
+.danger-button{border-color:#e6cbc4!important;color:#923f35!important}
+.danger-button:hover{background:#fff4f1!important;border-color:#d8aaa0!important}
+.library-recovery-footnote{margin:18px 0 0;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.6}
+@media(max-width:700px){
+ .library-recovery-tabs{margin:12px 0}
+ .library-recovery-tabs button{flex:1;justify-content:center;padding:7px 9px;font-size:11px}
+ .preview-study-actions{width:100%;min-width:0}
+ .preview-study-actions button{width:100%;min-height:40px;justify-content:center}
+ .recently-deleted-intro{padding:13px}
+}
+
+
+/* Observe-stage summary of structured Scripture markings */
+.observations-made-panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:18px 0;min-width:0}
+.observations-made-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px}
+.observations-made-heading .eyebrow{display:block;margin-bottom:6px}
+.observations-made-heading h3{margin:0;color:var(--ink);font-size:18px;font-family:'Libre Baskerville',Georgia,serif}
+.observations-made-heading p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+.observations-made-count{flex:0 0 auto;background:var(--sage);color:var(--green-dark);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700}
+.observations-made-empty{background:var(--soft);border:1px dashed #cbd8cd;border-radius:9px;padding:15px 16px}
+.observations-made-empty p{margin:0 0 9px;color:var(--muted);font-size:13px;line-height:1.6}
+.observations-made-empty p:first-child{color:var(--ink);font-weight:700}
+.observations-made-empty .outline-button{margin-top:5px}
+.observations-made-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.observations-made-entry{border:1px solid var(--line);border-radius:9px;padding:13px 14px;background:var(--soft)}
+.observations-made-entry-top{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.observations-made-entry-top strong{font-size:13px;color:var(--green-dark)}
+.observations-made-entry-top span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.observations-made-entry p{margin:9px 0;color:var(--ink);font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.observations-made-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.observations-made-tags span{background:#edf2ed;color:#52675a;border-radius:5px;padding:4px 7px;font-size:11px}
+.observations-made-entry .text-button{margin-top:3px}
+@media(max-width:640px){.observations-made-panel{padding:16px;margin:14px 0}.observations-made-heading{gap:10px}.observations-made-heading h3{font-size:17px}.observations-made-entry-top{align-items:flex-start;flex-direction:column;gap:4px}}
+
+
+/* Validated full-workspace backup action for the PR #190 browser-local preview. */
 .workspace-export-button{white-space:nowrap}
 .workspace-export-status{max-width:280px;color:#52675a;font-size:11px;line-height:1.35}
 @media(max-width:900px){

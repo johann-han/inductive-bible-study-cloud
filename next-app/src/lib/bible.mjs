@@ -162,6 +162,13 @@ export function listPreviewDraftEntries(drafts) {
     const activeText = notes[activeStage] || '';
     const latestWrittenStage = writtenStages.length ? writtenStages[writtenStages.length - 1] : 'observe';
     const previewText = (activeText || notes[latestWrittenStage] || '').trim();
+    const searchTextByStage = {
+      observe: notes.observe.trim(),
+      interpret: notes.interpret.trim(),
+      doctrine: notes.doctrine.trim(),
+      apply: notes.apply.trim()
+    };
+    const searchText = Object.values(searchTextByStage).filter(Boolean).join('\n');
     const wordCount = writtenStages.reduce(function (total, stage) {
       const content = notes[stage].trim();
       return total + (content ? content.split(/\s+/).length : 0);
@@ -173,13 +180,56 @@ export function listPreviewDraftEntries(drafts) {
       writtenStages: writtenStages,
       stageCount: writtenStages.length,
       wordCount: wordCount,
-      preview: previewText.slice(0, 220)
+      preview: previewText.slice(0, 220),
+      searchText: searchText,
+      searchTextByStage: searchTextByStage
     };
-  }).filter(function (entry) {
-    return entry.stageCount > 0;
   }).sort(function (a, b) {
     return (bookOrder.get(a.book) || 0) - (bookOrder.get(b.book) || 0) || a.chapter - b.chapter;
   });
+}
+
+export function getPreviewStageSearchMatches(searchTextByStage, query, maxLength) {
+  const normalizedQuery = typeof query === 'string' ? query.trim().toLocaleLowerCase() : '';
+  if (!normalizedQuery || !searchTextByStage || typeof searchTextByStage !== 'object' || Array.isArray(searchTextByStage)) {
+    return [];
+  }
+
+  const requestedLength = Number.isFinite(maxLength) ? Math.floor(maxLength) : 180;
+  const excerptLimit = Math.max(normalizedQuery.length, Math.min(220, Math.max(80, requestedLength)));
+  return PREVIEW_STUDY_STAGES.reduce(function (matches, stage) {
+    const text = typeof searchTextByStage[stage] === 'string' ? searchTextByStage[stage] : '';
+    if (!text) return matches;
+    const matchIndex = text.toLocaleLowerCase().indexOf(normalizedQuery);
+    if (matchIndex < 0) return matches;
+
+    const matchEnd = matchIndex + normalizedQuery.length;
+    let excerptStart = Math.max(0, matchIndex - Math.floor((excerptLimit - normalizedQuery.length) / 2));
+    let excerptEnd = Math.min(text.length, excerptStart + excerptLimit);
+    if (excerptEnd < matchEnd) {
+      excerptEnd = matchEnd;
+      excerptStart = Math.max(0, excerptEnd - excerptLimit);
+    }
+
+    if (excerptStart > 0) {
+      const previousBoundary = text.lastIndexOf(' ', excerptStart);
+      if (previousBoundary >= 0 && previousBoundary < matchIndex) excerptStart = previousBoundary + 1;
+    }
+    if (excerptEnd < text.length) {
+      const nextBoundary = text.indexOf(' ', excerptEnd);
+      if (nextBoundary >= matchEnd) excerptEnd = nextBoundary;
+    }
+
+    matches.push({
+      stage: stage,
+      excerpt: text.slice(excerptStart, excerptEnd),
+      matchStart: matchIndex - excerptStart,
+      matchEnd: matchEnd - excerptStart,
+      hasLeadingEllipsis: excerptStart > 0,
+      hasTrailingEllipsis: excerptEnd < text.length
+    });
+    return matches;
+  }, []);
 }
 
 export function getPreviewWrittenStages(draft) {

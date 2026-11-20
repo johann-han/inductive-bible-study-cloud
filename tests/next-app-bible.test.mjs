@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   BIBLE_BOOKS,
   fetchBibleChapter,
   fetchStrongsLexicon,
   getPreviewStageEvidence,
+  getPreviewStageSearchMatches,
   getPreviewWrittenStages,
   listPreviewDraftEntries,
   summarizePreviewDraftEntries,
@@ -262,24 +264,118 @@ test('preview draft storage failures are reported rather than claimed as saved',
 });
 
 
-test('preview study library lists only non-empty draft records with active stage and progress', () => {
+test('preview study library lists every valid active draft, including empty drafts', () => {
   const entries = listPreviewDraftEntries({
     'John|1': { observe: 'The Word was with God.', interpret: 'John introduces the Word.', doctrine: '', apply: '', activeStage: 'interpret' },
     'Genesis|1': { observe: 'God created.', interpret: '', doctrine: 'God is Creator.', apply: '', activeStage: 'doctrine' },
     'Mark|1': { observe: '', interpret: '', doctrine: '', apply: '', activeStage: 'observe' },
     'Genesis|51': { observe: 'Invalid chapter', interpret: '', doctrine: '', apply: '', activeStage: 'observe' }
   });
-  assert.deepEqual(entries.map(entry => entry.book + '|' + entry.chapter), ['Genesis|1', 'John|1']);
+  assert.deepEqual(entries.map(entry => entry.book + '|' + entry.chapter), ['Genesis|1', 'Mark|1', 'John|1']);
   assert.equal(entries[0].activeStage, 'doctrine');
   assert.equal(entries[0].stageCount, 2);
   assert.equal(entries[0].wordCount, 5);
   assert.match(entries[0].preview, /God is Creator/);
-  assert.equal(entries[1].activeStage, 'interpret');
-  assert.equal(entries[1].stageCount, 2);
+  assert.equal(entries[1].activeStage, 'observe');
+  assert.equal(entries[1].stageCount, 0);
+  assert.equal(entries[1].wordCount, 0);
+  assert.equal(entries[1].preview, '');
+  assert.equal(entries[2].activeStage, 'interpret');
+  assert.equal(entries[2].stageCount, 2);
 });
 
 
-test('preview dashboard summary counts only real draft entries and written stages', () => {
+test('Study Library search index includes note text from all four stages, not only the preview excerpt', () => {
+  const [entry] = listPreviewDraftEntries({
+    'Romans|8': {
+      observe: 'Opening observation is visible in the card preview.',
+      interpret: 'Distinctive interpretive phrase searchable beyond the preview.',
+      doctrine: 'Doctrinal conclusion should also be searchable.',
+      apply: 'Concrete discipleship response should also be searchable.',
+      activeStage: 'observe'
+    }
+  });
+
+  assert.match(entry.preview, /Opening observation/);
+  assert.doesNotMatch(entry.preview, /Distinctive interpretive phrase/);
+  for (const phrase of [
+    'Opening observation',
+    'Distinctive interpretive phrase',
+    'Doctrinal conclusion',
+    'Concrete discipleship response'
+  ]) {
+    assert.ok(entry.searchText.includes(phrase), 'search index is missing: ' + phrase);
+  }
+  assert.equal(entry.searchTextByStage.observe, 'Opening observation is visible in the card preview.');
+  assert.equal(entry.searchTextByStage.interpret, 'Distinctive interpretive phrase searchable beyond the preview.');
+  assert.equal(entry.searchTextByStage.doctrine, 'Doctrinal conclusion should also be searchable.');
+  assert.equal(entry.searchTextByStage.apply, 'Concrete discipleship response should also be searchable.');
+
+  const appSource = readFileSync(new URL('../next-app/src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /entry\.searchText\.toLocaleLowerCase\(\)\.includes\(query\)/,
+    'Study Library filtering must use the complete note search index');
+  assert.match(appSource, /getPreviewStageSearchMatches\(entry\.searchTextByStage, searchQuery\)/,
+    'search result cards should derive context from the matching stage text');
+  assert.match(appSource, /preview-study-search-match/,
+    'matching stage labels should be visible on search result cards');
+  assert.match(appSource, /preview-study-search-excerpt/,
+    'search result cards should show a contextual excerpt from each matched stage');
+  assert.match(appSource, /preview-search-highlight/,
+    'the matching search phrase should be highlighted within the contextual excerpt');
+  assert.match(appSource, /const openPreviewDraftStage = \(entry: PreviewDraftEntry, targetStage: Stage\) =>/,
+    'the library should be able to open a study at a requested stage');
+  assert.match(appSource, /setStage\(targetStage\);[\s\S]*?setView\('study'\);/,
+    'direct stage navigation should open the study workspace at the requested stage');
+  assert.match(appSource, /openPreviewDraftStage\(entry, match\.stage\)/,
+    'each matching-stage excerpt should open that exact stage');
+  assert.match(appSource, /openPreviewDraftStage\(entry, entry\.activeStage\)/,
+    'the existing Resume study action should continue to use the saved active stage');
+});
+
+
+test('Study Library search results provide a contextual excerpt from each matching stage', () => {
+  const longContext = 'Earlier textual context remains available to the researcher. '.repeat(5);
+  const query = 'distinctive theological phrase';
+  const matches = getPreviewStageSearchMatches({
+    observe: 'The opening observation contains no target phrase.',
+    interpret: longContext + query + ' followed by the interpretive conclusion. ' + 'Later context remains important to the overall argument. '.repeat(3),
+    doctrine: 'A separate ' + query + ' appears in the doctrine notes.',
+    apply: 'The practical response contains no matching phrase.'
+  }, query);
+
+  assert.deepEqual(matches.map(match => match.stage), ['interpret', 'doctrine']);
+  for (const match of matches) {
+    assert.ok(match.excerpt.toLocaleLowerCase().includes(query));
+    assert.equal(match.excerpt.slice(match.matchStart, match.matchEnd).toLocaleLowerCase(), query);
+  }
+  assert.equal(matches[0].hasLeadingEllipsis, true);
+  assert.equal(matches[0].hasTrailingEllipsis, true);
+  assert.match(matches[0].excerpt, /Earlier textual context/);
+  assert.match(matches[0].excerpt, /interpretive conclusion/);
+  assert.equal(getPreviewStageSearchMatches({ observe: 'No match here.' }, 'missing phrase').length, 0);
+  assert.equal(getPreviewStageSearchMatches({ observe: 'Text only.' }, '   ').length, 0);
+});
+
+test('Study Library search excerpts are case-insensitive and preserve canonical stage order', () => {
+  const matches = getPreviewStageSearchMatches({
+    apply: 'DISCIPLESHIP response',
+    doctrine: 'A DOCTRINAL conclusion',
+    interpret: 'The INTERPRETATION develops',
+    observe: 'An OBSERVATION begins'
+  }, 'observation');
+
+  assert.deepEqual(matches.map(match => match.stage), ['observe']);
+  const allMatches = getPreviewStageSearchMatches({
+    apply: 'DISCIPLESHIP response',
+    doctrine: 'A DOCTRINAL conclusion',
+    interpret: 'The INTERPRETATION develops',
+    observe: 'An OBSERVATION begins'
+  }, 'i');
+  assert.deepEqual(allMatches.map(match => match.stage), ['observe', 'interpret', 'doctrine', 'apply']);
+});
+
+
+test('preview dashboard summary counts all active drafts but only populated stage notes', () => {
   const entries = listPreviewDraftEntries({
     'Romans|2': {
       observe: 'The audience is identified.',
@@ -299,7 +395,7 @@ test('preview dashboard summary counts only real draft entries and written stage
   });
   const summary = summarizePreviewDraftEntries(entries);
   assert.deepEqual(summary, {
-    studyCount: 2,
+    studyCount: 3,
     stageNoteCount: 4,
     wordCount: 15,
     stageCounts: { observe: 2, interpret: 1, doctrine: 1, apply: 0 }
@@ -367,6 +463,15 @@ test('saved-stage indicators are derived from non-empty notes in canonical workf
   assert.deepEqual(getPreviewWrittenStages({ observe: 12, interpret: ' ', doctrine: [], apply: '' }), []);
 });
 
+
+const nextAppSource = readFileSync(new URL('../next-app/src/App.tsx', import.meta.url), 'utf8');
+
+test('empty active drafts have a clear start state on the dashboard and in the Study Library', () => {
+  assert.match(nextAppSource, /entry\.stageCount === 0 \? 'Not started' : entry\.wordCount \+ ' words'/);
+  assert.match(nextAppSource, /entry\.stageCount === 0 \? 'No notes yet · Begin in Observe'/);
+  assert.match(nextAppSource, /entry\.preview \|\| 'This passage is saved as a draft, but no study notes have been recorded yet\.'/);
+  assert.match(nextAppSource, /entry\.stageCount === 0 \? 'Start study' : 'Resume study'/);
+});
 
 test('preview draft persistence retains validated note history with the four stage bodies', () => {
   const values = new Map();

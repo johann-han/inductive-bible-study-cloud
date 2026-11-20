@@ -60,6 +60,19 @@ test('reads and writes the dedicated browser storage key', () => {
   assert.deepEqual(readWordStudies(storage), [record()]);
 });
 
+test('does not report success when a malformed record would be silently discarded', () => {
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, value); }
+  };
+  assert.equal(writeWordStudies([record()], storage), true);
+  const before = values.get(WORD_STUDIES_STORAGE_KEY);
+  assert.equal(writeWordStudies([record({ language: '' })], storage), false);
+  assert.equal(values.get(WORD_STUDIES_STORAGE_KEY), before);
+  assert.deepEqual(readWordStudies(storage), [record()]);
+});
+
 test('malformed local JSON is treated as an empty collection', () => {
   const storage = { getItem() { return '{'; } };
   assert.deepEqual(readWordStudies(storage), []);

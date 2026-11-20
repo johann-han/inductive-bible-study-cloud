@@ -2366,6 +2366,18 @@
           el('p', 'cloud-account-preview-title', 'CLOUD MERGE PREVIEW'),
           ...summary.map((line, index) => el('p', index === 0 ? 'cloud-account-preview-note' : 'cloud-account-preview-line', line))
         );
+        if (previewResult.localSermonPreviews.length) {
+          previewDetails.appendChild(el('p', 'cloud-account-preview-title', 'LOCAL SERMONS IN THIS BROWSER'));
+          const localList = el('ul', 'cloud-account-preview-list');
+          previewResult.localSermonPreviews.forEach(item => {
+            const identity = item.sermonId ? ' · Record ' + item.sermonId : '';
+            localList.appendChild(el('li', '', item.title + ' · ' + item.passage + identity));
+          });
+          previewDetails.appendChild(localList);
+        } else if (!previewResult.accountSwitch) {
+          previewDetails.appendChild(el('p', 'cloud-account-preview-line', 'No local sermons are stored in this preview browser.'));
+        }
+
         if (previewResult.cloudSermonPreviews.length) {
           const list = el('ul', 'cloud-account-preview-list');
           previewResult.cloudSermonPreviews.forEach(item => {
@@ -2380,13 +2392,40 @@
         }
 
         if (previewResult.pendingDeletesForThisAccount) {
-          previewDetails.appendChild(el('p', 'cloud-account-preview-title', 'PENDING DELETIONS THAT WILL BE SENT'));
+          previewDetails.appendChild(el('p', 'cloud-account-preview-title', 'PENDING DELETION REVIEW'));
           const deletionList = el('ul', 'cloud-account-preview-list');
           (previewResult.pendingDeletionPreviews || []).forEach(item => {
             const identity = item.sermonId ? ' · Record ' + item.sermonId : '';
             const matchState = ' · Matches local: ' + (item.matchesLocalSermon ? 'Yes' : 'No') +
-              ' · Matches cloud: ' + (item.matchesCloudSermon ? 'Yes' : 'No');
-            deletionList.appendChild(el('li', '', item.title + ' · ' + item.passage + identity + matchState));
+              ' · Matches active cloud sermon: ' + (item.matchesCloudSermon ? 'Yes' : 'No') +
+              ' · Exists in cloud table: ' + (item.matchesCloudRecord ? 'Yes' : 'No');
+            const entry = el('li', '', item.title + ' · ' + item.passage + identity + matchState);
+            if (item.alreadyDeletedInCloud) {
+              entry.appendChild(el('p', 'cloud-account-preview-line', 'This record is already marked as deleted in the cloud.'));
+            }
+            if (!item.matchesLocalSermon && !item.matchesCloudRecord) {
+              entry.appendChild(el('p', 'cloud-account-preview-line', 'UNMATCHED DELETION: no sermon with this record ID exists in the local library or the cloud table. Sync is blocked to prevent creating an orphaned deletion marker.'));
+              if (item.sermonId) {
+                const clearRequest = makeButton('Remove obsolete deletion request', 'outline-button cloud-account-action', () => {
+                  const confirmed = window.confirm(
+                    'Remove this unmatched deletion request from the Kerygma preview’s local pending queue?\n\n' +
+                    'This removes only the pending deletion metadata for ' + item.title + '. It does not delete, change or upload any sermon record.'
+                  );
+                  if (!confirmed) return;
+                  if (!cloudAdapter.cancelCloudDeletion(item.sermonId)) {
+                    status.textContent = 'The obsolete deletion request could not be removed from local storage. No sermon records were changed.';
+                    return;
+                  }
+                  previewResult = null;
+                  previewedUserId = '';
+                  previewDetails.hidden = true;
+                  syncButton.hidden = true;
+                  status.textContent = 'The unmatched deletion request was removed from this preview’s local pending queue. No sermon records were changed. Refresh the read-only preview to recalculate the merge.';
+                });
+                entry.appendChild(clearRequest);
+              }
+            }
+            deletionList.appendChild(entry);
           });
           if ((previewResult.pendingDeletionPreviews || []).length !== previewResult.pendingDeletesForThisAccount) {
             deletionList.appendChild(el('li', '', 'Some deletion targets could not be identified. Sync is blocked until the preview is refreshed.'));
@@ -2395,9 +2434,15 @@
         }
         previewDetails.hidden = false;
         syncButton.hidden = false;
-        syncButton.disabled = false;
-        syncButton.textContent = 'Confirm and sync sermons';
-        status.textContent = 'Review the merge summary. No sermon records have been written or changed yet.';
+        const hasUnmatchedDeletion = previewResult.unmatchedPendingDeletionCount > 0 ||
+          (previewResult.pendingDeletionPreviews || []).length !== previewResult.pendingDeletesForThisAccount;
+        syncButton.disabled = hasUnmatchedDeletion;
+        syncButton.textContent = hasUnmatchedDeletion
+          ? 'Sync blocked — review unmatched deletions'
+          : 'Confirm and sync sermons';
+        status.textContent = hasUnmatchedDeletion
+          ? 'Cloud sync is blocked. Resolve the unmatched deletion request above, then refresh the read-only preview. No sermon records have been changed.'
+          : 'Review the merge summary. No sermon records have been written or changed yet.';
       } catch (error) {
         status.textContent = error.message || 'The read-only cloud preview failed. No sermon records were changed.';
         previewDetails.hidden = true;
@@ -2426,6 +2471,11 @@
       }
       const pendingDeletes = previewResult.pendingDeletesForThisAccount;
       const pendingDeletionPreviews = previewResult.pendingDeletionPreviews || [];
+      if (previewResult.unmatchedPendingDeletionCount > 0) {
+        status.textContent = 'Cloud sync is blocked because at least one pending deletion matches neither a local sermon nor a cloud record. Remove the obsolete request and refresh the read-only preview.';
+        syncButton.disabled = true;
+        return;
+      }
       if (pendingDeletes && pendingDeletionPreviews.length !== pendingDeletes) {
         status.textContent = 'The pending deletion targets could not all be identified. Refresh the read-only preview before syncing.';
         syncButton.disabled = true;
@@ -2437,7 +2487,7 @@
         previewResult.cloudSermonCount + ' existing cloud sermon(s), and ' +
         previewResult.mergedSermonCount + ' sermon(s) after the projected merge and pending deletions. ' +
         (previewResult.accountSwitch ? 'The previous account’s local sermon and Claim Review status data will be backed up before switching. ' : '') +
-        (pendingDeletes ? pendingDeletes + ' deletion tombstone(s) owned by this account will be sent: ' + pendingDeletionPreviews.map(item => item.title + ' (' + item.passage + ', local match: ' + (item.matchesLocalSermon ? 'yes' : 'no') + ', cloud match: ' + (item.matchesCloudSermon ? 'yes' : 'no') + ')').join('; ') + '. ' : '') +
+        (pendingDeletes ? pendingDeletes + ' deletion tombstone(s) owned by this account will be sent: ' + pendingDeletionPreviews.map(item => item.title + ' (' + item.passage + ', local match: ' + (item.matchesLocalSermon ? 'yes' : 'no') + ', active cloud match: ' + (item.matchesCloudSermon ? 'yes' : 'no') + ', cloud row exists: ' + (item.matchesCloudRecord ? 'yes' : 'no') + ')').join('; ') + '. ' : '') +
         'The merged sermon records will be uploaded to the existing public.kerygma_sermons table. ' +
         'This preview uses separate browser storage from the production Kerygma page and does not change the production route. Continue?'
       );

@@ -212,7 +212,7 @@ test('redesigned editor exposes five existing Kerygma stages, source review and 
     'runAIGeneration','sendGuide','sourcePromptContext'
   ]) assert.ok(app.includes(required), 'missing redesigned workflow element: ' + required);
   for (const required of ['Text & Exegesis','Big Idea & Proposition','Homiletical Outline','Illustrations & Application','Manuscript / Notes']) {
-    assert.ok(app.includes(required), 'missing established sermon stage: ' + required);
+    assert.ok(data.includes(required), 'missing established sermon stage: ' + required);
   }
   assert.ok(app.includes('supabaseClient.auth.getSession()'));
   assert.ok(app.includes("Authorization: 'Bearer ' + token"));

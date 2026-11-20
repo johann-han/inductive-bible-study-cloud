@@ -283,10 +283,7 @@ test('cloud adapter coalesces concurrent sync requests', async () => {
     kerygma_sermons: JSON.stringify([local]),
     kerygma_local_owner_id: 'user-a'
   });
-  const supabase = createSupabaseMock({
-    session: { user: { id: 'user-a' } },
-    rows: [{ sermon_id: deleted.id, sermon_data: deleted, updated_at: deleted.updated_at, deleted_at: null }]
-  });
+  const supabase = createSupabaseMock({ session: { user: { id: 'user-a' } }, rows: [] });
   let resolveSession;
   let sessionCalls = 0;
   const sessionPromise = new Promise(resolve => { resolveSession = resolve; });
@@ -612,7 +609,10 @@ test('cloud adapter retains deletion queue ownership if Supabase succeeds but lo
     }
     setItem(key, value);
   };
-  const supabase = createSupabaseMock({ session: { user: { id: 'user-a' } }, rows: [] });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a' } },
+    rows: [{ sermon_id: deleted.id, sermon_data: deleted, updated_at: deleted.updated_at, deleted_at: null }]
+  });
   const adapter = createAdapter({ storage, supabase });
 
   await assert.rejects(adapter.syncCloudSermons(), /local deletion queue could not be cleared/i);

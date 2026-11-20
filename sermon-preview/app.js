@@ -1057,20 +1057,12 @@
         sermon.inductiveStudySource || null
       );
       const row = (analysis.rows || []).find(candidate => candidate.index === Number(item.paragraphIndex));
-      const snippet = String(row?.excerpt || '').slice(0, 90);
-      const tokens = snippet.split(/\s+/).filter(Boolean).map(token => token.replace(/[.*+?^${}()|[\]\\]/g, '\\      const snippet = String(row?.excerpt || '').slice(0, 90);
-      const offset = snippet ? editor.value.indexOf(snippet) : -1;
+      const snippet = String(row?.excerpt || '').trim();
+      const firstToken = snippet.split(/\s+/)[0] || '';
+      const offset = firstToken ? editor.value.indexOf(firstToken) : -1;
       editor.focus();
       if (offset >= 0) {
-        try { editor.setSelectionRange(offset, Math.min(offset + snippet.length, editor.value.length)); } catch (_) {}
-      }
-'));
-      const matcher = tokens.length ? new RegExp(tokens.join('\\s+'), 'i') : null;
-      const match = matcher ? matcher.exec(editor.value) : null;
-      const offset = match ? match.index : -1;
-      editor.focus();
-      if (offset >= 0) {
-        try { editor.setSelectionRange(offset, Math.min(offset + match[0].length, editor.value.length)); } catch (_) {}
+        try { editor.setSelectionRange(offset, Math.min(offset + firstToken.length, editor.value.length)); } catch (_) {}
       }
     }, 0);
   }

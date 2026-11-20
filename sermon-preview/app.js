@@ -2378,6 +2378,19 @@
         } else {
           previewDetails.appendChild(el('p', 'cloud-account-preview-line', 'No existing cloud sermons were returned for this account.'));
         }
+
+        if (previewResult.pendingDeletesForThisAccount) {
+          previewDetails.appendChild(el('p', 'cloud-account-preview-title', 'PENDING DELETIONS THAT WILL BE SENT'));
+          const deletionList = el('ul', 'cloud-account-preview-list');
+          (previewResult.pendingDeletionPreviews || []).forEach(item => {
+            const identity = item.sermonId ? ' · Record ' + item.sermonId : '';
+            deletionList.appendChild(el('li', '', item.title + ' · ' + item.passage + identity));
+          });
+          if ((previewResult.pendingDeletionPreviews || []).length !== previewResult.pendingDeletesForThisAccount) {
+            deletionList.appendChild(el('li', '', 'Some deletion targets could not be identified. Sync is blocked until the preview is refreshed.'));
+          }
+          previewDetails.appendChild(deletionList);
+        }
         previewDetails.hidden = false;
         syncButton.hidden = false;
         syncButton.disabled = false;
@@ -2410,13 +2423,19 @@
         return;
       }
       const pendingDeletes = previewResult.pendingDeletesForThisAccount;
+      const pendingDeletionPreviews = previewResult.pendingDeletionPreviews || [];
+      if (pendingDeletes && pendingDeletionPreviews.length !== pendingDeletes) {
+        status.textContent = 'The pending deletion targets could not all be identified. Refresh the read-only preview before syncing.';
+        syncButton.disabled = true;
+        return;
+      }
       const confirmed = window.confirm(
         'Confirm the Kerygma cloud sync for ' + (session.user.email || '') + '?\n\n' +
         'Read-only preview: ' + previewResult.localSermonCount + ' local sermon(s), ' +
         previewResult.cloudSermonCount + ' existing cloud sermon(s), and ' +
         previewResult.mergedSermonCount + ' sermon(s) after merge. ' +
         (previewResult.accountSwitch ? 'The previous account’s local sermon and Claim Review status data will be backed up before switching. ' : '') +
-        (pendingDeletes ? pendingDeletes + ' deletion tombstone(s) owned by this account will be sent. ' : '') +
+        (pendingDeletes ? pendingDeletes + ' deletion tombstone(s) owned by this account will be sent: ' + pendingDeletionPreviews.map(item => item.title + ' (' + item.passage + ')').join('; ') + '. ' : '') +
         'The merged sermon records will be uploaded to the existing public.kerygma_sermons table. ' +
         'This preview uses separate browser storage from the production Kerygma page and does not change the production route. Continue?'
       );

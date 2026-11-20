@@ -57,6 +57,8 @@
 .preview-study-card h2{font:400 22px 'Libre Baskerville',Georgia,serif;color:#26392e;margin:10px 0 5px}
 .preview-study-progress{margin:0;color:#718076;font-size:12px}
 .preview-study-excerpt{max-width:760px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:12px 0 10px;color:#65746a;font-size:13px}
+.preview-study-search-match{margin:0 0 10px;color:#55745e;font-size:11px;line-height:1.5}
+.preview-study-search-match strong{font-weight:700;color:#355b43}
 .preview-stage-chips{display:flex;flex-wrap:wrap;gap:6px}
 .preview-stage-chips span{border-radius:5px;background:#eff4ed;padding:4px 8px;color:#47634f;font-size:10px;font-weight:600}
 .preview-resume{flex:none}

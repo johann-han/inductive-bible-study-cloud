@@ -398,3 +398,93 @@ test('cloud adapter does not merge local records when the user-scoped cloud quer
   assert.equal(adapter.cloudSyncReady, false);
   assert.ok(supabase.calls.some(call => call.method === 'eq' && call.column === 'user_id' && call.value === 'user-a'));
 });
+
+
+test('cloud adapter stops account switching when the previous owner backup cannot be written', async () => {
+  const previous = sermon('backup-protected-a', 'Previous account data');
+  const next = sermon('backup-protected-b', 'New account data');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([previous]),
+    kerygma_local_owner_id: 'user-a'
+  });
+  const setItem = storage.setItem.bind(storage);
+  storage.setItem = (key, value) => {
+    if (key === 'kerygma_sermons_backup_user-a') throw new Error('quota exceeded');
+    setItem(key, value);
+  };
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-b' } },
+    rows: [{
+      sermon_id: next.id,
+      sermon_data: next,
+      updated_at: next.updated_at,
+      deleted_at: null
+    }]
+  });
+  let changed = 0;
+  const adapter = createAdapter({
+    storage, supabase, sermons: [previous],
+    onChange: () => { changed += 1; }
+  });
+
+  await assert.rejects(adapter.syncCloudSermons(), /Could not back up the previous account/i);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_sermons')), [previous]);
+  assert.equal(storage.getItem('kerygma_local_owner_id'), 'user-a');
+  assert.equal(changed, 0);
+  assert.equal(supabase.upserts.length, 0);
+  assert.equal(adapter.cloudSyncReady, false);
+});
+
+test('cloud adapter retains the prior local cache when the merged cache cannot be written', async () => {
+  const local = sermon('cache-write-protected', 'Keep the existing local cache');
+  const cloud = sermon('cache-write-new', 'Cloud record');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([local]),
+    kerygma_local_owner_id: 'user-a'
+  });
+  const setItem = storage.setItem.bind(storage);
+  storage.setItem = (key, value) => {
+    if (key === 'kerygma_sermons') throw new Error('quota exceeded');
+    setItem(key, value);
+  };
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a' } },
+    rows: [{ sermon_id: cloud.id, sermon_data: cloud, updated_at: cloud.updated_at, deleted_at: null }]
+  });
+  let changed = 0;
+  const adapter = createAdapter({ storage, supabase, sermons: [local], onChange: () => { changed += 1; } });
+
+  await assert.rejects(adapter.syncCloudSermons(), /Could not save the merged Kerygma sermon cache/i);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_sermons')), [local]);
+  assert.equal(storage.getItem('kerygma_local_owner_id'), 'user-a');
+  assert.equal(changed, 0);
+  assert.equal(supabase.upserts.length, 0);
+  assert.equal(adapter.cloudSyncReady, false);
+});
+
+test('cloud adapter rolls back the sermon cache if the account-owner marker cannot be saved', async () => {
+  const local = sermon('owner-write-local', 'Prior local record');
+  const cloud = sermon('owner-write-cloud', 'Cloud record');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([local]),
+    kerygma_local_owner_id: 'user-a'
+  });
+  const setItem = storage.setItem.bind(storage);
+  storage.setItem = (key, value) => {
+    if (key === 'kerygma_local_owner_id') throw new Error('quota exceeded');
+    setItem(key, value);
+  };
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a' } },
+    rows: [{ sermon_id: cloud.id, sermon_data: cloud, updated_at: cloud.updated_at, deleted_at: null }]
+  });
+  let changed = 0;
+  const adapter = createAdapter({ storage, supabase, sermons: [local], onChange: () => { changed += 1; } });
+
+  await assert.rejects(adapter.syncCloudSermons(), /account-owner marker/i);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_sermons')), [local]);
+  assert.equal(storage.getItem('kerygma_local_owner_id'), 'user-a');
+  assert.equal(changed, 0);
+  assert.equal(supabase.upserts.length, 0);
+  assert.equal(adapter.cloudSyncReady, false);
+});

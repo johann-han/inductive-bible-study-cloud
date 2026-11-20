@@ -241,9 +241,10 @@
         const storedOwnerId = this.readStorage(OWNER_KEY) || this.localSermonOwnerId || '';
         let localSermonsForMerge = this.getSermons();
         if (storedOwnerId && storedOwnerId !== userId) {
-          try {
-            this.writeStorage('kerygma_sermons_backup_' + storedOwnerId, JSON.stringify(localSermonsForMerge));
-          } catch (_) {}
+          const backupKey = 'kerygma_sermons_backup_' + storedOwnerId;
+          if (!this.writeStorage(backupKey, JSON.stringify(localSermonsForMerge))) {
+            throw new Error('Could not back up the previous account’s local sermons. Account switching has been stopped; the existing local cache was retained.');
+          }
           localSermonsForMerge = [];
         }
         const merged = this.cloudSync.mergeSermons(localSermonsForMerge, cloudResult.data || []);
@@ -251,10 +252,26 @@
         const nextCurrentId = merged.some(sermon => String(sermon.id) === String(previousCurrentId))
           ? previousCurrentId
           : (merged[0] ? merged[0].id : null);
+        const previousLocalCache = this.readStorage(SERMONS_KEY);
+        const previousOwnerMarker = this.readStorage(OWNER_KEY);
         this.isApplyingCloudData = true;
         try {
-          this.writeStorage(SERMONS_KEY, JSON.stringify(merged));
-          this.writeStorage(OWNER_KEY, userId);
+          if (!this.writeStorage(SERMONS_KEY, JSON.stringify(merged))) {
+            throw new Error('Could not save the merged Kerygma sermon cache. Existing local records were retained; cloud sync was stopped.');
+          }
+          if (!this.writeStorage(OWNER_KEY, userId)) {
+            let rollbackFailed = false;
+            if (previousLocalCache == null) this.removeStorage(SERMONS_KEY);
+            else if (!this.writeStorage(SERMONS_KEY, previousLocalCache)) rollbackFailed = true;
+            if (previousOwnerMarker == null) this.removeStorage(OWNER_KEY);
+            else if (!this.writeStorage(OWNER_KEY, previousOwnerMarker)) rollbackFailed = true;
+            throw new Error(
+              'Could not save the Kerygma account-owner marker. ' +
+              (rollbackFailed
+                ? 'The previous cache rollback was incomplete; use the preserved account backup before retrying.'
+                : 'The previous local sermon cache and owner marker were restored.')
+            );
+          }
           this.localSermonOwnerId = userId;
           this.onSermonsChanged(merged, nextCurrentId);
         } finally {

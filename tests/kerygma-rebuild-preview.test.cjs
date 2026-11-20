@@ -205,6 +205,7 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
 test('redesigned editor exposes five existing Kerygma stages, source review and protected AI workflows', () => {
   const root = path.join(__dirname, '..');
   const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');
+  const data = fs.readFileSync(path.join(root, 'sermon-preview', 'data.js'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'sermon-preview', 'styles.css'), 'utf8');
   for (const required of [
     'renderPassageStage','renderBigIdeaStage','renderOutlineStage','renderApplicationsStage','renderManuscriptStage',
@@ -244,7 +245,7 @@ test('IBS packet import validates format, version, book, passage and all four st
   assert.throws(() => Data.normalizeSourcePacket({ ...packet, sections: { observe: 'x' } }), /all four IBS study stages/i);
 });
 
-test('preview scripts parse as JavaScript and preserve the existing read-only route', () => {
+test('preview scripts parse as JavaScript and preserve the existing Kerygma route', () => {
   const root = path.join(__dirname, '..');
   const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');
   const data = fs.readFileSync(path.join(root, 'sermon-preview', 'data.js'), 'utf8');

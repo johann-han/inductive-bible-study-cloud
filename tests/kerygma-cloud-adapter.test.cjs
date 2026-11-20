@@ -37,12 +37,13 @@ function sermon(id, title, updatedAt = '2026-11-20T08:00:00.000Z') {
   };
 }
 
-function createSupabaseMock({ session = null, rows = [], upsertError = null } = {}) {
+function createSupabaseMock({ session = null, rows = [], upsertError = null, queryError = null } = {}) {
+  let activeSession = session;
   const upserts = [];
   const calls = [];
   const client = {
     auth: {
-      async getSession() { return { data: { session }, error: null }; },
+      async getSession() { return { data: { session: activeSession }, error: null }; },
       onAuthStateChange() { return { data: { subscription: { unsubscribe() {} } } }; }
     },
     from(table) {
@@ -53,7 +54,7 @@ function createSupabaseMock({ session = null, rows = [], upsertError = null } = 
           return {
             async eq(column, value) {
               calls.push({ method: 'eq', table, column, value });
-              return { data: rows, error: null };
+              return { data: rows, error: queryError };
             }
           };
         },
@@ -64,7 +65,10 @@ function createSupabaseMock({ session = null, rows = [], upsertError = null } = 
       };
     }
   };
-  return { client, upserts, calls };
+  return {
+    client, upserts, calls,
+    setSession(nextSession) { activeSession = nextSession; }
+  };
 }
 
 function createAdapter({ storage, supabase, sermons = [], currentId = null, onChange, onStatus } = {}) {
@@ -271,4 +275,126 @@ test('redesigned app shares one Supabase client and keeps cloud writes disabled 
   assert.ok(html.includes('/sermon/cloud-sync.js?v=298b222'));
   assert.ok(app.includes('cloudAdapter.queueCloudDeletion(sermon)'));
   assert.ok(app.includes('cloudAdapter.cancelCloudDeletion(sermonId)'));
+});
+
+
+test('cloud adapter preserves an account A deletion queue while account B synchronises', async () => {
+  const deletedA = sermon('private-deleted-a', 'Account A deletion');
+  const cloudB = sermon('account-b-sermon', 'Account B saved sermon');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([deletedA]),
+    kerygma_local_owner_id: 'user-a',
+    kerygma_pending_cloud_deletions: JSON.stringify([{ sermon_id: deletedA.id, sermon_data: deletedA }]),
+    kerygma_pending_cloud_deletions_owner_id: 'user-a'
+  });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-b' } },
+    rows: [{
+      sermon_id: cloudB.id,
+      sermon_data: cloudB,
+      updated_at: cloudB.updated_at,
+      deleted_at: null
+    }]
+  });
+  let resulting = [];
+  const adapter = createAdapter({
+    storage, supabase, sermons: [deletedA], currentId: deletedA.id,
+    onChange: rows => { resulting = rows; }
+  });
+
+  assert.equal(await adapter.syncCloudSermons(), true);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_pending_cloud_deletions')).map(row => row.sermon_id), [deletedA.id]);
+  assert.equal(storage.getItem('kerygma_pending_cloud_deletions_owner_id'), 'user-a');
+  assert.deepEqual(resulting.map(row => row.id), [cloudB.id]);
+  assert.equal(supabase.upserts.length, 1);
+  assert.ok(supabase.upserts[0].values.every(row => row.user_id === 'user-b'));
+  assert.ok(!supabase.upserts.flatMap(call => call.values).some(row => row.sermon_id === deletedA.id));
+  assert.equal(adapter.cloudUserId, 'user-b');
+  assert.equal(adapter.cloudSyncReady, true);
+  adapter.destroy();
+});
+
+test('cloud adapter refuses to mix a new account deletion into another account pending queue', () => {
+  const oldDeletion = sermon('old-account-delete', 'Account A deletion');
+  const newDeletion = sermon('new-account-delete', 'Account B deletion');
+  const storage = storageFixture({
+    kerygma_local_owner_id: 'user-b',
+    kerygma_pending_cloud_deletions: JSON.stringify([{ sermon_id: oldDeletion.id, sermon_data: oldDeletion }]),
+    kerygma_pending_cloud_deletions_owner_id: 'user-a'
+  });
+  const adapter = createAdapter({ storage, supabase: createSupabaseMock(), sermons: [] });
+  adapter.cloudUserId = 'user-b';
+
+  assert.equal(adapter.queueCloudDeletion(newDeletion), false);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_pending_cloud_deletions')).map(row => row.sermon_id), [oldDeletion.id]);
+  assert.equal(storage.getItem('kerygma_pending_cloud_deletions_owner_id'), 'user-a');
+});
+
+test('cloud adapter retains deletion queue ownership if Supabase succeeds but local queue clearing fails', async () => {
+  const deleted = sermon('delete-after-cloud-save', 'Deletion recorded remotely');
+  const storage = storageFixture({
+    kerygma_sermons: '[]',
+    kerygma_local_owner_id: 'user-a',
+    kerygma_pending_cloud_deletions: JSON.stringify([{ sermon_id: deleted.id, sermon_data: deleted }]),
+    kerygma_pending_cloud_deletions_owner_id: 'user-a'
+  });
+  const setItem = storage.setItem.bind(storage);
+  storage.setItem = (key, value) => {
+    if (key === 'kerygma_pending_cloud_deletions' && JSON.parse(String(value)).length === 0) {
+      throw new Error('quota exceeded');
+    }
+    setItem(key, value);
+  };
+  const supabase = createSupabaseMock({ session: { user: { id: 'user-a' } }, rows: [] });
+  const adapter = createAdapter({ storage, supabase });
+
+  await assert.rejects(adapter.syncCloudSermons(), /local deletion queue could not be cleared/i);
+  assert.equal(supabase.upserts.length, 1);
+  assert.equal(supabase.upserts[0].values[0].deleted_at != null, true);
+  assert.equal(JSON.parse(storage.getItem('kerygma_pending_cloud_deletions'))[0].sermon_id, deleted.id);
+  assert.equal(storage.getItem('kerygma_pending_cloud_deletions_owner_id'), 'user-a');
+  assert.equal(adapter.pendingCloudDeletions[0].sermon_id, deleted.id);
+  assert.equal(adapter.cloudSyncReady, false);
+});
+
+test('cloud adapter reports a bounded timeout without mutating local records', async () => {
+  const local = sermon('timeout-local', 'Keep local on timeout');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([local]),
+    kerygma_local_owner_id: 'user-a'
+  });
+  const adapter = createAdapter({
+    storage,
+    supabase: createSupabaseMock({ session: { user: { id: 'user-a' } } })
+  });
+
+  await assert.rejects(
+    adapter.withCloudTimeout(new Promise(() => {}), 'Mock database request', 5),
+    /Mock database request timed out after 0 seconds/i
+  );
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_sermons')), [local]);
+  adapter.destroy();
+});
+
+test('cloud adapter does not merge local records when the user-scoped cloud query fails', async () => {
+  const local = sermon('query-error-local', 'Keep local after query error');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([local]),
+    kerygma_local_owner_id: 'user-a'
+  });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a' } },
+    queryError: new Error('RLS or network query failure')
+  });
+  let changed = 0;
+  const adapter = createAdapter({
+    storage, supabase, sermons: [local],
+    onChange: () => { changed += 1; }
+  });
+
+  await assert.rejects(adapter.syncCloudSermons(), /RLS or network query failure/);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_sermons')), [local]);
+  assert.equal(changed, 0);
+  assert.equal(adapter.cloudSyncReady, false);
+  assert.ok(supabase.calls.some(call => call.method === 'eq' && call.column === 'user_id' && call.value === 'user-a'));
 });

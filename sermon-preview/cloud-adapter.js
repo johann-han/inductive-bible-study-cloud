@@ -100,10 +100,11 @@
       if (!sermon || !sermon.id) return false;
       const id = String(sermon.id);
       const previous = this.pendingCloudDeletions.slice();
-      const priorOwner = this.readStorage(PENDING_OWNER_KEY);
+      const priorOwner = this.readStorage(PENDING_OWNER_KEY) || '';
+      const owner = this.cloudUserId || this.localSermonOwnerId || this.readStorage(OWNER_KEY) || '';
+      if (previous.length && priorOwner && owner && priorOwner !== owner) return false;
       this.pendingCloudDeletions = previous.filter(entry => String(entry.sermon_id || entry.id || '') !== id);
       this.pendingCloudDeletions.push({ sermon_id: id, sermon_data: sermon });
-      const owner = this.cloudUserId || this.localSermonOwnerId || this.readStorage(OWNER_KEY) || '';
       if (!this.writeStorage(PENDING_OWNER_KEY, owner) || !this.persistPendingCloudDeletions()) {
         this.pendingCloudDeletions = previous;
         if (priorOwner === null || priorOwner === undefined) this.removeStorage(PENDING_OWNER_KEY);
@@ -205,13 +206,12 @@
         this.setCloudSyncStatus('Synchronising sermons…', 'normal');
 
         const deletionOwnerId = this.readStorage(PENDING_OWNER_KEY) || '';
-        if (deletionOwnerId && deletionOwnerId !== userId) {
-          this.pendingCloudDeletions = [];
-          this.persistPendingCloudDeletions();
-          this.removeStorage(PENDING_OWNER_KEY);
-        }
-
-        const pendingRows = this.cloudSync.buildTombstoneRows(
+        const pendingDeletionHeldForOwner = Boolean(
+          this.pendingCloudDeletions.length && deletionOwnerId && deletionOwnerId !== userId
+        );
+        // A tombstone is scoped to the account that deleted the sermon. Never discard
+        // it or upload it under another account during an account switch.
+        const pendingRows = pendingDeletionHeldForOwner ? [] : this.cloudSync.buildTombstoneRows(
           this.pendingCloudDeletions, userId, new Date().toISOString()
         );
         if (pendingRows.length) {
@@ -219,8 +219,12 @@
             .from('kerygma_sermons')
             .upsert(pendingRows, { onConflict: 'user_id,sermon_id' });
           if (deletionResult.error) throw deletionResult.error;
+          const previousPending = this.pendingCloudDeletions.slice();
           this.pendingCloudDeletions = [];
-          this.persistPendingCloudDeletions();
+          if (!this.persistPendingCloudDeletions()) {
+            this.pendingCloudDeletions = previousPending;
+            throw new Error('Supabase recorded the deletion, but the local deletion queue could not be cleared. Keep this account selected and retry; the queued deletion has been retained safely.');
+          }
           this.removeStorage(PENDING_OWNER_KEY);
         }
 
@@ -267,7 +271,12 @@
 
         this.cloudUserId = userId;
         this.cloudSyncReady = true;
-        this.setCloudSyncStatus('Cloud synced · ' + merged.length + ' sermon(s)', 'success');
+        this.setCloudSyncStatus(
+          pendingDeletionHeldForOwner
+            ? 'Cloud synced · ' + merged.length + ' sermon(s) · deletion queue retained for its original account'
+            : 'Cloud synced · ' + merged.length + ' sermon(s)',
+          pendingDeletionHeldForOwner ? 'warning' : 'success'
+        );
         return true;
       })();
 

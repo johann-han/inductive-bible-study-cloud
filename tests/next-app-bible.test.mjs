@@ -322,6 +322,14 @@ test('Study Library search index includes note text from all four stages, not on
     'search result cards should show a contextual excerpt from each matched stage');
   assert.match(appSource, /preview-search-highlight/,
     'the matching search phrase should be highlighted within the contextual excerpt');
+  assert.match(appSource, /const openPreviewDraftStage = \(entry: PreviewDraftEntry, targetStage: Stage\) =>/,
+    'the library should be able to open a study at a requested stage');
+  assert.match(appSource, /setStage\(targetStage\);[\s\S]*?setView\('study'\);/,
+    'direct stage navigation should open the study workspace at the requested stage');
+  assert.match(appSource, /openPreviewDraftStage\(entry, match\.stage\)/,
+    'each matching-stage excerpt should open that exact stage');
+  assert.match(appSource, /openPreviewDraftStage\(entry, entry\.activeStage\)/,
+    'the existing Resume study action should continue to use the saved active stage');
 });
 
 

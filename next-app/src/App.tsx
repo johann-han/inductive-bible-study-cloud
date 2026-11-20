@@ -676,11 +676,15 @@ export default function App() {
     }
   };
 
-  const resumePreviewDraft = (entry: PreviewDraftEntry) => {
+  const openPreviewDraftStage = (entry: PreviewDraftEntry, targetStage: Stage) => {
     setBook(entry.book);
     setChapter(entry.chapter);
-    setStage(entry.activeStage);
+    setStage(targetStage);
     setView('study');
+  };
+
+  const resumePreviewDraft = (entry: PreviewDraftEntry) => {
+    openPreviewDraftStage(entry, entry.activeStage);
   };
 
   const changeChapter = (direction: number) => {
@@ -1419,14 +1423,19 @@ export default function App() {
                     <div className="preview-study-search-excerpts" aria-label="Matching note excerpts">
                       {searchMatches.map(match => {
                         const stageLabel = stages.find(item => item.id === match.stage)?.label || match.stage;
-                        return <p className="preview-study-search-excerpt" key={match.stage}>
-                          <strong>{stageLabel} excerpt:</strong>{' '}
-                          {match.hasLeadingEllipsis ? '…' : ''}
-                          {match.excerpt.slice(0, match.matchStart)}
-                          <mark className="preview-search-highlight">{match.excerpt.slice(match.matchStart, match.matchEnd)}</mark>
-                          {match.excerpt.slice(match.matchEnd)}
-                          {match.hasTrailingEllipsis ? '…' : ''}
-                        </p>;
+                        return <div className="preview-study-search-excerpt-row" key={match.stage}>
+                          <p className="preview-study-search-excerpt">
+                            <strong>{stageLabel} excerpt:</strong>{' '}
+                            {match.hasLeadingEllipsis ? '…' : ''}
+                            {match.excerpt.slice(0, match.matchStart)}
+                            <mark className="preview-search-highlight">{match.excerpt.slice(match.matchStart, match.matchEnd)}</mark>
+                            {match.excerpt.slice(match.matchEnd)}
+                            {match.hasTrailingEllipsis ? '…' : ''}
+                          </p>
+                          <button className="preview-search-open-stage" type="button" onClick={() => openPreviewDraftStage(entry, match.stage)}>
+                            Open {stageLabel} <Icon name="chevron"/>
+                          </button>
+                        </div>;
                       })}
                     </div>
                   </>}

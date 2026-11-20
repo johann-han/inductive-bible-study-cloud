@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const Data = require('../sermon-preview/data');
+const { ClaimReviewEngine } = require('../sermon-preview/claim-review');
 
 const sample = {
   id: 'sermon-1',
@@ -218,7 +219,11 @@ test('redesigned editor exposes five existing Kerygma stages, source review and 
   assert.ok(app.includes('supabaseClient.auth.getSession()'));
   assert.ok(app.includes("Authorization: 'Bearer ' + token"));
   assert.ok(app.includes('Source Inductive Study'));
-  assert.ok(app.includes('Claim-review migration is the next rebuild stage'));
+  assert.ok(app.includes('const engine = new ClaimReview.ClaimReviewEngine(state.sermons, window.localStorage)'));
+  assert.ok(app.includes('engine.buildClaimReviewQueue(100, 100)'));
+  assert.ok(app.includes('engine.saveClaimReviewStatus(item.sermonId, item.reviewKey, select.value)'));
+  assert.ok(app.includes('openClaimInManuscript(item)'));
+  assert.ok(app.includes('Claim-review migration is the next rebuild stage') === false);
   assert.ok(css.includes('.sidebar'));
   assert.ok(css.includes('.workflow-tabs'));
   assert.ok(css.includes('@media(max-width:650px)'));
@@ -245,11 +250,90 @@ test('IBS packet import validates format, version, book, passage and all four st
   assert.throws(() => Data.normalizeSourcePacket({ ...packet, sections: { observe: 'x' } }), /all four IBS study stages/i);
 });
 
+test('legacy claim extraction and sentence segmentation are retained in the redesigned workspace', () => {
+  const engine = new ClaimReviewEngine([], { getItem: () => null, setItem: () => {} });
+  const claim = engine.extractManuscriptClaimProposition('The text teaches that God judges impartially.');
+  assert.equal(claim.kind, 'claim');
+  assert.match(claim.proposition, /God judges impartially/);
+  assert.deepEqual(engine.splitManuscriptClaimSentences('Dr. Paul writes clearly. God judges impartially.'), [
+    'Dr. Paul writes clearly.',
+    'God judges impartially.'
+  ]);
+});
+
+test('claim review preserves stable keys and writes status to the existing separate store', () => {
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, value); }
+  };
+  const engine = new ClaimReviewEngine([], storage);
+  const claim = { kind: 'claim', index: 2, proposition: 'God judges impartially.' };
+  const key = engine.makeClaimReviewKey(3, claim);
+  assert.equal(key, engine.makeClaimReviewKey(3, { ...claim, proposition: ' God   judges impartially. ' }));
+  assert.equal(engine.saveClaimReviewStatus('sermon-1', key, 'needs-research'), true);
+  assert.equal(engine.getClaimReviewStatus('sermon-1', key), 'needs-research');
+  assert.equal(values.has(Data.CLAIM_REVIEW_KEY), true);
+  assert.equal(engine.saveClaimReviewStatus('sermon-1', key, 'invalid'), false);
+});
+
+test('claim review queue uses original paragraph analysis, separate statuses, and filtering', () => {
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, value); }
+  };
+  const sermon = {
+    id: 'claim-sermon-1',
+    title: 'Romans 2 — Divine Judgment',
+    passage: 'Romans 2:1-16',
+    manuscript: '# Exposition\n\n## Romans 2:1-4\nThe text teaches that God judges impartially.',
+    outline: [{ id: 1, reference: 'Romans 2:1-4', statement: 'God judges impartially', notes: 'The text states this.' }],
+    inductiveStudySource: {
+      studyReference: { book: 'Romans', chapter: 2, display: 'Romans 2' },
+      sections: { observe: 'Therefore', interpret: 'Paul addresses the judge', doctrine: 'God judges impartially', discipleship: 'Reject hypocrisy' },
+      passageOutline: { sections: [{ heading: 'The impartial judgment of God', verseRange: '1-4' }] }
+    }
+  };
+  const engine = new ClaimReviewEngine([sermon], storage);
+  const analysis = engine.analyzeManuscriptClaimParagraphs(sermon.manuscript, [
+    { index: 1, reference: 'Romans 2:1-4', statement: 'God judges impartially', notes: '' }
+  ], sermon.inductiveStudySource);
+  assert.ok(analysis.rows.length > 0);
+  const found = analysis.rows.flatMap(row => row.claims.map(claim => ({ row, claim })))
+    .find(item => item.claim.kind === 'claim');
+  assert.ok(found, 'expected one substantive candidate proposition');
+  assert.match(found.claim.proposition, /God judges impartially/);
+  const key = engine.makeClaimReviewKey(found.row.index, found.claim);
+  assert.equal(engine.saveClaimReviewStatus(sermon.id, key, 'needs-research'), true);
+  const queue = engine.buildClaimReviewQueue();
+  assert.equal(queue.items.length, 1);
+  assert.equal(queue.items[0].reviewKey, key);
+  assert.equal(queue.items[0].status, 'needs-research');
+  assert.equal(engine.filterClaimReviewQueueItems(queue.items, 'needs-research', 'Romans 2').length, 1);
+  assert.equal(engine.saveClaimReviewStatus(sermon.id, key, 'reviewed'), true);
+  const reviewedQueue = engine.buildClaimReviewQueue();
+  assert.equal(reviewedQueue.items.length, 0);
+  assert.equal(reviewedQueue.counts.reviewed, 1);
+});
+
+test('claim review reference matching retains chapter ranges and overlap semantics', () => {
+  const engine = new ClaimReviewEngine([], { getItem: () => null, setItem: () => {} });
+  assert.deepEqual(engine.parseOutlineTraceRange('Romans 2:1–4', 2), { chapter: 2, start: 1, end: 4 });
+  assert.deepEqual(engine.parseOutlineTraceRange('vv. 5-8', 2), { chapter: 2, start: 5, end: 8 });
+  assert.equal(engine.outlineTraceRangesOverlap({ chapter: 2, start: 1, end: 4 }, { chapter: 2, start: 4, end: 6 }), true);
+  assert.equal(engine.outlineTraceRangesOverlap({ chapter: 2, start: 1, end: 3 }, { chapter: 3, start: 1, end: 3 }), false);
+});
+
 test('preview scripts parse as JavaScript and preserve the existing Kerygma route', () => {
   const root = path.join(__dirname, '..');
   const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');
   const data = fs.readFileSync(path.join(root, 'sermon-preview', 'data.js'), 'utf8');
+  const claims = fs.readFileSync(path.join(root, 'sermon-preview', 'claim-review.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'sermon-preview', 'index.html'), 'utf8');
   assert.doesNotThrow(() => new vm.Script(app));
   assert.doesNotThrow(() => new vm.Script(data));
+  assert.doesNotThrow(() => new vm.Script(claims));
+  assert.ok(html.includes('/sermon-preview/claim-review.js'));
   assert.ok(fs.existsSync(path.join(root, 'sermon', 'index.html')));
 });

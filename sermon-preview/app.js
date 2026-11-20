@@ -1051,7 +1051,7 @@
       const offset = snippet ? editor.value.indexOf(snippet) : -1;
       editor.focus();
       if (offset >= 0) {
-        try { editor.setSelectionRange(offset, Math.min(offset + snippet.length, editor.value.length); } catch (_) {}
+        try { editor.setSelectionRange(offset, Math.min(offset + snippet.length, editor.value.length)); } catch (_) {}
       }
     }, 0);
   }

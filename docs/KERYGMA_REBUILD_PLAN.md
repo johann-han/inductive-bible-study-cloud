@@ -52,9 +52,10 @@ The redesigned preview now contains:
 - The five purpose-specific AI generation operations using the authenticated \`/api/sermon-ai\` service.
 - A conversation-only Kerygma Guide that receives the active stage and relevant current sermon/source context.
 - Text export with an optional separate IBS source appendix.
-- A clear warning that cloud sync, deletion and the complete claim-review queue still use the legacy studio during this transition.
+- The redesigned cross-sermon Claim Review queue, using the original proposition-analysis rules, stable review keys and the existing separate status store.
+- A clear warning that Supabase cloud sync and deletion recovery still use the legacy studio during this transition.
 
-The redesigned preview intentionally does not initialise a second Supabase client, silently sync, delete records, clear storage or migrate claim statuses. It saves edits locally to the established cache key; the legacy studio remains available for cloud synchronisation and the full claim-review queue until those workflows are migrated and tested.
+The redesigned preview saves sermon edits locally to the established cache key and the Claim Review writes only to the existing separate review-status key. It does not initialise a second cloud-sync process or delete sermon records. The legacy studio remains available for authenticated Supabase synchronisation and deletion recovery until those workflows are migrated and tested.
 
 ## Rebuild delivery stages
 
@@ -68,7 +69,7 @@ The redesigned preview intentionally does not initialise a second Supabase clien
 - Add a sermon export and a visible rollback link.
 - Test the desktop and mobile layout, every editor field, reload persistence, new-sermon creation, import conflict behavior and AI authentication.
 
-### Stage B — Full IBS research and evidence panels
+### Stage B — Full IBS research and evidence panels (implemented; browser acceptance required)
 
 - Bring the complete Source Inductive Study panel into the redesigned workspace.
 - Restore the full evidence displays for Big Idea, each homiletical point, illustration/application and manuscript.
@@ -76,13 +77,14 @@ The redesigned preview intentionally does not initialise a second Supabase clien
 - Preserve related passages, verse text, passage divisions, verse maps, personal and standard cross-reference provenance, visual markup and licensing details.
 - Keep evidence overlap as a review/navigation aid, never as an automated verdict.
 
-### Stage C — Claim-review workspace
+### Stage C — Claim-review workspace (implemented in redesigned preview; browser acceptance required)
 
-- Rebuild the cross-sermon queue with its existing search and status filters.
-- Migrate the exact paragraph/sentence proposition extraction and biblical-reference inheritance behavior, not a simpler substitute.
-- Preserve stable claim-review keys and the separate \`kerygma_claim_review_status_v1\` storage contract.
-- Retain status updates, queue counts and navigation to the exact sermon claim.
-- Prove the new queue reads/writes the same per-user status records and does not flatten review metadata into manuscripts.
+- Rebuilds the cross-sermon queue with its existing search and status filters.
+- Extracts the original paragraph/sentence proposition analysis, biblical-reference inheritance, outline/IBS division matching, and stable review keys into \`sermon-preview/claim-review.js\` without simplifying the algorithms.
+- Preserves the separate \`kerygma_claim_review_status_v1\` store and existing four status values.
+- Retains inline status updates, review counts, filtering and navigation to the manuscript paragraph.
+- Regression tests exercise proposition extraction, sentence segmentation, reference matching, stable keys, status persistence and queue filtering.
+- User/browser acceptance is still required; no statuses are migrated or reset.
 
 ### Stage D — Cloud sync and account behavior
 
@@ -122,4 +124,4 @@ The redesigned preview intentionally does not initialise a second Supabase clien
 
 ## Acceptance state
 
-Stage A is implemented in the separate preview and awaits browser acceptance. Stages B–F remain scheduled work. PR #191 is a draft, targets \`main\`, and must remain unmerged until explicit approval. The legacy Kerygma and IBS production routes remain unchanged.
+Stages A–C are implemented in the separate preview and await browser acceptance. Stage D (Supabase cloud sync and deletion recovery), Stage E (complete import/recovery/export round trips) and Stage F (cutover) remain scheduled work. PR #191 is a draft, targets \`main\`, and must remain unmerged until explicit approval. The legacy Kerygma and IBS production routes remain unchanged.

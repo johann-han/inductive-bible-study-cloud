@@ -376,7 +376,7 @@ test('redesigned PR preview requires explicit sign-in and confirmed cloud sync',
   const adapter = require('node:fs').readFileSync(require('node:path').join(root, 'sermon-preview', 'cloud-adapter.js'), 'utf8');
   assert.ok(app.includes('new Cloud.KerygmaCloudAdapter'));
   assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
-  assert.ok(app.includes('async function openCloudAccountDialog()'));
+  assert.ok(app.includes('function openCloudAccountDialog()'));
   assert.ok(app.includes('supabaseClient.auth.signInWithPassword'));
   assert.ok(app.includes('Sync the redesigned Kerygma preview with the existing cloud account'));
   assert.ok(app.includes('cloudAdapter.initializeCloudSermons()'));

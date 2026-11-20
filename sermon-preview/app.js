@@ -508,7 +508,7 @@
     content.appendChild(stageNav);
 
     const storageNotice = el('div', 'storage-notice');
-    storageNotice.textContent = 'Preview saves sermon edits to this browser’s existing sermon record. Supabase cloud sync, deletion and the full claim-review queue remain available in the current studio until those workflows are migrated.';
+    storageNotice.textContent = 'Sermon edits are saved to this browser using the existing Kerygma record format. The redesigned Claim Review uses the existing separate review-status store. Supabase cloud sync and deletion recovery remain in the current studio until their established account and tombstone workflows are migrated.';
     content.appendChild(storageNotice);
 
     if (state.aiError) content.appendChild(el('p', 'inline-error workspace-error', state.aiError));
@@ -793,11 +793,104 @@
       details.appendChild(el('p', '', text || '[No notes recorded]'));
       box.appendChild(details);
     });
-    const outlineCount = packet.passageOutline?.sections?.length || 0;
-    const mapCount = Object.keys(packet.verseMaps || {}).length;
-    const relatedCount = Array.isArray(packet.relatedPassages) ? packet.relatedPassages.length : 0;
-    box.append(el('p', 'source-evidence-counts', outlineCount + ' outline divisions · ' + mapCount + ' verse maps · ' + relatedCount + ' related passages'));
-    box.appendChild(makeButton('Review complete source packet', 'support-action', () => openSourceModal(packet)));
+
+    const sourceOutline = Array.isArray(packet.passageOutline?.sections) ? packet.passageOutline.sections : [];
+    const verseMaps = packet.verseMaps && typeof packet.verseMaps === 'object' ? Object.entries(packet.verseMaps) : [];
+    const markups = Array.isArray(packet.scriptureMarkups) ? packet.scriptureMarkups : [];
+    const personal = Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences : [];
+    const related = Array.isArray(packet.relatedPassages) ? packet.relatedPassages : [];
+    const standard = packet.standardCrossReferences && typeof packet.standardCrossReferences === 'object'
+      ? packet.standardCrossReferences : {};
+    const standardEntries = Array.isArray(standard.entries) ? standard.entries : [];
+    const selected = Array.isArray(packet.selectedVerses) ? packet.selectedVerses : [];
+    const count = sourceOutline.length + verseMaps.length + markups.length + personal.length + related.length + standardEntries.length;
+    box.appendChild(el('p', 'source-evidence-counts',
+      sourceOutline.length + ' outline divisions · ' + verseMaps.length + ' verse maps · ' +
+      markups.length + ' Scripture marks · ' + personal.length + ' personal links · ' +
+      related.length + ' related passages · ' + standardEntries.length + ' standard reference groups'));
+
+    const evidence = el('details', 'source-stage source-evidence-fold');
+    evidence.appendChild(el('summary', '', 'Supporting biblical evidence · ' + count + ' records'));
+    const evidenceBody = el('div', 'source-evidence-body');
+    const addEvidence = (label, value, emptyText) => {
+      const section = el('section', 'source-evidence-section');
+      section.appendChild(el('strong', '', label));
+      section.appendChild(el('pre', 'source-evidence-text', value || emptyText || '[No records supplied]'));
+      evidenceBody.appendChild(section);
+    };
+    const outlineText = sourceOutline.length
+      ? sourceOutline.map((row, index) => [
+          (index + 1) + '. ' + (row.heading || row.majorIdea || 'Untitled division'),
+          row.verseRange ? 'Reference: ' + row.verseRange : '',
+          row.majorIdea && row.heading ? 'Major idea: ' + row.majorIdea : '',
+          row.supportingDetails ? 'Supporting details: ' + row.supportingDetails : ''
+        ].filter(Boolean).join('\n')).join('\n\n')
+      : '';
+    addEvidence('IBS passage outline', outlineText, 'No passage outline was included in the source packet.');
+
+    const mapText = verseMaps.slice(0, 60).map(([verse, value]) => {
+      const row = value && typeof value === 'object' ? value : {};
+      const fields = Object.entries(row).map(([key, val]) => key + ': ' + (typeof val === 'string' ? val : JSON.stringify(val)));
+      return 'Verse ' + verse + '\n' + fields.join('\n');
+    }).join('\n\n');
+    addEvidence('Verse maps and word-study notes', mapText, 'No verse maps were included in the source packet.');
+
+    const markupText = markups.slice(0, 100).map((mark, index) =>
+      (index + 1) + '. ' + (mark.reference || (packet.sermonPassage || source.passage) + ':' + (mark.verse || '?')) +
+      (mark.quote ? ' — “' + mark.quote + '”' : '') + '\n' +
+      'Type: ' + (mark.type || 'Not recorded') + ' · Translation: ' + (mark.translation || 'Not recorded') +
+      (Number.isInteger(mark.start) && Number.isInteger(mark.end) ? ' · Text offsets: ' + mark.start + '–' + mark.end : '')
+    ).join('\n\n');
+    addEvidence('Scripture markup and observations', markupText, 'No Scripture markup was included in the source packet.');
+
+    const formatPoint = point => {
+      if (!point || typeof point !== 'object') return '[Reference not recorded]';
+      const book = String(point.book || '').trim();
+      const chapter = Number(point.chapter);
+      if (!book || !Number.isInteger(chapter) || chapter < 1) return '[Reference not recorded]';
+      if (point.scope === 'study' && point.verse == null) return book + ' ' + chapter + ' (whole study)';
+      const start = Number(point.startVerse ?? point.verse);
+      const end = Number(point.endVerse ?? start);
+      return book + ' ' + chapter + (Number.isInteger(start) && start > 0
+        ? ':' + start + (Number.isInteger(end) && end > start ? '–' + end : '') : '');
+    };
+    const personalText = personal.slice(0, 100).map((row, index) =>
+      (index + 1) + '. ' + formatPoint(row.source) + ' → ' + formatPoint(row.target) +
+      (row.relation ? '\nRelationship: ' + row.relation : '') +
+      (row.note ? '\nNote: ' + row.note : '')
+    ).join('\n\n');
+    addEvidence('Personal cross-references · user-created', personalText, 'No personal cross-references were included.');
+
+    const standardText = [
+      'Dataset: ' + (standard.dataset || 'Not recorded'),
+      'Licence: ' + (standard.license || 'Not recorded'),
+      'Availability: ' + (standard.available === true ? 'Available' : 'Not marked available'),
+      standard.note ? 'Source note: ' + standard.note : '',
+      ...standardEntries.slice(0, 80).map(entry => {
+        const anchors = Array.isArray(entry.anchors) ? entry.anchors : [];
+        return 'Verse ' + entry.verse + '\n' + anchors.map(anchor =>
+          (anchor.anchor || 'Reference') + ': ' + (Array.isArray(anchor.references) ? anchor.references.join('; ') : '')
+        ).join('\n');
+      })
+    ].filter(Boolean).join('\n\n');
+    addEvidence('Standard cross-references · dataset provenance', standardText, 'No standard cross-reference entries were included.');
+
+    const relatedText = related.slice(0, 60).map((item, index) => {
+      const reference = item.reference || [item.book, item.chapter].filter(Boolean).join(' ');
+      const verses = Array.isArray(item.verses) ? item.verses : [];
+      return (index + 1) + '. ' + (reference || 'Related passage') +
+        ' · ' + (item.translation || 'Unknown translation') +
+        (item.stage ? ' · Included in ' + item.stage : '') +
+        (item.relation ? '\nRelationship: ' + item.relation : '') +
+        (item.note ? '\nExplanation: ' + item.note : '') +
+        (verses.length ? '\n' + verses.map(verse => verse.number + '. ' + verse.text).join('\n') : '');
+    }).join('\n\n');
+    addEvidence('Related passages and included verse text', relatedText, 'No related passage content was included.');
+
+    addEvidence('Selected verses', selected.join('; '), 'No selected verse list was included.');
+    evidence.appendChild(evidenceBody);
+    box.appendChild(evidence);
+    box.appendChild(makeButton('Open full source review ' + icon('arrow'), 'support-action', () => openSourceModal(packet)));
     return box;
   }
 
@@ -925,7 +1018,6 @@
       ].filter(Boolean).join(' ')));
     }
     panel.appendChild(results);
-    content.appendChild(metrics);
     content.appendChild(panel);
 
     search.addEventListener('input', () => { state.claimSearch = search.value; render(); const next = $('.claim-search input'); if(next){next.focus();next.setSelectionRange(search.value.length,search.value.length);} });
@@ -943,12 +1035,24 @@
     window.setTimeout(() => {
       const editor = $('[data-field="manuscript"]');
       if (!editor) return;
-      const blocks = String(sermon.manuscript || '').split(/\n\s*\n/);
-      const targetIndex = Math.max(0, Number(item.paragraphIndex || 1) - 1);
-      let offset = 0;
-      for (let index = 0; index < targetIndex && index < blocks.length; index++) offset += blocks[index].length + 2;
+      const engine = new ClaimReview.ClaimReviewEngine(state.sermons, window.localStorage);
+      const analysis = engine.analyzeManuscriptClaimParagraphs(
+        String(sermon.manuscript || ''),
+        (Array.isArray(sermon.outline) ? sermon.outline : []).map((point, index) => ({
+          index: index + 1,
+          statement: String(point.statement || ''),
+          reference: String(point.reference || ''),
+          notes: String(point.notes || '')
+        })),
+        sermon.inductiveStudySource || null
+      );
+      const row = (analysis.rows || []).find(candidate => candidate.index === Number(item.paragraphIndex));
+      const snippet = String(row?.excerpt || '').slice(0, 90);
+      const offset = snippet ? editor.value.indexOf(snippet) : -1;
       editor.focus();
-      try { editor.setSelectionRange(Math.min(offset, editor.value.length), Math.min(offset, editor.value.length)); } catch (_) {}
+      if (offset >= 0) {
+        try { editor.setSelectionRange(offset, Math.min(offset + snippet.length, editor.value.length); } catch (_) {}
+      }
     }, 0);
   }
 
@@ -1120,8 +1224,56 @@
       details.appendChild(el('p', '', text || '[No notes recorded]'));
       dialog.appendChild(details);
     });
+    const addEvidence = (label, value, emptyText) => {
+      const details = el('details', 'source-stage source-modal-evidence');
+      details.appendChild(el('summary', '', label));
+      details.appendChild(el('pre', 'source-evidence-text', value || emptyText || '[No records supplied]'));
+      dialog.appendChild(details);
+    };
+    const outlineRows = Array.isArray(packet.passageOutline?.sections) ? packet.passageOutline.sections : [];
+    addEvidence('IBS passage outline · ' + outlineRows.length, outlineRows.map((row, index) =>
+      (index + 1) + '. ' + (row.heading || row.majorIdea || 'Untitled division') +
+      (row.verseRange ? ' (' + row.verseRange + ')' : '') +
+      (row.supportingDetails ? '\n' + row.supportingDetails : '')
+    ).join('\n\n'), 'No passage outline supplied.');
+
+    const maps = packet.verseMaps && typeof packet.verseMaps === 'object' ? Object.entries(packet.verseMaps) : [];
+    addEvidence('Verse maps and word studies · ' + maps.length, maps.map(([verse, value]) =>
+      'Verse ' + verse + '\n' + Object.entries(value || {}).map(([key, val]) => key + ': ' + (typeof val === 'string' ? val : JSON.stringify(val))).join('\n')
+    ).join('\n\n'), 'No verse maps supplied.');
+
+    const markups = Array.isArray(packet.scriptureMarkups) ? packet.scriptureMarkups : [];
+    addEvidence('Scripture markup · ' + markups.length, markups.map((mark, index) =>
+      (index + 1) + '. ' + (mark.quote || '') + ' · Verse ' + (mark.verse || '?') + ' · ' + (mark.type || 'Unclassified') + ' · ' + (mark.translation || 'Unknown translation')
+    ).join('\n'), 'No Scripture markup supplied.');
+
+    const personal = Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences : [];
+    addEvidence('Personal cross-references · ' + personal.length, personal.map((row, index) =>
+      (index + 1) + '. ' + JSON.stringify(row)
+    ).join('\n\n'), 'No personal cross-references supplied.');
+
+    const standard = packet.standardCrossReferences && typeof packet.standardCrossReferences === 'object' ? packet.standardCrossReferences : {};
+    const standardEntries = Array.isArray(standard.entries) ? standard.entries : [];
+    addEvidence('Standard cross-references · ' + standardEntries.length, [
+      'Dataset: ' + (standard.dataset || 'Not recorded'),
+      'Licence: ' + (standard.license || 'Not recorded'),
+      'Availability: ' + (standard.available === true ? 'Available' : 'Not marked available'),
+      standard.note || '',
+      ...standardEntries.map(entry => 'Verse ' + entry.verse + '\n' + (entry.anchors || []).map(anchor => (anchor.anchor || 'Reference') + ': ' + (anchor.references || []).join('; ')).join('\n'))
+    ].filter(Boolean).join('\n\n'), 'No standard cross-reference entries supplied.');
+
+    const related = Array.isArray(packet.relatedPassages) ? packet.relatedPassages : [];
+    addEvidence('Related passages · ' + related.length, related.map((item, index) =>
+      (index + 1) + '. ' + (item.reference || [item.book, item.chapter].filter(Boolean).join(' ')) +
+      ' · ' + (item.translation || 'Unknown translation') +
+      (item.relation ? '\nRelationship: ' + item.relation : '') +
+      (item.note ? '\nExplanation: ' + item.note : '') +
+      (item.verses?.length ? '\n' + item.verses.map(verse => verse.number + '. ' + verse.text).join('\n') : '')
+    ).join('\n\n'), 'No related passages supplied.');
+
+    addEvidence('Selected verses', (packet.selectedVerses || []).join('; '), 'No selected verses supplied.');
     const extra = el('div', 'source-modal-extras');
-    extra.append(el('strong', '', 'Supporting material'), el('p', '', (packet.passageOutline?.sections?.length || 0) + ' passage-outline divisions · ' + Object.keys(packet.verseMaps || {}).length + ' verse maps · ' + (packet.scriptureMarkups?.length || 0) + ' Scripture marks · ' + (packet.customCrossReferences?.length || 0) + ' personal links · ' + (packet.relatedPassages?.length || 0) + ' related passages.'));
+    extra.append(el('strong', '', 'Source and licence metadata'), el('p', '', 'Study: ' + (packet.studyReference?.display || packet.sermonPassage || 'Not recorded') + ' · Translation: ' + (packet.translation || 'Unknown') + ' · Exported: ' + (packet.exportedAt || 'Not recorded') + ' · Standard source: ' + (standard.dataset || 'Not recorded') + ' · Licence: ' + (standard.license || 'Not recorded')));
     dialog.appendChild(extra);
     modal.appendChild(dialog);
     modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });

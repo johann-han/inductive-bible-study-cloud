@@ -234,7 +234,6 @@
       recentPanel.appendChild(cards);
     }
 
-    const selected = state.sermons.find(sermon => sermon.id === state.selectedId) || filtered[0] || null;
     contentGrid.append(recentPanel, makeSelectedSermon(selected));
     main.appendChild(contentGrid);
 

@@ -396,6 +396,32 @@ test('read-only cloud preview reports merge counts without writing local or remo
   adapter.destroy();
 });
 
+test('read-only preview withholds another account deletion targets and keeps that queue untouched', async () => {
+  const deletedA = sermon('preview-deleted-a', 'Private Account A deletion');
+  const cloudB = sermon('preview-cloud-b', 'Account B cloud sermon');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([]),
+    kerygma_local_owner_id: 'user-a',
+    kerygma_pending_cloud_deletions: JSON.stringify([{ sermon_id: deletedA.id, sermon_data: deletedA }]),
+    kerygma_pending_cloud_deletions_owner_id: 'user-a'
+  });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-b', email: 'b@example.com' } },
+    rows: [{ sermon_id: cloudB.id, sermon_data: cloudB, updated_at: cloudB.updated_at, deleted_at: null }]
+  });
+  const adapter = createAdapter({ storage, supabase, sermons: [] });
+  const before = new Map(storage.values);
+
+  const preview = await adapter.previewCloudSermons();
+  assert.equal(preview.accountSwitch, true);
+  assert.equal(preview.pendingDeletesForThisAccount, 0);
+  assert.equal(preview.pendingDeletesHeldForAnotherAccount, 1);
+  assert.deepEqual(preview.pendingDeletionPreviews, []);
+  assert.deepEqual([...storage.values], [...before]);
+  assert.equal(supabase.upserts.length, 0);
+  adapter.destroy();
+});
+
 test('account switching backs up and restores separate Claim Review status stores by user', async () => {
   const localA = sermon('shared-id', 'Account A sermon');
   const cloudB = sermon('shared-id', 'Account B sermon', '2026-11-20T09:00:00.000Z');

@@ -2333,8 +2333,66 @@
     form.append(emailLabel, passwordLabel, signIn);
     dialog.appendChild(form);
 
+    let previewedUserId = '';
+    let previewResult = null;
+    const previewDetails = el('div', 'cloud-account-preview');
+    previewDetails.hidden = true;
+    dialog.appendChild(previewDetails);
+
     const controls = el('div', 'cloud-account-controls');
-    const syncButton = makeButton('Sync sermons', 'primary-button cloud-account-action', async () => {
+    const previewButton = makeButton('Preview cloud records', 'outline-button cloud-account-action', async () => {
+      previewButton.disabled = true;
+      previewButton.textContent = 'Reading cloud library…';
+      status.textContent = 'Reading your account’s cloud sermon list in read-only mode…';
+      try {
+        previewResult = await cloudAdapter.previewCloudSermons();
+        previewedUserId = previewResult.userId;
+        const summary = [
+          'Read-only preview · no records changed',
+          'Local preview sermons included: ' + previewResult.localSermonCount,
+          'Existing cloud sermons: ' + previewResult.cloudSermonCount,
+          'Expected merged library: ' + previewResult.mergedSermonCount
+        ];
+        if (previewResult.accountSwitch) {
+          summary.push('A local cache from another account will be backed up and excluded from this account’s merge (' + previewResult.previousAccountLocalSermonCount + ' sermon(s)).');
+        }
+        if (previewResult.pendingDeletesForThisAccount) {
+          summary.push('Pending deletion tombstones for this account: ' + previewResult.pendingDeletesForThisAccount);
+        }
+        if (previewResult.pendingDeletesHeldForAnotherAccount) {
+          summary.push('Deletion tombstones held for another account: ' + previewResult.pendingDeletesHeldForAnotherAccount + ' (not sent).');
+        }
+        previewDetails.replaceChildren(
+          el('p', 'cloud-account-preview-title', 'CLOUD MERGE PREVIEW'),
+          ...summary.map((line, index) => el('p', index === 0 ? 'cloud-account-preview-note' : 'cloud-account-preview-line', line))
+        );
+        if (previewResult.cloudSermonPreviews.length) {
+          const list = el('ul', 'cloud-account-preview-list');
+          previewResult.cloudSermonPreviews.forEach(item => {
+            list.appendChild(el('li', '', item.title + ' · ' + item.passage));
+          });
+          if (previewResult.cloudSermonCount > previewResult.cloudSermonPreviews.length) {
+            list.appendChild(el('li', '', (previewResult.cloudSermonCount - previewResult.cloudSermonPreviews.length) + ' more cloud sermon(s)'));
+          }
+          previewDetails.appendChild(list);
+        } else {
+          previewDetails.appendChild(el('p', 'cloud-account-preview-line', 'No existing cloud sermons were returned for this account.'));
+        }
+        previewDetails.hidden = false;
+        syncButton.hidden = false;
+        syncButton.disabled = false;
+        syncButton.textContent = 'Confirm and sync sermons';
+        status.textContent = 'Review the merge summary. No sermon records have been written or changed yet.';
+      } catch (error) {
+        status.textContent = error.message || 'The read-only cloud preview failed. No sermon records were changed.';
+        previewDetails.hidden = true;
+        syncButton.hidden = true;
+      } finally {
+        previewButton.disabled = false;
+        previewButton.textContent = 'Refresh read-only preview';
+      }
+    });
+    const syncButton = makeButton('Confirm and sync sermons', 'primary-button cloud-account-action', async () => {
       const sessionResult = await supabaseClient.auth.getSession();
       const session = sessionResult.data?.session;
       if (sessionResult.error || !session?.user?.id) {
@@ -2343,15 +2401,24 @@
         controls.hidden = true;
         return;
       }
-      const pendingCount = Array.isArray(cloudAdapter.pendingCloudDeletions) ? cloudAdapter.pendingCloudDeletions.length : 0;
-      const pendingOwner = cloudAdapter.readStorage('kerygma_pending_cloud_deletions_owner_id') || '';
-      const applicableDeletes = pendingOwner && pendingOwner !== session.user.id ? 0 : pendingCount;
+      if (!previewResult || previewedUserId !== session.user.id) {
+        status.textContent = 'The signed-in account changed or the preview is missing. Run the read-only preview again.';
+        syncButton.hidden = true;
+        previewDetails.hidden = true;
+        previewedUserId = '';
+        previewResult = null;
+        return;
+      }
+      const pendingDeletes = previewResult.pendingDeletesForThisAccount;
       const confirmed = window.confirm(
-        'Sync the redesigned Kerygma preview with the existing cloud account ' + (session.user.email || '') + '?\n\n' +
-        'This will read the saved sermons for this signed-in account, merge them with this preview’s local sermons using the existing timestamp rules, and upload the merged records to the existing public.kerygma_sermons table. ' +
-        'A previous local account cache is backed up before an account switch. ' +
-        (applicableDeletes ? applicableDeletes + ' queued deletion(s) belonging to this account will also be sent as deletion tombstones. ' : '') +
-        '\n\nThe preview uses separate browser storage from the production Kerygma page. This does not change the production route or delete any cloud records. Continue?'
+        'Confirm the Kerygma cloud sync for ' + (session.user.email || '') + '?\n\n' +
+        'Read-only preview: ' + previewResult.localSermonCount + ' local sermon(s), ' +
+        previewResult.cloudSermonCount + ' existing cloud sermon(s), and ' +
+        previewResult.mergedSermonCount + ' sermon(s) after merge. ' +
+        (previewResult.accountSwitch ? 'The previous account’s local sermon and Claim Review status data will be backed up before switching. ' : '') +
+        (pendingDeletes ? pendingDeletes + ' deletion tombstone(s) owned by this account will be sent. ' : '') +
+        'The merged sermon records will be uploaded to the existing public.kerygma_sermons table. ' +
+        'This preview uses separate browser storage from the production Kerygma page and does not change the production route. Continue?'
       );
       if (!confirmed) return;
       syncButton.disabled = true;
@@ -2386,7 +2453,8 @@
         status.textContent = error.message || 'Could not sign out of this preview.';
       }
     });
-    controls.append(syncButton, signOut);
+    syncButton.hidden = true;
+    controls.append(previewButton, syncButton, signOut);
     controls.hidden = true;
     dialog.appendChild(controls);
 
@@ -2425,10 +2493,13 @@
           : 'Account connected. Review the sync scope and choose Sync sermons to load your cloud records.';
         form.hidden = true;
         controls.hidden = false;
+        previewedUserId = '';
+        previewResult = null;
+        previewDetails.hidden = true;
+        previewButton.disabled = false;
+        previewButton.textContent = 'Preview cloud records';
+        syncButton.hidden = true;
         syncButton.disabled = false;
-        syncButton.textContent = cloudAdapter.cloudSyncReady && cloudAdapter.cloudUserId === session.user.id
-          ? 'Sync now'
-          : 'Sync sermons';
         signOut.hidden = false;
       } catch (error) {
         status.textContent = error.message || 'The account service could not be loaded.';

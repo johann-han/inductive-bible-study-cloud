@@ -196,3 +196,17 @@ The latest verified branch head before this documentation update was `4bd7ec94ec
 - IBS Regression Checks: **254/254 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44699864530
 
 PR #191 remains open, draft and unmerged. Production cutover still requires all browser acceptance gates and explicit user approval.
+
+
+## Read-only preview acceptance and pending-deletion disclosure — 2026-11-20
+
+The user completed the preview-origin IBS sign-in and read-only cloud preview in the deployed Kerygma preview. The rendered account dialog showed one local sermon, two existing cloud sermons, an expected merged count of three, and one pending deletion tombstone. The two cloud records were listed by title and passage. The interface stated that no sermon records had been written or changed.
+
+A safety gap was identified: the read-only preview reported the pending deletion count but did not identify its target. Before allowing the user to confirm sync, the feature branch now:
+- Returns the title, passage and record ID for each deletion tombstone owned by the signed-in account.
+- Lists those targets under **Pending deletions that will be sent** in the merge preview.
+- Includes the deletion targets in the final confirmation prompt.
+- Blocks sync when the count of pending deletions does not match the number of identifiable preview targets.
+- Does not expose the titles or passages of tombstones held for another account; it reports only their count and keeps that queue untouched.
+
+Regression tests cover both disclosure of the active account's targets and withholding another account's deletion details. These changes require CI on the exact latest branch head and a refreshed Render preview before the deletion target can be reviewed in the browser. The user has not confirmed sync. No cloud sermon record or tombstone has been changed by this read-only preview. Production remains untouched.

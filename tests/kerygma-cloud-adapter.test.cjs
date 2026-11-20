@@ -286,6 +286,10 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   assert.ok(html.includes('/sermon/cloud-sync.js?v=298b222'));
   assert.ok(app.includes('cloudAdapter.queueCloudDeletion(sermon)'));
   assert.ok(app.includes('cloudAdapter.cancelCloudDeletion(sermonId)'));
+  assert.ok(app.includes('cloudAdapter.previewCloudSermons()'));
+  assert.ok(app.includes('Confirm and sync sermons'));
+  assert.ok(app.includes('Read-only preview · no records changed'));
+  assert.ok(adapter.includes('CLAIM_REVIEW_BACKUP_PREFIX'));
 });
 
 
@@ -389,7 +393,7 @@ test('account switching backs up and restores separate Claim Review status store
     kerygma_sermons: JSON.stringify([localA]),
     kerygma_local_owner_id: 'user-a',
     kerygma_claim_review_status_v1: JSON.stringify(statusesA),
-    kerygma_claim_review_status_backup_user-b: JSON.stringify(statusesB)
+    'kerygma_claim_review_status_backup_user-b': JSON.stringify(statusesB)
   });
   const supabase = createSupabaseMock({
     session: { user: { id: 'user-b' } },

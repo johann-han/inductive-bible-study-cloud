@@ -2,8 +2,9 @@
   'use strict';
 
   const Data = window.KerygmaRebuildData;
+  const ClaimReview = window.KerygmaClaimReview;
   const root = document.getElementById('kerygma-rebuild-root');
-  if (!Data || !root) return;
+  if (!Data || !ClaimReview || !root) return;
 
   const state = {
     sermons: Data.sortRecentSermons(Data.readLocalSermons(window.localStorage)),
@@ -22,7 +23,8 @@
     guideSermonId: '',
     guideStage: '',
     guidePrompt: '',
-    guideError: ''
+    guideError: '',
+    claimNotice: ''
   };
   state.selectedId = state.sermons[0] ? state.sermons[0].id : '';
 
@@ -634,7 +636,7 @@
       if (sermon.inductiveStudySource) card.appendChild(renderEvidenceCard('Potential IBS links · manual verification required', [
         ['Text reference', item.reference],
         ['Point statement', item.statement],
-        ['IBS passage divisions', formatPassageOutline(sermon.inductiveStudySource)]
+        ['Matching IBS divisions', matchPassageDivisions(sermon, item).join('\n') || '[No direct verse-range match found]']
       ], 'Verse-range overlap helps locate relevant source material. It does not prove that the source supports the point.'));
       rows.appendChild(card);
     });
@@ -655,7 +657,9 @@
     application.appendChild(grid);
     if (sermon.inductiveStudySource) application.appendChild(renderEvidenceCard('Evidence traceability · Doctrine & Discipleship', [
       ['IBS Doctrine', sermon.inductiveStudySource.sections?.doctrine],
-      ['IBS Discipleship', sermon.inductiveStudySource.sections?.discipleship]
+      ['IBS Discipleship', sermon.inductiveStudySource.sections?.discipleship],
+      ['Approved Big Idea', sermon.bigIdea],
+      ['Sermon aim', sermon.aim]
     ], 'The imported Discipleship notes provide a foundation for application; they are not automatically three audience-specific application lists.'));
     wrap.appendChild(application);
 
@@ -748,6 +752,20 @@
     return box;
   }
 
+  function matchPassageDivisions(sermon, point) {
+    const packet = sermon && sermon.inductiveStudySource;
+    const rows = packet && Array.isArray(packet.passageOutline?.sections) ? packet.passageOutline.sections : [];
+    if (!packet || !rows.length) return [];
+    const engine = new ClaimReview.ClaimReviewEngine([], window.localStorage);
+    const chapter = Number(packet.studyReference?.chapter);
+    const range = engine.parseOutlineTraceRange(String(point?.reference || ''), chapter);
+    if (!range) return [];
+    return rows.filter(row => {
+      const sourceRange = engine.parseOutlineTraceRange(row.verseRange || '', chapter);
+      return sourceRange && engine.outlineTraceRangesOverlap(range, sourceRange);
+    }).slice(0, 5).map(row => (row.verseRange ? row.verseRange + ' — ' : '') + (row.heading || row.majorIdea || 'Untitled division'));
+  }
+
   function renderSourcePanel(sermon) {
     const box = el('section', 'support-card source-support');
     const source = Data.getSourceSummary(sermon);
@@ -784,19 +802,154 @@
   }
 
   function renderClaimsView(content) {
-    content.appendChild(renderHeading('THEOLOGICAL QUALITY CONTROL', 'Claim Review', 'Review substantive propositions in your sermon manuscripts and record their status separately from sermon content.'));
-    const info = el('div', 'migration-notice');
-    info.append(
-      el('strong', '', 'Claim-review migration is the next rebuild stage.'),
-      el('p', '', 'The current studio contains the established paragraph and sentence analysis, biblical-reference inheritance, IBS/outline links and separate per-sermon status store. The redesigned workspace keeps the existing review queue accessible while that logic is transferred and tested.')
+    content.appendChild(renderHeading('THEOLOGICAL QUALITY CONTROL', 'Claim Review', 'Review manuscript propositions across sermons. Statuses remain separate from sermon text and imported IBS evidence.'));
+    const engine = new ClaimReview.ClaimReviewEngine(state.sermons, window.localStorage);
+    const dashboard = engine.buildClaimReviewQueue(100, 100);
+    const metrics = el('section', 'claim-metrics');
+    metrics.append(
+      renderStat('Needs research', dashboard.counts['needs-research'], 'Flagged propositions'),
+      renderStat('Requires revision', dashboard.counts['requires-revision'], 'Flagged propositions'),
+      renderStat('Reviewed', dashboard.counts.reviewed, 'Recorded separately'),
+      renderStat('Not reviewed', dashboard.counts['not-reviewed'], 'Candidate propositions')
     );
-    info.appendChild(makeLink('Open current Claim Review', '/sermon/index.html', 'primary-button'));
-    content.appendChild(info);
-    const statuses = Data.readClaimReviewStatuses(window.localStorage);
-    const total = Object.values(statuses).reduce((sum, row) => sum + (row && typeof row === 'object' ? Object.keys(row).length : 0), 0);
-    const countBox = renderStat('Recorded review decisions', total, 'Statuses retained in the separate claim-review store');
-    content.appendChild(countBox);
-    content.appendChild(el('p', 'muted-meta', 'No claim status is rewritten or reset by the redesigned preview.'));
+    content.appendChild(metrics);
+
+    if (state.claimNotice) {
+      const notice = el('p', 'claim-save-notice', state.claimNotice);
+      notice.setAttribute('role', 'status');
+      content.appendChild(notice);
+    }
+
+    const panel = el('section', 'claim-queue-panel');
+    const header = el('div', 'claim-queue-header');
+    header.append(el('div', '', ''));
+    header.firstChild.append(el('p', 'eyebrow', 'CROSS-SERMON REVIEW'), el('h2', '', 'Claims requiring action'));
+    header.appendChild(el('span', 'queue-count', dashboard.items.length + ' flagged'));
+    panel.appendChild(header);
+
+    const filterBar = el('div', 'claim-filter-bar');
+    const searchWrap = el('label', 'search-field claim-search');
+    searchWrap.append(el('span', 'search-glyph', icon('search')));
+    const search = el('input', 'library-search');
+    search.type = 'search';
+    search.placeholder = 'Search sermon, passage, proposition or reference…';
+    search.setAttribute('aria-label', 'Search claim review queue');
+    search.value = state.claimSearch || '';
+    searchWrap.appendChild(search);
+    const status = document.createElement('select');
+    status.className = 'claim-status-filter';
+    status.setAttribute('aria-label', 'Filter claim review status');
+    [
+      ['all', 'All flagged claims'],
+      ['needs-research', 'Needs research'],
+      ['requires-revision', 'Requires revision']
+    ].forEach(([value, label]) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      status.appendChild(option);
+    });
+    status.value = state.claimStatusFilter || 'all';
+    filterBar.append(searchWrap, status);
+    panel.appendChild(filterBar);
+
+    const filtered = engine.filterClaimReviewQueueItems(dashboard.items, status.value, search.value);
+    const results = el('div', 'claim-results');
+    results.appendChild(el('p', 'muted-meta claim-results-summary', filtered.length + ' of ' + dashboard.items.length + ' flagged propositions shown'));
+    if (!filtered.length) {
+      const empty = el('div', 'empty-card claim-empty');
+      empty.append(el('span', 'empty-symbol', icon('claims')), el('h3', '', dashboard.items.length ? 'No matching claims' : 'No claims need action'), el('p', '', dashboard.items.length ? 'Clear the search or select a different status.' : 'When a manuscript proposition is marked Needs research or Requires revision, it will appear here.'));
+      if (dashboard.omittedParagraphBlocks || dashboard.omittedSentenceItems || dashboard.omittedItems || dashboard.omittedSermons) {
+        empty.appendChild(el('p', 'claim-limit-note', 'The analyzer reports omitted material due to its safety limits. Review longer manuscripts directly; this queue is not an exhaustive check of omitted text.'));
+      }
+      results.appendChild(empty);
+    } else {
+      const list = el('div', 'claim-list');
+      filtered.forEach(item => {
+        const card = el('article', 'claim-card');
+        const top = el('div', 'claim-card-top');
+        const identity = el('div', 'claim-identity');
+        identity.append(el('strong', '', item.sermonTitle), el('span', '', item.passage + ' · Paragraph ' + item.paragraphIndex + ' · Claim ' + item.claimIndex));
+        const badge = el('span', 'claim-status-badge ' + item.status, item.status === 'needs-research' ? 'Needs research' : 'Requires revision');
+        top.append(identity, badge);
+        card.appendChild(top);
+        card.appendChild(el('p', 'claim-proposition', item.proposition));
+        const meta = el('div', 'claim-evidence-meta');
+        meta.append(
+          el('p', '', 'References: ' + (item.references?.length ? item.references.map(reference => reference.text + (reference.source === 'paragraph context' ? ' [paragraph context]' : reference.source === 'section heading' ? ' [section heading]' : '') + (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ') : 'No reference detected')),
+          el('p', '', 'Outline links: ' + (item.outlineLinks?.length ? item.outlineLinks.map(row => row.label).join('; ') : 'None detected')),
+          el('p', '', 'IBS divisions: ' + (item.divisionLinks?.length ? item.divisionLinks.map(row => row.label).join('; ') : 'None detected')),
+          el('p', '', 'Review flags: ' + (item.flags?.length ? item.flags.join('; ') : 'No heuristic flags; human review is still required.'))
+        );
+        card.appendChild(meta);
+        const controls = el('div', 'claim-controls');
+        const label = el('label', 'claim-status-control');
+        label.appendChild(el('span', '', 'Review status'));
+        const select = document.createElement('select');
+        select.className = 'claim-status-select';
+        [
+          ['not-reviewed', 'Not reviewed'],
+          ['reviewed', 'Reviewed'],
+          ['needs-research', 'Needs research'],
+          ['requires-revision', 'Requires revision']
+        ].forEach(([value, text]) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = text;
+          select.appendChild(option);
+        });
+        select.value = item.status;
+        select.addEventListener('change', () => {
+          if (engine.saveClaimReviewStatus(item.sermonId, item.reviewKey, select.value)) {
+            state.claimNotice = 'Review status saved separately from sermon content.';
+            render();
+          } else {
+            select.value = item.status;
+            state.claimNotice = 'Could not save the review status. The previous value remains unchanged.';
+            render();
+          }
+        });
+        label.appendChild(select);
+        controls.append(label, makeButton('Open in manuscript ' + icon('arrow'), 'outline-button claim-open-button', () => openClaimInManuscript(item)));
+        card.appendChild(controls);
+        list.appendChild(card);
+      });
+      results.appendChild(list);
+    }
+    if (dashboard.omittedItems || dashboard.omittedSermons || dashboard.omittedParagraphBlocks || dashboard.omittedSentenceItems) {
+      results.appendChild(el('p', 'claim-limit-note', [
+        dashboard.omittedItems ? dashboard.omittedItems + ' flagged claims omitted from the display limit.' : '',
+        dashboard.omittedSermons ? dashboard.omittedSermons + ' sermons were not scanned.' : '',
+        dashboard.omittedParagraphBlocks ? dashboard.omittedParagraphBlocks + ' paragraph blocks omitted by analysis limits.' : '',
+        dashboard.omittedSentenceItems ? dashboard.omittedSentenceItems + ' sentence items omitted by analysis limits.' : ''
+      ].filter(Boolean).join(' ')));
+    }
+    panel.appendChild(results);
+    content.appendChild(metrics);
+    content.appendChild(panel);
+
+    search.addEventListener('input', () => { state.claimSearch = search.value; render(); const next = $('.claim-search input'); if(next){next.focus();next.setSelectionRange(search.value.length,search.value.length);} });
+    status.addEventListener('change', () => { state.claimStatusFilter = status.value; render(); });
+  }
+
+  function openClaimInManuscript(item) {
+    const sermon = state.sermons.find(row => String(row.id) === String(item.sermonId));
+    if (!sermon) return;
+    state.selectedId = sermon.id;
+    state.view = 'workspace';
+    state.stage = 'manuscript';
+    state.claimNotice = '';
+    render();
+    window.setTimeout(() => {
+      const editor = $('[data-field="manuscript"]');
+      if (!editor) return;
+      const blocks = String(sermon.manuscript || '').split(/\n\s*\n/);
+      const targetIndex = Math.max(0, Number(item.paragraphIndex || 1) - 1);
+      let offset = 0;
+      for (let index = 0; index < targetIndex && index < blocks.length; index++) offset += blocks[index].length + 2;
+      editor.focus();
+      try { editor.setSelectionRange(Math.min(offset, editor.value.length), Math.min(offset, editor.value.length)); } catch (_) {}
+    }, 0);
   }
 
   function renderShell() {

@@ -370,12 +370,18 @@ test('claim review reference matching retains chapter ranges and overlap semanti
 });
 
 
-test('redesigned PR preview does not initialise the live Supabase cloud adapter', () => {
+test('redesigned PR preview requires explicit sign-in and confirmed cloud sync', () => {
   const root = require('node:path').join(__dirname, '..');
   const app = require('node:fs').readFileSync(require('node:path').join(root, 'sermon-preview', 'app.js'), 'utf8');
+  const adapter = require('node:fs').readFileSync(require('node:path').join(root, 'sermon-preview', 'cloud-adapter.js'), 'utf8');
   assert.ok(app.includes('new Cloud.KerygmaCloudAdapter'));
-  assert.ok(app.includes('Cloud sync held back in preview'));
-  assert.ok(!app.includes('cloudAdapter.initializeCloudSermons()'));
+  assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
+  assert.ok(app.includes('async function openCloudAccountDialog()'));
+  assert.ok(app.includes('supabaseClient.auth.signInWithPassword'));
+  assert.ok(app.includes('Sync the redesigned Kerygma preview with the existing cloud account'));
+  assert.ok(app.includes('cloudAdapter.initializeCloudSermons()'));
+  assert.ok(adapter.includes('Signed in — select Sync to load this account'));
+  assert.ok(adapter.includes('allowAccountSwitch: false'));
   assert.ok(app.includes("window.open('/sermon/index.html'"));
 });
 

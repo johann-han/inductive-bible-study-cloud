@@ -289,6 +289,9 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   assert.ok(app.includes('cloudAdapter.previewCloudSermons()'));
   assert.ok(app.includes('Confirm and sync sermons'));
   assert.ok(app.includes('Read-only preview · no records changed'));
+  assert.ok(app.includes('PENDING DELETIONS THAT WILL BE SENT'));
+  assert.ok(app.includes('pendingDeletionPreviews'));
+  assert.ok(adapter.includes('pendingDeletionPreviews'));
   assert.ok(adapter.includes('CLAIM_REVIEW_BACKUP_PREFIX'));
 });
 
@@ -356,10 +359,13 @@ test('background sync refuses an account switch until the user explicitly confir
 test('read-only cloud preview reports merge counts without writing local or remote records', async () => {
   const local = sermon('preview-local', 'Local preview sermon');
   const cloud = sermon('preview-cloud', 'Existing cloud sermon');
+  const pendingDelete = sermon('preview-deleted', 'Previously deleted sermon');
   const storage = storageFixture({
     kerygma_sermons: JSON.stringify([local]),
     kerygma_local_owner_id: 'user-a',
-    kerygma_claim_review_status_v1: JSON.stringify({ 'preview-local': { claim: 'reviewed' } })
+    kerygma_claim_review_status_v1: JSON.stringify({ 'preview-local': { claim: 'reviewed' } }),
+    kerygma_pending_cloud_deletions: JSON.stringify([{ sermon_id: pendingDelete.id, sermon_data: pendingDelete }]),
+    kerygma_pending_cloud_deletions_owner_id: 'user-a'
   });
   const cloudRows = [{
     sermon_id: cloud.id,
@@ -378,6 +384,12 @@ test('read-only cloud preview reports merge counts without writing local or remo
   assert.equal(preview.cloudSermonCount, 1);
   assert.equal(preview.mergedSermonCount, 2);
   assert.equal(preview.cloudSermonPreviews[0].title, 'Existing cloud sermon');
+  assert.equal(preview.pendingDeletesForThisAccount, 1);
+  assert.deepEqual(preview.pendingDeletionPreviews, [{
+    sermonId: pendingDelete.id,
+    title: 'Previously deleted sermon',
+    passage: pendingDelete.passage || 'Passage not recorded'
+  }]);
   assert.deepEqual([...storage.values], [...before]);
   assert.equal(supabase.upserts.length, 0);
   assert.equal(adapter.cloudSyncReady, false);

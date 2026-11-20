@@ -241,3 +241,20 @@ Validation on exact code head `d728d510fcfb042c90a1374fe271862dda8b9e5b`:
 - IBS and Kerygma source-aware regression checks: **176/176 passed**.
 
 The refreshed Render preview still needs to be checked for the projected count of two. Do not confirm sync while the browser shows three. No cloud write or production change has occurred.
+
+
+## Pending-deletion target matching diagnostics — 2026-11-20
+
+The read-only account preview now reports whether each owned deletion target matches:
+- A sermon in the current local preview cache.
+- An active sermon row in the signed-in user's cloud library.
+
+The match flags are shown alongside the tombstone's title, passage and record ID, and are repeated in the final sync confirmation. This avoids assuming that a matching title alone proves that the tombstone points to the current local or cloud record.
+
+The current browser tab snapshot predates the new versioned script URLs. Hard-refresh the preview to load `app.js` and `cloud-adapter.js` with the updated `deletion-match-diagnostic-20261120` version. The match flags will then show whether the pending deletion actually applies to the local record and/or an active cloud record. Do not confirm sync until those flags and the projected count have been reviewed.
+
+Validation on code head `bbed3ad2e41a1eff267fdb51f0c12de6da8b1e22`:
+- IBS CI: **256/256 passed**.
+- IBS and Kerygma source-aware regression checks: **176/176 passed**.
+
+No sync or live cloud write has been started.

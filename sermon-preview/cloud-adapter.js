@@ -9,6 +9,8 @@
   const OWNER_KEY = 'kerygma_local_owner_id';
   const PENDING_KEY = 'kerygma_pending_cloud_deletions';
   const PENDING_OWNER_KEY = 'kerygma_pending_cloud_deletions_owner_id';
+  const CLAIM_REVIEW_KEY = 'kerygma_claim_review_status_v1';
+  const CLAIM_REVIEW_BACKUP_PREFIX = 'kerygma_claim_review_status_backup_';
 
   class KerygmaCloudAdapter {
     constructor(options = {}) {
@@ -77,6 +79,59 @@
         throw new Error('The Kerygma cloud merge helper could not be loaded. Local sermon data remains safe.');
       }
       return this.supabaseClient;
+    }
+
+    async previewCloudSermons() {
+      await this.ensureSupabaseClient();
+      const sessionResult = await this.withCloudTimeout(
+        this.supabaseClient.auth.getSession(),
+        'Supabase sign-in check'
+      );
+      if (sessionResult.error) throw new Error('Could not read the IBS sign-in session.');
+      const session = sessionResult.data && sessionResult.data.session;
+      if (!session || !session.user || !session.user.id) {
+        throw new Error('Sign in through IBS before previewing the cloud sermon library.');
+      }
+
+      const userId = session.user.id;
+      const cloudResult = await this.withCloudTimeout(
+        this.supabaseClient
+          .from('kerygma_sermons')
+          .select('sermon_id,sermon_data,updated_at,deleted_at')
+          .eq('user_id', userId),
+        'Kerygma sermon database preview'
+      );
+      if (cloudResult.error) throw cloudResult.error;
+
+      const storedOwnerId = this.readStorage(OWNER_KEY) || this.localSermonOwnerId || '';
+      const accountSwitch = Boolean(storedOwnerId && storedOwnerId !== userId);
+      const localRecords = accountSwitch ? [] : this.getSermons();
+      const rows = Array.isArray(cloudResult.data) ? cloudResult.data : [];
+      const cloudRecords = rows.filter(row => row && !row.deleted_at && row.sermon_data && typeof row.sermon_data === 'object');
+      const merged = this.cloudSync.mergeSermons(localRecords, rows);
+      const deletionOwnerId = this.readStorage(PENDING_OWNER_KEY) || '';
+      const pendingDeletesForThisAccount = deletionOwnerId && deletionOwnerId !== userId
+        ? 0
+        : this.pendingCloudDeletions.length;
+
+      // This method is deliberately read-only: it does not write localStorage,
+      // upload sermons, send deletion tombstones, or change the active owner.
+      return {
+        readOnly: true,
+        userId,
+        email: String(session.user.email || ''),
+        localSermonCount: localRecords.length,
+        previousAccountLocalSermonCount: accountSwitch ? this.getSermons().length : 0,
+        cloudSermonCount: cloudRecords.length,
+        mergedSermonCount: merged.length,
+        cloudSermonPreviews: cloudRecords.slice(0, 8).map(row => ({
+          title: String(row.sermon_data.title || 'Untitled sermon').slice(0, 120),
+          passage: String(row.sermon_data.passage || 'Passage not recorded').slice(0, 80)
+        })),
+        accountSwitch,
+        pendingDeletesForThisAccount,
+        pendingDeletesHeldForAnotherAccount: Math.max(0, this.pendingCloudDeletions.length - pendingDeletesForThisAccount)
+      };
     }
 
     setCloudSyncStatus(message, tone = 'normal') {
@@ -156,9 +211,9 @@
           });
           this.cloudAuthSubscription = authResult && authResult.data ? authResult.data.subscription : null;
         }
-        await this.syncCloudSermons({ allowAccountSwitch: true });
+        const synced = await this.syncCloudSermons({ allowAccountSwitch: true });
         this.bindActivitySync();
-        return true;
+        return synced;
       } catch (error) {
         const message = error && error.message ? error.message : 'Unknown cloud initialisation error.';
         this.setCloudSyncStatus('Cloud connection failed: ' + message, 'error');
@@ -263,22 +318,51 @@
           : (merged[0] ? merged[0].id : null);
         const previousLocalCache = this.readStorage(SERMONS_KEY);
         const previousOwnerMarker = this.readStorage(OWNER_KEY);
+        const previousClaimStatuses = this.readStorage(CLAIM_REVIEW_KEY);
+        const accountChanged = Boolean(storedOwnerId && storedOwnerId !== userId);
+        const previousClaimBackupKey = accountChanged ? CLAIM_REVIEW_BACKUP_PREFIX + storedOwnerId : '';
+        const nextClaimBackupKey = CLAIM_REVIEW_BACKUP_PREFIX + userId;
+        const previousClaimBackup = previousClaimBackupKey ? this.readStorage(previousClaimBackupKey) : null;
+        const targetClaimStatuses = accountChanged ? (this.readStorage(nextClaimBackupKey) || '{}') : previousClaimStatuses;
+        const restoreStorageValue = (key, value) => {
+          if (value == null) this.removeStorage(key);
+          else if (!this.writeStorage(key, value)) return false;
+          return true;
+        };
         this.isApplyingCloudData = true;
         try {
+          // Claim-review decisions are device-local in the established format.
+          // Keep them account-scoped on this device so another account never inherits
+          // statuses for a coincidentally matching sermon ID.
+          if (accountChanged) {
+            if (!this.writeStorage(previousClaimBackupKey, previousClaimStatuses || '{}')) {
+              throw new Error('Could not back up the previous account’s separate Claim Review statuses. Account switching has been stopped; the existing local data was retained.');
+            }
+            if (!this.writeStorage(CLAIM_REVIEW_KEY, targetClaimStatuses)) {
+              restoreStorageValue(previousClaimBackupKey, previousClaimBackup);
+              throw new Error('Could not load the new account’s separate Claim Review statuses. The previous account remains active.');
+            }
+          }
           if (!this.writeStorage(SERMONS_KEY, JSON.stringify(merged))) {
+            if (accountChanged) {
+              restoreStorageValue(CLAIM_REVIEW_KEY, previousClaimStatuses);
+              restoreStorageValue(previousClaimBackupKey, previousClaimBackup);
+            }
             throw new Error('Could not save the merged Kerygma sermon cache. Existing local records were retained; cloud sync was stopped.');
           }
           if (!this.writeStorage(OWNER_KEY, userId)) {
             let rollbackFailed = false;
-            if (previousLocalCache == null) this.removeStorage(SERMONS_KEY);
-            else if (!this.writeStorage(SERMONS_KEY, previousLocalCache)) rollbackFailed = true;
-            if (previousOwnerMarker == null) this.removeStorage(OWNER_KEY);
-            else if (!this.writeStorage(OWNER_KEY, previousOwnerMarker)) rollbackFailed = true;
+            if (!restoreStorageValue(SERMONS_KEY, previousLocalCache)) rollbackFailed = true;
+            if (!restoreStorageValue(OWNER_KEY, previousOwnerMarker)) rollbackFailed = true;
+            if (accountChanged) {
+              if (!restoreStorageValue(CLAIM_REVIEW_KEY, previousClaimStatuses)) rollbackFailed = true;
+              if (!restoreStorageValue(previousClaimBackupKey, previousClaimBackup)) rollbackFailed = true;
+            }
             throw new Error(
               'Could not save the Kerygma account-owner marker. ' +
               (rollbackFailed
-                ? 'The previous cache rollback was incomplete; use the preserved account backup before retrying.'
-                : 'The previous local sermon cache and owner marker were restored.')
+                ? 'The previous cache/status rollback was incomplete; use the preserved account backups before retrying.'
+                : 'The previous local sermon cache, Claim Review statuses and owner marker were restored.')
             );
           }
           this.localSermonOwnerId = userId;

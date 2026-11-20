@@ -219,6 +219,15 @@ test('redesigned editor exposes five existing Kerygma stages, source review and 
   assert.ok(app.includes('supabaseClient.auth.getSession()'));
   assert.ok(app.includes("Authorization: 'Bearer ' + token"));
   assert.ok(app.includes('Source Inductive Study'));
+  for (const evidenceCategory of [
+    'IBS passage outline','Verse maps and word-study notes','Scripture markup and observations',
+    'Personal cross-references · user-created','Standard cross-references · dataset provenance',
+    'Related passages and included verse text','Selected verses'
+  ]) assert.ok(app.includes(evidenceCategory), 'missing structured IBS evidence category: ' + evidenceCategory);
+  assert.ok(app.includes('item.includedInStageNotes'));
+  assert.ok(app.includes('packet.passageText'));
+  assert.ok(html.includes('/sermon-preview/claim-review.js'));
+  const engine = new ClaimReviewEngine([], window.localStorage);
   assert.ok(app.includes('const engine = new ClaimReview.ClaimReviewEngine(state.sermons, window.localStorage)'));
   assert.ok(app.includes('engine.buildClaimReviewQueue(100, 100)'));
   assert.ok(app.includes('engine.saveClaimReviewStatus(item.sermonId, item.reviewKey, select.value)'));
@@ -331,6 +340,7 @@ test('preview scripts parse as JavaScript and preserve the existing Kerygma rout
   const data = fs.readFileSync(path.join(root, 'sermon-preview', 'data.js'), 'utf8');
   const claims = fs.readFileSync(path.join(root, 'sermon-preview', 'claim-review.js'), 'utf8');
   const html = fs.readFileSync(path.join(root, 'sermon-preview', 'index.html'), 'utf8');
+  const { ClaimReviewEngine } = require('../sermon-preview/claim-review');
   assert.doesNotThrow(() => new vm.Script(app));
   assert.doesNotThrow(() => new vm.Script(data));
   assert.doesNotThrow(() => new vm.Script(claims));

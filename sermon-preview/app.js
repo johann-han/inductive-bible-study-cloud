@@ -793,6 +793,12 @@
       details.appendChild(el('p', '', text || '[No notes recorded]'));
       box.appendChild(details);
     });
+    if (packet.passageTextIncluded && packet.passageText) {
+      const scripture = el('details', 'source-stage');
+      scripture.appendChild(el('summary', '', 'Imported Scripture text · ' + source.translation));
+      scripture.appendChild(el('pre', 'source-evidence-text', packet.passageText));
+      box.appendChild(scripture);
+    }
 
     const sourceOutline = Array.isArray(packet.passageOutline?.sections) ? packet.passageOutline.sections : [];
     const verseMaps = packet.verseMaps && typeof packet.verseMaps === 'object' ? Object.entries(packet.verseMaps) : [];
@@ -880,9 +886,12 @@
       const verses = Array.isArray(item.verses) ? item.verses : [];
       return (index + 1) + '. ' + (reference || 'Related passage') +
         ' · ' + (item.translation || 'Unknown translation') +
-        (item.stage ? ' · Included in ' + item.stage : '') +
+        (item.startVerse ? ':' + item.startVerse + (item.endVerse && item.endVerse > item.startVerse ? '–' + item.endVerse : '') : '') +
+        (item.stage ? ' · Included in ' + ({observe:'Observe',interpret:'Interpretation',doctrine:'Doctrine',apply:'Discipleship'}[item.stage] || item.stage) : '') +
+        (item.includedInStageNotes ? ' · Verse text was appended to stage notes' : '') +
         (item.relation ? '\nRelationship: ' + item.relation : '') +
         (item.note ? '\nExplanation: ' + item.note : '') +
+        (item.textLoadError ? '\nVerse text status: provider could not load verse text when exported' : '') +
         (verses.length ? '\n' + verses.map(verse => verse.number + '. ' + verse.text).join('\n') : '');
     }).join('\n\n');
     addEvidence('Related passages and included verse text', relatedText, 'No related passage content was included.');
@@ -1048,10 +1057,19 @@
       );
       const row = (analysis.rows || []).find(candidate => candidate.index === Number(item.paragraphIndex));
       const snippet = String(row?.excerpt || '').slice(0, 90);
+      const tokens = snippet.split(/\s+/).filter(Boolean).map(token => token.replace(/[.*+?^${}()|[\]\\]/g, '\\      const snippet = String(row?.excerpt || '').slice(0, 90);
       const offset = snippet ? editor.value.indexOf(snippet) : -1;
       editor.focus();
       if (offset >= 0) {
         try { editor.setSelectionRange(offset, Math.min(offset + snippet.length, editor.value.length)); } catch (_) {}
+      }
+'));
+      const matcher = tokens.length ? new RegExp(tokens.join('\\s+'), 'i') : null;
+      const match = matcher ? matcher.exec(editor.value) : null;
+      const offset = match ? match.index : -1;
+      editor.focus();
+      if (offset >= 0) {
+        try { editor.setSelectionRange(offset, Math.min(offset + match[0].length, editor.value.length)); } catch (_) {}
       }
     }, 0);
   }
@@ -1248,8 +1266,20 @@
     ).join('\n'), 'No Scripture markup supplied.');
 
     const personal = Array.isArray(packet.customCrossReferences) ? packet.customCrossReferences : [];
+    const formatPoint = point => {
+      if (!point || typeof point !== 'object') return '[Reference not recorded]';
+      const base = [point.book, Number(point.chapter)].filter(Boolean).join(' ');
+      if (!base) return '[Reference not recorded]';
+      if (point.scope === 'study' && point.verse == null) return base + ' (whole study)';
+      const start = Number(point.startVerse ?? point.verse);
+      const end = Number(point.endVerse ?? start);
+      return base + (Number.isInteger(start) && start > 0
+        ? ':' + start + (Number.isInteger(end) && end > start ? '–' + end : '') : '');
+    };
     addEvidence('Personal cross-references · ' + personal.length, personal.map((row, index) =>
-      (index + 1) + '. ' + JSON.stringify(row)
+      (index + 1) + '. ' + formatPoint(row.source) + ' → ' + formatPoint(row.target) +
+      (row.relation ? '\nRelationship: ' + row.relation : '') +
+      (row.note ? '\nNote: ' + row.note : '')
     ).join('\n\n'), 'No personal cross-references supplied.');
 
     const standard = packet.standardCrossReferences && typeof packet.standardCrossReferences === 'object' ? packet.standardCrossReferences : {};
@@ -1266,6 +1296,9 @@
     addEvidence('Related passages · ' + related.length, related.map((item, index) =>
       (index + 1) + '. ' + (item.reference || [item.book, item.chapter].filter(Boolean).join(' ')) +
       ' · ' + (item.translation || 'Unknown translation') +
+      (item.startVerse ? ':' + item.startVerse + (item.endVerse && item.endVerse > item.startVerse ? '–' + item.endVerse : '') : '') +
+      (item.stage ? ' · Included in ' + ({observe:'Observe',interpret:'Interpretation',doctrine:'Doctrine',apply:'Discipleship'}[item.stage] || item.stage) : '') +
+      (item.includedInStageNotes ? ' · Included in stage notes' : '') +
       (item.relation ? '\nRelationship: ' + item.relation : '') +
       (item.note ? '\nExplanation: ' + item.note : '') +
       (item.verses?.length ? '\n' + item.verses.map(verse => verse.number + '. ' + verse.text).join('\n') : '')

@@ -252,6 +252,15 @@ test('redesigned editor exposes five existing Kerygma stages, source review and 
   assert.ok(app.includes('engine.buildClaimReviewQueue(100, 100)'));
   assert.ok(app.includes('engine.saveClaimReviewStatus(item.sermonId, item.reviewKey, select.value)'));
   assert.ok(app.includes('openClaimInManuscript(item)'));
+  assert.ok(app.includes('function renderInlineClaimReview(sermon)'));
+  assert.ok(app.includes("details.id = 'manuscript-claim-review'"));
+  assert.ok(app.includes("sentence.id = 'claim-review-item-' + reviewKey"));
+  assert.ok(app.includes("engine.getClaimReviewStatus(sermon.id, reviewKey)"));
+  assert.ok(app.includes("state.claimTargetReviewKey = String(item.reviewKey)"));
+  assert.ok(app.includes("document.getElementById('claim-review-item-' + item.reviewKey)"));
+  assert.ok(app.includes('Review progress for displayed propositions'));
+  assert.ok(css.includes('.manuscript-claim-sentence.is-targeted'));
+
   assert.ok(app.includes('Claim-review migration is the next rebuild stage') === false);
   assert.ok(css.includes('.sidebar'));
   assert.ok(css.includes('.workflow-tabs'));
@@ -303,6 +312,11 @@ test('claim review preserves stable keys and writes status to the existing separ
   assert.equal(key, engine.makeClaimReviewKey(3, { ...claim, proposition: ' God   judges impartially. ' }));
   assert.equal(engine.saveClaimReviewStatus('sermon-1', key, 'needs-research'), true);
   assert.equal(engine.getClaimReviewStatus('sermon-1', key), 'needs-research');
+  for (const status of ['not-reviewed', 'reviewed', 'needs-research', 'requires-revision']) {
+    assert.equal(engine.saveClaimReviewStatus('sermon-1', key, status), true);
+    assert.equal(engine.getClaimReviewStatus('sermon-1', key), status);
+  }
+
   assert.equal(values.has(Data.CLAIM_REVIEW_KEY), true);
   assert.equal(engine.saveClaimReviewStatus('sermon-1', key, 'invalid'), false);
 });

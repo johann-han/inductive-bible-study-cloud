@@ -41,10 +41,14 @@ function createSupabaseMock({ session = null, rows = [], upsertError = null, que
   let activeSession = session;
   const upserts = [];
   const calls = [];
+  const authListeners = [];
   const client = {
     auth: {
       async getSession() { return { data: { session: activeSession }, error: null }; },
-      onAuthStateChange() { return { data: { subscription: { unsubscribe() {} } } }; }
+      onAuthStateChange(callback) {
+        authListeners.push(callback);
+        return { data: { subscription: { unsubscribe() {} } } };
+      }
     },
     from(table) {
       calls.push({ method: 'from', table });
@@ -67,7 +71,9 @@ function createSupabaseMock({ session = null, rows = [], upsertError = null, que
   };
   return {
     client, upserts, calls,
-    setSession(nextSession) { activeSession = nextSession; }
+    setSession(nextSession) { activeSession = nextSession; },
+    emitAuthEvent(event, session) { authListeners.forEach(callback => callback(event, session)); },
+    authListeners
   };
 }
 
@@ -259,7 +265,7 @@ test('cloud adapter coalesces concurrent sync requests', async () => {
   adapter.destroy();
 });
 
-test('redesigned app shares one Supabase client and keeps cloud writes disabled in the PR preview', () => {
+test('redesigned app exposes explicit sign-in and a confirmed manual sync without auto-starting cloud writes', () => {
   const path = require('node:path');
   const fs = require('node:fs');
   const root = path.join(__dirname, '..');
@@ -270,13 +276,77 @@ test('redesigned app shares one Supabase client and keeps cloud writes disabled 
   assert.ok(app.includes('ensureSupabaseClient: ensureAppSupabaseClient'));
   assert.ok(app.includes('getSupabaseClient: () => supabaseClient'));
   assert.ok(app.includes('new Cloud.KerygmaCloudAdapter'));
-  assert.ok(!app.includes('cloudAdapter.initializeCloudSermons()'));
-  assert.ok(app.includes('Cloud sync held back in preview'));
+  assert.ok(app.includes('cloudAdapter.initializeCloudSermons()'));
+  assert.ok(app.includes('supabaseClient.auth.signInWithPassword'));
+  assert.ok(app.includes('window.confirm('));
+  assert.ok(app.includes('No sermon data is read or written until you choose Sync sermons'));
+  assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
+  assert.ok(app.includes('allowAccountSwitch: false'));
   assert.ok(html.includes('/sermon/cloud-sync.js?v=298b222'));
   assert.ok(app.includes('cloudAdapter.queueCloudDeletion(sermon)'));
   assert.ok(app.includes('cloudAdapter.cancelCloudDeletion(sermonId)'));
 });
 
+
+test('cloud initialisation is explicit; subsequent sign-in events do not auto-sync another account', async () => {
+  const local = sermon('explicit-sync-sermon', 'Local preview sermon');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([local]),
+    kerygma_local_owner_id: 'user-a'
+  });
+  const supabase = createSupabaseMock({ session: { user: { id: 'user-a', email: 'a@example.com' } }, rows: [] });
+  const adapter = createAdapter({ storage, supabase, sermons: [local] });
+  let syncCount = 0;
+  const originalSync = adapter.syncCloudSermons.bind(adapter);
+  adapter.syncCloudSermons = async options => {
+    syncCount += 1;
+    return originalSync(options);
+  };
+
+  assert.equal(adapter.cloudSyncReady, false);
+  assert.equal(syncCount, 0);
+  assert.equal(await adapter.initializeCloudSermons(), true);
+  assert.equal(syncCount, 1);
+  assert.equal(adapter.cloudSyncReady, true);
+
+  const upsertsBeforeAccountChange = supabase.upserts.length;
+  supabase.emitAuthEvent('SIGNED_OUT', null);
+  assert.equal(adapter.cloudSyncReady, false);
+  supabase.setSession({ user: { id: 'user-b', email: 'b@example.com' } });
+  supabase.emitAuthEvent('SIGNED_IN', { user: { id: 'user-b', email: 'b@example.com' } });
+  assert.equal(adapter.cloudSyncReady, false);
+  assert.equal(syncCount, 1, 'a new sign-in requires a separate explicit sync action');
+  assert.equal(supabase.upserts.length, upsertsBeforeAccountChange);
+  adapter.destroy();
+});
+
+test('background sync refuses an account switch until the user explicitly confirms Sync', async () => {
+  const local = sermon('account-a-local', 'Account A local sermon');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([local]),
+    kerygma_local_owner_id: 'user-a'
+  });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-b' } },
+    rows: [{ sermon_id: 'account-b-cloud', sermon_data: { id: 'account-b-cloud', title: 'B cloud sermon' }, deleted_at: null }]
+  });
+  const adapter = createAdapter({ storage, supabase, sermons: [local] });
+  adapter.cloudSyncReady = true;
+  adapter.cloudUserId = 'user-a';
+  adapter.localSermonOwnerId = 'user-a';
+
+  assert.equal(await adapter.syncCloudSermons({ allowAccountSwitch: false }), false);
+  assert.equal(adapter.cloudSyncReady, false);
+  assert.equal(storage.getItem('kerygma_local_owner_id'), 'user-a');
+  assert.equal(storage.getItem('kerygma_sermons_backup_user-a'), null);
+  assert.equal(supabase.upserts.length, 0);
+  assert.equal(supabase.calls.some(call => call.method === 'from'), false);
+
+  assert.equal(await adapter.syncCloudSermons({ allowAccountSwitch: true }), true);
+  assert.ok(storage.getItem('kerygma_sermons_backup_user-a'));
+  assert.equal(storage.getItem('kerygma_local_owner_id'), 'user-b');
+  adapter.destroy();
+});
 
 test('cloud adapter preserves an account A deletion queue while account B synchronises', async () => {
   const deletedA = sermon('private-deleted-a', 'Account A deletion');

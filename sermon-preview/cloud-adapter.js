@@ -130,6 +130,18 @@
         })),
         accountSwitch,
         pendingDeletesForThisAccount,
+        pendingDeletionPreviews: pendingDeletesForThisAccount
+          ? this.pendingCloudDeletions.map(entry => {
+            const sermon = entry && entry.sermon_data && typeof entry.sermon_data === 'object'
+              ? entry.sermon_data
+              : {};
+            return {
+              sermonId: String((entry && (entry.sermon_id || entry.id)) || sermon.id || ''),
+              title: String(sermon.title || 'Untitled sermon').slice(0, 120),
+              passage: String(sermon.passage || 'Passage not recorded').slice(0, 80)
+            };
+          })
+          : [],
         pendingDeletesHeldForAnotherAccount: Math.max(0, this.pendingCloudDeletions.length - pendingDeletesForThisAccount)
       };
     }

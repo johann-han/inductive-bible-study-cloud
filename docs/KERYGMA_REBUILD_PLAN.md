@@ -86,7 +86,7 @@ The redesigned preview saves sermon edits locally to the established cache key a
 - Regression tests exercise proposition extraction, sentence segmentation, reference matching, stable keys, status persistence and queue filtering.
 - User/browser acceptance is still required; no statuses are migrated or reset.
 
-### Stage D — Cloud sync and account behavior (adapter and mocked safety tests implemented; live activation held until cutover)
+### Stage D — Cloud sync and account behavior (adapter, explicit account flow and mocked safety tests implemented; browser acceptance required)
 
 - Reuse the established Supabase authentication session, \`public.kerygma_sermons\` table and RLS policies.
 - Rebuild the connection/status controls, first-load hydration, manual/automatic sync, user scoping, merge rules and deletion tombstones.
@@ -121,7 +121,7 @@ The redesigned preview saves sermon edits locally to the established cache key a
 - Never clear browser storage or overwrite the existing sample sermon to test destructive actions.
 - Do not replace the \`kerygma_sermons\` key or Supabase schema.
 - Do not introduce a second sermon data store.
-- Do not write cloud rows until the existing account/session and merge contracts are fully migrated.
+- Do not write cloud rows at page load or during development. In the preview, the first cloud upsert and any deletion tombstones require a signed-in user to inspect the read-only merge preview and separately confirm the sync.
 - Do not delete records from the redesigned preview until cloud tombstone behavior is implemented.
 - Never place AI provider keys in browser code, localStorage or chat.
 - Never send the full sermon library or all note history to AI.
@@ -131,7 +131,7 @@ The redesigned preview saves sermon edits locally to the established cache key a
 
 ## Acceptance state
 
-The user has visually reviewed the redesigned Kerygma preview and confirmed that it looks good (2026-11-20). Stages A–E are implemented in the feature branch; browser acceptance of the full workflow, account flow, sync round trip, backup/restore, and exports remains outstanding. Stage D now includes explicit preview-origin IBS email/password sign-in, a read-only cloud-library/merge preview, a separate confirmation before any sermon upload or deletion tombstone, background account-switch refusal, account-owned pending deletion queues, and per-account local Claim Review status backups. The adapter is not initialised at page load; no cloud records are read or written until the user starts the preview flow. Stage F (production route cutover) has not been approved. PR #191 is open, a draft, targets `main`, and must remain unmerged until explicit approval. The legacy Kerygma and IBS production routes and live Supabase records remain unchanged.
+The user has visually reviewed the redesigned Kerygma preview and confirmed that it looks good (2026-11-20). Stages A–E are implemented in the feature branch; browser acceptance of the full workflow, account flow, sync round trip, backup/restore, and exports remains outstanding. Stage D now includes explicit preview-origin IBS email/password sign-in, a read-only cloud-library/merge preview, a separate confirmation before any sermon upload or deletion tombstone, background account-switch refusal, account-owned pending deletion queues, and per-account local Claim Review status backups. The adapter is not initialised at page load; no sermon rows are read or written until the user starts the preview flow. Stage F (production route cutover) has not been approved. PR #191 is open, a draft, targets `main`, and must remain unmerged until explicit approval. The legacy Kerygma and IBS production routes and live Supabase records remain unchanged.
 
 
 ### Stage C — Inline manuscript claim-review parity (implemented; browser acceptance required)
@@ -152,7 +152,7 @@ Validation on exact code commit \`154b4a6bcda0c5526e54450b8e8ab6e5a14a82ec\`:
 - IBS Regression Checks: passed.
 - IBS and Kerygma source-aware regression checks: **170/170 passed**.
 
-Browser acceptance of inline status updates, queue navigation and mobile layout remains outstanding. Live Supabase synchronisation remains disabled in the redesigned preview.
+Browser acceptance of inline status updates, queue navigation and mobile layout remains outstanding. Cloud sync remains dormant by default and requires explicit preview-origin sign-in, a read-only merge preview and user confirmation.
 
 
 ## Stage D completion — explicit cloud account and merge-preview workflow (2026-11-20)

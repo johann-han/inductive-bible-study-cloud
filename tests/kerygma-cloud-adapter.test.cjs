@@ -271,6 +271,7 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   const root = path.join(__dirname, '..');
   const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');
   const html = fs.readFileSync(path.join(root, 'sermon-preview', 'index.html'), 'utf8');
+  const adapter = fs.readFileSync(path.join(root, 'sermon-preview', 'cloud-adapter.js'), 'utf8');
   assert.ok(app.includes('async function ensureAppSupabaseClient()'));
   assert.ok(app.includes('async function getAIClientToken()'));
   assert.ok(app.includes('ensureSupabaseClient: ensureAppSupabaseClient'));
@@ -281,7 +282,7 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   assert.ok(app.includes('window.confirm('));
   assert.ok(app.includes('No sermon data is read or written until you choose Sync sermons'));
   assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
-  assert.ok(app.includes('allowAccountSwitch: false'));
+  assert.ok(adapter.includes('allowAccountSwitch: false'));
   assert.ok(html.includes('/sermon/cloud-sync.js?v=298b222'));
   assert.ok(app.includes('cloudAdapter.queueCloudDeletion(sermon)'));
   assert.ok(app.includes('cloudAdapter.cancelCloudDeletion(sermonId)'));

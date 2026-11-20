@@ -183,7 +183,42 @@ test('cloud adapter backs up a prior owner cache and never uploads it to another
   assert.equal(storage.getItem('kerygma_local_owner_id'), 'user-b');
 });
 
-test('cloud adapter uploads queued tombstones before fetching and upserting the active vault', async () => {
+test('cloud adapter blocks an unmatched deletion before any cloud write', async () => {
+  const unrelatedLocal = sermon('unrelated-local', 'Keep this local sermon');
+  const orphanedDeletion = sermon('orphaned-delete', 'New Expository Sermon');
+  const unrelatedCloud = sermon('unrelated-cloud', 'Keep this cloud sermon');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([unrelatedLocal]),
+    kerygma_local_owner_id: 'user-a',
+    kerygma_pending_cloud_deletions: JSON.stringify([{
+      sermon_id: orphanedDeletion.id,
+      sermon_data: orphanedDeletion
+    }]),
+    kerygma_pending_cloud_deletions_owner_id: 'user-a'
+  });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a' } },
+    rows: [{
+      sermon_id: unrelatedCloud.id,
+      sermon_data: unrelatedCloud,
+      updated_at: unrelatedCloud.updated_at,
+      deleted_at: null
+    }]
+  });
+  const adapter = createAdapter({ storage, supabase, sermons: [unrelatedLocal] });
+  const before = new Map(storage.values);
+
+  await assert.rejects(
+    adapter.syncCloudSermons(),
+    /pending deletion does not match any local sermon or cloud record/i
+  );
+  assert.deepEqual([...storage.values], [...before]);
+  assert.equal(supabase.upserts.length, 0, 'an orphaned tombstone must never be uploaded');
+  assert.equal(adapter.cloudSyncReady, false);
+  adapter.destroy();
+});
+
+test('cloud adapter uploads a queued tombstone only after finding its active cloud record', async () => {
   const deleted = sermon('deleted-sermon', 'Deleted sermon');
   const storage = storageFixture({
     kerygma_sermons: '[]',
@@ -191,7 +226,10 @@ test('cloud adapter uploads queued tombstones before fetching and upserting the 
     kerygma_pending_cloud_deletions: JSON.stringify([{ sermon_id: deleted.id, sermon_data: deleted }]),
     kerygma_pending_cloud_deletions_owner_id: 'user-a'
   });
-  const supabase = createSupabaseMock({ session: { user: { id: 'user-a' } }, rows: [] });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a' } },
+    rows: [{ sermon_id: deleted.id, sermon_data: deleted, updated_at: deleted.updated_at, deleted_at: null }]
+  });
   const adapter = createAdapter({ storage, supabase });
 
   await adapter.syncCloudSermons();
@@ -216,7 +254,7 @@ test('cloud adapter retains pending tombstones when Supabase rejects their upser
   });
   const supabase = createSupabaseMock({
     session: { user: { id: 'user-a' } },
-    rows: [],
+    rows: [{ sermon_id: deleted.id, sermon_data: deleted, updated_at: deleted.updated_at, deleted_at: null }],
     upsertError: new Error('Network unavailable')
   });
   const adapter = createAdapter({ storage, supabase });
@@ -245,7 +283,10 @@ test('cloud adapter coalesces concurrent sync requests', async () => {
     kerygma_sermons: JSON.stringify([local]),
     kerygma_local_owner_id: 'user-a'
   });
-  const supabase = createSupabaseMock({ session: { user: { id: 'user-a' } }, rows: [] });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a' } },
+    rows: [{ sermon_id: deleted.id, sermon_data: deleted, updated_at: deleted.updated_at, deleted_at: null }]
+  });
   let resolveSession;
   let sessionCalls = 0;
   const sessionPromise = new Promise(resolve => { resolveSession = resolve; });
@@ -284,20 +325,23 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
   assert.ok(adapter.includes('allowAccountSwitch: false'));
   assert.ok(html.includes('/sermon/cloud-sync.js?v=298b222'));
-  assert.ok(html.includes('/sermon-preview/cloud-adapter.js?v=deletion-match-diagnostic-20261120'));
-  assert.ok(html.includes('/sermon-preview/app.js?v=deletion-match-diagnostic-20261120'));
+  assert.ok(html.includes('/sermon-preview/cloud-adapter.js?v=orphan-tombstone-guard-20261120'));
+  assert.ok(html.includes('/sermon-preview/app.js?v=orphan-tombstone-guard-20261120'));
   assert.ok(app.includes('cloudAdapter.queueCloudDeletion(sermon)'));
   assert.ok(app.includes('cloudAdapter.cancelCloudDeletion(sermonId)'));
   assert.ok(app.includes('cloudAdapter.previewCloudSermons()'));
   assert.ok(app.includes('Confirm and sync sermons'));
   assert.ok(app.includes('Read-only preview · no records changed'));
-  assert.ok(app.includes('PENDING DELETIONS THAT WILL BE SENT'));
-  assert.ok(app.includes('pendingDeletionPreviews'));
+  assert.ok(app.includes('PENDING DELETION REVIEW'));
+  assert.ok(app.includes('Remove obsolete deletion request'));
+  assert.ok(app.includes('unmatchedPendingDeletionCount'));
   assert.ok(app.includes('Matches local: '));
-  assert.ok(app.includes('Matches cloud: '));
+  assert.ok(app.includes('Matches active cloud sermon: '));
   assert.ok(adapter.includes('pendingDeletionPreviews'));
   assert.ok(adapter.includes('matchesLocalSermon'));
   assert.ok(adapter.includes('matchesCloudSermon'));
+  assert.ok(adapter.includes('matchesCloudRecord'));
+  assert.ok(adapter.includes('unmatchedDeletionIds'));
   assert.ok(adapter.includes('CLAIM_REVIEW_BACKUP_PREFIX'));
 });
 
@@ -391,13 +435,21 @@ test('read-only cloud preview reports merge counts without writing local or remo
   assert.equal(preview.mergedSermonCount, 2);
   assert.equal(preview.cloudSermonPreviews[0].title, 'Existing cloud sermon');
   assert.equal(preview.pendingDeletesForThisAccount, 1);
+  assert.deepEqual(preview.localSermonPreviews, [{
+    sermonId: local.id,
+    title: 'Local preview sermon',
+    passage: local.passage
+  }]);
   assert.deepEqual(preview.pendingDeletionPreviews, [{
     sermonId: pendingDelete.id,
     title: 'Previously deleted sermon',
     passage: pendingDelete.passage || 'Passage not recorded',
     matchesLocalSermon: false,
-    matchesCloudSermon: false
+    matchesCloudSermon: false,
+    matchesCloudRecord: false,
+    alreadyDeletedInCloud: false
   }]);
+  assert.equal(preview.unmatchedPendingDeletionCount, 1);
   assert.deepEqual([...storage.values], [...before]);
   assert.equal(supabase.upserts.length, 0);
   assert.equal(adapter.cloudSyncReady, false);
@@ -434,6 +486,8 @@ test('read-only cloud preview subtracts owned pending deletions from the project
   assert.equal(preview.pendingDeletesForThisAccount, 1);
   assert.equal(preview.pendingDeletionPreviews[0].matchesLocalSermon, true);
   assert.equal(preview.pendingDeletionPreviews[0].matchesCloudSermon, false);
+  assert.equal(preview.pendingDeletionPreviews[0].matchesCloudRecord, false);
+  assert.equal(preview.unmatchedPendingDeletionCount, 0);
   assert.equal(preview.mergedSermonCount, 1, 'the pending local deletion must not be counted in the post-sync library');
   assert.deepEqual([...storage.values], [...before]);
   assert.equal(supabase.upserts.length, 0);

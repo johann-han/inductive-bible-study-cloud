@@ -395,3 +395,28 @@ a{color:inherit;text-decoration:none}
 .guide-message-body code{padding:1px 4px;border-radius:4px;background:#edf1eb;font-family:ui-monospace,monospace;font-size:.94em}
 .guide-message-body a{color:#2b6c4b;text-decoration:underline;overflow-wrap:anywhere}
 @media(max-width:650px){.cloud-status{display:none}}
+
+
+.manuscript-claim-review{margin-top:16px;border:1px solid #dfe7de;border-radius:12px;background:#fff;box-shadow:var(--shadow);overflow:hidden}
+.manuscript-claim-summary{cursor:pointer;padding:16px 19px;color:var(--green-dark);font-size:12px;font-weight:800;background:#f7faf6}
+.manuscript-claim-body{display:grid;gap:12px;padding:16px 19px;border-top:1px solid #edf1ec}
+.manuscript-claim-coverage,.manuscript-claim-status-summary,.manuscript-claim-method-note{margin:0;color:#718075;font-size:10px;line-height:1.65}
+.manuscript-claim-status-summary{padding:10px;border-radius:7px;background:#f4f7f2;color:#48614e;font-weight:700}
+.manuscript-claim-empty{padding:20px;border:1px dashed #dce5dc;border-radius:9px;color:#78857a;font-size:11px;text-align:center}
+.manuscript-claim-paragraphs{display:grid;gap:12px}
+.manuscript-claim-paragraph{min-width:0;padding:13px;border:1px solid #e6ece5;border-radius:9px;background:#fcfdfb}
+.manuscript-claim-paragraph-title{margin:0 0 7px;color:#37513d;font-size:11px;font-weight:800}
+.manuscript-claim-meta,.manuscript-claim-flags,.manuscript-claim-limit{margin:5px 0;color:#78857b;font-size:9px;line-height:1.65;overflow-wrap:anywhere}
+.manuscript-claim-flags{color:#8a7049}
+.manuscript-claim-sentences{display:grid;gap:9px;margin-top:10px}
+.manuscript-claim-sentence{min-width:0;padding:11px;border:1px solid #e7ece6;border-radius:8px;background:#fff;scroll-margin-top:100px}
+.manuscript-claim-sentence.is-candidate{border-left:3px solid #b5c7b5}
+.manuscript-claim-kind{margin:0 0 5px;color:#78857a;font-size:9px;font-weight:800}
+.manuscript-claim-proposition{margin:0 0 8px;color:#344b39;font-size:11px;font-weight:700;line-height:1.65;overflow-wrap:anywhere}
+.manuscript-claim-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:10px;padding-top:9px;border-top:1px solid #edf1ec}
+.manuscript-claim-status-label{display:flex;align-items:center;gap:8px;color:#718075;font-size:9px;font-weight:750}
+.manuscript-claim-save-state{color:#89948a;font-size:9px}
+.manuscript-claim-save-state.is-saved{color:#39704e}
+.manuscript-claim-limit{padding:9px 10px;border:1px solid #eadfc9;border-radius:7px;background:#fbf7ef;color:#8a7049}
+.manuscript-claim-sentence.is-targeted{outline:3px solid #c5a66b;outline-offset:2px;background:#fffdf7}
+@media(max-width:650px){.manuscript-claim-body{padding:12px}.manuscript-claim-paragraph{padding:10px}.manuscript-claim-sentence{padding:10px}.manuscript-claim-controls{align-items:stretch;flex-direction:column}.manuscript-claim-status-label{justify-content:space-between}}

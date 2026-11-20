@@ -92,9 +92,9 @@ The redesigned preview saves sermon edits locally to the established cache key a
 - Rebuild the connection/status controls, first-load hydration, manual/automatic sync, user scoping, merge rules and deletion tombstones.
 - Test no-session, sign-in, sign-out, account changes, offline/timeout, local-newer, cloud-newer, equal timestamps, duplicate records and remote deletion.
 - Preserve all local sermon records and cloud rows; no destructive migration is allowed.
-- The redesigned adapter's mocked regression suite now exercises owner-scoped pending deletion queues, account-switch isolation, tombstone upload ordering, tombstone retention after server errors, local-queue persistence failures after remote tombstone success, timeout behavior, user-scoped query errors and transactional local cache/owner-marker writes.
+- The redesigned adapter's mocked regression suite exercises owner-scoped pending deletion queues, account-switch isolation, tombstone upload ordering, tombstone retention after server errors, local-queue persistence failures after remote tombstone success, timeout behavior, user-scoped query errors and transactional local cache/owner-marker writes.
 - When another account signs in, pending tombstones remain attached to their original owner and are never uploaded under the new account. New deletions cannot be mixed into a queue owned by another account.
-- Account switching is stopped when the prior owner's cache backup cannot be written. The merged local sermon cache is only replaced after the new cache and owner marker can be persisted; a failed owner-marker write rolls the previous cache back.
+- Account switching is stopped when the prior owner's sermon cache or separate Claim Review status backup cannot be written. The new account's previous local status backup is restored, or an empty status set is used; failed cache/owner-marker writes roll back the prior account's sermon cache and review statuses.
 - Cloud merge tests cover local-newer, cloud-newer, equal timestamps (cloud copy wins the tie), and remote deletion tombstones without affecting unrelated records.
 
 ### Stage E — Import, recovery and export completeness (implemented in preview; browser round-trip check remains)
@@ -106,7 +106,7 @@ The redesigned preview saves sermon edits locally to the established cache key a
 - Restore defaults to adding only missing sermon IDs. Matching IDs are preserved unless the user explicitly selects replacement. Re-importing is idempotent, records absent from the archive are never deleted, and account-owner mismatches are rejected.
 - Restore writes only the existing Kerygma browser keys and rolls back prior writes if a later storage write fails. An archive owner marker is adopted when restoring into an unowned local cache so restored data cannot later be uploaded under another account.
 - Automated regression tests cover full-fidelity Unicode/large-note round trips, malformed/unsupported archives, duplicate and missing IDs, merge and explicit replacement behavior, claim-review status handling, tombstone retention, owner isolation, storage failure rollback and protection of unrelated localStorage keys.
-- Browser-level backup/download/restore and export/re-import round-trip acceptance remains to be checked. Cloud backup/sync is not activated in this preview.
+- Browser-level backup/download/restore and export/re-import round-trip acceptance remains to be checked. Cloud sync is dormant by default in this preview and can only be started after the user signs in on the preview origin, reviews a read-only cloud merge summary, and separately confirms the first sync.
 
 ### Stage F — Cutover and retirement of the legacy interface
 
@@ -131,7 +131,7 @@ The redesigned preview saves sermon edits locally to the established cache key a
 
 ## Acceptance state
 
-The user has visually reviewed the redesigned Kerygma preview and confirmed that it looks good (2026-11-20). Stages A–C are implemented; interaction and device acceptance of the full workflow remains part of final browser verification. Stage E's full-fidelity local archive, restore safeguards and expanded text export are implemented in the feature branch; browser-level download/restore/re-import acceptance remains outstanding. Stage D's cloud adapter and account-safety protections are implemented and mocked-tested, but live cloud sync and deletion recovery remain disabled in the new preview until the cutover gate. Stage F (production route cutover) has not been approved. PR #191 is open, a draft, targets `main`, and must remain unmerged until explicit approval. The legacy Kerygma and IBS production routes and live Supabase records remain unchanged.
+The user has visually reviewed the redesigned Kerygma preview and confirmed that it looks good (2026-11-20). Stages A–E are implemented in the feature branch; browser acceptance of the full workflow, account flow, sync round trip, backup/restore, and exports remains outstanding. Stage D now includes explicit preview-origin IBS email/password sign-in, a read-only cloud-library/merge preview, a separate confirmation before any sermon upload or deletion tombstone, background account-switch refusal, account-owned pending deletion queues, and per-account local Claim Review status backups. The adapter is not initialised at page load; no cloud records are read or written until the user starts the preview flow. Stage F (production route cutover) has not been approved. PR #191 is open, a draft, targets `main`, and must remain unmerged until explicit approval. The legacy Kerygma and IBS production routes and live Supabase records remain unchanged.
 
 
 ### Stage C — Inline manuscript claim-review parity (implemented; browser acceptance required)
@@ -153,3 +153,26 @@ Validation on exact code commit \`154b4a6bcda0c5526e54450b8e8ab6e5a14a82ec\`:
 - IBS and Kerygma source-aware regression checks: **170/170 passed**.
 
 Browser acceptance of inline status updates, queue navigation and mobile layout remains outstanding. Live Supabase synchronisation remains disabled in the redesigned preview.
+
+
+## Stage D completion — explicit cloud account and merge-preview workflow (2026-11-20)
+
+The redesigned preview now provides an explicit Account & Sync flow:
+
+1. Sign in on the separate preview origin using the same invited IBS email/password. Signing in alone does not access sermon records.
+2. Run a read-only preview scoped to the signed-in user's existing \`public.kerygma_sermons\` rows. It reports local, cloud and expected merged sermon counts and a limited title/passage preview; it does not upload sermon data or send tombstones.
+3. Separately confirm the sync. Only then does the adapter merge by the established timestamp/tombstone rules and upsert the merged records. The confirmation describes account switching and pending deletion tombstones before proceeding.
+
+Additional account safeguards:
+- Auth sign-in events do not auto-trigger a sermon sync.
+- Focus/visibility background sync refuses a changed account. Switching requires the explicit preview and confirmation flow.
+- Previous-account sermon cache and separate Claim Review statuses are backed up locally before switching. The destination account's saved local Claim Review status backup is restored, or an empty status map is used.
+- Cache, owner marker and Claim Review status writes are guarded and rolled back together where possible.
+- Tombstones stay scoped to their originating account and are not sent by another account.
+
+Automated validation on exact PR head \`5733d879f698a65ca67fa0d6de2553b5702c4635\`:
+- IBS CI: **254/254 passed**.
+- IBS Regression Checks: **254/254 passed**.
+- IBS and Kerygma source-aware regression checks: **174/174 passed**.
+
+This is automated/mock validation. No live Kerygma Supabase records were read or written during development. The new preview-origin sign-in, read-only preview and user-confirmed sync still require browser acceptance after the PR preview has deployed the latest head. The currently open Render preview tab was still serving an older build when checked. Production cutover remains unapproved.

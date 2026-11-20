@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const Data = require('../sermon-preview/data');
+const Archive = require('../sermon-preview/archive');
 const { ClaimReviewEngine } = require('../sermon-preview/claim-review');
 const { KerygmaCloudAdapter } = require('../sermon-preview/cloud-adapter');
 const CloudSync = require('../sermon/cloud-sync');
@@ -200,6 +201,17 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
   assert.ok(!app.includes('body.innerHTML'));
   assert.ok(app.includes('Do not edit, save or claim to have changed any sermon field or imported IBS source.'));
   assert.ok(data.includes("inductiveStudySource"));
+  const archiveModule = fs.readFileSync(path.join(root, 'sermon-preview', 'archive.js'), 'utf8');
+  assert.ok(html.includes('/sermon-preview/archive.js'));
+  assert.ok(html.includes('workspace-archive-input'));
+  assert.ok(app.includes('function backupWorkspace()'));
+  assert.ok(app.includes('function handleWorkspaceArchiveFile(file)'));
+  assert.ok(app.includes("Archive.restoreWorkspaceArchive(window.localStorage, plan)"));
+  assert.ok(app.includes("Archive.buildRestorePlan(current, archive, mode, statuses)"));
+  assert.ok(archiveModule.includes("const FORMAT = 'kerygma-sermon-workspace'"));
+  assert.ok(archiveModule.includes("storage.setItem(STORAGE_KEY, nextSermons)"));
+  assert.ok(!archiveModule.includes('localStorage.clear'));
+
   assert.ok(data.includes("target.setItem(STORAGE_KEY, JSON.stringify(rows))"));
   assert.ok(!app.includes('localStorage.removeItem'));
   assert.ok(!data.includes('removeItem('));
@@ -362,4 +374,137 @@ test('preview scripts parse as JavaScript and preserve the existing Kerygma rout
   assert.doesNotThrow(() => new vm.Script(claims));
   assert.ok(html.includes('/sermon-preview/claim-review.js'));
   assert.ok(fs.existsSync(path.join(root, 'sermon', 'index.html')));
+});
+
+
+test('workspace archive preserves every sermon field, extension data, IBS source, Unicode and long notes', () => {
+  const longNote = 'λόγος — יהוה — exposition '.repeat(12000);
+  const complete = {
+    ...sample,
+    text: 'Ἐν ἀρχῇ — In the beginning',
+    context: 'לְמַעַן — context',
+    keywords: 'Greek; Hebrew; Aramaic',
+    exeSubject: 'The Word exists eternally',
+    exeComplement: 'and is with God',
+    manuscript: longNote,
+    customExtension: { version: 7, nested: ['kept', { enabled: true }] },
+    inductiveStudySource: {
+      ...sample.inductiveStudySource,
+      passageText: 'Ἐν ἀρχῇ ἦν ὁ λόγος',
+      verseMaps: { '1': { greek: 'λόγος', morphology: 'N-NSM', strong: 'G3056' } },
+      standardCrossReferences: { dataset: 'sample dataset', license: 'CC BY', entries: [{ verse: 1, references: ['John 1:1'] }] }
+    }
+  };
+  const statuses = { [complete.id]: { claimA: 'reviewed', claimB: 'needs-research' } };
+  const archive = Archive.createWorkspaceArchive([complete], statuses, 'owner-a', '2026-11-20T08:00:00.000Z');
+  const restored = Archive.parseWorkspaceArchive(JSON.stringify(archive));
+  assert.equal(restored.sermonCount, 1);
+  assert.equal(restored.ownerId, 'owner-a');
+  assert.equal(restored.sermons[0].manuscript, longNote);
+  assert.deepEqual(restored.sermons[0].customExtension, complete.customExtension);
+  assert.deepEqual(restored.sermons[0].inductiveStudySource, complete.inductiveStudySource);
+  assert.deepEqual(restored.claimReviewStatuses, statuses);
+});
+
+test('workspace archive rejects malformed data, unsupported versions and duplicate or missing sermon IDs', () => {
+  assert.throws(() => Archive.parseWorkspaceArchive('{bad'), /valid JSON/i);
+  assert.throws(() => Archive.parseWorkspaceArchive({ format: Archive.FORMAT, version: 2, sermons: [] }), /version 1/i);
+  assert.throws(() => Archive.parseWorkspaceArchive({ format: Archive.FORMAT, version: 1, sermons: [{ id: 'x' }, { id: 'x' }] }), /duplicate sermon ID/i);
+  assert.throws(() => Archive.parseWorkspaceArchive({ format: Archive.FORMAT, version: 1, sermons: [{ title: 'Missing ID' }] }), /missing or invalid ID/i);
+  assert.throws(() => Archive.parseWorkspaceArchive({ format: Archive.FORMAT, version: 1, sermons: {}, sermonCount: 0 }), /sermon array/i);
+});
+
+test('workspace restore is idempotent by sermon ID and preserves existing records by default', () => {
+  const current = [{ ...sample, title: 'Current wording', customLocalField: 'keep' }];
+  const incoming = Archive.createWorkspaceArchive([
+    { ...sample, title: 'Backup wording' },
+    { id: 'new-sermon', title: 'A new sermon', manuscript: 'New' }
+  ], {
+    [sample.id]: { claimA: 'reviewed' },
+    'new-sermon': { claimB: 'needs-research' }
+  }, null);
+  const statuses = { [sample.id]: { claimA: 'requires-revision', currentOnly: 'reviewed' } };
+  const plan = Archive.buildRestorePlan(current, incoming, 'skip-conflicts', statuses);
+  assert.equal(plan.added, 1);
+  assert.equal(plan.skipped, 1);
+  assert.equal(plan.replaced, 0);
+  assert.equal(plan.sermons.find(row => row.id === sample.id).title, 'Current wording');
+  assert.equal(plan.sermons.find(row => row.id === sample.id).customLocalField, 'keep');
+  assert.equal(plan.claimReviewStatuses[sample.id].claimA, 'requires-revision');
+  assert.equal(plan.claimReviewStatuses[sample.id].currentOnly, 'reviewed');
+  assert.equal(plan.claimReviewStatuses['new-sermon'].claimB, 'needs-research');
+  const repeated = Archive.buildRestorePlan(plan.sermons, incoming, 'skip-conflicts', plan.claimReviewStatuses);
+  assert.equal(repeated.added, 0);
+  assert.equal(repeated.skipped, 2);
+  assert.equal(repeated.sermons.length, 2);
+});
+
+test('workspace restore replaces only explicit matching IDs and does not delete unrelated sermons', () => {
+  const current = [
+    { id: 'existing', title: 'Local version' },
+    { id: 'keep-outside-archive', title: 'Unaffected' }
+  ];
+  const incoming = Archive.createWorkspaceArchive([
+    { id: 'existing', title: 'Backup version', customField: { restored: true } }
+  ], { existing: { claim: 'reviewed' } }, null);
+  const plan = Archive.buildRestorePlan(current, incoming, 'replace-conflicts', { existing: { claim: 'needs-research', old: 'keep?' } });
+  assert.equal(plan.replaced, 1);
+  assert.equal(plan.sermons.find(row => row.id === 'existing').title, 'Backup version');
+  assert.deepEqual(plan.sermons.find(row => row.id === 'existing').customField, { restored: true });
+  assert.ok(plan.sermons.some(row => row.id === 'keep-outside-archive'));
+  assert.equal(plan.claimReviewStatuses.existing.claim, 'reviewed');
+});
+
+test('workspace restore writes only the existing sermon and claim-review keys', () => {
+  const values = new Map([
+    [Archive.STORAGE_KEY, JSON.stringify([{ id: 'existing', title: 'Existing' }])],
+    [Archive.CLAIM_REVIEW_KEY, JSON.stringify({ existing: { claim: 'reviewed' } })],
+    ['unrelated-preference', 'keep']
+  ]);
+  const writes = [];
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { writes.push(key); values.set(key, value); },
+    removeItem(key) { values.delete(key); }
+  };
+  const archive = Archive.createWorkspaceArchive([{ id: 'added', title: 'Added' }], { added: { claim: 'reviewed' } }, null);
+  const plan = Archive.buildRestorePlan([{ id: 'existing', title: 'Existing' }], archive, 'skip-conflicts', { existing: { claim: 'reviewed' } });
+  assert.equal(Archive.restoreWorkspaceArchive(storage, plan), true);
+  assert.deepEqual(writes, [Archive.STORAGE_KEY, Archive.CLAIM_REVIEW_KEY]);
+  assert.equal(JSON.parse(values.get(Archive.STORAGE_KEY)).length, 2);
+  assert.deepEqual(JSON.parse(values.get(Archive.CLAIM_REVIEW_KEY)).added, { claim: 'reviewed' });
+  assert.equal(values.get('unrelated-preference'), 'keep');
+});
+
+test('workspace restore rolls back the sermon cache if the separate status-store write fails', () => {
+  const previousSermons = JSON.stringify([{ id: 'old', title: 'Keep old' }]);
+  const previousStatuses = JSON.stringify({ old: { claim: 'reviewed' } });
+  const values = new Map([[Archive.STORAGE_KEY, previousSermons], [Archive.CLAIM_REVIEW_KEY, previousStatuses]]);
+  const storage = {
+    getItem(key) { return values.get(key) || null; },
+    setItem(key, value) {
+      if (key === Archive.CLAIM_REVIEW_KEY && JSON.parse(value).new) throw new Error('quota exceeded');
+      values.set(key, value);
+    },
+    removeItem(key) { values.delete(key); }
+  };
+  const archive = Archive.createWorkspaceArchive([{ id: 'new', title: 'New record' }], { new: { claim: 'reviewed' } }, null);
+  const plan = Archive.buildRestorePlan([{ id: 'old', title: 'Keep old' }], archive, 'skip-conflicts', { old: { claim: 'reviewed' } });
+  assert.throws(() => Archive.restoreWorkspaceArchive(storage, plan), /previous sermon cache was restored/i);
+  assert.equal(values.get(Archive.STORAGE_KEY), previousSermons);
+  assert.equal(values.get(Archive.CLAIM_REVIEW_KEY), previousStatuses);
+});
+
+test('workspace archive owner information is retained and raw cache reads do not normalize record content', () => {
+  const raw = [{ id: 'raw', title: '  exact spacing  ', arbitrary: { value: 0 } }];
+  const storage = {
+    getItem(key) {
+      if (key === Archive.STORAGE_KEY) return JSON.stringify(raw);
+      if (key === Archive.OWNER_KEY) return 'owner-raw';
+      if (key === Archive.CLAIM_REVIEW_KEY) return '{}';
+      return null;
+    }
+  };
+  assert.deepEqual(Archive.readRawSermonRecords(storage), raw);
+  assert.equal(Archive.readOwnerId(storage), 'owner-raw');
 });

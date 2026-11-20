@@ -24,7 +24,7 @@ const sample = {
   illustrations: [{ id: 'i1', title: 'The mirror', content: 'A mirror exposes our own condition.' }],
   appSeekers: 'Respond to God with repentance.',
   appBelievers: 'Reject self-righteousness.',
-  appSuffering: 'Bring suffering and fear to Christ.'
+  appSuffering: 'Bring suffering and fear to Christ.',
   manuscript: '# Introduction\n\nThe text confronts self-righteous judgment.',
   inductiveStudySource: {
     format: 'inductive-bible-study-sermon-source',

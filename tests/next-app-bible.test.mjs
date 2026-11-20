@@ -362,7 +362,7 @@ test('Study Library search excerpts are case-insensitive and preserve canonical 
     doctrine: 'A DOCTRINAL conclusion',
     interpret: 'The INTERPRETATION develops',
     observe: 'An OBSERVATION begins'
-  }, 'a');
+  }, 'i');
   assert.deepEqual(allMatches.map(match => match.stage), ['observe', 'interpret', 'doctrine', 'apply']);
 });
 

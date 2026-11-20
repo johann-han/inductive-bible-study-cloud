@@ -3,8 +3,9 @@
 
   const Data = window.KerygmaRebuildData;
   const ClaimReview = window.KerygmaClaimReview;
+  const Cloud = window.KerygmaCloudAdapter;
   const root = document.getElementById('kerygma-rebuild-root');
-  if (!Data || !ClaimReview || !root) return;
+  if (!Data || !ClaimReview || !Cloud || !root) return;
 
   const state = {
     sermons: Data.sortRecentSermons(Data.readLocalSermons(window.localStorage)),

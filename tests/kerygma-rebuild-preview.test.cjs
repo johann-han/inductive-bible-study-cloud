@@ -7,6 +7,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const Data = require('../sermon-preview/data');
 const { ClaimReviewEngine } = require('../sermon-preview/claim-review');
+const { KerygmaCloudAdapter } = require('../sermon-preview/cloud-adapter');
+const CloudSync = require('../sermon/cloud-sync');
 
 const sample = {
   id: 'sermon-1',

@@ -194,6 +194,10 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
   assert.ok(app.includes("fetch('/api/config'"));
   assert.ok(app.includes("callAI(prompt.system, prompt.query, prompt.schema || null)"));
   assert.ok(app.includes("callAI(systemPrompt, userQuery, null, 900)"));
+  assert.ok(app.includes("state.guideMessages.filter(item => item.role === 'user' || item.role === 'assistant')"));
+  assert.ok(app.includes('function renderGuideMarkdown(container, markdown)'));
+  assert.ok(app.includes('function appendGuideInline(parent, value)'));
+  assert.ok(!app.includes('body.innerHTML'));
   assert.ok(app.includes('Do not edit, save or claim to have changed any sermon field or imported IBS source.'));
   assert.ok(data.includes("inductiveStudySource"));
   assert.ok(data.includes("target.setItem(STORAGE_KEY, JSON.stringify(rows))"));

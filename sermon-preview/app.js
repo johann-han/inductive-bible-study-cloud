@@ -1657,7 +1657,7 @@
       'When the passage is a whole chapter, provide a concise overview with major movements and verse ranges when they are supported by the supplied text.',
       'Keep the response useful and proportionate. Use readable headings or lists only when they help.'
     ].join('\n');
-    const previous = state.guideMessages.slice(-10).map(item => item.stage + ' · ' + item.role.toUpperCase() + ': ' + item.content).join('\n\n');
+    const previous = state.guideMessages.filter(item => item.role === 'user' || item.role === 'assistant').slice(-10).map(item => item.stage + ' · ' + item.role.toUpperCase() + ': ' + item.content).join('\n\n');
     const currentContext = [
       'SERMON: ' + sermon.title,
       'PASSAGE: ' + sermon.passage,
@@ -1688,6 +1688,121 @@
     }
   }
 
+  function appendGuideInline(parent, value) {
+    const source = String(value || '');
+    const tokenPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|\x60[^\x60]+\x60)/g;
+    let offset = 0;
+    let match;
+    while ((match = tokenPattern.exec(source)) !== null) {
+      if (match.index > offset) parent.appendChild(document.createTextNode(source.slice(offset, match.index)));
+      if (match[1] && match[2]) {
+        const link = document.createElement('a');
+        link.href = match[2];
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = match[1];
+        parent.appendChild(link);
+      } else {
+        const token = match[3];
+        let node;
+        let inner;
+        if (token.startsWith('**') || token.startsWith('__')) {
+          node = document.createElement('strong');
+          inner = token.slice(2, -2);
+        } else if (token.startsWith('*') || token.startsWith('_')) {
+          node = document.createElement('em');
+          inner = token.slice(1, -1);
+        } else {
+          node = document.createElement('code');
+          inner = token.slice(1, -1);
+        }
+        node.textContent = inner;
+        parent.appendChild(node);
+      }
+      offset = tokenPattern.lastIndex;
+    }
+    if (offset < source.length) parent.appendChild(document.createTextNode(source.slice(offset)));
+  }
+
+  function renderGuideMarkdown(container, markdown) {
+    const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+    let paragraph = [];
+    let list = null;
+    let listTag = '';
+
+    const flushList = () => {
+      if (list) container.appendChild(list);
+      list = null;
+      listTag = '';
+    };
+    const flushParagraph = () => {
+      if (!paragraph.length) return;
+      const node = document.createElement('p');
+      node.className = 'guide-rendered-paragraph';
+      appendGuideInline(node, paragraph.join(' '));
+      container.appendChild(node);
+      paragraph = [];
+    };
+    const nextListTag = start => {
+      let next = start;
+      while (next < lines.length && !lines[next].trim()) next++;
+      const line = lines[next] || '';
+      if (/^\s*[-*]\s+/.test(line)) return 'ul';
+      if (/^\s*\d+[.)]\s+/.test(line)) return 'ol';
+      return '';
+    };
+
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
+      if (!line.trim()) {
+        flushParagraph();
+        if (list && nextListTag(index + 1) !== listTag) flushList();
+        continue;
+      }
+      const heading = line.match(/^\s{0,3}(#{1,3})\s+(.+)$/);
+      if (heading) {
+        flushParagraph();
+        flushList();
+        const h = document.createElement(['h3', 'h4', 'h5'][heading[1].length - 1] || 'h5');
+        h.className = 'guide-rendered-heading';
+        appendGuideInline(h, heading[2].trim());
+        container.appendChild(h);
+        continue;
+      }
+      const quote = line.match(/^\s*>\s?(.*)$/);
+      if (quote) {
+        flushParagraph();
+        flushList();
+        const block = document.createElement('blockquote');
+        block.className = 'guide-rendered-quote';
+        appendGuideInline(block, quote[1]);
+        container.appendChild(block);
+        continue;
+      }
+      const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+      const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+      const item = unordered || ordered;
+      if (item) {
+        flushParagraph();
+        const tag = unordered ? 'ul' : 'ol';
+        if (list && listTag !== tag) flushList();
+        if (!list) {
+          list = document.createElement(tag);
+          list.className = tag === 'ul' ? 'guide-rendered-list unordered' : 'guide-rendered-list ordered';
+          listTag = tag;
+        }
+        const li = document.createElement('li');
+        appendGuideInline(li, item[1].trim());
+        list.appendChild(li);
+        continue;
+      }
+      flushList();
+      paragraph.push(line.trim());
+    }
+    flushParagraph();
+    flushList();
+  }
+
   function renderGuidePanel() {
     const overlay = el('div', 'guide-overlay');
     overlay.addEventListener('click', event => { if (event.target === overlay) { state.guideOpen = false; render(); } });
@@ -1714,7 +1829,10 @@
         return;
       }
       const row = el('article', 'guide-message ' + message.role);
-      row.append(el('span', 'guide-message-stage', message.stage || ''), el('p', '', message.content));
+      row.appendChild(el('span', 'guide-message-stage', message.stage || ''));
+      const body = el('div', 'guide-message-body');
+      renderGuideMarkdown(body, message.content);
+      row.appendChild(body);
       messageList.appendChild(row);
     });
     if (state.guideBusy) messageList.appendChild(el('p', 'guide-working', 'Kerygma Guide is considering the passage…'));

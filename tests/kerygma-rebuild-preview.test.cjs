@@ -24,7 +24,7 @@ const sample = {
   illustrations: [{ id: 'i1', title: 'The mirror', content: 'A mirror exposes our own condition.' }],
   appSeekers: 'Respond to God with repentance.',
   appBelievers: 'Reject self-righteousness.',
-  appSuffering: '',
+  appSuffering: 'Bring suffering and fear to Christ.'
   manuscript: '# Introduction\n\nThe text confronts self-righteous judgment.',
   inductiveStudySource: {
     format: 'inductive-bible-study-sermon-source',
@@ -138,7 +138,7 @@ test('rebuild preview is isolated from the legacy studio and has no persistence 
   assert.ok(html.includes('/sermon-preview/app.js'));
   assert.ok(app.includes("Data.readLocalSermons(window.localStorage)"));
   assert.ok(app.includes("'/sermon/index.html'"));
-  assert.ok(app.includes("inductiveStudySource"));
+  assert.ok(data.includes("inductiveStudySource"));
   assert.ok(!app.includes('localStorage.setItem'));
   assert.ok(!app.includes('localStorage.removeItem'));
   assert.ok(!app.includes('fetch('));

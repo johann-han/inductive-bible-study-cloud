@@ -763,6 +763,187 @@
     return wrap;
   }
 
+  function renderInlineClaimReview(sermon) {
+    const details = el('details', 'manuscript-claim-review');
+    details.id = 'manuscript-claim-review';
+    details.open = Boolean(state.claimTargetReviewKey);
+    const summary = el('summary', 'manuscript-claim-summary', 'Claim and paragraph review · heuristic analysis');
+    details.appendChild(summary);
+
+    const body = el('div', 'manuscript-claim-body');
+    const engine = new ClaimReview.ClaimReviewEngine(state.sermons, window.localStorage);
+    const outlinePoints = (Array.isArray(sermon.outline) ? sermon.outline : []).map((point, index) => ({
+      index: index + 1,
+      statement: String(point.statement || ''),
+      reference: String(point.reference || ''),
+      notes: String(point.notes || '')
+    }));
+    const manuscript = String(sermon.manuscript || '');
+    const analysis = engine.analyzeManuscriptClaimParagraphs(
+      manuscript,
+      outlinePoints,
+      sermon.inductiveStudySource || null
+    );
+    const rows = Array.isArray(analysis.rows) ? analysis.rows : [];
+    const claimItems = rows.flatMap(row => (Array.isArray(row.claims) ? row.claims : [])
+      .filter(claim => claim && claim.kind === 'claim' && String(claim.proposition || '').trim())
+      .map(claim => ({ row, claim, reviewKey: engine.makeClaimReviewKey(row.index, claim) })));
+    const statusLabels = {
+      'not-reviewed': 'Not reviewed',
+      reviewed: 'Reviewed',
+      'needs-research': 'Needs research',
+      'requires-revision': 'Requires revision'
+    };
+
+    const coverage = el('p', 'manuscript-claim-coverage',
+      manuscript.trim()
+        ? 'Analyzed ' + rows.length + ' of ' + analysis.totalCount + ' paragraph blocks; ' +
+          analysis.derivedClaimCount + ' candidate propositions distilled from ' +
+          analysis.visibleSentenceCount + ' displayed sentences. ' +
+          analysis.nonClaimSentenceCount + ' sentences are labelled as context, quotation or not safely distilled rather than being presented as claims.'
+        : 'No manuscript text is available to analyze yet.');
+    body.appendChild(coverage);
+
+    const statusSummary = el('p', 'manuscript-claim-status-summary');
+    statusSummary.setAttribute('role', 'status');
+    statusSummary.setAttribute('aria-live', 'polite');
+    body.appendChild(statusSummary);
+
+    const refreshStatusSummary = () => {
+      const counts = { 'not-reviewed': 0, reviewed: 0, 'needs-research': 0, 'requires-revision': 0 };
+      claimItems.forEach(item => {
+        const status = engine.getClaimReviewStatus(sermon.id, item.reviewKey);
+        if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
+      });
+      statusSummary.textContent = 'Review progress for displayed propositions — Reviewed: ' + counts.reviewed +
+        ' · Needs research: ' + counts['needs-research'] +
+        ' · Requires revision: ' + counts['requires-revision'] +
+        ' · Not reviewed: ' + counts['not-reviewed'];
+    };
+    refreshStatusSummary();
+
+    if (!rows.length) {
+      body.appendChild(el('p', 'manuscript-claim-empty',
+        manuscript.trim() ? 'No paragraph blocks were available within the analysis limits.' : 'Add manuscript text to begin reviewing candidate propositions.'));
+    } else {
+      const paragraphList = el('div', 'manuscript-claim-paragraphs');
+      rows.forEach(row => {
+        const paragraph = el('section', 'manuscript-claim-paragraph');
+        const heading = el('h4', 'manuscript-claim-paragraph-title',
+          'Paragraph ' + row.index + ' · ' + row.section);
+        paragraph.appendChild(heading);
+        paragraph.appendChild(el('p', 'manuscript-claim-meta',
+          'Paragraph references: ' + (row.references?.length
+            ? row.references.map(reference => reference.text +
+              (reference.source === 'section heading' ? ' [from section heading]' : '') +
+              (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+            : 'No paragraph or section-heading reference detected')));
+        paragraph.appendChild(el('p', 'manuscript-claim-meta',
+          'Sentence analysis: ' + row.claims.length + ' shown of ' + row.totalClaims +
+          ' sentences; ' + row.derivedClaimCount + ' propositions distilled'));
+
+        const sentenceList = el('div', 'manuscript-claim-sentences');
+        (Array.isArray(row.claims) ? row.claims : []).forEach(claim => {
+          const sentence = el('article', 'manuscript-claim-sentence');
+          if (claim.kind === 'claim' && String(claim.proposition || '').trim()) {
+            const reviewKey = engine.makeClaimReviewKey(row.index, claim);
+            sentence.id = 'claim-review-item-' + reviewKey;
+            sentence.tabIndex = -1;
+            sentence.classList.add('is-candidate');
+            sentence.appendChild(el('p', 'manuscript-claim-kind',
+              'Claim ' + claim.claimIndex + ' · Candidate proposition from source sentence ' + claim.index));
+            sentence.appendChild(el('p', 'manuscript-claim-proposition', claim.proposition));
+          } else if (claim.kind === 'context') {
+            sentence.appendChild(el('p', 'manuscript-claim-kind', 'Context'));
+            sentence.appendChild(el('p', 'manuscript-claim-meta', claim.note));
+          } else {
+            sentence.appendChild(el('p', 'manuscript-claim-kind', 'Not distilled'));
+            sentence.appendChild(el('p', 'manuscript-claim-meta', claim.note));
+          }
+
+          if (claim.kind !== 'context') {
+            sentence.appendChild(el('p', 'manuscript-claim-meta',
+              'References: ' + (claim.references?.length
+                ? claim.references.map(reference => reference.text +
+                  (reference.source === 'section heading' ? ' [from section heading]' :
+                    reference.source === 'paragraph context' ? ' [from paragraph context]' : '') +
+                  (reference.matchesPassage ? '' : ' [check book/chapter]')).join('; ')
+                : 'No sentence or inherited passage reference detected')));
+            sentence.appendChild(el('p', 'manuscript-claim-meta',
+              'Candidate outline: ' + (claim.outlineLinks?.length
+                ? claim.outlineLinks.map(link => link.label).join('; ') : 'No candidate outline link')));
+            sentence.appendChild(el('p', 'manuscript-claim-meta',
+              'Candidate IBS division: ' + (claim.divisionLinks?.length
+                ? claim.divisionLinks.map(link => link.label).join('; ') : 'No candidate IBS division')));
+            sentence.appendChild(el('p', 'manuscript-claim-flags',
+              'Review flags: ' + (claim.flags?.length
+                ? claim.flags.join('; ') : 'No heuristic flags; human review is still required.')));
+          }
+
+          if (claim.kind === 'claim' && String(claim.proposition || '').trim()) {
+            const reviewKey = engine.makeClaimReviewKey(row.index, claim);
+            const controlRow = el('div', 'manuscript-claim-controls');
+            const label = el('label', 'manuscript-claim-status-label', 'Review status');
+            const select = document.createElement('select');
+            select.className = 'claim-status-select';
+            select.setAttribute('aria-label', 'Review status for paragraph ' + row.index + ', claim ' + claim.claimIndex);
+            Object.entries(statusLabels).forEach(([value, labelText]) => {
+              const option = document.createElement('option');
+              option.value = value;
+              option.textContent = labelText;
+              select.appendChild(option);
+            });
+            let lastSavedStatus = engine.getClaimReviewStatus(sermon.id, reviewKey);
+            select.value = lastSavedStatus;
+            label.appendChild(select);
+            const saveIndicator = el('span', 'manuscript-claim-save-state', 'Saved separately from sermon text when changed');
+            controlRow.append(label, saveIndicator);
+            select.addEventListener('change', () => {
+              const nextStatus = select.value;
+              if (engine.saveClaimReviewStatus(sermon.id, reviewKey, nextStatus)) {
+                lastSavedStatus = nextStatus;
+                saveIndicator.textContent = 'Saved separately';
+                saveIndicator.classList.add('is-saved');
+                refreshStatusSummary();
+              } else {
+                select.value = lastSavedStatus;
+                saveIndicator.textContent = 'Could not save; previous status restored';
+                saveIndicator.classList.remove('is-saved');
+              }
+            });
+            sentence.appendChild(controlRow);
+          }
+          sentenceList.appendChild(sentence);
+        });
+        paragraph.appendChild(sentenceList);
+
+        if (row.omittedClaims) {
+          paragraph.appendChild(el('p', 'manuscript-claim-limit',
+            row.omittedClaims + ' additional sentence items were not shown in this paragraph.'));
+        }
+        if (row.flags?.length) {
+          paragraph.appendChild(el('p', 'manuscript-claim-flags',
+            'Paragraph-level review flags: ' + row.flags.join('; ')));
+        }
+        paragraphList.appendChild(paragraph);
+      });
+      body.appendChild(paragraphList);
+    }
+
+    if (analysis.omittedCount || analysis.omittedSentenceCount || analysis.inputTruncated) {
+      body.appendChild(el('p', 'claim-limit-note', [
+        analysis.omittedCount ? analysis.omittedCount + ' additional paragraph blocks are not shown.' : '',
+        analysis.omittedSentenceCount ? analysis.omittedSentenceCount + ' sentence items are omitted by the display cap.' : '',
+        analysis.inputTruncated ? 'Analysis is capped at the first 60,000 characters.' : ''
+      ].filter(Boolean).join(' ') + ' Review the complete manuscript directly; this analysis is not exhaustive.'));
+    }
+
+    body.appendChild(el('p', 'manuscript-claim-method-note',
+      'Proposition extraction and Scripture-reference matching are heuristic. Paragraph and verse-range overlap are navigation aids, not proof of theological support. Greetings and transitions are not treated as claims; quotations and sentences that cannot be safely distilled are flagged without presenting them as established propositions. Check every candidate against the biblical text, the approved Big Idea and outline, and the imported IBS Interpretation, Doctrine and Discipleship evidence. Historical details and quotations require independent verification.'));
+    details.appendChild(body);
+    return details;
+  }
+
   function renderManuscriptStage(sermon) {
     const wrap = el('div', 'stage-content');
     const manuscript = panel('Sermon manuscript / preaching notes', 'Develop the sermon in your own voice. Generated material remains an editable draft and requires your review.');
@@ -781,6 +962,7 @@
       ['IBS Discipleship', sermon.inductiveStudySource.sections?.discipleship]
     ], 'Review the manuscript against the passage, Big Idea, outline and approved applications. AI-generated text is not automatically approved.'));
     wrap.appendChild(manuscript);
+    wrap.appendChild(renderInlineClaimReview(sermon));
     return wrap;
   }
 
@@ -1109,13 +1291,27 @@
 
   function openClaimInManuscript(item) {
     const sermon = state.sermons.find(row => String(row.id) === String(item.sermonId));
-    if (!sermon) return;
+    if (!sermon || !item.reviewKey) return;
     state.selectedId = sermon.id;
     state.view = 'workspace';
     state.stage = 'manuscript';
     state.claimNotice = '';
+    state.claimTargetReviewKey = String(item.reviewKey);
     render();
     window.setTimeout(() => {
+      const reviewPanel = document.getElementById('manuscript-claim-review');
+      if (reviewPanel) reviewPanel.open = true;
+      const target = document.getElementById('claim-review-item-' + item.reviewKey);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.focus({ preventScroll: true });
+        target.classList.add('is-targeted');
+        window.setTimeout(() => target.classList.remove('is-targeted'), 2400);
+        state.claimTargetReviewKey = '';
+        return;
+      }
+      // Keep a safe fallback if an older or unusually long manuscript no longer
+      // contains the claim anchor produced by the current analysis limits.
       const editor = $('[data-field="manuscript"]');
       if (!editor) return;
       const engine = new ClaimReview.ClaimReviewEngine(state.sermons, window.localStorage);
@@ -1137,6 +1333,7 @@
       if (offset >= 0) {
         try { editor.setSelectionRange(offset, Math.min(offset + firstToken.length, editor.value.length)); } catch (_) {}
       }
+      state.claimTargetReviewKey = '';
     }, 0);
   }
 

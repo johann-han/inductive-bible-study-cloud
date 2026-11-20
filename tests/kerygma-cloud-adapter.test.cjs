@@ -396,6 +396,41 @@ test('read-only cloud preview reports merge counts without writing local or remo
   adapter.destroy();
 });
 
+test('read-only cloud preview subtracts owned pending deletions from the projected merged count', async () => {
+  const localDeleted = sermon('preview-local-deleted', 'Local sermon pending deletion');
+  const cloudKept = sermon('preview-cloud-kept', 'Cloud sermon retained');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([localDeleted]),
+    kerygma_local_owner_id: 'user-a',
+    kerygma_pending_cloud_deletions: JSON.stringify([{
+      sermon_id: localDeleted.id,
+      sermon_data: localDeleted
+    }]),
+    kerygma_pending_cloud_deletions_owner_id: 'user-a'
+  });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-a', email: 'a@example.com' } },
+    rows: [{
+      sermon_id: cloudKept.id,
+      sermon_data: cloudKept,
+      updated_at: cloudKept.updated_at,
+      deleted_at: null
+    }]
+  });
+  const adapter = createAdapter({ storage, supabase, sermons: [localDeleted] });
+  const before = new Map(storage.values);
+
+  const preview = await adapter.previewCloudSermons();
+  assert.equal(preview.localSermonCount, 1);
+  assert.equal(preview.cloudSermonCount, 1);
+  assert.equal(preview.pendingDeletesForThisAccount, 1);
+  assert.equal(preview.mergedSermonCount, 1, 'the pending local deletion must not be counted in the post-sync library');
+  assert.deepEqual([...storage.values], [...before]);
+  assert.equal(supabase.upserts.length, 0);
+  assert.equal(adapter.cloudSyncReady, false);
+  adapter.destroy();
+});
+
 test('read-only preview withholds another account deletion targets and keeps that queue untouched', async () => {
   const deletedA = sermon('preview-deleted-a', 'Private Account A deletion');
   const cloudB = sermon('preview-cloud-b', 'Account B cloud sermon');

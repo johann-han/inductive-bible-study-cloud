@@ -305,10 +305,18 @@ test('Study Library search index includes note text from all four stages, not on
   ]) {
     assert.ok(entry.searchText.includes(phrase), 'search index is missing: ' + phrase);
   }
+  assert.equal(entry.searchTextByStage.observe, 'Opening observation is visible in the card preview.');
+  assert.equal(entry.searchTextByStage.interpret, 'Distinctive interpretive phrase searchable beyond the preview.');
+  assert.equal(entry.searchTextByStage.doctrine, 'Doctrinal conclusion should also be searchable.');
+  assert.equal(entry.searchTextByStage.apply, 'Concrete discipleship response should also be searchable.');
 
   const appSource = readFileSync(new URL('../next-app/src/App.tsx', import.meta.url), 'utf8');
   assert.match(appSource, /entry\.searchText\.toLocaleLowerCase\(\)\.includes\(query\)/,
     'Study Library filtering must use the complete note search index');
+  assert.match(appSource, /entry\.searchTextByStage\[item\.id\]\.toLocaleLowerCase\(\)\.includes\(searchQuery\)/,
+    'search results should identify the stage whose notes matched');
+  assert.match(appSource, /preview-study-search-match/,
+    'matching stage labels should be visible on search result cards');
 });
 
 test('preview dashboard summary counts all active drafts but only populated stage notes', () => {

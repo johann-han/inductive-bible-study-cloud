@@ -379,6 +379,10 @@ test('redesigned PR preview requires explicit sign-in and confirmed cloud sync',
   assert.ok(app.includes('function openCloudAccountDialog()'));
   assert.ok(app.includes('supabaseClient.auth.signInWithPassword'));
   assert.ok(app.includes('Confirm a Kerygma cloud sync for'));
+  assert.ok(app.includes('Cloud sync is active in this session'));
+  assert.ok(app.includes('Cloud sync not active in this session'));
+  assert.ok(app.includes('Sync latest changes'));
+  assert.ok(app.includes('Read-only preview refreshed. No records were changed by this preview. Cloud sync is already active for this account.'));
   assert.ok(app.includes('cloudAdapter.initializeCloudSermons()'));
   assert.ok(adapter.includes('Signed in — select Sync to load this account'));
   assert.ok(adapter.includes('allowAccountSwitch: false'));

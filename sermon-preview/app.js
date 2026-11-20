@@ -26,8 +26,8 @@
     guidePrompt: '',
     guideError: '',
     claimNotice: '',
-    cloudStatus: 'Connecting to Supabase…',
-    cloudTone: 'normal'
+    cloudStatus: 'Cloud sync held back in preview',
+    cloudTone: 'warning'
   };
   state.selectedId = state.sermons[0] ? state.sermons[0].id : '';
 
@@ -382,13 +382,6 @@
     cloudStatus.setAttribute('role', 'status');
     cloudStatus.setAttribute('aria-live', 'polite');
     cloudStatus.classList.add('cloud-' + state.cloudTone);
-    const syncButton = makeButton(icon('sync') + ' Sync', 'topbar-button topbar-quiet', () => {
-      if (!cloudAdapter) return;
-      syncButton.disabled = true;
-      cloudAdapter.syncCloudSermons()
-        .catch(error => setCloudStatus(error.message || 'Cloud sync failed; local data remains saved.', 'error'))
-        .finally(() => { syncButton.disabled = false; });
-    });
     const save = el('span', 'save-state', statusText());
     save.setAttribute('data-save-state', '');
     if (state.saveState === 'error') save.classList.add('save-error');
@@ -396,7 +389,7 @@
     const importButton = makeButton(icon('import') + ' Import Study', 'topbar-button topbar-quiet', () => openImportPicker());
     const exportButton = makeButton(icon('download') + ' Export', 'topbar-button topbar-quiet', () => exportCurrentSermon());
     const newButton = makeButton(icon('plus') + ' New Sermon', 'topbar-button topbar-primary', createNewSermon);
-    actions.append(legacy, cloudStatus, syncButton, save, guide, importButton, exportButton, newButton);
+    actions.append(legacy, cloudStatus, save, guide, importButton, exportButton, newButton);
     bar.append(left, actions);
     return bar;
   }
@@ -1804,7 +1797,9 @@
   });
 
   render();
-  cloudAdapter.initializeCloudSermons().catch(error => setCloudStatus(error.message || 'Cloud initialisation failed; local data remains safe.', 'error'));
+  // The preview uses a separate Render origin. Do not initialise the live Supabase adapter here.
+  // Its mocked regression suite validates the existing contracts; cloud writes remain in the legacy studio until cutover is approved.
+  setCloudStatus('Cloud sync held back in preview · use Current Studio for live sync', 'warning');
 
   // Expose only the small public surface needed by keyboard shortcuts and automated acceptance.
   window.KerygmaRebuild = {

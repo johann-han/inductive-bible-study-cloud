@@ -364,3 +364,11 @@ a{color:inherit;text-decoration:none}
  .claim-status-control{justify-content:space-between}
  .claim-open-button{width:100%}
 }
+
+.cloud-status{max-width:155px;color:#8a7049;font-size:9px;font-weight:700;line-height:1.35}
+.cloud-status.cloud-success{color:#39704e}
+.cloud-status.cloud-error{color:#a64d49}
+.cloud-status.cloud-warning{color:#8a7049}
+.sermon-card-delete{display:block;margin:0 13px 10px auto;padding:4px 8px;border:1px solid #eadfdd;border-radius:6px;background:#fff;color:#95615c;font-size:8px;font-weight:750}
+.sermon-card-delete:hover{background:#fbf3f2;border-color:#dfbfbb}
+@media(max-width:650px){.cloud-status{display:none}}

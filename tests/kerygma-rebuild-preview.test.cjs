@@ -336,6 +336,16 @@ test('claim review reference matching retains chapter ranges and overlap semanti
   assert.equal(engine.outlineTraceRangesOverlap({ chapter: 2, start: 1, end: 3 }, { chapter: 3, start: 1, end: 3 }), false);
 });
 
+
+test('redesigned PR preview does not initialise the live Supabase cloud adapter', () => {
+  const root = require('node:path').join(__dirname, '..');
+  const app = require('node:fs').readFileSync(require('node:path').join(root, 'sermon-preview', 'app.js'), 'utf8');
+  assert.ok(app.includes('new Cloud.KerygmaCloudAdapter'));
+  assert.ok(app.includes('Cloud sync held back in preview'));
+  assert.ok(!app.includes('cloudAdapter.initializeCloudSermons()'));
+  assert.ok(app.includes("window.open('/sermon/index.html'"));
+});
+
 test('preview scripts parse as JavaScript and preserve the existing Kerygma route', () => {
   const root = path.join(__dirname, '..');
   const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');

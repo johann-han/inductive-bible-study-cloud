@@ -86,7 +86,7 @@ The redesigned preview saves sermon edits locally to the established cache key a
 - Regression tests exercise proposition extraction, sentence segmentation, reference matching, stable keys, status persistence and queue filtering.
 - User/browser acceptance is still required; no statuses are migrated or reset.
 
-### Stage D — Cloud sync and account behavior
+### Stage D — Cloud sync and account behavior (adapter implemented; live activation held until cutover)
 
 - Reuse the established Supabase authentication session, \`public.kerygma_sermons\` table and RLS policies.
 - Rebuild the connection/status controls, first-load hydration, manual/automatic sync, user scoping, merge rules and deletion tombstones.

@@ -93,13 +93,16 @@ The redesigned preview saves sermon edits locally to the established cache key a
 - Test no-session, sign-in, sign-out, account changes, offline/timeout, local-newer, cloud-newer, equal timestamps, duplicate records and remote deletion.
 - Preserve all local sermon records and cloud rows; no destructive migration is allowed.
 
-### Stage E — Import, recovery and export completeness
+### Stage E — Import, recovery and export completeness (implemented in preview; browser round-trip check remains)
 
-- Retain source packet validation and explicit create-new/attach-to-current choices.
-- Preserve existing handwritten sermon fields and explicit source-only replacement warnings.
-- Complete export of all sermon fields and the optional, separate IBS source appendix.
-- Add robust backup and restore only against the existing contracts.
-- Verify Unicode, large notes, malformed packets, duplicate imports, reload and round-trip export.
+- Retains version 1 IBS source packet validation and explicit create-new/attach-to-current choices.
+- Preserves existing handwritten sermon fields and warns when an attached source packet will be replaced.
+- Expands readable sermon export to include Scripture text, context, keywords, exegetical subject/complement, Big Idea, aim, complete homiletical outline and notes, illustrations, all application fields, manuscript and record metadata. The optional source appendix includes the full imported IBS packet as JSON, keeping source material separate from authored sermon content.
+- Adds a versioned kerygma-sermon-workspace JSON backup/restore format. It preserves complete sermon records and extension fields, the nested IBS packet, the separate Claim Review statuses, the existing local owner marker, the pending cloud-deletion tombstones and their owner marker.
+- Restore defaults to adding only missing sermon IDs. Matching IDs are preserved unless the user explicitly selects replacement. Re-importing is idempotent, records absent from the archive are never deleted, and account-owner mismatches are rejected.
+- Restore writes only the existing Kerygma browser keys and rolls back prior writes if a later storage write fails. An archive owner marker is adopted when restoring into an unowned local cache so restored data cannot later be uploaded under another account.
+- Automated regression tests cover full-fidelity Unicode/large-note round trips, malformed/unsupported archives, duplicate and missing IDs, merge and explicit replacement behavior, claim-review status handling, tombstone retention, owner isolation, storage failure rollback and protection of unrelated localStorage keys.
+- Browser-level backup/download/restore and export/re-import round-trip acceptance remains to be checked. Cloud backup/sync is not activated in this preview.
 
 ### Stage F — Cutover and retirement of the legacy interface
 

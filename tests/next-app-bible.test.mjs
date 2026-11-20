@@ -330,7 +330,7 @@ test('Study Library search results provide a contextual excerpt from each matchi
   const query = 'distinctive theological phrase';
   const matches = getPreviewStageSearchMatches({
     observe: 'The opening observation contains no target phrase.',
-    interpret: longContext + query + ' followed by the interpretive conclusion.',
+    interpret: longContext + query + ' followed by the interpretive conclusion. ' + 'Later context remains important to the overall argument. '.repeat(3),
     doctrine: 'A separate ' + query + ' appears in the doctrine notes.',
     apply: 'The practical response contains no matching phrase.'
   }, query);

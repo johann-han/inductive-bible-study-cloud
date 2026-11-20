@@ -378,7 +378,7 @@ test('redesigned PR preview requires explicit sign-in and confirmed cloud sync',
   assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
   assert.ok(app.includes('function openCloudAccountDialog()'));
   assert.ok(app.includes('supabaseClient.auth.signInWithPassword'));
-  assert.ok(app.includes('Sync the redesigned Kerygma preview with the existing cloud account'));
+  assert.ok(app.includes('Confirm the Kerygma cloud sync for'));
   assert.ok(app.includes('cloudAdapter.initializeCloudSermons()'));
   assert.ok(adapter.includes('Signed in — select Sync to load this account'));
   assert.ok(adapter.includes('allowAccountSwitch: false'));

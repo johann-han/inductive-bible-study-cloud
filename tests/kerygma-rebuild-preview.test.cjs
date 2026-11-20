@@ -207,7 +207,7 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
   assert.ok(app.includes('function backupWorkspace()'));
   assert.ok(app.includes('function handleWorkspaceArchiveFile(file)'));
   assert.ok(app.includes("Archive.restoreWorkspaceArchive(window.localStorage, plan)"));
-  assert.ok(app.includes("Archive.buildRestorePlan(current, archive, mode, statuses)"));
+  assert.ok(app.includes("Archive.buildRestorePlan(current, archive, mode, statuses, pending, pendingOwner)"));
   assert.ok(archiveModule.includes("const FORMAT = 'kerygma-sermon-workspace'"));
   assert.ok(archiveModule.includes("storage.setItem(key, value)"));
   assert.ok(archiveModule.includes("const PENDING_KEY = 'kerygma_pending_cloud_deletions'"));

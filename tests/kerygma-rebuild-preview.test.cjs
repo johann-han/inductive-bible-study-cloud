@@ -187,12 +187,11 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
   assert.ok(app.includes("Data.readLocalSermons(window.localStorage)"));
   assert.ok(app.includes("window.open('/sermon/index.html'"));
   assert.ok(app.includes("Data.writeLocalSermons(window.localStorage, state.sermons)"));
-  assert.ok(app.includes("fetch('/api/sermon-ai'") === false, 'AI calls should go through the shared callAI helper');
+  assert.ok(app.includes("fetch('/api/sermon-ai'"), 'generation and Guide requests should use the established server endpoint');
   assert.ok(app.includes("fetch('/api/config'"));
-  assert.ok(app.includes("fetch('/api/sermon-ai'") === false);
   assert.ok(app.includes("callAI(prompt.system, prompt.query, prompt.schema || null)"));
   assert.ok(app.includes("callAI(systemPrompt, userQuery, null, 900)"));
-  assert.ok(app.includes("never edit, save or claim to have changed any sermon field") === false);
+  assert.ok(app.includes('Do not edit, save or claim to have changed any sermon field or imported IBS source.'));
   assert.ok(data.includes("inductiveStudySource"));
   assert.ok(data.includes("target.setItem(STORAGE_KEY, JSON.stringify(rows))"));
   assert.ok(!app.includes('localStorage.removeItem'));

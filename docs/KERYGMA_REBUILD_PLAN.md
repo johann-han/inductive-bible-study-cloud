@@ -210,3 +210,12 @@ A safety gap was identified: the read-only preview reported the pending deletion
 - Does not expose the titles or passages of tombstones held for another account; it reports only their count and keeps that queue untouched.
 
 Regression tests cover both disclosure of the active account's targets and withholding another account's deletion details. These changes require CI on the exact latest branch head and a refreshed Render preview before the deletion target can be reviewed in the browser. The user has not confirmed sync. No cloud sermon record or tombstone has been changed by this read-only preview. Production remains untouched.
+
+
+## Projected merge count correction — 2026-11-20
+
+Before sync, the browser showed 1 local sermon, 2 cloud sermons, 1 owned deletion tombstone, and a projected merged count of 3. The deletion target was confirmed by the user as the local preview sermon **New Expository Sermon**. Review of the actual sync sequence showed that owned tombstones are uploaded before cloud rows are fetched and merged. The earlier preview count did not simulate that first step and therefore overstated the post-sync merged library by one.
+
+The feature branch now calculates the projected merge by applying the signed-in account's pending tombstones to a read-only in-memory copy of the cloud rows before calling the existing merge helper. It does not upload tombstones or mutate local/cloud data. An automated regression test verifies that a local sermon already marked for deletion is excluded from the projected post-sync count.
+
+For the observed preview data, the expected merged library should therefore be **2 sermons**, not 3: the two existing cloud sermons remain, and the local sermon marked for deletion is excluded. The user confirmed the deletion target, but has not authorised the sync confirmation in the application. Re-run the read-only preview on the latest deployed build and confirm the revised count before any cloud write.

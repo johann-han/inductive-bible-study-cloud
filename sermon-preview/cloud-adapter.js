@@ -141,10 +141,13 @@
             const sermon = entry && entry.sermon_data && typeof entry.sermon_data === 'object'
               ? entry.sermon_data
               : {};
+            const sermonId = String((entry && (entry.sermon_id || entry.id)) || sermon.id || '');
             return {
-              sermonId: String((entry && (entry.sermon_id || entry.id)) || sermon.id || ''),
+              sermonId,
               title: String(sermon.title || 'Untitled sermon').slice(0, 120),
-              passage: String(sermon.passage || 'Passage not recorded').slice(0, 80)
+              passage: String(sermon.passage || 'Passage not recorded').slice(0, 80),
+              matchesLocalSermon: localRecords.some(record => String(record && record.id || '') === sermonId),
+              matchesCloudSermon: cloudRecords.some(row => String(row && (row.sermon_id || (row.sermon_data && row.sermon_data.id)) || '') === sermonId)
             };
           })
           : [],

@@ -108,11 +108,17 @@
       const localRecords = accountSwitch ? [] : this.getSermons();
       const rows = Array.isArray(cloudResult.data) ? cloudResult.data : [];
       const cloudRecords = rows.filter(row => row && !row.deleted_at && row.sermon_data && typeof row.sermon_data === 'object');
-      const merged = this.cloudSync.mergeSermons(localRecords, rows);
       const deletionOwnerId = this.readStorage(PENDING_OWNER_KEY) || '';
       const pendingDeletesForThisAccount = deletionOwnerId && deletionOwnerId !== userId
         ? 0
         : this.pendingCloudDeletions.length;
+      // Mirror the actual sync order: owned deletion tombstones are uploaded before
+      // the cloud rows are fetched and merged. Include projected tombstones here so
+      // the read-only merge count matches the result after the confirmed sync.
+      const projectedTombstones = pendingDeletesForThisAccount
+        ? this.cloudSync.buildTombstoneRows(this.pendingCloudDeletions, userId, new Date().toISOString())
+        : [];
+      const merged = this.cloudSync.mergeSermons(localRecords, rows.concat(projectedTombstones));
 
       // This method is deliberately read-only: it does not write localStorage,
       // upload sermons, send deletion tombstones, or change the active owner.

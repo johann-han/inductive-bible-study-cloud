@@ -349,6 +349,61 @@ test('background sync refuses an account switch until the user explicitly confir
   adapter.destroy();
 });
 
+test('read-only cloud preview reports merge counts without writing local or remote records', async () => {
+  const local = sermon('preview-local', 'Local preview sermon');
+  const cloud = sermon('preview-cloud', 'Existing cloud sermon');
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([local]),
+    kerygma_local_owner_id: 'user-a',
+    kerygma_claim_review_status_v1: JSON.stringify({ 'preview-local': { claim: 'reviewed' } })
+  });
+  const cloudRows = [{
+    sermon_id: cloud.id,
+    sermon_data: cloud,
+    updated_at: cloud.updated_at,
+    deleted_at: null
+  }];
+  const supabase = createSupabaseMock({ session: { user: { id: 'user-a', email: 'a@example.com' } }, rows: cloudRows });
+  const adapter = createAdapter({ storage, supabase, sermons: [local] });
+  const before = new Map(storage.values);
+
+  const preview = await adapter.previewCloudSermons();
+  assert.equal(preview.readOnly, true);
+  assert.equal(preview.userId, 'user-a');
+  assert.equal(preview.localSermonCount, 1);
+  assert.equal(preview.cloudSermonCount, 1);
+  assert.equal(preview.mergedSermonCount, 2);
+  assert.equal(preview.cloudSermonPreviews[0].title, 'Existing cloud sermon');
+  assert.deepEqual([...storage.values], [...before]);
+  assert.equal(supabase.upserts.length, 0);
+  assert.equal(adapter.cloudSyncReady, false);
+  adapter.destroy();
+});
+
+test('account switching backs up and restores separate Claim Review status stores by user', async () => {
+  const localA = sermon('shared-id', 'Account A sermon');
+  const cloudB = sermon('shared-id', 'Account B sermon', '2026-11-20T09:00:00.000Z');
+  const statusesA = { 'shared-id': { claimA: 'needs-research' } };
+  const statusesB = { 'shared-id': { claimB: 'reviewed' } };
+  const storage = storageFixture({
+    kerygma_sermons: JSON.stringify([localA]),
+    kerygma_local_owner_id: 'user-a',
+    kerygma_claim_review_status_v1: JSON.stringify(statusesA),
+    kerygma_claim_review_status_backup_user-b: JSON.stringify(statusesB)
+  });
+  const supabase = createSupabaseMock({
+    session: { user: { id: 'user-b' } },
+    rows: [{ sermon_id: cloudB.id, sermon_data: cloudB, updated_at: cloudB.updated_at, deleted_at: null }]
+  });
+  const adapter = createAdapter({ storage, supabase, sermons: [localA] });
+
+  assert.equal(await adapter.syncCloudSermons({ allowAccountSwitch: true }), true);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_claim_review_status_backup_user-a')), statusesA);
+  assert.deepEqual(JSON.parse(storage.getItem('kerygma_claim_review_status_v1')), statusesB);
+  assert.equal(JSON.parse(storage.getItem('kerygma_sermons'))[0].title, 'Account B sermon');
+  adapter.destroy();
+});
+
 test('cloud adapter preserves an account A deletion queue while account B synchronises', async () => {
   const deletedA = sermon('private-deleted-a', 'Account A deletion');
   const cloudB = sermon('account-b-sermon', 'Account B saved sermon');

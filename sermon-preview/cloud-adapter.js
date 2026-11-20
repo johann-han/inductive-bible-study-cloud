@@ -133,7 +133,7 @@
       if (this.cloudSyncTimer) root.clearTimeout(this.cloudSyncTimer);
       this.cloudSyncTimer = root.setTimeout(() => {
         this.cloudSyncTimer = null;
-        this.syncCloudSermons().catch(error => this.setCloudSyncStatus(error.message || 'Cloud sync failed; local data is safe.', 'error'));
+        this.syncCloudSermons({ allowAccountSwitch: false }).catch(error => this.setCloudSyncStatus(error.message || 'Cloud sync failed; local data is safe.', 'error'));
       }, delay);
     }
 
@@ -144,9 +144,10 @@
         if (!this.cloudAuthSubscription && typeof this.supabaseClient.auth.onAuthStateChange === 'function') {
           const authResult = this.supabaseClient.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_IN' && session) {
-              root.setTimeout(() => {
-                this.syncCloudSermons().catch(error => this.setCloudSyncStatus(error.message || 'Cloud sync failed.', 'error'));
-              }, 0);
+              // Authentication alone is not consent to merge or write sermon records.
+              this.cloudSyncReady = false;
+              this.cloudUserId = null;
+              this.setCloudSyncStatus('Signed in — select Sync to load this account’s sermons', 'warning');
             } else if (event === 'SIGNED_OUT') {
               this.cloudSyncReady = false;
               this.cloudUserId = null;
@@ -155,7 +156,7 @@
           });
           this.cloudAuthSubscription = authResult && authResult.data ? authResult.data.subscription : null;
         }
-        await this.syncCloudSermons();
+        await this.syncCloudSermons({ allowAccountSwitch: true });
         this.bindActivitySync();
         return true;
       } catch (error) {
@@ -169,18 +170,19 @@
       if (this.activityBound || !root || typeof root.addEventListener !== 'function') return;
       this.activityBound = true;
       root.addEventListener('focus', () => {
-        if (this.cloudSyncReady) this.syncCloudSermons().catch(error => this.setCloudSyncStatus(error.message || 'Cloud sync failed.', 'error'));
+        if (this.cloudSyncReady) this.syncCloudSermons({ allowAccountSwitch: false }).catch(error => this.setCloudSyncStatus(error.message || 'Cloud sync failed.', 'error'));
       });
       if (root.document && typeof root.document.addEventListener === 'function') {
         root.document.addEventListener('visibilitychange', () => {
           if (root.document.visibilityState === 'visible' && this.cloudSyncReady) {
-            this.syncCloudSermons().catch(error => this.setCloudSyncStatus(error.message || 'Cloud sync failed.', 'error'));
+            this.syncCloudSermons({ allowAccountSwitch: false }).catch(error => this.setCloudSyncStatus(error.message || 'Cloud sync failed.', 'error'));
           }
         });
       }
     }
 
-    async syncCloudSermons() {
+    async syncCloudSermons(options = {}) {
+      const allowAccountSwitch = options.allowAccountSwitch !== false;
       if (this.cloudSyncInFlight) {
         this.cloudSyncQueued = true;
         return this.cloudSyncInFlight;
@@ -203,6 +205,13 @@
         }
 
         const userId = session.user.id;
+        const activeOwnerId = this.readStorage(OWNER_KEY) || this.localSermonOwnerId || '';
+        if (activeOwnerId && activeOwnerId !== userId && !allowAccountSwitch) {
+          this.cloudSyncReady = false;
+          this.cloudUserId = null;
+          this.setCloudSyncStatus('A different IBS account is signed in. Use Sync in Account & Sync to switch accounts safely.', 'warning');
+          return false;
+        }
         this.setCloudSyncStatus('Synchronising sermons…', 'normal');
 
         const deletionOwnerId = this.readStorage(PENDING_OWNER_KEY) || '';

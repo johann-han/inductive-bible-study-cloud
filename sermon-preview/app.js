@@ -1556,7 +1556,9 @@
     dialog.appendChild(ownerNote);
 
     const summary = el('div', 'import-summary-grid');
-    const initialPlan = Archive.buildRestorePlan(existing, archive, 'skip-conflicts', existingStatuses, existingPending, existingPendingOwner);
+    const initialPlan = ownerMismatch
+      ? { added: 0, skipped: 0, replaced: 0 }
+      : Archive.buildRestorePlan(existing, archive, 'skip-conflicts', existingStatuses, existingPending, existingPendingOwner, ownerId);
     [
       ['Sermons in backup', archive.sermonCount],
       ['New sermon records', initialPlan.added],
@@ -1597,7 +1599,8 @@
         const statuses = Archive.readRawClaimReviewStatuses(window.localStorage);
         const pending = Archive.readRawPendingCloudDeletions(window.localStorage);
         const pendingOwner = Archive.readPendingDeletionOwnerId(window.localStorage);
-        const plan = Archive.buildRestorePlan(current, archive, mode, statuses, pending, pendingOwner);
+        const activeOwner = Archive.readOwnerId(window.localStorage);
+        const plan = Archive.buildRestorePlan(current, archive, mode, statuses, pending, pendingOwner, activeOwner);
         Archive.restoreWorkspaceArchive(window.localStorage, plan);
         state.sermons = Data.sortRecentSermons(Data.parseStoredSermons(
           Archive.readRawSermonRecords(window.localStorage)
@@ -1619,7 +1622,7 @@
 
     dialog.addEventListener('change', () => {
       const mode = $('input[name="archive-restore-mode"]:checked', dialog)?.value || 'skip-conflicts';
-      const plan = Archive.buildRestorePlan(existing, archive, mode, existingStatuses, existingPending, existingPendingOwner);
+      const plan = Archive.buildRestorePlan(existing, archive, mode, existingStatuses, existingPending, existingPendingOwner, ownerId);
       collisionNote.hidden = plan.skipped === 0 && plan.replaced === 0;
       collisionNote.textContent = mode === 'replace-conflicts'
         ? plan.replaced + ' existing record(s) will be replaced. Records not included in this archive will remain unchanged.'

@@ -207,7 +207,7 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
   assert.ok(app.includes('function backupWorkspace()'));
   assert.ok(app.includes('function handleWorkspaceArchiveFile(file)'));
   assert.ok(app.includes("Archive.restoreWorkspaceArchive(window.localStorage, plan)"));
-  assert.ok(app.includes("Archive.buildRestorePlan(current, archive, mode, statuses, pending, pendingOwner)"));
+  assert.ok(app.includes("Archive.buildRestorePlan(current, archive, mode, statuses, pending, pendingOwner, activeOwner)"));
   assert.ok(archiveModule.includes("const FORMAT = 'kerygma-sermon-workspace'"));
   assert.ok(archiveModule.includes("storage.setItem(key, value)"));
   assert.ok(archiveModule.includes("const PENDING_KEY = 'kerygma_pending_cloud_deletions'"));
@@ -480,11 +480,12 @@ test('workspace restore writes only the existing sermon and claim-review keys', 
   const plan = Archive.buildRestorePlan([{ id: 'existing', title: 'Existing' }], archive, 'skip-conflicts',
     { existing: { claim: 'reviewed' } }, [{ sermon_id: 'old-deleted', sermon_data: { id: 'old-deleted' } }], 'user-a');
   assert.equal(Archive.restoreWorkspaceArchive(storage, plan), true);
-  assert.deepEqual(writes, [Archive.STORAGE_KEY, Archive.CLAIM_REVIEW_KEY, Archive.PENDING_KEY, Archive.PENDING_OWNER_KEY]);
+  assert.deepEqual(writes, [Archive.STORAGE_KEY, Archive.CLAIM_REVIEW_KEY, Archive.PENDING_KEY, Archive.PENDING_OWNER_KEY, Archive.OWNER_KEY]);
   assert.equal(JSON.parse(values.get(Archive.STORAGE_KEY)).length, 2);
   assert.deepEqual(JSON.parse(values.get(Archive.CLAIM_REVIEW_KEY)).added, { claim: 'reviewed' });
   assert.deepEqual(JSON.parse(values.get(Archive.PENDING_KEY)).map(row => row.sermon_id), ['old-deleted', 'new-deleted']);
   assert.equal(values.get(Archive.PENDING_OWNER_KEY), 'user-a');
+  assert.equal(values.get(Archive.OWNER_KEY), 'user-a');
   assert.equal(values.get('unrelated-preference'), 'keep');
 });
 
@@ -529,4 +530,30 @@ test('workspace restore rejects pending deletion queues assigned to different ac
     [{ sermon_id: 'deleted-a', sermon_data: { id: 'deleted-a' } }], 'owner-a');
   assert.throws(() => Archive.buildRestorePlan([], archive, 'skip-conflicts', {},
     [{ sermon_id: 'deleted-b', sermon_data: { id: 'deleted-b' } }], 'owner-b'), /different accounts/i);
+});
+
+
+test('workspace restore adopts the archive account owner marker in an unowned workspace', () => {
+  const archive = Archive.createWorkspaceArchive([{ id: 'owner-a-sermon', title: 'Owned archive' }], {}, 'owner-a');
+  const plan = Archive.buildRestorePlan([], archive, 'skip-conflicts', {}, [], null, null);
+  assert.equal(plan.ownerId, 'owner-a');
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, value); },
+    removeItem(key) { values.delete(key); }
+  };
+  Archive.restoreWorkspaceArchive(storage, plan);
+  assert.equal(values.get(Archive.OWNER_KEY), 'owner-a');
+});
+
+test('workspace restore rejects an archive owned by another account before planning writes', () => {
+  const archive = Archive.createWorkspaceArchive([{ id: 'owner-a-sermon', title: 'Owned archive' }], {}, 'owner-a');
+  assert.throws(() => Archive.buildRestorePlan([], archive, 'skip-conflicts', {}, [], null, 'owner-b'), /different account/i);
+});
+
+test('workspace restore retains the active owner marker when archive metadata is absent', () => {
+  const archive = Archive.createWorkspaceArchive([{ id: 'plain', title: 'No owner metadata' }], {}, null);
+  const plan = Archive.buildRestorePlan([], archive, 'skip-conflicts', {}, [], null, 'owner-current');
+  assert.equal(plan.ownerId, 'owner-current');
 });

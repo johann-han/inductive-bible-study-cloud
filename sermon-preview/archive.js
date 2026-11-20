@@ -180,9 +180,15 @@
     } catch (_) { return null; }
   }
 
-  function buildRestorePlan(existingRows, archiveInput, strategy, currentStatusInput, currentPendingInput, currentPendingOwnerId) {
+  function buildRestorePlan(existingRows, archiveInput, strategy, currentStatusInput, currentPendingInput, currentPendingOwnerId, currentOwnerId) {
     const archive = parseWorkspaceArchive(archiveInput);
     const existing = validateSermons(existingRows, 'Current workspace');
+    const archiveOwnerId = archive.ownerId || archive.pendingCloudDeletionsOwnerId || null;
+    const activeOwnerId = currentOwnerId || currentPendingOwnerId || null;
+    if (archiveOwnerId && activeOwnerId && archiveOwnerId !== activeOwnerId) {
+      throw new Error('This workspace archive belongs to a different account. Switch to the matching account before restoring.');
+    }
+    const nextOwnerId = activeOwnerId || archiveOwnerId;
     const mode = strategy === 'replace-conflicts' ? 'replace-conflicts' : 'skip-conflicts';
     const existingIds = new Set(existing.map(row => row.id));
     const incomingIds = new Set(archive.sermons.map(row => row.id));
@@ -244,6 +250,7 @@
       claimReviewStatuses: nextStatuses,
       pendingCloudDeletions: pending,
       pendingCloudDeletionsOwnerId: pendingOwner,
+      ownerId: nextOwnerId,
       added,
       replaced,
       skipped,
@@ -266,7 +273,8 @@
       [CLAIM_REVIEW_KEY, JSON.stringify(validateStatuses(plan.claimReviewStatuses, 'Restore plan'))],
       [PENDING_KEY, JSON.stringify(validatePendingDeletions(plan.pendingCloudDeletions, 'Restore plan'))],
       [PENDING_OWNER_KEY, plan.pendingCloudDeletions.length
-        ? String(plan.pendingCloudDeletionsOwnerId || '') : null]
+        ? String(plan.pendingCloudDeletionsOwnerId || '') : null],
+      [OWNER_KEY, plan.ownerId ? String(plan.ownerId) : null]
     ];
     const snapshots = new Map();
     try {

@@ -529,7 +529,7 @@ test('workspace restore rejects pending deletion queues assigned to different ac
   const archive = Archive.createWorkspaceArchive([], {}, 'owner-a', null,
     [{ sermon_id: 'deleted-a', sermon_data: { id: 'deleted-a' } }], 'owner-a');
   assert.throws(() => Archive.buildRestorePlan([], archive, 'skip-conflicts', {},
-    [{ sermon_id: 'deleted-b', sermon_data: { id: 'deleted-b' } }], 'owner-b'), /different accounts/i);
+    [{ sermon_id: 'deleted-b', sermon_data: { id: 'deleted-b' } }], 'owner-b'), /different account/i);
 });
 
 

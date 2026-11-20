@@ -132,3 +132,24 @@ The redesigned preview saves sermon edits locally to the established cache key a
 ## Acceptance state
 
 The user has visually reviewed the redesigned Kerygma preview and confirmed that it looks good (2026-11-20). Stages A–C are implemented; interaction and device acceptance of the full workflow remains part of final browser verification. Stage E's full-fidelity local archive, restore safeguards and expanded text export are implemented in the feature branch; browser-level download/restore/re-import acceptance remains outstanding. Stage D's cloud adapter and account-safety protections are implemented and mocked-tested, but live cloud sync and deletion recovery remain disabled in the new preview until the cutover gate. Stage F (production route cutover) has not been approved. PR #191 is open, a draft, targets `main`, and must remain unmerged until explicit approval. The legacy Kerygma and IBS production routes and live Supabase records remain unchanged.
+
+
+### Stage C — Inline manuscript claim-review parity (implemented; browser acceptance required)
+
+Restored the legacy Manuscript-stage claim-review layer in the redesigned preview:
+
+- Displays paragraph-level analysis, paragraph references, sentence classification and candidate proposition extraction beneath the editable manuscript.
+- Shows candidate sentence references, outline links, IBS division links and heuristic review flags.
+- Restores all four review statuses — Not reviewed, Reviewed, Needs research and Requires revision — using the existing separate \`kerygma_claim_review_status_v1\` local store.
+- Displays review-progress counts for propositions in the visible analysis and keeps status changes separate from manuscript and IBS source records.
+- Assigns the established stable review key to each inline proposition. Opening a flagged item from the cross-sermon queue expands the Manuscript review panel, scrolls to the exact claim and focuses it.
+- Preserves analyzer safety limits and explicitly reports omitted paragraphs, omitted sentences and the 60,000-character analysis cap. The review remains heuristic and is not a theological verdict.
+
+Regression assertions cover the inline panel, stable claim anchors, queue-to-claim navigation, and persistence of all four statuses.
+
+Validation on exact code commit \`154b4a6bcda0c5526e54450b8e8ab6e5a14a82ec\`:
+- IBS CI: passed.
+- IBS Regression Checks: passed.
+- IBS and Kerygma source-aware regression checks: **170/170 passed**.
+
+Browser acceptance of inline status updates, queue navigation and mobile layout remains outstanding. Live Supabase synchronisation remains disabled in the redesigned preview.

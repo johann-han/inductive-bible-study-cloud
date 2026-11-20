@@ -320,6 +320,7 @@
     left.append(menu, crumbs);
 
     const actions = el('div', 'topbar-actions');
+    const legacy = makeButton('Current Studio ↗', 'topbar-button topbar-quiet', () => window.open('/sermon/index.html', '_blank', 'noopener'));
     const save = el('span', 'save-state', statusText());
     save.setAttribute('data-save-state', '');
     if (state.saveState === 'error') save.classList.add('save-error');
@@ -327,7 +328,7 @@
     const importButton = makeButton(icon('import') + ' Import Study', 'topbar-button topbar-quiet', () => openImportPicker());
     const exportButton = makeButton(icon('download') + ' Export', 'topbar-button topbar-quiet', () => exportCurrentSermon());
     const newButton = makeButton(icon('plus') + ' New Sermon', 'topbar-button topbar-primary', createNewSermon);
-    actions.append(save, guide, importButton, exportButton, newButton);
+    actions.append(legacy, save, guide, importButton, exportButton, newButton);
     bar.append(left, actions);
     return bar;
   }
@@ -504,6 +505,11 @@
     });
     content.appendChild(stageNav);
 
+    const storageNotice = el('div', 'storage-notice');
+    storageNotice.textContent = 'Preview saves sermon edits to this browser’s existing sermon record. Supabase cloud sync, deletion and the full claim-review queue remain available in the current studio until those workflows are migrated.';
+    content.appendChild(storageNotice);
+
+    if (state.aiError) content.appendChild(el('p', 'inline-error workspace-error', state.aiError));
     const editor = el('div', 'editor-layout');
     const mainEditor = el('div', 'editor-main');
     mainEditor.appendChild(renderStageEditor(sermon));
@@ -561,7 +567,6 @@
     aiCopy.append(el('span', 'ai-mark', icon('sparkle')), el('div', '', ''));
     aiCopy.lastChild.append(el('strong', '', 'Kerygma Exegetical Guide'), el('small', '', 'Review the passage and develop contextual and textual observations.'));
     aiBar.append(aiCopy, makeButton(state.savingAI === 'exegesis' ? 'Analysing…' : 'Analyse passage ' + icon('arrow'), 'ai-button', () => runAIGeneration('exegesis'), 'Uses the server-managed sermon AI service.'));
-    if (state.aiError) aiBar.appendChild(el('p', 'inline-error', state.aiError));
     wrap.append(aiBar);
     if (sermon.inductiveStudySource) wrap.appendChild(renderEvidenceCard('Exegesis source context', [
       ['Observe', sermon.inductiveStudySource.sections?.observe],
@@ -674,7 +679,9 @@
     });
     illustrations.appendChild(list);
     const ai = makeButton(state.savingAI === 'applications' ? 'Developing…' : 'Develop illustrations and applications with AI ' + icon('sparkle'), 'ai-button', () => runAIGeneration('applications'));
-    illustrations.appendChild(el('div', 'panel-actions')).lastChild.appendChild(ai);
+    const aiActions = el('div', 'panel-actions');
+    aiActions.appendChild(ai);
+    illustrations.appendChild(aiActions);
     wrap.appendChild(illustrations);
     return wrap;
   }
@@ -1320,8 +1327,8 @@
     input.value = state.guidePrompt;
     input.disabled = state.guideBusy;
     input.setAttribute('aria-label', 'Ask Kerygma Guide');
-    input.addEventListener('input', () => { state.guidePrompt = input.value; });
     const send = el('button', 'guide-send', state.guideBusy ? 'Thinking…' : 'Ask Guide ' + icon('arrow'));
+    input.addEventListener('input', () => { state.guidePrompt = input.value; send.disabled = state.guideBusy || !state.guidePrompt.trim(); });
     send.type = 'submit';
     send.disabled = state.guideBusy || !state.guidePrompt.trim();
     form.addEventListener('submit', event => { event.preventDefault(); sendGuide(input.value); });

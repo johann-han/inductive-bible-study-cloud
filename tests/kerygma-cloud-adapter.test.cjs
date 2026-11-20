@@ -284,8 +284,8 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
   assert.ok(adapter.includes('allowAccountSwitch: false'));
   assert.ok(html.includes('/sermon/cloud-sync.js?v=298b222'));
-  assert.ok(html.includes('/sermon-preview/cloud-adapter.js?v=tombstone-projection-20261120'));
-  assert.ok(html.includes('/sermon-preview/app.js?v=tombstone-projection-20261120'));
+  assert.ok(html.includes('/sermon-preview/cloud-adapter.js?v=deletion-match-diagnostic-20261120'));
+  assert.ok(html.includes('/sermon-preview/app.js?v=deletion-match-diagnostic-20261120'));
   assert.ok(app.includes('cloudAdapter.queueCloudDeletion(sermon)'));
   assert.ok(app.includes('cloudAdapter.cancelCloudDeletion(sermonId)'));
   assert.ok(app.includes('cloudAdapter.previewCloudSermons()'));

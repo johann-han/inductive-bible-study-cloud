@@ -112,9 +112,35 @@
       const pendingDeletesForThisAccount = deletionOwnerId && deletionOwnerId !== userId
         ? 0
         : this.pendingCloudDeletions.length;
-      // Mirror the actual sync order: owned deletion tombstones are uploaded before
-      // the cloud rows are fetched and merged. Include projected tombstones here so
-      // the read-only merge count matches the result after the confirmed sync.
+      const localSermonPreviews = localRecords.slice(0, 8).map(record => ({
+        sermonId: String(record && record.id || ''),
+        title: String(record && record.title || 'Untitled sermon').slice(0, 120),
+        passage: String(record && record.passage || 'Passage not recorded').slice(0, 80)
+      }));
+      const pendingDeletionPreviews = pendingDeletesForThisAccount
+        ? this.pendingCloudDeletions.map(entry => {
+          const sermon = entry && entry.sermon_data && typeof entry.sermon_data === 'object'
+            ? entry.sermon_data
+            : {};
+          const sermonId = String((entry && (entry.sermon_id || entry.id)) || sermon.id || '');
+          const matchesLocalSermon = localRecords.some(record => String(record && record.id || '') === sermonId);
+          const matchingCloudRow = rows.find(row => String(row && (row.sermon_id || (row.sermon_data && row.sermon_data.id)) || '') === sermonId);
+          return {
+            sermonId,
+            title: String(sermon.title || 'Untitled sermon').slice(0, 120),
+            passage: String(sermon.passage || 'Passage not recorded').slice(0, 80),
+            matchesLocalSermon,
+            matchesCloudSermon: cloudRecords.some(row => String(row && (row.sermon_id || (row.sermon_data && row.sermon_data.id)) || '') === sermonId),
+            matchesCloudRecord: Boolean(matchingCloudRow),
+            alreadyDeletedInCloud: Boolean(matchingCloudRow && matchingCloudRow.deleted_at)
+          };
+        })
+        : [];
+      const unmatchedPendingDeletionCount = pendingDeletionPreviews.filter(item =>
+        !item.matchesLocalSermon && !item.matchesCloudRecord
+      ).length;
+      // Mirror the actual sync order: apply owned tombstones in memory before
+      // calculating the post-sync library. The preview remains strictly read-only.
       const projectedTombstones = pendingDeletesForThisAccount
         ? this.cloudSync.buildTombstoneRows(this.pendingCloudDeletions, userId, new Date().toISOString())
         : [];
@@ -127,6 +153,7 @@
         userId,
         email: String(session.user.email || ''),
         localSermonCount: localRecords.length,
+        localSermonPreviews,
         previousAccountLocalSermonCount: accountSwitch ? this.getSermons().length : 0,
         cloudSermonCount: cloudRecords.length,
         mergedSermonCount: merged.length,
@@ -136,21 +163,8 @@
         })),
         accountSwitch,
         pendingDeletesForThisAccount,
-        pendingDeletionPreviews: pendingDeletesForThisAccount
-          ? this.pendingCloudDeletions.map(entry => {
-            const sermon = entry && entry.sermon_data && typeof entry.sermon_data === 'object'
-              ? entry.sermon_data
-              : {};
-            const sermonId = String((entry && (entry.sermon_id || entry.id)) || sermon.id || '');
-            return {
-              sermonId,
-              title: String(sermon.title || 'Untitled sermon').slice(0, 120),
-              passage: String(sermon.passage || 'Passage not recorded').slice(0, 80),
-              matchesLocalSermon: localRecords.some(record => String(record && record.id || '') === sermonId),
-              matchesCloudSermon: cloudRecords.some(row => String(row && (row.sermon_id || (row.sermon_data && row.sermon_data.id)) || '') === sermonId)
-            };
-          })
-          : [],
+        pendingDeletionPreviews,
+        unmatchedPendingDeletionCount,
         pendingDeletesHeldForAnotherAccount: Math.max(0, this.pendingCloudDeletions.length - pendingDeletesForThisAccount)
       };
     }
@@ -288,7 +302,19 @@
           this.setCloudSyncStatus('A different IBS account is signed in. Use Sync in Account & Sync to switch accounts safely.', 'warning');
           return false;
         }
-        this.setCloudSyncStatus('Synchronising sermons…', 'normal');
+        this.setCloudSyncStatus('Loading your saved sermons for a safe merge check…', 'normal');
+        // Fetch the account-scoped cloud rows before sending any deletion tombstones.
+        // This lets the adapter reject an orphaned deletion request without writing
+        // a soft-delete marker for an ID that exists in neither active library.
+        const cloudResult = await this.withCloudTimeout(
+          this.supabaseClient
+            .from('kerygma_sermons')
+            .select('sermon_id,sermon_data,updated_at,deleted_at')
+            .eq('user_id', userId),
+          'Kerygma sermon database request'
+        );
+        if (cloudResult.error) throw cloudResult.error;
+        const cloudRows = Array.isArray(cloudResult.data) ? cloudResult.data : [];
 
         const deletionOwnerId = this.readStorage(PENDING_OWNER_KEY) || '';
         const pendingDeletionHeldForOwner = Boolean(
@@ -296,6 +322,32 @@
         );
         // A tombstone is scoped to the account that deleted the sermon. Never discard
         // it or upload it under another account during an account switch.
+        const localRecordsForDeletionCheck = activeOwnerId && activeOwnerId !== userId
+          ? []
+          : this.getSermons();
+        const unmatchedDeletionIds = pendingDeletionHeldForOwner ? [] : this.pendingCloudDeletions.filter(entry => {
+          const sermon = entry && entry.sermon_data && typeof entry.sermon_data === 'object'
+            ? entry.sermon_data
+            : {};
+          const sermonId = String((entry && (entry.sermon_id || entry.id)) || sermon.id || '');
+          if (!sermonId) return true;
+          const matchesLocal = localRecordsForDeletionCheck.some(record => String(record && record.id || '') === sermonId);
+          const matchesCloud = cloudRows.some(row => String(row && (row.sermon_id || (row.sermon_data && row.sermon_data.id)) || '') === sermonId);
+          return !matchesLocal && !matchesCloud;
+        });
+        if (unmatchedDeletionIds.length) {
+          const names = unmatchedDeletionIds.map(entry => {
+            const sermon = entry && entry.sermon_data && typeof entry.sermon_data === 'object' ? entry.sermon_data : {};
+            return String(sermon.title || entry.sermon_id || entry.id || 'Unknown sermon');
+          });
+          throw new Error(
+            'Cloud sync was blocked because a pending deletion does not match any local sermon or cloud record: ' +
+            names.join(', ') +
+            '. Refresh the read-only preview and remove the obsolete deletion request before syncing.'
+          );
+        }
+
+        this.setCloudSyncStatus('Synchronising sermons…', 'normal');
         const pendingRows = pendingDeletionHeldForOwner ? [] : this.cloudSync.buildTombstoneRows(
           this.pendingCloudDeletions, userId, new Date().toISOString()
         );
@@ -313,16 +365,6 @@
           this.removeStorage(PENDING_OWNER_KEY);
         }
 
-        this.setCloudSyncStatus('Loading your saved sermons…', 'normal');
-        const cloudResult = await this.withCloudTimeout(
-          this.supabaseClient
-            .from('kerygma_sermons')
-            .select('sermon_id,sermon_data,updated_at,deleted_at')
-            .eq('user_id', userId),
-          'Kerygma sermon database request'
-        );
-        if (cloudResult.error) throw cloudResult.error;
-
         const storedOwnerId = this.readStorage(OWNER_KEY) || this.localSermonOwnerId || '';
         let localSermonsForMerge = this.getSermons();
         if (storedOwnerId && storedOwnerId !== userId) {
@@ -332,7 +374,8 @@
           }
           localSermonsForMerge = [];
         }
-        const merged = this.cloudSync.mergeSermons(localSermonsForMerge, cloudResult.data || []);
+        const mergeRows = pendingRows.length ? cloudRows.concat(pendingRows) : cloudRows;
+        const merged = this.cloudSync.mergeSermons(localSermonsForMerge, mergeRows);
         const previousCurrentId = this.getCurrentSermonId();
         const nextCurrentId = merged.some(sermon => String(sermon.id) === String(previousCurrentId))
           ? previousCurrentId

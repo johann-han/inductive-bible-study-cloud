@@ -219,3 +219,11 @@ Before sync, the browser showed 1 local sermon, 2 cloud sermons, 1 owned deletio
 The feature branch now calculates the projected merge by applying the signed-in account's pending tombstones to a read-only in-memory copy of the cloud rows before calling the existing merge helper. It does not upload tombstones or mutate local/cloud data. An automated regression test verifies that a local sermon already marked for deletion is excluded from the projected post-sync count.
 
 For the observed preview data, the expected merged library should therefore be **2 sermons**, not 3: the two existing cloud sermons remain, and the local sermon marked for deletion is excluded. The user confirmed the deletion target, but has not authorised the sync confirmation in the application. Re-run the read-only preview on the latest deployed build and confirm the revised count before any cloud write.
+
+
+Automated validation after the tombstone-aware projection and revised preview wording, on code head `e11979051f60d53a66d107568ff4ab986a30a832`:
+- IBS CI: **256/256 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44723332195
+- IBS Regression Checks: **256/256 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44723332276
+- IBS and Kerygma source-aware regression checks: **176/176 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44723332148
+
+The tests remain mocked/automated and do not write to live Supabase. The current connected browser session could not be re-read after this update, so Render deployment and browser confirmation of the revised two-sermon projection remain outstanding. No sync has been started.

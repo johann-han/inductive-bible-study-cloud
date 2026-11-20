@@ -293,7 +293,11 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   assert.ok(app.includes('Read-only preview · no records changed'));
   assert.ok(app.includes('PENDING DELETIONS THAT WILL BE SENT'));
   assert.ok(app.includes('pendingDeletionPreviews'));
+  assert.ok(app.includes('Matches local: '));
+  assert.ok(app.includes('Matches cloud: '));
   assert.ok(adapter.includes('pendingDeletionPreviews'));
+  assert.ok(adapter.includes('matchesLocalSermon'));
+  assert.ok(adapter.includes('matchesCloudSermon'));
   assert.ok(adapter.includes('CLAIM_REVIEW_BACKUP_PREFIX'));
 });
 
@@ -390,7 +394,9 @@ test('read-only cloud preview reports merge counts without writing local or remo
   assert.deepEqual(preview.pendingDeletionPreviews, [{
     sermonId: pendingDelete.id,
     title: 'Previously deleted sermon',
-    passage: pendingDelete.passage || 'Passage not recorded'
+    passage: pendingDelete.passage || 'Passage not recorded',
+    matchesLocalSermon: false,
+    matchesCloudSermon: false
   }]);
   assert.deepEqual([...storage.values], [...before]);
   assert.equal(supabase.upserts.length, 0);
@@ -426,6 +432,8 @@ test('read-only cloud preview subtracts owned pending deletions from the project
   assert.equal(preview.localSermonCount, 1);
   assert.equal(preview.cloudSermonCount, 1);
   assert.equal(preview.pendingDeletesForThisAccount, 1);
+  assert.equal(preview.pendingDeletionPreviews[0].matchesLocalSermon, true);
+  assert.equal(preview.pendingDeletionPreviews[0].matchesCloudSermon, false);
   assert.equal(preview.mergedSermonCount, 1, 'the pending local deletion must not be counted in the post-sync library');
   assert.deepEqual([...storage.values], [...before]);
   assert.equal(supabase.upserts.length, 0);

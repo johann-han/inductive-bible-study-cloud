@@ -24,12 +24,16 @@
     guideStage: '',
     guidePrompt: '',
     guideError: '',
-    claimNotice: ''
+    claimNotice: '',
+    cloudStatus: 'Connecting to Supabase…',
+    cloudTone: 'normal'
   };
   state.selectedId = state.sermons[0] ? state.sermons[0].id : '';
 
   let supabaseClient = null;
   let configPromise = null;
+  let supabaseConfig = null;
+  let cloudAdapter = null;
 
   const $ = (selector, scope = root) => scope.querySelector(selector);
 
@@ -142,6 +146,7 @@
     state.sermons = Data.sortRecentSermons(state.sermons);
     updateSaveIndicators();
     updateWorkspaceProgress();
+    if (ok && cloudAdapter) cloudAdapter.scheduleCloudSync();
     return ok;
   }
 
@@ -250,6 +255,54 @@
     render();
   }
 
+  function setCloudStatus(message, tone = 'normal') {
+    state.cloudStatus = String(message || '');
+    state.cloudTone = tone;
+    root.querySelectorAll('[data-cloud-status]').forEach(node => {
+      node.textContent = state.cloudStatus;
+      node.className = 'cloud-status cloud-' + state.cloudTone;
+    });
+    const notice = root.querySelector('.storage-notice');
+    if (notice) {
+      notice.textContent = 'Sermon edits use the existing Kerygma record format and browser cache. ' +
+        (state.cloudTone === 'success'
+          ? 'Your sermons are synchronised with your signed-in account. Deletions are queued using the existing recovery tombstones.'
+          : 'Cloud storage status: ' + state.cloudStatus + '. Local edits remain saved in this browser.');
+    }
+  }
+
+  function deleteSermon(sermonId) {
+    if (state.sermons.length <= 1) {
+      state.aiError = 'Keep at least one sermon in the library.';
+      render();
+      return false;
+    }
+    const sermon = state.sermons.find(item => String(item.id) === String(sermonId));
+    if (!sermon) return false;
+    const label = (sermon.title || 'Untitled sermon') + (sermon.passage ? ' · ' + sermon.passage : '');
+    if (!window.confirm('Delete "' + label + '"? The local record will be removed and a cloud deletion tombstone will be queued for your signed-in account.')) return false;
+    if (!cloudAdapter || !cloudAdapter.queueCloudDeletion(sermon)) {
+      state.aiError = 'The deletion could not be safely queued. The sermon has not been deleted.';
+      render();
+      return false;
+    }
+    const prior = state.sermons;
+    state.sermons = state.sermons.filter(item => String(item.id) !== String(sermonId));
+    if (String(state.selectedId) === String(sermonId)) state.selectedId = state.sermons[0]?.id || '';
+    if (!saveNow()) {
+      state.sermons = prior;
+      state.selectedId = sermon.id;
+      cloudAdapter.cancelCloudDeletion(sermonId);
+      state.aiError = 'The sermon could not be removed from local storage. Its saved record has been retained.';
+      render();
+      return false;
+    }
+    state.view = 'library';
+    state.aiError = '';
+    render();
+    return true;
+  }
+
   function switchView(view) {
     if (!['overview', 'library', 'workspace', 'claims'].includes(view)) return;
     state.view = view;
@@ -323,6 +376,18 @@
 
     const actions = el('div', 'topbar-actions');
     const legacy = makeButton('Current Studio ↗', 'topbar-button topbar-quiet', () => window.open('/sermon/index.html', '_blank', 'noopener'));
+    const cloudStatus = el('span', 'cloud-status', state.cloudStatus);
+    cloudStatus.setAttribute('data-cloud-status', '');
+    cloudStatus.setAttribute('role', 'status');
+    cloudStatus.setAttribute('aria-live', 'polite');
+    cloudStatus.classList.add('cloud-' + state.cloudTone);
+    const syncButton = makeButton(icon('sync') + ' Sync', 'topbar-button topbar-quiet', () => {
+      if (!cloudAdapter) return;
+      syncButton.disabled = true;
+      cloudAdapter.syncCloudSermons()
+        .catch(error => setCloudStatus(error.message || 'Cloud sync failed; local data remains saved.', 'error'))
+        .finally(() => { syncButton.disabled = false; });
+    });
     const save = el('span', 'save-state', statusText());
     save.setAttribute('data-save-state', '');
     if (state.saveState === 'error') save.classList.add('save-error');
@@ -330,7 +395,7 @@
     const importButton = makeButton(icon('import') + ' Import Study', 'topbar-button topbar-quiet', () => openImportPicker());
     const exportButton = makeButton(icon('download') + ' Export', 'topbar-button topbar-quiet', () => exportCurrentSermon());
     const newButton = makeButton(icon('plus') + ' New Sermon', 'topbar-button topbar-primary', createNewSermon);
-    actions.append(legacy, save, guide, importButton, exportButton, newButton);
+    actions.append(legacy, cloudStatus, syncButton, save, guide, importButton, exportButton, newButton);
     bar.append(left, actions);
     return bar;
   }
@@ -374,6 +439,13 @@
       track.appendChild(segment);
     });
     card.appendChild(track);
+    if (state.sermons.length > 1) {
+      card.appendChild(makeButton('Delete sermon', 'sermon-card-delete', event => {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        deleteSermon(sermon.id);
+      }, 'Move this sermon to the cloud deletion queue and remove it from the local library.'));
+    }
     return card;
   }
 
@@ -508,7 +580,10 @@
     content.appendChild(stageNav);
 
     const storageNotice = el('div', 'storage-notice');
-    storageNotice.textContent = 'Sermon edits are saved to this browser using the existing Kerygma record format. The redesigned Claim Review uses the existing separate review-status store. Supabase cloud sync and deletion recovery remain in the current studio until their established account and tombstone workflows are migrated.';
+    storageNotice.textContent = 'Sermon edits use the existing Kerygma record format and browser cache. ' +
+      (state.cloudTone === 'success'
+        ? 'Your sermons are synchronised with your signed-in account. Deletions are queued using the existing recovery tombstones.'
+        : 'Cloud storage status: ' + state.cloudStatus + '. Local edits remain saved in this browser.');
     content.appendChild(storageNotice);
 
     if (state.aiError) content.appendChild(el('p', 'inline-error workspace-error', state.aiError));
@@ -1381,22 +1456,27 @@
     render();
   }
 
-  async function getAIClientToken() {
+  async function ensureAppSupabaseClient() {
     if (!configPromise) {
       configPromise = fetch('/api/config', { cache: 'no-store' }).then(async response => {
         if (!response.ok) throw new Error('The server configuration could not be loaded.');
         const config = await response.json();
-        const configured = config.aiConfigured === true || config.geminiConfigured === true || config.openrouterConfigured === true;
-        if (!configured) throw new Error('No AI provider is configured on the server. Configure GEMINI_API_KEY or OPENROUTER_API_KEY in the deployment environment.');
         if (!config.supabaseUrl || !config.supabaseAnonKey) throw new Error('The sign-in service is not configured.');
         if (!window.supabase || typeof window.supabase.createClient !== 'function') throw new Error('The Supabase client library did not load.');
         if (!supabaseClient) supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
           auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         });
+        supabaseConfig = config;
         return config;
-      }).catch(error => { configPromise = null; throw error; });
+      }).catch(error => { configPromise = null; supabaseConfig = null; throw error; });
     }
-    await configPromise;
+    return configPromise;
+  }
+
+  async function getAIClientToken() {
+    const config = await ensureAppSupabaseClient();
+    const configured = config.aiConfigured === true || config.geminiConfigured === true || config.openrouterConfigured === true;
+    if (!configured) throw new Error('No AI provider is configured on the server. Configure GEMINI_API_KEY or OPENROUTER_API_KEY in the deployment environment.');
     const result = await supabaseClient.auth.getSession();
     if (result.error) throw new Error('Could not read the current sign-in session. Refresh and sign in again.');
     const token = result.data?.session?.access_token;
@@ -1699,11 +1779,31 @@
     packetInput.value = '';
   });
 
+  cloudAdapter = new Cloud.KerygmaCloudAdapter({
+    storage: window.localStorage,
+    cloudSync: window.KerygmaCloudSync,
+    ensureSupabaseClient: ensureAppSupabaseClient,
+    getSupabaseClient: () => supabaseClient,
+    getSermons: () => state.sermons,
+    getCurrentSermonId: () => state.selectedId,
+    onSermonsChanged: (sermons, nextId) => {
+      state.sermons = Data.sortRecentSermons(sermons);
+      state.selectedId = nextId && state.sermons.some(item => String(item.id) === String(nextId))
+        ? nextId
+        : (state.sermons[0]?.id || '');
+      state.saveState = 'saved';
+      render();
+    },
+    onStatus: setCloudStatus
+  });
+
   window.addEventListener('beforeunload', () => {
     if (state.saveTimer) saveNow();
+    if (cloudAdapter) cloudAdapter.destroy();
   });
 
   render();
+  cloudAdapter.initializeCloudSermons().catch(error => setCloudStatus(error.message || 'Cloud initialisation failed; local data remains safe.', 'error'));
 
   // Expose only the small public surface needed by keyboard shortcuts and automated acceptance.
   window.KerygmaRebuild = {

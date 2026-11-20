@@ -99,11 +99,32 @@
     queueCloudDeletion(sermon) {
       if (!sermon || !sermon.id) return false;
       const id = String(sermon.id);
-      this.pendingCloudDeletions = (this.pendingCloudDeletions || []).filter(entry => String(entry.sermon_id || entry.id || '') !== id);
+      const previous = this.pendingCloudDeletions.slice();
+      const priorOwner = this.readStorage(PENDING_OWNER_KEY);
+      this.pendingCloudDeletions = previous.filter(entry => String(entry.sermon_id || entry.id || '') !== id);
       this.pendingCloudDeletions.push({ sermon_id: id, sermon_data: sermon });
       const owner = this.cloudUserId || this.localSermonOwnerId || this.readStorage(OWNER_KEY) || '';
-      this.writeStorage(PENDING_OWNER_KEY, owner);
-      return this.persistPendingCloudDeletions();
+      if (!this.writeStorage(PENDING_OWNER_KEY, owner) || !this.persistPendingCloudDeletions()) {
+        this.pendingCloudDeletions = previous;
+        if (priorOwner === null || priorOwner === undefined) this.removeStorage(PENDING_OWNER_KEY);
+        else this.writeStorage(PENDING_OWNER_KEY, priorOwner);
+        return false;
+      }
+      return true;
+    }
+
+    cancelCloudDeletion(sermonId) {
+      const id = String(sermonId || '');
+      if (!id) return false;
+      const previous = this.pendingCloudDeletions.slice();
+      this.pendingCloudDeletions = previous.filter(entry => String(entry.sermon_id || entry.id || '') !== id);
+      if (this.pendingCloudDeletions.length === previous.length) return true;
+      if (!this.persistPendingCloudDeletions()) {
+        this.pendingCloudDeletions = previous;
+        return false;
+      }
+      if (!this.pendingCloudDeletions.length) this.removeStorage(PENDING_OWNER_KEY);
+      return true;
     }
 
     scheduleCloudSync(delay = 700) {

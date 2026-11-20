@@ -4,8 +4,9 @@
   const Data = window.KerygmaRebuildData;
   const ClaimReview = window.KerygmaClaimReview;
   const Cloud = window.KerygmaCloudAdapter;
+  const Archive = window.KerygmaArchive;
   const root = document.getElementById('kerygma-rebuild-root');
-  if (!Data || !ClaimReview || !Cloud || !root) return;
+  if (!Data || !ClaimReview || !Cloud || !Archive || !root) return;
 
   const state = {
     sermons: Data.sortRecentSermons(Data.readLocalSermons(window.localStorage)),
@@ -18,6 +19,7 @@
     savingAI: '',
     aiError: '',
     sourcePacketToImport: null,
+    pendingArchiveRestore: null,
     guideOpen: false,
     guideMessages: [],
     guideBusy: false,
@@ -387,9 +389,11 @@
     if (state.saveState === 'error') save.classList.add('save-error');
     const guide = makeButton(icon('guide') + ' Guide', 'topbar-button topbar-quiet', () => toggleGuide());
     const importButton = makeButton(icon('import') + ' Import Study', 'topbar-button topbar-quiet', () => openImportPicker());
-    const exportButton = makeButton(icon('download') + ' Export', 'topbar-button topbar-quiet', () => exportCurrentSermon());
+    const exportButton = makeButton(icon('download') + ' Export TXT', 'topbar-button topbar-quiet', () => exportCurrentSermon());
+    const backupButton = makeButton(icon('download') + ' Backup', 'topbar-button topbar-quiet', backupWorkspace);
+    const restoreButton = makeButton(icon('import') + ' Restore', 'topbar-button topbar-quiet', openWorkspaceRestorePicker);
     const newButton = makeButton(icon('plus') + ' New Sermon', 'topbar-button topbar-primary', createNewSermon);
-    actions.append(legacy, cloudStatus, save, guide, importButton, exportButton, newButton);
+    actions.append(legacy, cloudStatus, save, guide, importButton, exportButton, backupButton, restoreButton, newButton);
     bar.append(left, actions);
     return bar;
   }
@@ -1384,41 +1388,236 @@
       render();
       return;
     }
-    const includeSource = Boolean(sermon.inductiveStudySource) && window.confirm('Include the original IBS study as a separate source appendix?');
+    const includeSource = Boolean(sermon.inductiveStudySource) && window.confirm('Include the complete original IBS study packet as a separate source appendix?');
+    const outline = Array.isArray(sermon.outline) ? sermon.outline : [];
+    const illustrations = Array.isArray(sermon.illustrations) ? sermon.illustrations : [];
     const lines = [
-      'SERMON: ' + sermon.title,
-      'PASSAGE: ' + sermon.passage,
+      'KERYGMA — EXPOSITORY SERMON PREPARATION',
+      '==================================================',
+      'SERMON: ' + (sermon.title || ''),
+      'PASSAGE: ' + (sermon.passage || ''),
       '',
-      'BIG IDEA',
+      'SCRIPTURE TEXT',
+      sermon.text || '[Not recorded]',
+      '',
+      'CONTEXT',
+      sermon.context || '[Not recorded]',
+      '',
+      'KEYWORDS / OBSERVATIONS',
+      sermon.keywords || '[Not recorded]',
+      '',
+      'EXEGETICAL SUBJECT',
+      sermon.exeSubject || '[Not recorded]',
+      '',
+      'EXEGETICAL COMPLEMENT',
+      sermon.exeComplement || '[Not recorded]',
+      '',
+      'BIG IDEA / PROPOSITION',
       sermon.bigIdea || '[Not recorded]',
       '',
-      'OBJECTIVE',
+      'SERMON AIM',
       sermon.aim || '[Not recorded]',
       '',
-      'OUTLINE',
-      ...(sermon.outline || []).map((point, index) => (index + 1) + '. [' + (point.reference || 'Reference not set') + '] ' + (point.statement || '[Point not recorded]') + '\n' + (point.notes || '')),
+      'HOMILETICAL OUTLINE'
+    ];
+    if (outline.length) {
+      outline.forEach((point, index) => {
+        lines.push('', (index + 1) + '. ' + (point.reference || 'Reference not set'),
+          point.statement || '[Point not recorded]', 'Notes: ' + (point.notes || '[None]'));
+      });
+    } else lines.push('[No outline points recorded]');
+    lines.push('', 'ILLUSTRATIONS');
+    if (illustrations.length) {
+      illustrations.forEach((item, index) => lines.push('', (index + 1) + '. ' + (item.title || 'Untitled illustration'), item.content || '[No illustration text]'));
+    } else lines.push('[No illustrations recorded]');
+    lines.push(
       '',
-      'APPLICATION',
-      'Seekers: ' + (sermon.appSeekers || '[Not recorded]'),
-      'Believers: ' + (sermon.appBelievers || '[Not recorded]'),
-      'Suffering: ' + (sermon.appSuffering || '[Not recorded]'),
+      'APPLICATION — SEEKERS',
+      sermon.appSeekers || '[Not recorded]',
+      '',
+      'APPLICATION — BELIEVERS',
+      sermon.appBelievers || '[Not recorded]',
+      '',
+      'APPLICATION — THOSE WHO ARE SUFFERING',
+      sermon.appSuffering || '[Not recorded]',
       '',
       'MANUSCRIPT / NOTES',
-      sermon.manuscript || '[Not recorded]'
-    ];
+      sermon.manuscript || '[Not recorded]',
+      '',
+      'RECORD METADATA',
+      'ID: ' + (sermon.id || ''),
+      'Created: ' + (sermon.created_at || sermon.createdAt || 'Not recorded'),
+      'Updated: ' + (sermon.updated_at || sermon.updatedAt || 'Not recorded')
+    );
     if (includeSource && sermon.inductiveStudySource) {
-      const source = sermon.inductiveStudySource;
-      lines.push('', '==================================================', 'SOURCE INDUCTIVE STUDY (IMPORTED; READ ONLY)', source.sermonPassage || '', 'Observe:', source.sections?.observe || '', 'Interpretation:', source.sections?.interpret || '', 'Doctrine:', source.sections?.doctrine || '', 'Discipleship:', source.sections?.discipleship || '', 'Passage outline:', formatPassageOutline(source), 'Personal cross-references: ' + (source.customCrossReferences?.length || 0), 'Standard cross-reference source: ' + (source.standardCrossReferences?.dataset || 'Not recorded'), 'Licence: ' + (source.standardCrossReferences?.license || 'Not recorded'));
+      lines.push(
+        '',
+        '==================================================',
+        'APPENDIX: COMPLETE ORIGINAL INDUCTIVE BIBLE STUDY SOURCE',
+        'This JSON appendix preserves the imported packet separately from sermon-authored fields.',
+        JSON.stringify(sermon.inductiveStudySource, null, 2)
+      );
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = (sermon.title || 'sermon').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-sermon-preparation.txt';
+    anchor.download = safeFileStem(sermon.title) + '-sermon-preparation.txt';
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+
+  function downloadJsonFile(value, filename) {
+    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function safeFileStem(value) {
+    return String(value || 'kerygma').normalize('NFKD').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'kerygma';
+  }
+
+  function backupWorkspace() {
+    try {
+      if (state.saveTimer && !saveNow()) throw new Error('The latest edits could not be saved. Correct the storage problem before creating a backup.');
+      if (state.saveState === 'error') throw new Error('The latest edits could not be saved. Correct the storage problem before creating a backup.');
+      const sermons = Archive.readRawSermonRecords(window.localStorage);
+      const statuses = Archive.readRawClaimReviewStatuses(window.localStorage);
+      const archive = Archive.createWorkspaceArchive(
+        sermons, statuses, Archive.readOwnerId(window.localStorage), new Date().toISOString()
+      );
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      downloadJsonFile(archive, 'kerygma-workspace-backup-' + stamp + '.json');
+      window.alert('Workspace backup created. It contains ' + archive.sermonCount + ' sermon record(s) and ' +
+        Archive.countStatusGroups(archive.claimReviewStatuses) + ' claim-review status group(s).');
+    } catch (error) {
+      window.alert('Backup could not be created: ' + (error.message || 'Unknown error.'));
+    }
+  }
+
+  function openWorkspaceRestorePicker() {
+    const input = document.getElementById('workspace-archive-input');
+    if (input) input.click();
+  }
+
+  function handleWorkspaceArchiveFile(file) {
+    if (!file) return;
+    if (file.size > 30 * 1024 * 1024) {
+      window.alert('The workspace archive exceeds the 30 MB import limit. No local data was changed.');
+      return;
+    }
+    file.text().then(raw => {
+      const archive = Archive.parseWorkspaceArchive(raw);
+      const current = Archive.readRawSermonRecords(window.localStorage);
+      const statuses = Archive.readRawClaimReviewStatuses(window.localStorage);
+      openWorkspaceRestoreConfirm(archive, current, statuses, file.name || 'workspace backup');
+    }).catch(error => {
+      window.alert('Workspace restore could not be prepared: ' + (error.message || 'Invalid archive.') + ' No local data was changed.');
+    });
+  }
+
+  function openWorkspaceRestoreConfirm(archive, existing, existingStatuses, fileName) {
+    const modal = el('div', 'modal-backdrop');
+    const dialog = el('section', 'modal-card');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'workspace-restore-title');
+    const head = el('div', 'modal-heading');
+    head.append(el('p', 'eyebrow', 'WORKSPACE RECOVERY'), el('h2', '', 'Restore Kerygma Workspace'));
+    const close = makeButton(icon('close'), 'icon-close', () => modal.remove());
+    close.setAttribute('aria-label', 'Close restore preview');
+    head.appendChild(close);
+    dialog.appendChild(head);
+    dialog.appendChild(el('p', 'modal-file-name', 'File: ' + fileName + ' · Archive version ' + archive.version));
+
+    const ownerId = Archive.readOwnerId(window.localStorage);
+    const ownerMismatch = Boolean(archive.ownerId && ownerId && archive.ownerId !== ownerId);
+    const ownerNote = el('p', 'import-warning');
+    ownerNote.hidden = !ownerMismatch;
+    ownerNote.textContent = ownerMismatch
+      ? 'This backup belongs to a different signed-in account. Restore is blocked to prevent mixing one account’s sermon records with another account’s local workspace. Open the Current Studio with the matching account first.'
+      : '';
+    dialog.appendChild(ownerNote);
+
+    const summary = el('div', 'import-summary-grid');
+    const initialPlan = Archive.buildRestorePlan(existing, archive, 'skip-conflicts', existingStatuses);
+    [
+      ['Sermons in backup', archive.sermonCount],
+      ['New sermon records', initialPlan.added],
+      ['Matching IDs', initialPlan.skipped],
+      ['Claim-review groups', Archive.countStatusGroups(archive.claimReviewStatuses)],
+      ['Backup created', archive.exportedAt || 'Not recorded']
+    ].forEach(([label, value]) => {
+      const item = el('div', 'import-stat');
+      item.append(el('span', '', label), el('strong', '', value));
+      summary.appendChild(item);
+    });
+    dialog.appendChild(summary);
+    dialog.appendChild(el('p', 'modal-explain',
+      'Restore adds records that are not already present. It never deletes sermons missing from the backup. Matching sermon IDs are kept by default; you may explicitly replace those matching records. Claim-review statuses are restored to their existing separate store.'));
+
+    const choices = el('div', 'import-choices');
+    const addLabel = el('label', 'choice-row');
+    const addRadio = document.createElement('input');
+    addRadio.type = 'radio'; addRadio.name = 'archive-restore-mode'; addRadio.value = 'skip-conflicts'; addRadio.checked = true;
+    addLabel.append(addRadio, el('span', '', 'Add new sermons only · keep existing matching records'));
+    const replaceLabel = el('label', 'choice-row');
+    const replaceRadio = document.createElement('input');
+    replaceRadio.type = 'radio'; replaceRadio.name = 'archive-restore-mode'; replaceRadio.value = 'replace-conflicts';
+    replaceLabel.append(replaceRadio, el('span', '', 'Replace records with matching IDs from this backup'));
+    choices.append(addLabel, replaceLabel);
+    dialog.appendChild(choices);
+
+    const collisionNote = el('p', 'import-warning');
+    collisionNote.hidden = true;
+    dialog.appendChild(collisionNote);
+    const footer = el('div', 'modal-actions');
+    const confirm = makeButton('Restore workspace ' + icon('arrow'), 'primary-button', () => {
+      if (ownerMismatch) return;
+      try {
+        const mode = $('input[name="archive-restore-mode"]:checked', dialog)?.value || 'skip-conflicts';
+        const current = Archive.readRawSermonRecords(window.localStorage);
+        const statuses = Archive.readRawClaimReviewStatuses(window.localStorage);
+        const plan = Archive.buildRestorePlan(current, archive, mode, statuses);
+        Archive.restoreWorkspaceArchive(window.localStorage, plan);
+        state.sermons = Data.sortRecentSermons(Data.parseStoredSermons(
+          Archive.readRawSermonRecords(window.localStorage)
+        ));
+        if (!state.sermons.some(row => row.id === state.selectedId)) state.selectedId = state.sermons[0]?.id || '';
+        state.saveState = 'saved';
+        modal.remove();
+        render();
+        window.alert('Workspace restore completed. Added: ' + plan.added + ' · Replaced: ' + plan.replaced +
+          ' · Kept existing: ' + plan.skipped + '. No unrelated sermon records were deleted.');
+      } catch (error) {
+        window.alert(error.message || 'Workspace restore failed. The existing workspace was retained where possible.');
+      }
+    });
+    confirm.disabled = ownerMismatch;
+    footer.append(makeButton('Cancel', 'outline-button', () => modal.remove()), confirm);
+    dialog.appendChild(footer);
+
+    dialog.addEventListener('change', () => {
+      const mode = $('input[name="archive-restore-mode"]:checked', dialog)?.value || 'skip-conflicts';
+      const plan = Archive.buildRestorePlan(existing, archive, mode, existingStatuses);
+      collisionNote.hidden = plan.skipped === 0 && plan.replaced === 0;
+      collisionNote.textContent = mode === 'replace-conflicts'
+        ? plan.replaced + ' existing record(s) will be replaced. Records not included in this archive will remain unchanged.'
+        : plan.skipped + ' matching record(s) will be left unchanged. Re-importing the same archive is safe and will not create duplicates.';
+    });
+    modal.appendChild(dialog);
+    modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+    root.appendChild(modal);
+    close.focus();
   }
 
   function compileOutline() {
@@ -1891,6 +2090,13 @@
     packetInput.value = '';
   });
 
+  const workspaceArchiveInput = document.getElementById('workspace-archive-input');
+  if (workspaceArchiveInput) workspaceArchiveInput.addEventListener('change', () => {
+    const file = workspaceArchiveInput.files && workspaceArchiveInput.files[0];
+    handleWorkspaceArchiveFile(file);
+    workspaceArchiveInput.value = '';
+  });
+
   cloudAdapter = new Cloud.KerygmaCloudAdapter({
     storage: window.localStorage,
     cloudSync: window.KerygmaCloudSync,
@@ -1925,6 +2131,8 @@
     createNewSermon,
     changeStage,
     save: saveNow,
+    backup: backupWorkspace,
+    restore: openWorkspaceRestorePicker,
     getState: () => ({ view: state.view, stage: state.stage, sermonCount: state.sermons.length, selectedId: state.selectedId })
   };
 })();

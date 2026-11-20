@@ -882,11 +882,12 @@
     addEvidence('Standard cross-references · dataset provenance', standardText, 'No standard cross-reference entries were included.');
 
     const relatedText = related.slice(0, 60).map((item, index) => {
-      const reference = item.reference || [item.book, item.chapter].filter(Boolean).join(' ');
+      const base = [item.book, item.chapter].filter(Boolean).join(' ');
+      const range = item.startVerse ? ':' + item.startVerse + (item.endVerse && item.endVerse > item.startVerse ? '–' + item.endVerse : '') : '';
+      const reference = item.reference || base + range;
       const verses = Array.isArray(item.verses) ? item.verses : [];
       return (index + 1) + '. ' + (reference || 'Related passage') +
         ' · ' + (item.translation || 'Unknown translation') +
-        (item.startVerse ? ':' + item.startVerse + (item.endVerse && item.endVerse > item.startVerse ? '–' + item.endVerse : '') : '') +
         (item.stage ? ' · Included in ' + ({observe:'Observe',interpret:'Interpretation',doctrine:'Doctrine',apply:'Discipleship'}[item.stage] || item.stage) : '') +
         (item.includedInStageNotes ? ' · Verse text was appended to stage notes' : '') +
         (item.relation ? '\nRelationship: ' + item.relation : '') +
@@ -1293,17 +1294,19 @@
     ].filter(Boolean).join('\n\n'), 'No standard cross-reference entries supplied.');
 
     const related = Array.isArray(packet.relatedPassages) ? packet.relatedPassages : [];
-    addEvidence('Related passages · ' + related.length, related.map((item, index) =>
-      (index + 1) + '. ' + (item.reference || [item.book, item.chapter].filter(Boolean).join(' ')) +
+    addEvidence('Related passages · ' + related.length, related.map((item, index) => {
+      const base = [item.book, item.chapter].filter(Boolean).join(' ');
+      const range = item.startVerse ? ':' + item.startVerse + (item.endVerse && item.endVerse > item.startVerse ? '–' + item.endVerse : '') : '';
+      return (index + 1) + '. ' + (item.reference || base + range) +
       ' · ' + (item.translation || 'Unknown translation') +
-      (item.startVerse ? ':' + item.startVerse + (item.endVerse && item.endVerse > item.startVerse ? '–' + item.endVerse : '') : '') +
       (item.stage ? ' · Included in ' + ({observe:'Observe',interpret:'Interpretation',doctrine:'Doctrine',apply:'Discipleship'}[item.stage] || item.stage) : '') +
       (item.includedInStageNotes ? ' · Included in stage notes' : '') +
       (item.relation ? '\nRelationship: ' + item.relation : '') +
       (item.note ? '\nExplanation: ' + item.note : '') +
-      (item.verses?.length ? '\n' + item.verses.map(verse => verse.number + '. ' + verse.text).join('\n') : '')
-    ).join('\n\n'), 'No related passages supplied.');
+      (item.verses?.length ? '\n' + item.verses.map(verse => verse.number + '. ' + verse.text).join('\n') : '');
+    }).join('\n\n'), 'No related passages supplied.');
 
+    addEvidence('Imported Scripture text · ' + (packet.translation || 'Unknown translation'), packet.passageTextIncluded ? packet.passageText : '', 'No passage text was included in the source packet.');
     addEvidence('Selected verses', (packet.selectedVerses || []).join('; '), 'No selected verses supplied.');
     const extra = el('div', 'source-modal-extras');
     extra.append(el('strong', '', 'Source and licence metadata'), el('p', '', 'Study: ' + (packet.studyReference?.display || packet.sermonPassage || 'Not recorded') + ' · Translation: ' + (packet.translation || 'Unknown') + ' · Exported: ' + (packet.exportedAt || 'Not recorded') + ' · Standard source: ' + (standard.dataset || 'Not recorded') + ' · Licence: ' + (standard.license || 'Not recorded')));

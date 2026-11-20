@@ -207,6 +207,7 @@ test('redesigned editor exposes five existing Kerygma stages, source review and 
   const root = path.join(__dirname, '..');
   const app = fs.readFileSync(path.join(root, 'sermon-preview', 'app.js'), 'utf8');
   const data = fs.readFileSync(path.join(root, 'sermon-preview', 'data.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'sermon-preview', 'index.html'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'sermon-preview', 'styles.css'), 'utf8');
   for (const required of [
     'renderPassageStage','renderBigIdeaStage','renderOutlineStage','renderApplicationsStage','renderManuscriptStage',
@@ -227,7 +228,6 @@ test('redesigned editor exposes five existing Kerygma stages, source review and 
   assert.ok(app.includes('item.includedInStageNotes'));
   assert.ok(app.includes('packet.passageText'));
   assert.ok(html.includes('/sermon-preview/claim-review.js'));
-  const engine = new ClaimReviewEngine([], window.localStorage);
   assert.ok(app.includes('const engine = new ClaimReview.ClaimReviewEngine(state.sermons, window.localStorage)'));
   assert.ok(app.includes('engine.buildClaimReviewQueue(100, 100)'));
   assert.ok(app.includes('engine.saveClaimReviewStatus(item.sermonId, item.reviewKey, select.value)'));

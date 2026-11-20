@@ -2436,13 +2436,18 @@
         syncButton.hidden = false;
         const hasUnmatchedDeletion = previewResult.unmatchedPendingDeletionCount > 0 ||
           (previewResult.pendingDeletionPreviews || []).length !== previewResult.pendingDeletesForThisAccount;
+        const syncAlreadyActive = cloudAdapter.cloudSyncReady && cloudAdapter.cloudUserId === previewResult.userId;
         syncButton.disabled = hasUnmatchedDeletion;
         syncButton.textContent = hasUnmatchedDeletion
           ? 'Sync blocked — review unmatched deletions'
-          : 'Confirm and sync sermons';
+          : syncAlreadyActive
+            ? 'Sync latest changes'
+            : 'Confirm and sync sermons';
         status.textContent = hasUnmatchedDeletion
           ? 'Cloud sync is blocked. Resolve the unmatched deletion request above, then refresh the read-only preview. No sermon records have been changed.'
-          : 'Review the merge summary. No sermon records have been written or changed yet.';
+          : syncAlreadyActive
+            ? 'Read-only preview refreshed. No records were changed by this preview. Cloud sync is already active for this account.'
+            : 'Review the merge summary. No sermon records have been written or changed yet.';
       } catch (error) {
         status.textContent = error.message || 'The read-only cloud preview failed. No sermon records were changed.';
         previewDetails.hidden = true;
@@ -2481,11 +2486,14 @@
         syncButton.disabled = true;
         return;
       }
+      const syncAlreadyActive = cloudAdapter.cloudSyncReady && cloudAdapter.cloudUserId === session.user.id;
       const confirmed = window.confirm(
-        'Confirm the Kerygma cloud sync for ' + (session.user.email || '') + '?\n\n' +
+        (syncAlreadyActive ? 'Confirm a Kerygma sync refresh for ' : 'Confirm the first Kerygma cloud sync for ') +
+        (session.user.email || '') + '?\n\n' +
         'Read-only preview: ' + previewResult.localSermonCount + ' local sermon(s) before pending deletions, ' +
         previewResult.cloudSermonCount + ' existing cloud sermon(s), and ' +
         previewResult.mergedSermonCount + ' sermon(s) after the projected merge and pending deletions. ' +
+        (syncAlreadyActive ? 'Cloud sync is already active for this account; this action refreshes the merge using the latest local and cloud records. ' : 'This is the first confirmed sync on this preview origin. ' ) +
         (previewResult.accountSwitch ? 'The previous account’s local sermon and Claim Review status data will be backed up before switching. ' : '') +
         (pendingDeletes ? pendingDeletes + ' deletion tombstone(s) owned by this account will be sent: ' + pendingDeletionPreviews.map(item => item.title + ' (' + item.passage + ', local match: ' + (item.matchesLocalSermon ? 'yes' : 'no') + ', active cloud match: ' + (item.matchesCloudSermon ? 'yes' : 'no') + ', cloud row exists: ' + (item.matchesCloudRecord ? 'yes' : 'no') + ')').join('; ') + '. ' : '') +
         'The merged sermon records will be uploaded to the existing public.kerygma_sermons table. ' +

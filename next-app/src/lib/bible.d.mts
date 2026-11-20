@@ -44,6 +44,14 @@ export interface PreviewStudyDraft extends Record<StudyStage, string> {
   activeStage: StudyStage;
   versionHistory?: import('./study-note-history.mjs').StudyNoteVersion[];
 }
+export interface PreviewStageSearchMatch {
+  stage: StudyStage;
+  excerpt: string;
+  matchStart: number;
+  matchEnd: number;
+  hasLeadingEllipsis: boolean;
+  hasTrailingEllipsis: boolean;
+}
 export interface PreviewDraftEntry {
   book: string;
   chapter: number;
@@ -79,6 +87,11 @@ export declare const PREVIEW_DRAFTS_STORAGE_KEY: string;
 export declare function getBibleBook(name: string): BibleBook | undefined;
 export declare function readPreviewDrafts(storage?: Storage): PreviewDrafts;
 export declare function listPreviewDraftEntries(drafts: PreviewDrafts): PreviewDraftEntry[];
+export declare function getPreviewStageSearchMatches(
+  searchTextByStage: Partial<Record<StudyStage, string>> | null | undefined,
+  query: string,
+  maxLength?: number
+): PreviewStageSearchMatch[];
 export declare function writePreviewDrafts(drafts: PreviewDrafts, storage?: Storage): boolean;
 export declare function readSavedPassage(storage?: Storage): SavedPassage | null;
 export declare function writeSavedPassage(passage: SavedPassage, storage?: Storage): boolean;

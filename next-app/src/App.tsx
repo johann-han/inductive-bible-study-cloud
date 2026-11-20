@@ -8,6 +8,7 @@ import {
   fetchStrongsLexicon,
   getBibleBook,
   getPreviewStageEvidence,
+  getPreviewStageSearchMatches,
   getPreviewWrittenStages,
   listPreviewDraftEntries,
   readPreviewDrafts,
@@ -1408,12 +1409,27 @@ export default function App() {
           {visiblePreviewLibraryEntries.length > 0 ? <div className="preview-study-list">
             {visiblePreviewLibraryEntries.map(entry => {
               const searchQuery = libraryQuery.trim().toLocaleLowerCase();
-              const matchedStages = searchQuery
-                ? stages.filter(item => entry.searchTextByStage[item.id].toLocaleLowerCase().includes(searchQuery))
+              const searchMatches = searchQuery
+                ? getPreviewStageSearchMatches(entry.searchTextByStage, searchQuery)
                 : [];
               return <article className="preview-study-card" key={entry.book + '|' + entry.chapter}>
                 <div className="preview-study-content"><div className="preview-study-meta"><span className="tag">LOCAL PREVIEW DRAFT</span><span>{entry.stageCount === 0 ? 'New draft' : entry.wordCount + ' words'}</span></div><h2>{entry.book} {entry.chapter}</h2><p className="preview-study-progress">{entry.stageCount === 0 ? 'No notes recorded yet · Ready to begin in Observe' : entry.stageCount + ' of 4 stages have notes · Current stage: ' + (stages.find(item => item.id === entry.activeStage)?.label || 'Observe')}</p><p className="preview-study-excerpt">{entry.preview || 'This passage is saved as a draft, but no study notes have been recorded yet.'}</p>
-                  {matchedStages.length > 0 && <p className="preview-study-search-match"><strong>Search matched in:</strong> {matchedStages.map(item => item.label).join(', ')}</p>}
+                  {searchMatches.length > 0 && <>
+                    <p className="preview-study-search-match"><strong>Search matched in:</strong> {searchMatches.map(match => stages.find(item => item.id === match.stage)?.label || match.stage).join(', ')}</p>
+                    <div className="preview-study-search-excerpts" aria-label="Matching note excerpts">
+                      {searchMatches.map(match => {
+                        const stageLabel = stages.find(item => item.id === match.stage)?.label || match.stage;
+                        return <p className="preview-study-search-excerpt" key={match.stage}>
+                          <strong>{stageLabel} excerpt:</strong>{' '}
+                          {match.hasLeadingEllipsis ? '…' : ''}
+                          {match.excerpt.slice(0, match.matchStart)}
+                          <mark className="preview-search-highlight">{match.excerpt.slice(match.matchStart, match.matchEnd)}</mark>
+                          {match.excerpt.slice(match.matchEnd)}
+                          {match.hasTrailingEllipsis ? '…' : ''}
+                        </p>;
+                      })}
+                    </div>
+                  </>}
                   <div className="preview-stage-chips">{entry.writtenStages.length ? entry.writtenStages.map(item => <span key={item}>{stages.find(candidate => candidate.id === item)?.label}</span>) : <span>Not started</span>}</div></div>
                 <div className="preview-study-actions"><button className="primary-button preview-resume" type="button" onClick={() => resumePreviewDraft(entry)}>{entry.stageCount === 0 ? 'Start study' : 'Resume study'} <Icon name="chevron"/></button><button className="outline-button" type="button" onClick={() => deletePreviewDraft(entry)}>Move to Recently Deleted</button></div>
               </article>;

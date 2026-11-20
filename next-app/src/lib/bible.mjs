@@ -189,6 +189,49 @@ export function listPreviewDraftEntries(drafts) {
   });
 }
 
+export function getPreviewStageSearchMatches(searchTextByStage, query, maxLength) {
+  const normalizedQuery = typeof query === 'string' ? query.trim().toLocaleLowerCase() : '';
+  if (!normalizedQuery || !searchTextByStage || typeof searchTextByStage !== 'object' || Array.isArray(searchTextByStage)) {
+    return [];
+  }
+
+  const requestedLength = Number.isFinite(maxLength) ? Math.floor(maxLength) : 180;
+  const excerptLimit = Math.max(normalizedQuery.length, Math.min(220, Math.max(80, requestedLength)));
+  return PREVIEW_STUDY_STAGES.reduce(function (matches, stage) {
+    const text = typeof searchTextByStage[stage] === 'string' ? searchTextByStage[stage] : '';
+    if (!text) return matches;
+    const matchIndex = text.toLocaleLowerCase().indexOf(normalizedQuery);
+    if (matchIndex < 0) return matches;
+
+    const matchEnd = matchIndex + normalizedQuery.length;
+    let excerptStart = Math.max(0, matchIndex - Math.floor((excerptLimit - normalizedQuery.length) / 2));
+    let excerptEnd = Math.min(text.length, excerptStart + excerptLimit);
+    if (excerptEnd < matchEnd) {
+      excerptEnd = matchEnd;
+      excerptStart = Math.max(0, excerptEnd - excerptLimit);
+    }
+
+    if (excerptStart > 0) {
+      const previousBoundary = text.lastIndexOf(' ', excerptStart);
+      if (previousBoundary >= 0 && previousBoundary < matchIndex) excerptStart = previousBoundary + 1;
+    }
+    if (excerptEnd < text.length) {
+      const nextBoundary = text.indexOf(' ', excerptEnd);
+      if (nextBoundary >= matchEnd) excerptEnd = nextBoundary;
+    }
+
+    matches.push({
+      stage: stage,
+      excerpt: text.slice(excerptStart, excerptEnd),
+      matchStart: matchIndex - excerptStart,
+      matchEnd: matchEnd - excerptStart,
+      hasLeadingEllipsis: excerptStart > 0,
+      hasTrailingEllipsis: excerptEnd < text.length
+    });
+    return matches;
+  }, []);
+}
+
 export function getPreviewWrittenStages(draft) {
   const stages = ['observe', 'interpret', 'doctrine', 'apply'];
   if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return [];

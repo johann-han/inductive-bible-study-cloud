@@ -59,6 +59,10 @@
 .preview-study-excerpt{max-width:760px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:12px 0 10px;color:#65746a;font-size:13px}
 .preview-study-search-match{margin:0 0 10px;color:#55745e;font-size:11px;line-height:1.5}
 .preview-study-search-match strong{font-weight:700;color:#355b43}
+.preview-study-search-excerpts{display:grid;gap:4px;margin:-5px 0 10px;max-width:760px}
+.preview-study-search-excerpt{margin:0;color:#66756b;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.preview-study-search-excerpt strong{font-weight:700;color:#52685a}
+.preview-search-highlight{background:#f4e8c8;color:#49391e;border-radius:2px;padding:0 2px}
 .preview-stage-chips{display:flex;flex-wrap:wrap;gap:6px}
 .preview-stage-chips span{border-radius:5px;background:#eff4ed;padding:4px 8px;color:#47634f;font-size:10px;font-weight:600}
 .preview-resume{flex:none}

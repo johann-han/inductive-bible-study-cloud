@@ -6,6 +6,7 @@ import {
   fetchBibleChapter,
   fetchStrongsLexicon,
   getPreviewStageEvidence,
+  getPreviewStageSearchMatches,
   getPreviewWrittenStages,
   listPreviewDraftEntries,
   summarizePreviewDraftEntries,
@@ -313,11 +314,58 @@ test('Study Library search index includes note text from all four stages, not on
   const appSource = readFileSync(new URL('../next-app/src/App.tsx', import.meta.url), 'utf8');
   assert.match(appSource, /entry\.searchText\.toLocaleLowerCase\(\)\.includes\(query\)/,
     'Study Library filtering must use the complete note search index');
-  assert.match(appSource, /entry\.searchTextByStage\[item\.id\]\.toLocaleLowerCase\(\)\.includes\(searchQuery\)/,
-    'search results should identify the stage whose notes matched');
+  assert.match(appSource, /getPreviewStageSearchMatches\(entry\.searchTextByStage, searchQuery\)/,
+    'search result cards should derive context from the matching stage text');
   assert.match(appSource, /preview-study-search-match/,
     'matching stage labels should be visible on search result cards');
+  assert.match(appSource, /preview-study-search-excerpt/,
+    'search result cards should show a contextual excerpt from each matched stage');
+  assert.match(appSource, /preview-search-highlight/,
+    'the matching search phrase should be highlighted within the contextual excerpt');
 });
+
+
+test('Study Library search results provide a contextual excerpt from each matching stage', () => {
+  const longContext = 'Earlier textual context remains available to the researcher. '.repeat(5);
+  const query = 'distinctive theological phrase';
+  const matches = getPreviewStageSearchMatches({
+    observe: 'The opening observation contains no target phrase.',
+    interpret: longContext + query + ' followed by the interpretive conclusion.',
+    doctrine: 'A separate ' + query + ' appears in the doctrine notes.',
+    apply: 'The practical response contains no matching phrase.'
+  }, query);
+
+  assert.deepEqual(matches.map(match => match.stage), ['interpret', 'doctrine']);
+  for (const match of matches) {
+    assert.ok(match.excerpt.toLocaleLowerCase().includes(query));
+    assert.equal(match.excerpt.slice(match.matchStart, match.matchEnd).toLocaleLowerCase(), query);
+  }
+  assert.equal(matches[0].hasLeadingEllipsis, true);
+  assert.equal(matches[0].hasTrailingEllipsis, true);
+  assert.match(matches[0].excerpt, /Earlier textual context/);
+  assert.match(matches[0].excerpt, /interpretive conclusion/);
+  assert.equal(getPreviewStageSearchMatches({ observe: 'No match here.' }, 'missing phrase').length, 0);
+  assert.equal(getPreviewStageSearchMatches({ observe: 'Text only.' }, '   ').length, 0);
+});
+
+test('Study Library search excerpts are case-insensitive and preserve canonical stage order', () => {
+  const matches = getPreviewStageSearchMatches({
+    apply: 'DISCIPLESHIP response',
+    doctrine: 'A DOCTRINAL conclusion',
+    interpret: 'The INTERPRETATION develops',
+    observe: 'An OBSERVATION begins'
+  }, 'observation');
+
+  assert.deepEqual(matches.map(match => match.stage), ['observe']);
+  const allMatches = getPreviewStageSearchMatches({
+    apply: 'DISCIPLESHIP response',
+    doctrine: 'A DOCTRINAL conclusion',
+    interpret: 'The INTERPRETATION develops',
+    observe: 'An OBSERVATION begins'
+  }, 'a');
+  assert.deepEqual(allMatches.map(match => match.stage), ['observe', 'interpret', 'doctrine', 'apply']);
+});
+
 
 test('preview dashboard summary counts all active drafts but only populated stage notes', () => {
   const entries = listPreviewDraftEntries({

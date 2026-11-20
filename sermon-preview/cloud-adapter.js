@@ -374,7 +374,13 @@
           }
           localSermonsForMerge = [];
         }
-        const mergeRows = pendingRows.length ? cloudRows.concat(pendingRows) : cloudRows;
+        const pendingDeletionIds = new Set(pendingRows.map(row => String(row.sermon_id || '')));
+        // Supabase upsert replaces the row with the same (user_id, sermon_id).
+        // Mirror that replacement in memory; concatenating both versions would let
+        // the stale active row re-enter the merge alongside its new tombstone.
+        const mergeRows = pendingRows.length
+          ? cloudRows.filter(row => !pendingDeletionIds.has(String(row && (row.sermon_id || (row.sermon_data && row.sermon_data.id)) || ''))).concat(pendingRows)
+          : cloudRows;
         const merged = this.cloudSync.mergeSermons(localSermonsForMerge, mergeRows);
         const previousCurrentId = this.getCurrentSermonId();
         const nextCurrentId = merged.some(sermon => String(sermon.id) === String(previousCurrentId))

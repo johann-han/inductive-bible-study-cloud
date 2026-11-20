@@ -227,3 +227,17 @@ Automated validation after the tombstone-aware projection and revised preview wo
 - IBS and Kerygma source-aware regression checks: **176/176 passed** — https://github.com/johann-han/inductive-bible-study-cloud/actions/runs/44723332148
 
 The tests remain mocked/automated and do not write to live Supabase. The current connected browser session could not be re-read after this update, so Render deployment and browser confirmation of the revised two-sermon projection remain outstanding. No sync has been started.
+
+
+## Preview script cache-busting — 2026-11-20
+
+The browser rendered the revised preview wording and deletion target, but continued to show a projected merge count of three instead of the tombstone-aware expected count of two. The code and automated test on the feature branch already calculated two, so the deployed browser may have been reusing a cached `cloud-adapter.js` asset.
+
+The preview HTML now uses explicit version query strings for both `cloud-adapter.js` and `app.js` (`?v=tombstone-projection-20261120`) to force the current feature-branch assets to be fetched together. A regression assertion checks these script URLs. The server also sets preview assets to `no-cache`.
+
+Validation on exact code head `d728d510fcfb042c90a1374fe271862dda8b9e5b`:
+- IBS CI: **256/256 passed**.
+- IBS Regression Checks: **256/256 passed**.
+- IBS and Kerygma source-aware regression checks: **176/176 passed**.
+
+The refreshed Render preview still needs to be checked for the projected count of two. Do not confirm sync while the browser shows three. No cloud write or production change has occurred.

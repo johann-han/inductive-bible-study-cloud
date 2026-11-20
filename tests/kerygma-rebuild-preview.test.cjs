@@ -209,7 +209,7 @@ test('redesigned preview uses the existing local sermon cache and preserves the 
   assert.ok(app.includes("Archive.restoreWorkspaceArchive(window.localStorage, plan)"));
   assert.ok(app.includes("Archive.buildRestorePlan(current, archive, mode, statuses)"));
   assert.ok(archiveModule.includes("const FORMAT = 'kerygma-sermon-workspace'"));
-  assert.ok(archiveModule.includes("storage.setItem(STORAGE_KEY, nextSermons)") === false);
+  assert.ok(archiveModule.includes("storage.setItem(key, value)"));
   assert.ok(archiveModule.includes("const PENDING_KEY = 'kerygma_pending_cloud_deletions'"));
   assert.ok(app.includes('Archive.readRawPendingCloudDeletions(window.localStorage)'));
   assert.ok(!archiveModule.includes('localStorage.clear'));
@@ -256,6 +256,7 @@ test('redesigned editor exposes five existing Kerygma stages, source review and 
   assert.ok(css.includes('.sidebar'));
   assert.ok(css.includes('.workflow-tabs'));
   assert.ok(css.includes('@media(max-width:650px)'));
+  assert.ok(css.includes('.topbar-actions{width:100%;gap:5px;flex-wrap:wrap;justify-content:flex-start}'));
 });
 
 test('IBS packet import validates format, version, book, passage and all four stages before use', () => {
@@ -501,7 +502,7 @@ test('workspace restore rolls back the sermon cache if the separate status-store
   };
   const archive = Archive.createWorkspaceArchive([{ id: 'new', title: 'New record' }], { new: { claim: 'reviewed' } }, null);
   const plan = Archive.buildRestorePlan([{ id: 'old', title: 'Keep old' }], archive, 'skip-conflicts', { old: { claim: 'reviewed' } });
-  assert.throws(() => Archive.restoreWorkspaceArchive(storage, plan), /previous sermon cache was restored/i);
+  assert.throws(() => Archive.restoreWorkspaceArchive(storage, plan), /previous workspace stores were restored/i);
   assert.equal(values.get(Archive.STORAGE_KEY), previousSermons);
   assert.equal(values.get(Archive.CLAIM_REVIEW_KEY), previousStatuses);
 });
@@ -520,4 +521,12 @@ test('workspace archive owner information is retained and raw cache reads do not
   assert.equal(Archive.readOwnerId(storage), 'owner-raw');
   assert.deepEqual(Archive.readRawPendingCloudDeletions(storage), []);
   assert.equal(Archive.readPendingDeletionOwnerId(storage), null);
+});
+
+
+test('workspace restore rejects pending deletion queues assigned to different accounts', () => {
+  const archive = Archive.createWorkspaceArchive([], {}, 'owner-a', null,
+    [{ sermon_id: 'deleted-a', sermon_data: { id: 'deleted-a' } }], 'owner-a');
+  assert.throws(() => Archive.buildRestorePlan([], archive, 'skip-conflicts', {},
+    [{ sermon_id: 'deleted-b', sermon_data: { id: 'deleted-b' } }], 'owner-b'), /different accounts/i);
 });

@@ -379,6 +379,7 @@
 
     const actions = el('div', 'topbar-actions');
     const legacy = makeButton('Current Studio ↗', 'topbar-button topbar-quiet', () => window.open('/sermon/index.html', '_blank', 'noopener'));
+    const account = makeButton('Account & Sync', 'topbar-button topbar-quiet', openCloudAccountDialog);
     const cloudStatus = el('span', 'cloud-status', state.cloudStatus);
     cloudStatus.setAttribute('data-cloud-status', '');
     cloudStatus.setAttribute('role', 'status');
@@ -393,7 +394,7 @@
     const backupButton = makeButton(icon('download') + ' Backup', 'topbar-button topbar-quiet', backupWorkspace);
     const restoreButton = makeButton(icon('import') + ' Restore', 'topbar-button topbar-quiet', openWorkspaceRestorePicker);
     const newButton = makeButton(icon('plus') + ' New Sermon', 'topbar-button topbar-primary', createNewSermon);
-    actions.append(legacy, cloudStatus, save, guide, importButton, exportButton, backupButton, restoreButton, newButton);
+    actions.append(legacy, account, cloudStatus, save, guide, importButton, exportButton, backupButton, restoreButton, newButton);
     bar.append(left, actions);
     return bar;
   }
@@ -2279,6 +2280,189 @@
     if (input) input.focus();
   }
 
+  function openCloudAccountDialog() {
+    const existing = root.querySelector('.cloud-account-modal');
+    if (existing) existing.remove();
+
+    const modal = el('div', 'modal-backdrop cloud-account-modal');
+    modal.setAttribute('role', 'presentation');
+    const dialog = el('section', 'modal-card cloud-account-dialog');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'cloud-account-title');
+
+    const heading = el('div', 'modal-heading');
+    const titleGroup = el('div', '');
+    titleGroup.append(el('p', 'eyebrow', 'SUPABASE · IBS ACCOUNT'), el('h2', '', 'Account & cloud sync'));
+    const close = makeButton(icon('close'), 'icon-close', () => modal.remove());
+    close.setAttribute('aria-label', 'Close account and cloud sync');
+    heading.append(titleGroup, close);
+    dialog.appendChild(heading);
+    dialog.querySelector('h2').id = 'cloud-account-title';
+
+    const status = el('p', 'cloud-account-status', 'Checking the account connection…');
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    dialog.appendChild(status);
+
+    const accountDetails = el('div', 'cloud-account-details');
+    accountDetails.hidden = true;
+    dialog.appendChild(accountDetails);
+
+    const form = document.createElement('form');
+    form.className = 'cloud-account-form';
+    const emailLabel = el('label', 'cloud-account-field', 'IBS email address');
+    const email = document.createElement('input');
+    email.type = 'email';
+    email.required = true;
+    email.autocomplete = 'username';
+    email.placeholder = 'Email address used for IBS';
+    email.className = 'cloud-account-input';
+    emailLabel.appendChild(email);
+    const passwordLabel = el('label', 'cloud-account-field', 'Password');
+    const password = document.createElement('input');
+    password.type = 'password';
+    password.required = true;
+    password.minLength = 8;
+    password.autocomplete = 'current-password';
+    password.placeholder = 'Your IBS password';
+    password.className = 'cloud-account-input';
+    passwordLabel.appendChild(password);
+    const signIn = el('button', 'primary-button cloud-account-action', 'Sign in');
+    signIn.type = 'submit';
+    form.append(emailLabel, passwordLabel, signIn);
+    dialog.appendChild(form);
+
+    const controls = el('div', 'cloud-account-controls');
+    const syncButton = makeButton('Sync sermons', 'primary-button cloud-account-action', async () => {
+      const sessionResult = await supabaseClient.auth.getSession();
+      const session = sessionResult.data?.session;
+      if (sessionResult.error || !session?.user?.id) {
+        status.textContent = 'Your IBS session has expired. Sign in again before syncing.';
+        form.hidden = false;
+        controls.hidden = true;
+        return;
+      }
+      const pendingCount = Array.isArray(cloudAdapter.pendingCloudDeletions) ? cloudAdapter.pendingCloudDeletions.length : 0;
+      const pendingOwner = cloudAdapter.readStorage('kerygma_pending_cloud_deletions_owner_id') || '';
+      const applicableDeletes = pendingOwner && pendingOwner !== session.user.id ? 0 : pendingCount;
+      const confirmed = window.confirm(
+        'Sync the redesigned Kerygma preview with the existing cloud account ' + (session.user.email || '') + '?\n\n' +
+        'This will read the saved sermons for this signed-in account, merge them with this preview’s local sermons using the existing timestamp rules, and upload the merged records to the existing public.kerygma_sermons table. ' +
+        'A previous local account cache is backed up before an account switch. ' +
+        (applicableDeletes ? applicableDeletes + ' queued deletion(s) belonging to this account will also be sent as deletion tombstones. ' : '') +
+        '\n\nThe preview uses separate browser storage from the production Kerygma page. This does not change the production route or delete any cloud records. Continue?'
+      );
+      if (!confirmed) return;
+      syncButton.disabled = true;
+      syncButton.textContent = 'Synchronising…';
+      status.textContent = 'Connecting to the existing Kerygma cloud vault…';
+      try {
+        const ok = await cloudAdapter.initializeCloudSermons();
+        if (ok) {
+          modal.remove();
+          render();
+        } else {
+          status.textContent = state.cloudStatus;
+          syncButton.disabled = false;
+          syncButton.textContent = 'Try sync again';
+        }
+      } catch (error) {
+        status.textContent = error.message || 'Cloud synchronisation failed. Local records remain available.';
+        syncButton.disabled = false;
+        syncButton.textContent = 'Try sync again';
+      }
+    });
+    const signOut = makeButton('Sign out on this preview', 'outline-button cloud-account-action', async () => {
+      if (!window.confirm('Sign out of the Kerygma preview? Your local sermon copy will remain in this browser. This does not sign you out of the main IBS site.')) return;
+      try {
+        const result = await supabaseClient.auth.signOut();
+        if (result.error) throw result.error;
+        state.cloudStatus = 'Signed out — local preview copy retained';
+        state.cloudTone = 'warning';
+        modal.remove();
+        render();
+      } catch (error) {
+        status.textContent = error.message || 'Could not sign out of this preview.';
+      }
+    });
+    controls.append(syncButton, signOut);
+    controls.hidden = true;
+    dialog.appendChild(controls);
+
+    dialog.appendChild(el('p', 'cloud-account-footnote',
+      'Signing in only establishes an account session on this separate preview origin. No sermon data is read or written until you choose Sync sermons. AI features use the same signed-in session.'));
+    modal.appendChild(dialog);
+    modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
+    modal.addEventListener('keydown', event => { if (event.key === 'Escape') modal.remove(); });
+    root.appendChild(modal);
+
+    const refreshAccount = async () => {
+      try {
+        await ensureAppSupabaseClient();
+        const result = await supabaseClient.auth.getSession();
+        if (result.error) throw result.error;
+        const session = result.data?.session;
+        if (!session?.user) {
+          status.textContent = 'Sign in with the same invited IBS account used for your studies. Signing in does not start cloud sync.';
+          form.hidden = false;
+          controls.hidden = true;
+          accountDetails.hidden = true;
+          signIn.disabled = false;
+          return;
+        }
+        const emailText = session.user.email || 'Signed-in IBS account';
+        accountDetails.hidden = false;
+        accountDetails.replaceChildren(
+          el('span', 'cloud-account-label', 'CURRENT PREVIEW ACCOUNT'),
+          el('strong', 'cloud-account-email', emailText),
+          el('span', 'cloud-account-label', cloudAdapter.cloudSyncReady && cloudAdapter.cloudUserId === session.user.id
+            ? 'Cloud sync is active'
+            : 'Not yet synchronised')
+        );
+        status.textContent = cloudAdapter.cloudSyncReady && cloudAdapter.cloudUserId === session.user.id
+          ? 'This preview is connected to the Kerygma cloud vault.'
+          : 'Account connected. Review the sync scope and choose Sync sermons to load your cloud records.';
+        form.hidden = true;
+        controls.hidden = false;
+        syncButton.disabled = false;
+        syncButton.textContent = cloudAdapter.cloudSyncReady && cloudAdapter.cloudUserId === session.user.id
+          ? 'Sync now'
+          : 'Sync sermons';
+        signOut.hidden = false;
+      } catch (error) {
+        status.textContent = error.message || 'The account service could not be loaded.';
+        form.hidden = false;
+        controls.hidden = true;
+      }
+    };
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!email.value.trim() || !password.value) return;
+      signIn.disabled = true;
+      signIn.textContent = 'Signing in…';
+      status.textContent = 'Verifying your IBS account…';
+      try {
+        await ensureAppSupabaseClient();
+        const result = await supabaseClient.auth.signInWithPassword({
+          email: email.value.trim(),
+          password: password.value
+        });
+        password.value = '';
+        if (result.error) throw result.error;
+        await refreshAccount();
+      } catch (error) {
+        status.textContent = error.message || 'Sign-in failed. Check your email and password.';
+        signIn.disabled = false;
+        signIn.textContent = 'Sign in';
+      }
+    });
+
+    refreshAccount();
+    close.focus();
+  }
+
   function navigateToLegacy(feature) {
     const url = feature === 'claims' ? '/sermon/index.html' : '/sermon/index.html';
     window.open(url, '_blank', 'noopener');
@@ -2332,9 +2516,9 @@
   });
 
   render();
-  // The preview uses a separate Render origin. Do not initialise the live Supabase adapter here.
-  // Its mocked regression suite validates the existing contracts; cloud writes remain in the legacy studio until cutover is approved.
-  setCloudStatus('Cloud sync held back in preview · use Current Studio for live sync', 'warning');
+  // The preview uses a separate Render origin. Cloud access is available only after a user signs in
+  // on this origin and explicitly confirms the first sync in Account & Sync.
+  setCloudStatus('Cloud sync not connected · open Account & Sync to sign in', 'warning');
 
   // Expose only the small public surface needed by keyboard shortcuts and automated acceptance.
   window.KerygmaRebuild = {

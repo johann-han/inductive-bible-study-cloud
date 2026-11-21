@@ -130,3 +130,45 @@ test('loads the Kerygma cloud helper with a versioned, non-cacheable URL', () =>
   assert.ok(html.includes('src="/sermon/cloud-sync.js?v=298b222"'));
   assert.ok(server.includes("'manifest.webmanifest', 'cloud-sync.js'"));
 });
+
+
+test('the newer cloud copy wins when its timestamp is later than the local record', () => {
+  const local = [{ id: 's-cloud-newer', title: 'Older local wording', updated_at: '2026-11-18T10:00:00.000Z' }];
+  const cloud = [{
+    sermon_id: 's-cloud-newer',
+    sermon_data: { id: 's-cloud-newer', title: 'Newer cloud wording', bigIdea: 'Cloud revision' },
+    updated_at: '2026-11-19T10:00:00.000Z',
+    deleted_at: null
+  }];
+  const merged = mergeSermons(local, cloud);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].title, 'Newer cloud wording');
+  assert.equal(merged[0].bigIdea, 'Cloud revision');
+  assert.equal(merged[0].updated_at, '2026-11-19T10:00:00.000Z');
+});
+
+test('equal local and cloud timestamps resolve consistently in favour of the stored cloud copy', () => {
+  const timestamp = '2026-11-19T10:00:00.000Z';
+  const local = [{ id: 's-equal-time', title: 'Local wording', updated_at: timestamp }];
+  const cloud = [{
+    sermon_id: 's-equal-time',
+    sermon_data: { id: 's-equal-time', title: 'Cloud wording' },
+    updated_at: timestamp,
+    deleted_at: null
+  }];
+  assert.equal(mergeSermons(local, cloud)[0].title, 'Cloud wording');
+});
+
+test('a remote tombstone removes only its matching local sermon and preserves other cloud and local records', () => {
+  const local = [
+    { id: 'deleted-remotely', title: 'Stale local copy', updated_at: '2026-11-20T09:00:00.000Z' },
+    { id: 'local-keep', title: 'Local independent sermon', updated_at: '2026-11-20T08:00:00.000Z' }
+  ];
+  const cloud = [
+    { sermon_id: 'deleted-remotely', sermon_data: { id: 'deleted-remotely' }, updated_at: '2026-11-20T10:00:00.000Z', deleted_at: '2026-11-20T10:00:00.000Z' },
+    { sermon_id: 'cloud-keep', sermon_data: { id: 'cloud-keep', title: 'Cloud independent sermon' }, updated_at: '2026-11-20T07:00:00.000Z', deleted_at: null }
+  ];
+  const merged = mergeSermons(local, cloud);
+  assert.deepEqual(merged.map(row => row.id).sort(), ['cloud-keep', 'local-keep']);
+  assert.ok(!merged.some(row => row.id === 'deleted-remotely'));
+});

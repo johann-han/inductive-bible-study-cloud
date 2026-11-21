@@ -880,13 +880,15 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(filePath, (err, data) => {
     if (err) return send(res, 404, { error: 'Not found.' });
     const type = filePath.endsWith('.html') ? 'text/html; charset=utf-8'
+      : filePath.endsWith('.css') ? 'text/css; charset=utf-8'
       : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8'
       : filePath.endsWith('.webmanifest') ? 'application/manifest+json; charset=utf-8'
       : filePath.endsWith('.json') ? 'application/json; charset=utf-8'
       : filePath.endsWith('.png') ? 'image/png'
       : filePath.endsWith('.svg') ? 'image/svg+xml'
       : 'application/octet-stream';
-    const cacheControl = ['index.html', 'sw.js', 'manifest.webmanifest', 'cloud-sync.js'].includes(path.basename(filePath)) ? 'no-cache' : 'public, max-age=3600';
+    const isKerygmaPreviewAsset = filePath.includes(path.sep + 'sermon-preview' + path.sep);
+    const cacheControl = isKerygmaPreviewAsset || ['index.html', 'sw.js', 'manifest.webmanifest', 'cloud-sync.js'].includes(path.basename(filePath)) ? 'no-cache' : 'public, max-age=3600';
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheControl, 'X-Content-Type-Options': 'nosniff' });
     res.end(data);
   });

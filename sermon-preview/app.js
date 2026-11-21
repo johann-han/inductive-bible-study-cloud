@@ -2538,7 +2538,7 @@
     dialog.appendChild(controls);
 
     dialog.appendChild(el('p', 'cloud-account-footnote',
-      'Signing in only establishes an account session on this separate preview origin. No sermon data is read or written until you choose Sync sermons. AI features use the same signed-in session.'));
+      'Signing in establishes an account session on this separate preview origin. The read-only preview then reads the local and cloud sermon records to calculate the merge; it does not write or change records. Sermon changes are uploaded only after you confirm a sync. AI features use the same signed-in session.'));
     modal.appendChild(dialog);
     modal.addEventListener('click', event => { if (event.target === modal) modal.remove(); });
     modal.addEventListener('keydown', event => { if (event.key === 'Escape') modal.remove(); });

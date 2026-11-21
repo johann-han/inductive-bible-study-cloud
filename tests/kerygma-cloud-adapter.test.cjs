@@ -329,7 +329,7 @@ test('redesigned app exposes explicit sign-in and a confirmed manual sync withou
   assert.ok(app.includes('cloudAdapter.initializeCloudSermons()'));
   assert.ok(app.includes('supabaseClient.auth.signInWithPassword'));
   assert.ok(app.includes('window.confirm('));
-  assert.ok(app.includes('No sermon data is read or written until you choose Sync sermons'));
+  assert.ok(app.includes('The read-only preview then reads the local and cloud sermon records to calculate the merge; it does not write or change records.'));
   assert.ok(app.includes('Cloud sync not connected · open Account & Sync to sign in'));
   assert.ok(adapter.includes('allowAccountSwitch: false'));
   assert.ok(html.includes('/sermon/cloud-sync.js?v=298b222'));
